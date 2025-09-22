@@ -11,7 +11,8 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.hongtaeho.app",
-      "usesAppleSignIn": true
+      "usesAppleSignIn": true,
+      "appleTeamId": "Y9XN2ZQ9G3"
     },
     "android": {
       "adaptiveIcon": {
@@ -40,6 +41,12 @@
           "dark": {
             "backgroundColor": "#000000"
           }
+        }
+      ],
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.620303212609-581f7f3bgj104gtaermbtjqqf8u6khb8"
         }
       ]
     ],
