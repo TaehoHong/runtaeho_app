@@ -1,39 +1,16 @@
 import { configureStore } from '@reduxjs/toolkit';
-import { authApi } from './api/authApi';
-import { userApi } from './api/userApi';
-import { runningApi } from './api/runningApi';
-import { avatarApi } from './api/avatarApi';
-import { pointApi } from './api/pointApi';
-import { shoeApi } from './api/shoeApi';
-import { statisticApi } from './api/statisticApi';
-import authSlice from './slices/authSlice';
-import userSlice from './slices/userSlice';
+import { getEnabledFeatures, debugFeatures } from './feature-registry';
+
+// Feature Registry를 통해 동적으로 reducers와 middlewares 구성
+const { reducers, middlewares } = getEnabledFeatures();
+
+// 개발 환경에서 feature 상태 디버깅
+debugFeatures();
 
 export const store = configureStore({
-  reducer: {
-    // API slices
-    [authApi.reducerPath]: authApi.reducer,
-    [userApi.reducerPath]: userApi.reducer,
-    [runningApi.reducerPath]: runningApi.reducer,
-    [avatarApi.reducerPath]: avatarApi.reducer,
-    [pointApi.reducerPath]: pointApi.reducer,
-    [shoeApi.reducerPath]: shoeApi.reducer,
-    [statisticApi.reducerPath]: statisticApi.reducer,
-
-    // Regular slices
-    auth: authSlice,
-    user: userSlice,
-  },
+  reducer: reducers,
   middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware().concat([
-      authApi.middleware,
-      userApi.middleware,
-      runningApi.middleware,
-      avatarApi.middleware,
-      pointApi.middleware,
-      shoeApi.middleware,
-      statisticApi.middleware,
-    ]),
+    getDefaultMiddleware().concat(middlewares),
 });
 
 export type RootState = ReturnType<typeof store.getState>;

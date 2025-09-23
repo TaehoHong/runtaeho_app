@@ -5,11 +5,14 @@ import {
   Dimensions,
   Alert,
   Platform,
+  Text,
+  TouchableOpacity,
 } from 'react-native';
 import {
   GoogleSigninButton,
 } from '@react-native-google-signin/google-signin';
 import { AuthViewModel } from '../viewmodels/auth-view-model';
+import { router } from 'expo-router';
 
 const { width, height } = Dimensions.get('window');
 
@@ -73,6 +76,11 @@ export const Login: React.FC = () => {
     }
   };
 
+  const handleUnityTest = () => {
+    console.log('🎮 [LOGIN] Unity 테스트 페이지로 이동');
+    router.push('/unity-test');
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.buttonContainer}>
@@ -92,6 +100,10 @@ export const Login: React.FC = () => {
             onPress={handleAppleSignIn}
           />
         ) : null}
+
+        <TouchableOpacity style={styles.unityTestButton} onPress={handleUnityTest}>
+          <Text style={styles.unityTestButtonText}>🎮 Unity Bridge 테스트</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -105,7 +117,7 @@ const styles = StyleSheet.create({
   buttonContainer: {
     position: 'absolute',
     left: (width - 240) / 2,
-    top: height * 0.75 - 50,
+    top: height * 0.75 - 80,
     gap: 10,
   },
   googleButton: {
@@ -115,5 +127,19 @@ const styles = StyleSheet.create({
   appleButton: {
     width: 240,
     height: 38,
+  },
+  unityTestButton: {
+    width: 240,
+    height: 38,
+    backgroundColor: '#9C27B0',
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  unityTestButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

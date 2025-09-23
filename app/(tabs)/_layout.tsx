@@ -14,6 +14,16 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="character"
+        options={{
+          title: '캐릭터',
+          tabBarIcon: ({ color, size }) => {
+            // TODO: Add character icon
+            return null;
+          }
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: '프로필',

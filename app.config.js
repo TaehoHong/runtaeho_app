@@ -50,7 +50,9 @@ export default {
       [
         "@react-native-google-signin/google-signin",
         {
-          iosUrlScheme: process.env.GOOGLE_CLIENT_ID?.split('.')[2] || "com.googleusercontent.apps.620303212609-581f7f3bgj104gtaermbtjqqf8u6khb8"
+          iosUrlScheme: process.env.GOOGLE_CLIENT_ID ?
+            `com.googleusercontent.apps.${process.env.GOOGLE_CLIENT_ID.split('-')[0]}-${process.env.GOOGLE_CLIENT_ID.split('-')[1]}` :
+            "com.googleusercontent.apps.620303212609-581f7f3bgj104gtaermbtjqqf8u6khb8"
         }
       ]
     ],

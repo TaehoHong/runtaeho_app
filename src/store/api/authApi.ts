@@ -47,9 +47,9 @@ export const authApi = baseApi.injectEndpoints({
     }),
 
     /**
-     * 현재 사용자 정보 조회
+     * 현재 사용자 인증 정보 조회
      */
-    getCurrentUser: builder.query<UserAuthData, void>({
+    getCurrentUserAuth: builder.query<UserAuthData, void>({
       query: () => '/auth/me',
       providesTags: ['Auth'],
     }),
@@ -76,6 +76,6 @@ export const {
   useGetOAuthTokenMutation,
   useRefreshTokenMutation,
   useLogoutMutation,
-  useGetCurrentUserQuery,
-  useLazyGetCurrentUserQuery,
+  useGetCurrentUserAuthQuery,
+  useLazyGetCurrentUserAuthQuery,
 } = authApi;

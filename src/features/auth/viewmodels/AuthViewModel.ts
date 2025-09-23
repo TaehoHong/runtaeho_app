@@ -1,5 +1,4 @@
-import { useCallback, useMemo } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useCallback } from 'react';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import {
   loginStart,
@@ -20,19 +19,27 @@ import {
   useLogoutMutation,
 } from '../../../store/api/authApi';
 import { AuthProvider, UserAuthData, createUserAuthDataFromToken } from '../models';
+import { useBaseViewModel, STORAGE_KEYS } from '../../../shared/viewmodels';
+import { useApiError, useLoadingState } from '../../../shared/hooks';
 
 /**
  * Authentication ViewModel
  * Swift UserStateManager의 인증 관련 기능들을 React Hook으로 마이그레이션
+ * Base ViewModel 패턴 적용으로 코드 중복 제거 및 에러 처리 개선
  */
 export const useAuthViewModel = () => {
   const dispatch = useAppDispatch();
+
+  // Base ViewModel 기능 사용
+  const { handleError, storage } = useBaseViewModel();
+  const { handleRtkError } = useApiError();
+  const { loading: customLoading, withLoading } = useLoadingState();
 
   // Selectors
   const authState = useAppSelector(selectAuth);
   const isLoggedIn = useAppSelector(selectIsLoggedIn);
   const currentUser = useAppSelector(selectCurrentUser);
-  const isLoading = useAppSelector(selectAuthLoading);
+  const isLoading = useAppSelector(selectAuthLoading) || customLoading;
   const error = useAppSelector(selectAuthError);
 
   // API Mutations
@@ -40,81 +47,92 @@ export const useAuthViewModel = () => {
   const [refreshTokenMutation] = useRefreshTokenMutation();
   const [logoutMutation] = useLogoutMutation();
 
-  // Storage Keys (Swift Keys enum과 동일)
-  const STORAGE_KEYS = useMemo(() => ({
-    ACCESS_TOKEN: 'accessToken',
-    REFRESH_TOKEN: 'refreshToken',
-    CURRENT_USER: 'currentUser',
-    IS_LOGGED_IN: 'isLoggedIn',
-  }), []);
-
   /**
    * OAuth 로그인 처리
    * Swift: getToken(provider:code:) 메서드 대응
+   * Base ViewModel과 Error Handling 시스템 적용
    */
   const loginWithOAuth = useCallback(async (provider: AuthProvider, code: string) => {
-    try {
-      dispatch(loginStart());
+    return withLoading(async () => {
+      try {
+        dispatch(loginStart());
 
-      const tokenResult = await getOAuthToken({ provider, code }).unwrap();
+        const tokenResult = await getOAuthToken({ provider, code }).unwrap();
 
-      // TokenDto에서 UserAuthData 생성 (Swift createUserAuthDataFromToken과 동일)
-      const userData = createUserAuthDataFromToken(tokenResult);
+        // TokenDto에서 UserAuthData 생성 (Swift createUserAuthDataFromToken과 동일)
+        const userData = createUserAuthDataFromToken(tokenResult);
 
-      // AsyncStorage에 저장 (Swift saveUserState와 동일)
-      await Promise.all([
-        AsyncStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, userData.accessToken),
-        AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, userData.refreshToken),
-        AsyncStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(userData)),
-        AsyncStorage.setItem(STORAGE_KEYS.IS_LOGGED_IN, 'true'),
-      ]);
+        // Base ViewModel의 storage 사용 (에러 처리 개선)
+        const storageSuccess = await storage.multiSet([
+          [STORAGE_KEYS.ACCESS_TOKEN, userData.accessToken],
+          [STORAGE_KEYS.REFRESH_TOKEN, userData.refreshToken],
+          [STORAGE_KEYS.CURRENT_USER, userData],
+          [STORAGE_KEYS.IS_LOGGED_IN, true],
+        ]);
 
-      dispatch(loginSuccess(userData));
-      return userData;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Login failed';
-      dispatch(loginFailure(errorMessage));
-      throw error;
-    }
-  }, [dispatch, getOAuthToken, STORAGE_KEYS]);
+        if (!storageSuccess) {
+          throw new Error('사용자 정보 저장에 실패했습니다.');
+        }
+
+        dispatch(loginSuccess(userData));
+        return userData;
+      } catch (error) {
+        const errorInfo = handleRtkError(error, { provider, action: 'login' });
+        dispatch(loginFailure(errorInfo.message));
+        throw error;
+      }
+    }, (error) => handleError(error).message);
+  }, [dispatch, getOAuthToken, storage, withLoading, handleRtkError, handleError]);
 
   /**
    * 로그아웃 처리
    * Swift: logout 메서드 대응
+   * 에러 처리 개선 및 Base ViewModel 적용
    */
   const performLogout = useCallback(async () => {
-    try {
-      // 서버에 로그아웃 요청
-      await logoutMutation().unwrap();
-    } catch (error) {
-      // 서버 로그아웃 실패해도 로컬 상태는 클리어
-      console.warn('Server logout failed:', error);
-    } finally {
-      // AsyncStorage 클리어 (Swift clearUserState와 동일)
-      await AsyncStorage.multiRemove([
-        STORAGE_KEYS.ACCESS_TOKEN,
-        STORAGE_KEYS.REFRESH_TOKEN,
-        STORAGE_KEYS.CURRENT_USER,
-        STORAGE_KEYS.IS_LOGGED_IN,
-      ]);
+    return withLoading(async () => {
+      try {
+        // 서버에 로그아웃 요청
+        await logoutMutation().unwrap();
+      } catch (error) {
+        // 서버 로그아웃 실패해도 로컬 상태는 클리어
+        handleError(error, { action: 'server-logout' }, false);
+      } finally {
+        // Base ViewModel의 storage 사용 (클리어 작업)
+        const clearSuccess = await storage.multiRemove([
+          STORAGE_KEYS.ACCESS_TOKEN,
+          STORAGE_KEYS.REFRESH_TOKEN,
+          STORAGE_KEYS.CURRENT_USER,
+          STORAGE_KEYS.IS_LOGGED_IN,
+        ]);
 
-      dispatch(logout());
-    }
-  }, [logoutMutation, dispatch, STORAGE_KEYS]);
+        if (!clearSuccess) {
+          console.warn('로컬 저장소 클리어에 실패했습니다.');
+        }
+
+        dispatch(logout());
+      }
+    }, (error) => '로그아웃 중 오류가 발생했습니다.');
+  }, [logoutMutation, dispatch, storage, withLoading, handleError]);
 
   /**
    * 토큰 갱신
    * Swift: validateAndRefreshTokenIfNeeded 메서드 대응
+   * 에러 처리 및 Storage 관리 개선
    */
   const refreshToken = useCallback(async () => {
     try {
       const tokenResult = await refreshTokenMutation().unwrap();
 
-      // 새 토큰 저장
-      await Promise.all([
-        AsyncStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, tokenResult.accessToken),
-        AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, tokenResult.refreshToken),
+      // Base ViewModel의 storage 사용
+      const storageSuccess = await storage.multiSet([
+        [STORAGE_KEYS.ACCESS_TOKEN, tokenResult.accessToken],
+        [STORAGE_KEYS.REFRESH_TOKEN, tokenResult.refreshToken],
       ]);
+
+      if (!storageSuccess) {
+        throw new Error('토큰 저장에 실패했습니다.');
+      }
 
       dispatch(setTokens({
         accessToken: tokenResult.accessToken,
@@ -124,35 +142,36 @@ export const useAuthViewModel = () => {
       return tokenResult;
     } catch (error) {
       // 토큰 갱신 실패 시 로그아웃
+      handleRtkError(error, { action: 'token-refresh' });
       await performLogout();
       throw error;
     }
-  }, [refreshTokenMutation, dispatch, STORAGE_KEYS, performLogout]);
+  }, [refreshTokenMutation, dispatch, storage, handleRtkError, performLogout]);
 
   /**
    * 앱 시작 시 사용자 상태 복원
    * Swift: loadUserState 메서드 대응
+   * Base ViewModel Storage 사용 및 에러 처리 개선
    */
   const restoreUserState = useCallback(async () => {
     try {
       const [storedUser, storedIsLoggedIn] = await Promise.all([
-        AsyncStorage.getItem(STORAGE_KEYS.CURRENT_USER),
-        AsyncStorage.getItem(STORAGE_KEYS.IS_LOGGED_IN),
+        storage.get<UserAuthData>(STORAGE_KEYS.CURRENT_USER),
+        storage.get<boolean>(STORAGE_KEYS.IS_LOGGED_IN),
       ]);
 
-      if (storedUser && storedIsLoggedIn === 'true') {
-        const userData: UserAuthData = JSON.parse(storedUser);
-        dispatch(restoreAuthState(userData));
+      if (storedUser && storedIsLoggedIn) {
+        dispatch(restoreAuthState(storedUser));
 
         // 토큰 유효성 검증 및 갱신 시도
         await refreshToken();
       }
     } catch (error) {
-      console.warn('Failed to restore user state:', error);
+      handleError(error, { action: 'restore-user-state' }, false);
       // 복원 실패 시 로그아웃
       await performLogout();
     }
-  }, [dispatch, refreshToken, performLogout, STORAGE_KEYS]);
+  }, [dispatch, refreshToken, performLogout, storage, handleError]);
 
   /**
    * 앱 포그라운드 진입 시 처리

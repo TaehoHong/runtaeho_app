@@ -4,9 +4,7 @@ import {
   StyleSheet,
   Dimensions,
 } from 'react-native';
-import { StatsView } from '~/shared/components';
-import { StopButton } from '~/shared/components';
-import { PlayButton } from '~/shared/components';
+import { StatsView, StopButton, PlayButton } from '~/shared/components';
 
 const { width, height } = Dimensions.get('window');
 
