@@ -1,8 +1,21 @@
 import UIKit
+import UnityFramework
 
 class UnityViewController: UIViewController {
     
     private var unityView: UIView?
+    private weak var unityFramework: UnityFramework?
+    
+    // MARK: - Initialization
+    
+    init(unityFramework: UnityFramework?) {
+        self.unityFramework = unityFramework
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
     
     // MARK: - Lifecycle
     
@@ -42,19 +55,41 @@ class UnityViewController: UIViewController {
             closeButton.widthAnchor.constraint(equalToConstant: 44),
             closeButton.heightAnchor.constraint(equalToConstant: 44)
         ])
+        
+        // 닫기 버튼을 최상단으로 가져오기
+        closeButton.layer.zPosition = 1000
     }
     
     private func setupUnityView() {
-        // Unity 뷰 설정
-        // 실제 Unity 통합 시 UnityFramework의 뷰를 가져와서 추가합니다
-        // let unityView = UnityFramework.getInstance()?.appController()?.rootView
+        // Unity 뷰 가져오기
+        guard let unityFramework = self.unityFramework,
+              let unityView = unityFramework.appController()?.rootView else {
+            print("[UnityViewController] Failed to get Unity view")
+            setupPlaceholderView()
+            return
+        }
         
-        // 임시 플레이스홀더 뷰
+        self.unityView = unityView
+        
+        // Unity 뷰를 현재 뷰 컨트롤러에 추가
+        unityView.translatesAutoresizingMaskIntoConstraints = false
+        view.insertSubview(unityView, at: 0)
+        
+        NSLayoutConstraint.activate([
+            unityView.topAnchor.constraint(equalTo: view.topAnchor),
+            unityView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            unityView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            unityView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+    }
+    
+    private func setupPlaceholderView() {
+        // Unity 뷰를 가져올 수 없을 때 표시할 플레이스홀더
         let placeholderView = UIView()
         placeholderView.backgroundColor = .darkGray
         
         let label = UILabel()
-        label.text = "Unity View"
+        label.text = "Unity Framework Not Loaded"
         label.textColor = .white
         label.textAlignment = .center
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -67,34 +102,35 @@ class UnityViewController: UIViewController {
         
         self.unityView = placeholderView
         
-        guard let unityView = self.unityView else { return }
-        
-        unityView.translatesAutoresizingMaskIntoConstraints = false
-        view.insertSubview(unityView, at: 0)
+        placeholderView.translatesAutoresizingMaskIntoConstraints = false
+        view.insertSubview(placeholderView, at: 0)
         
         NSLayoutConstraint.activate([
-            unityView.topAnchor.constraint(equalTo: view.topAnchor),
-            unityView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            unityView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            unityView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+            placeholderView.topAnchor.constraint(equalTo: view.topAnchor),
+            placeholderView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            placeholderView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            placeholderView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
     }
     
     // MARK: - Unity Control
     
     private func pauseUnity() {
-        // Unity 일시정지
-        // UnityFramework.getInstance()?.pause(true)
+        unityFramework?.pause(true)
     }
     
     private func resumeUnity() {
-        // Unity 재개
-        // UnityFramework.getInstance()?.pause(false)
+        unityFramework?.pause(false)
+        unityFramework?.showUnityWindow()
     }
     
     // MARK: - Actions
     
     @objc private func closeButtonTapped() {
+        // Unity 일시정지
+        pauseUnity()
+        
+        // 화면 닫기
         dismiss(animated: true, completion: nil)
     }
     
@@ -106,5 +142,13 @@ class UnityViewController: UIViewController {
     
     override var shouldAutorotate: Bool {
         return true
+    }
+    
+    override var prefersStatusBarHidden: Bool {
+        return true
+    }
+    
+    override var preferredStatusBarStyle: UIStatusBarStyle {
+        return .lightContent
     }
 }

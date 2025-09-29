@@ -1,11 +1,14 @@
 import Foundation
 import UIKit
+import UnityFramework
 
 class UnityManager: NSObject {
     
     static let shared = UnityManager()
     
-    private var unityViewController: UnityViewController?
+    private let frameworkPath: String = "/Frameworks/UnityFramework.framework"
+    private var unityFramework: UnityFramework?
+    private var unityViewController: UIViewController?
     private var isUnityInitialized = false
     private weak var currentPresentingViewController: UIViewController?
     
@@ -17,12 +20,35 @@ class UnityManager: NSObject {
     
     func initializeUnity() throws {
         guard !isUnityInitialized else { return }
+      
         
-        // Unity 초기화 로직
-        // UnityFramework를 로드하고 초기화하는 코드가 여기에 들어갑니다
-        // 현재는 브릿지 구조만 제공합니다
+        // Unity Framework 로드 및 초기화
+        if unityFramework == nil {
+          
+              // Load framework and get the singleton instance
+              let bundlePath = Bundle.main.bundlePath + self.frameworkPath
+              let bundle = Bundle(path: bundlePath)
+              
+              if bundle?.isLoaded == false {
+                  bundle?.load()
+              }
+              
+            unityFramework = bundle?.principalClass?.getInstance()! as! UnityFramework
+            
+            // Unity 초기화
+            unityFramework?.setExecuteHeader(#dsohandle.assumingMemoryBound(to: MachHeader.self))
+            unityFramework?.setDataBundleId("com.unity3d.framework")
+            unityFramework?.register(self)
+            unityFramework?.runEmbedded(
+                withArgc: CommandLine.argc,
+                argv: CommandLine.unsafeArgv,
+                appLaunchOpts: nil
+            )
+        }
         
-        unityViewController = UnityViewController()
+        // Unity View Controller 생성
+        unityViewController = UnityViewController(unityFramework: unityFramework)
+        
         isUnityInitialized = true
     }
     
@@ -32,10 +58,6 @@ class UnityManager: NSObject {
             return
         }
         
-        if unityViewController == nil {
-            unityViewController = UnityViewController()
-        }
-        
         guard let unityVC = unityViewController else { return }
         
         // 이미 표시 중인 경우 무시
@@ -43,8 +65,13 @@ class UnityManager: NSObject {
             return
         }
         
+        // Unity 표시
         currentPresentingViewController = rootViewController
-        rootViewController.present(unityVC, animated: true, completion: nil)
+        rootViewController.present(unityVC, animated: true) {
+            // Unity 재개
+            self.unityFramework?.showUnityWindow()
+            self.unityFramework?.pause(false)
+        }
     }
     
     func hideUnity() {
@@ -53,16 +80,25 @@ class UnityManager: NSObject {
             return
         }
         
+        // Unity 일시정지
+        unityFramework?.pause(true)
+        
+        // Unity 화면 닫기
         unityVC.dismiss(animated: true, completion: nil)
     }
     
     // MARK: - Unity Communication
     
     func sendMessage(gameObject: String, methodName: String, message: String) {
-        // Unity SendMessage 구현
-        // UnitySendMessage(gameObject, methodName, message)
-        // 실제 Unity 통합 시 위 함수를 호출합니다
+        // Unity SendMessage 호출
+        guard let gameObjectCStr = gameObject.cString(using: .utf8),
+              let methodNameCStr = methodName.cString(using: .utf8),
+              let messageCStr = message.cString(using: .utf8) else {
+            print("[UnityManager] Failed to convert strings to C strings")
+            return
+        }
         
+        self.unityFramework?.sendMessageToGO(withName: gameObject, functionName: methodName, message: message)
         print("[UnityManager] SendMessage to \(gameObject).\(methodName): \(message)")
     }
     
@@ -97,7 +133,33 @@ class UnityManager: NSObject {
     
     private func getBridge() -> UnityBridge? {
         // React Native 브릿지 인스턴스를 찾아 반환
-        // 실제 구현 시 RCTBridge를 통해 모듈을 찾습니다
+        // RCTBridge를 통해 모듈을 찾는 방식
+        guard let bridge = UIApplication.shared.delegate?.window??.rootViewController as? UIViewController,
+              let reactBridge = bridge.value(forKey: "bridge") as? NSObject else {
+            return nil
+        }
+        
+        // 실제 구현에서는 RCTBridge를 통해 모듈 인스턴스를 가져옵니다
+        // 임시로 nil 반환
         return nil
+    }
+}
+
+// MARK: - UnityFrameworkListener
+
+extension UnityManager: UnityFrameworkListener {
+    
+    func unityDidUnload(_ notification: Notification) {
+        print("[UnityManager] Unity did unload")
+        unityFramework = nil
+        unityViewController = nil
+        isUnityInitialized = false
+    }
+    
+    func unityDidQuit(_ notification: Notification) {
+        print("[UnityManager] Unity did quit")
+        unityFramework = nil
+        unityViewController = nil
+        isUnityInitialized = false
     }
 }

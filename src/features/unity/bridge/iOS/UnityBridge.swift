@@ -7,14 +7,19 @@ class UnityBridge: RCTEventEmitter {
     private var hasListeners = false
     private var unityManager: UnityManager?
     
+    
     override init() {
         super.init()
+        NSLog("🔥 [SWIFT] UnityBridge Swift module initialized")
+        print("🔥 [SWIFT PRINT] UnityBridge initialized")
         unityManager = UnityManager.shared
     }
     
     // MARK: - RCTEventEmitter
     
     override static func requiresMainQueueSetup() -> Bool {
+        NSLog("🔥 [SWIFT] requiresMainQueueSetup called")
+        print("🔥 [SWIFT PRINT] requiresMainQueueSetup called")
         return true
     }
     
@@ -54,14 +59,26 @@ class UnityBridge: RCTEventEmitter {
     @objc
     func showUnity(_ resolve: @escaping RCTPromiseResolveBlock,
                    rejecter reject: @escaping RCTPromiseRejectBlock) {
+        NSLog("🚀 [SWIFT] showUnity() method called")
+        print("🚀 [SWIFT PRINT] showUnity() method called")
         DispatchQueue.main.async { [weak self] in
-            guard let self = self,
-                  let unityManager = self.unityManager else {
+            NSLog("🚀 [SWIFT] showUnity() executing on main queue")
+            print("🚀 [SWIFT PRINT] showUnity() executing on main queue")
+            guard let self = self else {
+              NSLog("[swift - UnityBridge] Self is nil")
+                reject("UNITY_ERROR", "Self is nil", nil)
+                return
+            }
+
+            guard let unityManager = self.unityManager else {
+              NSLog("[swift - UnityBridge] Unity manager not available")
                 reject("UNITY_ERROR", "Unity manager not available", nil)
                 return
             }
-            
+
+            NSLog("[swift - UnityBridge] Calling unityManager.showUnity()")
             unityManager.showUnity()
+            NSLog("[swift - UnityBridge] unityManager.showUnity() completed")
             resolve(["success": true])
         }
     }

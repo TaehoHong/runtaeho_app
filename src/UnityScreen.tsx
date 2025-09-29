@@ -1,8 +1,12 @@
 // UnityScreen.tsx - React Native 사용 예시
 import React, { useEffect, useState } from 'react';
-import { View, Button, StyleSheet, Alert, Text } from 'react-native';
-import { UnityBridge } from './features/unity/bridge/UnityBridge';
+import { View, Button, StyleSheet, Alert, Text, NativeModules } from 'react-native';
+import { UnityBridge } from './features/unity/bridge/UnityBridge.ts';
 import { getUnityBridgeService } from './features/unity/bridge/UnityBridgeService';
+
+console.log('[UnityScreen] Import completed. UnityBridge:', UnityBridge);
+console.log('[UnityScreen] UnityBridge type:', typeof UnityBridge);
+console.log('[UnityScreen] UnityBridge methods:', Object.getOwnPropertyNames(UnityBridge));
 
 export const UnityScreen: React.FC = () => {
   const [isUnityReady, setIsUnityReady] = useState(false);
@@ -13,6 +17,10 @@ export const UnityScreen: React.FC = () => {
     
     const setupUnity = async () => {
       try {
+        // 네이티브 모듈 디버깅
+        console.log('🔍 All NativeModules:', Object.keys(NativeModules));
+        console.log('🔍 UnityBridge in NativeModules:', !!NativeModules.UnityBridge);
+        console.log('🔍 UnityBridge module:', NativeModules.UnityBridge);
         // Unity Ready 리스너 등록
         const readyCleanup = UnityBridge.addEventListener('UnityReady', (event) => {
           console.log('Unity is ready:', event);
@@ -33,7 +41,11 @@ export const UnityScreen: React.FC = () => {
           Alert.alert('Unity Error', error.error || 'Unknown error occurred');
         });
         cleanupFns.push(errorCleanup);
-        
+
+        // Unity 초기화
+        console.log('Initializing Unity...');
+        await UnityBridge.initialize();
+
         console.log('Unity setup completed');
       } catch (error) {
         console.error('Failed to setup Unity:', error);
@@ -56,6 +68,11 @@ export const UnityScreen: React.FC = () => {
   
   const handleShowUnity = async () => {
     try {
+      console.log('[DEBUG] About to call UnityBridge.showUnity()');
+      console.log('[DEBUG] UnityBridge object:', UnityBridge);
+      console.log('[DEBUG] UnityBridge.showUnity:', UnityBridge.showUnity);
+      console.log('[DEBUG] UnityBridge === NativeModules.UnityBridge?', UnityBridge === NativeModules.UnityBridge);
+
       await UnityBridge.showUnity();
     } catch (error) {
       Alert.alert('Error', 'Failed to show Unity');

@@ -29,7 +29,6 @@ import {
   selectUnityError,
 } from '~/store/slices/unitySlice';
 import type { AvatarItem, CharacterMotion } from '~/features/unity/types/UnityTypes';
-// import { UnityView, UnityViewRef } from '~/components/UnityView'; // TODO: UnityView 컴포넌트 구현 필요
 import { CharacterStatus } from './character/components/CharacterStatus';
 import { CharacterControls } from './character/components/CharacterControls';
 import { usePerformanceMonitor } from '~/shared/hooks/usePerformanceMonitor';
@@ -38,7 +37,6 @@ import { getUnityService } from '~/shared/di';
 
 export default function CharacterScreen() {
   const dispatch = useDispatch();
-  // const unityViewRef = useRef<UnityViewRef>(null); // TODO: UnityView 컴포넌트 구현 필요
 
   // 성능 모니터링
   usePerformanceMonitor('CharacterScreen', {
