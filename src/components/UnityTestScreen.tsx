@@ -3,7 +3,7 @@
  * Unity Bridge 기능을 테스트할 수 있는 UI 컴포넌트
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { useUnityBridge } from '../contexts/UnityBridgeContext';
 import { CharacterMotion, AvatarItem } from '../types/UnityTypes';
-import UnityView, { UnityViewRef } from '../features/unity/components/UnityView';
+import { UnityView, UnityViewRef } from '../features/unity/components/UnityView';
 
 export default function UnityTestScreen() {
   const {
@@ -231,15 +231,17 @@ export default function UnityTestScreen() {
       <Text style={styles.title}>Unity Bridge 테스트</Text>
 
       {/* Unity View */}
-      <View style={styles.unityContainer}>
+      <View style={styles.unityContainer} pointerEvents="box-none">
         <Text style={styles.sectionTitle}>Unity 화면</Text>
-        <UnityView
-          ref={unityViewRef}
-          style={styles.unityView}
-          onUnityReady={handleUnityReady}
-          onUnityError={handleUnityError}
-          onCharacterStateChanged={handleCharacterStateChanged}
-        />
+        <View style={styles.unityViewWrapper}>
+          <UnityView
+            ref={unityViewRef}
+            style={styles.unityView}
+            onUnityReady={handleUnityReady}
+            onUnityError={handleUnityError}
+            onCharacterStateChanged={handleCharacterStateChanged}
+          />
+        </View>
       </View>
 
       {/* Debug Toggle */}
@@ -366,6 +368,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+  },
+  unityViewWrapper: {
+    // Unity 뷰 래퍼 - 터치 이벤트를 Unity에만 허용
+    pointerEvents: 'box-only',
   },
   unityView: {
     width: '100%',

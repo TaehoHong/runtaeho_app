@@ -97,9 +97,9 @@ export const useBaseViewModel = () => {
       }
     }, []),
 
-    multiSet: useCallback(async (items: Array<[StorageKey, any]>): Promise<boolean> => {
+    multiSet: useCallback(async (items: [StorageKey, any][]): Promise<boolean> => {
       try {
-        const serializedItems = items.map(([key, value]) => [key, JSON.stringify(value)]);
+        const serializedItems = items.map(([key, value]) => [key, JSON.stringify(value)] as [string, string]);
         await AsyncStorage.multiSet(serializedItems);
         return true;
       } catch (error) {
@@ -167,7 +167,7 @@ export const useBaseViewModel = () => {
     fn: (...args: T) => void,
     delay: number
   ) => {
-    let timeoutId: NodeJS.Timeout;
+    let timeoutId: ReturnType<typeof setTimeout>;
     return (...args: T) => {
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => fn(...args), delay);

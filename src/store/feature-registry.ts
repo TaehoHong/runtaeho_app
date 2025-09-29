@@ -3,6 +3,7 @@ import { authApi } from './api/authApi';
 import authSlice from './slices/authSlice';
 import userSlice from './slices/userSlice';
 import unitySlice from './slices/unitySlice';
+import appSlice from './slices/appSlice';
 
 /**
  * Feature 설정 인터페이스
@@ -52,6 +53,13 @@ export const FEATURE_REGISTRY: Record<string, FeatureConfig> = {
     slice: {
       reducer: unitySlice,
       name: 'unity',
+    },
+    enabled: true,
+  },
+  app: {
+    slice: {
+      reducer: appSlice,
+      name: 'app',
     },
     enabled: true,
   },

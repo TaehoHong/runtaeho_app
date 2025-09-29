@@ -1,47 +1,52 @@
 import React from 'react';
-import {
-  View,
-  StyleSheet,
-  Dimensions,
-} from 'react-native';
+import { View, StyleSheet, Dimensions } from 'react-native';
+import { useDispatch } from 'react-redux';
+import { setRunningState, RunningState } from '~/store/slices/appSlice';
 import { StatsView, StopButton, PlayButton } from '~/shared/components';
 
 const { width, height } = Dimensions.get('window');
 
-export const RunningPaused: React.FC = () => {
+/**
+ * 러닝 일시정지 화면
+ * iOS RunningPausedView 대응
+ */
+export const RunningPausedView: React.FC = () => {
+  const dispatch = useDispatch();
 
   const handleStopRunning = () => {
+    console.log('⏹️ [RunningPausedView] 러닝 종료 버튼 눌러짐');
+
     // TODO: RunningViewModel.stopRunning() 호출
-    console.log('러닝 종료');
+    // TODO: GPS 추적 종료 및 데이터 저장
+
+    dispatch(setRunningState(RunningState.Finished));
   };
 
   const handleResumeRunning = () => {
+    console.log('▶️ [RunningPausedView] 러닝 재개 버튼 눌러짐');
+
     // TODO: RunningViewModel.resumeRunning() 호출
-    console.log('러닝 재개');
+    // TODO: GPS 추적 재개
+
+    dispatch(setRunningState(RunningState.Running));
   };
 
   return (
     <View style={styles.container}>
-      {/* Running Statistics (showing current progress) */}
+      {/* 러닝 통계 (현재 진행 상황 표시) */}
       <StatsView />
 
-      {/* Control Buttons */}
+      {/* 제어 버튼들 - iOS의 [종료], [재개] */}
       <View style={styles.buttonContainer}>
-        <View style={styles.spacer} />
-
-        {/* Stop Button */}
         <StopButton onPress={handleStopRunning} />
-
-        <View style={styles.spacer} />
-
-        {/* Resume Button */}
         <PlayButton onPress={handleResumeRunning} />
-
-        <View style={styles.spacer} />
       </View>
     </View>
   );
 };
+
+// 역호환성을 위한 export
+export const RunningPaused = RunningPausedView;
 
 const styles = StyleSheet.create({
   container: {
@@ -54,9 +59,6 @@ const styles = StyleSheet.create({
   buttonContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 40,
-  },
-  spacer: {
-    flex: 1,
+    gap: 20,
   },
 });

@@ -12,7 +12,11 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.hongtaeho.app",
       "usesAppleSignIn": true,
-      "appleTeamId": "Y9XN2ZQ9G3"
+      "appleTeamId": "Y9XN2ZQ9G3",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "이 앱은 러닝 기록을 위해 위치 정보를 사용합니다.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "이 앱은 러닝 기록을 위해 위치 정보를 사용합니다."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +27,12 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.hongtaeho.app"
+      "package": "com.hongtaeho.app",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "FOREGROUND_SERVICE"
+      ]
     },
     "web": {
       "output": "static",

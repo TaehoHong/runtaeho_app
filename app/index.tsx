@@ -1,74 +1,88 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { Login } from '../src/features/auth/views/login';
+import { useSelector } from 'react-redux';
+import { selectIsLoggedIn } from '~/store/slices/authSlice';
+import { selectViewState, ViewState } from '~/store/slices/appSlice';
+import { router } from 'expo-router';
 
+/**
+ * 앵의 메인 진입점
+ * iOS RootView와 RunTaehoApp 로직 대응
+ * 인증 상태에 따라 로그인/메인 화면으로 분기
+ */
 export default function Index() {
-  console.log('🚀 [APP] 앱 시작 - 로그인 화면으로 이동');
+  console.log('🚀 [APP] 앱 메인 진입점 시작');
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [loginComponent, setLoginComponent] = useState<React.ComponentType | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const isLoggedIn = useSelector(selectIsLoggedIn);
+  const viewState = useSelector(selectViewState);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    console.log('🔄 [APP] Login 컴포넌트 로딩 시작');
+    console.log('🔄 [APP] 앱 초기화 시작');
 
-    const loadLoginComponent = async () => {
+    // iOS RootView의 초기화 로직 대응
+    const initializeApp = async () => {
       try {
-        console.log('📦 [APP] Login 컴포넌트 import 시도');
+        // 약간의 딩레이를 둘어 초기화 완료 보장
+        await new Promise(resolve => setTimeout(resolve, 100));
 
-        // Login 컴포넌트가 이미 import되어 있으므로 직접 사용
-        setLoginComponent(() => Login);
-        console.log('✅ [APP] Login 컴포넌트 로딩 성공');
-
-      } catch (error: any) {
-        console.error('❌ [APP] Login 컴포넌트 로딩 실패:', error);
-        setError(`로그인 화면 로딩 실패: ${error.message}`);
-      } finally {
-        setIsLoading(false);
+        console.log('✅ [APP] 앱 초기화 완료');
+        setIsInitialized(true);
+      } catch (error) {
+        console.error('❌ [APP] 앱 초기화 실패:', error);
+        setIsInitialized(true); // 오류가 있어도 계속 진행
       }
     };
 
-    // 약간의 로딩 시간을 두어 자연스럽게 처리
-    const timer = setTimeout(loadLoginComponent, 500);
-
-    return () => clearTimeout(timer);
+    initializeApp();
   }, []);
 
-  // 로딩 중
-  if (isLoading) {
-    console.log('⏳ [APP] 로딩 화면 표시');
+  useEffect(() => {
+    // 초기화가 완료된 후 로그인 상태에 따라 네비게이션
+    if (isInitialized && viewState === ViewState.Loaded) {
+      console.log('🔄 [APP] 로그인 상태 확인:', isLoggedIn);
+
+      if (isLoggedIn) {
+        console.log('✅ [APP] 로그인 상태 - 메인 탭으로 이동');
+        // 여러 경로 시도
+        try {
+          router.replace('/(tabs)/running');
+          console.log('✅ [APP] 네비게이션 성공: /(tabs)/running');
+        } catch (error) {
+          console.log('⚠️ [APP] /(tabs)/running 실패, /(tabs) 시도');
+          try {
+            router.replace('/(tabs)');
+            console.log('✅ [APP] 네비게이션 성공: /(tabs)');
+          } catch (error2) {
+            console.log('⚠️ [APP] /(tabs) 실패, push 시도');
+            router.push('/(tabs)');
+          }
+        }
+      } else {
+        console.log('❌ [APP] 로그아웃 상태 - 로그인 화면으로 이동');
+        router.replace('/auth/login');
+      }
+    }
+  }, [isInitialized, isLoggedIn, viewState]);
+
+  // iOS RootView와 동일한 로딩 화면
+  if (!isInitialized || viewState === ViewState.Loading) {
+    console.log('⏳ [APP] 초기화 로딩 화면 표시');
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2196F3" />
-        <Text style={styles.loadingText}>런태호 앱 시작 중...</Text>
+        <ActivityIndicator size="large" color="#4d99e5" />
+        <Text style={styles.loadingText}>로딩 중...</Text>
       </View>
     );
   }
 
-  // 오류 발생
-  if (error) {
-    console.log('❌ [APP] 오류 화면 표시:', error);
-    return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorTitle}>앱 시작 오류</Text>
-        <Text style={styles.errorText}>{error}</Text>
-      </View>
-    );
-  }
-
-  // 로그인 화면 렌더링
-  if (loginComponent) {
-    console.log('🎯 [APP] 로그인 화면 렌더링');
-    const LoginComponent = loginComponent;
-    return <LoginComponent />;
-  }
-
-  // 예상치 못한 상황
-  console.log('⚠️ [APP] 예상치 못한 상태');
+  // 초기화 완료 후 대기 화면
+  // AuthProvider에서 자동으로 로그인/메인 화면으로 리다이렉트
+  console.log('⏳ [APP] 네비게이션 대기 중...');
   return (
-    <View style={styles.errorContainer}>
-      <Text style={styles.errorTitle}>알 수 없는 오류</Text>
-      <Text style={styles.errorText}>앱을 다시 시작해주세요.</Text>
+    <View style={styles.loadingContainer}>
+      <ActivityIndicator size="large" color="#4d99e5" />
+      <Text style={styles.loadingText}>네비게이션 준비 중...</Text>
     </View>
   );
 }

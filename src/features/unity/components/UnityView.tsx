@@ -72,4 +72,7 @@ export const UnityView = forwardRef<UnityViewRef, UnityViewProps>((props, ref) =
   );
 });
 
+// Add displayName for React DevTools
+UnityView.displayName = 'UnityView';
+
 export default UnityView;

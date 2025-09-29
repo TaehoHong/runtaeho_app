@@ -11,10 +11,9 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  Dimensions,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
-import { useUnityBridge } from '~/contexts/UnityBridgeContext';
+// import { useUnityBridge } from '~/contexts/UnityBridgeContext'; // TODO: 향후 직접 통신용
 import {
   setCharacterSpeed,
   stopCharacter,
@@ -22,7 +21,7 @@ import {
   changeAvatar,
   getUnityStatus,
   checkUnityConnection,
-  selectUnityState,
+  // selectUnityState, // TODO: 향후 디버깅용
   selectIsUnityConnected,
   selectCharacterState,
   selectCurrentAvatar,
@@ -30,14 +29,26 @@ import {
   selectUnityError,
 } from '~/store/slices/unitySlice';
 import type { AvatarItem, CharacterMotion } from '~/types/UnityTypes';
-import UnityView, { UnityViewRef } from '~/components/UnityView';
+import { UnityView, UnityViewRef } from '~/components/UnityView';
+import { CharacterStatus } from './character/components/CharacterStatus';
+import { CharacterControls } from './character/components/CharacterControls';
+import { usePerformanceMonitor } from '~/shared/hooks/usePerformanceMonitor';
+import { useOptimizedCharacterCallbacks } from '~/shared/hooks/useOptimizedCallbacks';
+import { getUnityService } from '~/shared/di';
 
 export default function CharacterScreen() {
   const dispatch = useDispatch();
   const unityViewRef = useRef<UnityViewRef>(null);
 
+  // 성능 모니터링
+  usePerformanceMonitor('CharacterScreen', {
+    enableRenderMonitor: true,
+    enableMemoryMonitor: true,
+    logInterval: 15000, // 15초마다 로깅
+  });
+
   // Redux state
-  const unityState = useSelector(selectUnityState);
+  // const unityState = useSelector(selectUnityState); // TODO: 향후 디버깅용으로 사용
   const isConnected = useSelector(selectIsUnityConnected);
   const characterState = useSelector(selectCharacterState);
   const currentAvatar = useSelector(selectCurrentAvatar);
@@ -45,7 +56,7 @@ export default function CharacterScreen() {
   const error = useSelector(selectUnityError);
 
   // Unity Bridge Context (백업용)
-  const unityBridge = useUnityBridge();
+  // const unityBridge = useUnityBridge(); // TODO: 향후 직접 통신용으로 사용
 
   useEffect(() => {
     // 컴포넌트 마운트 시 Unity 연결 상태 확인
@@ -150,30 +161,12 @@ export default function CharacterScreen() {
     }
   };
 
-  // ==========================================
-  // 렌더링 함수들
-  // ==========================================
-
-  const renderConnectionStatus = () => (
-    <View style={styles.statusContainer}>
-      <Text style={styles.statusTitle}>연결 상태</Text>
-      <View style={styles.statusRow}>
-        <Text style={styles.statusLabel}>Unity 연결:</Text>
-        <Text style={[styles.statusValue, { color: isConnected ? '#4CAF50' : '#F44336' }]}>
-          {isConnected ? '연결됨' : '연결 안됨'}
-        </Text>
-      </View>
-      <View style={styles.statusRow}>
-        <Text style={styles.statusLabel}>로딩 중:</Text>
-        <Text style={styles.statusValue}>{isLoading ? '예' : '아니오'}</Text>
-      </View>
-      {error && (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorTitle}>에러:</Text>
-          <Text style={styles.errorText}>{error.message}</Text>
-        </View>
-      )}
-    </View>
+  // 최적화된 콜백 생성
+  const optimizedCallbacks = useOptimizedCharacterCallbacks(
+    handleSetSpeed,
+    handleStopCharacter,
+    handleSetMotion,
+    isLoading
   );
 
   const renderCharacterState = () => (
@@ -336,9 +329,18 @@ export default function CharacterScreen() {
     <ScrollView style={styles.container}>
       <Text style={styles.title}>캐릭터 관리</Text>
 
-      {renderConnectionStatus()}
+      <CharacterStatus
+        isConnected={isConnected}
+        isLoading={isLoading}
+        error={error}
+      />
       {renderUnityView()}
-      {renderControlButtons()}
+      <CharacterControls
+        isLoading={isLoading}
+        onSetSpeed={optimizedCallbacks.handleSetSpeed}
+        onStopCharacter={optimizedCallbacks.handleStopCharacter}
+        onSetMotion={optimizedCallbacks.handleSetMotion}
+      />
       {renderAvatarControls()}
       {renderUtilityButtons()}
       {renderCharacterState()}

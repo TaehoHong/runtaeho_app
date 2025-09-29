@@ -7,7 +7,7 @@ import {
   Avatar,
   AvatarItem,
   Item,
-  UserItem,
+  // UserItem, // TODO: 향후 사용자 아바타 데이터 처리용
   validateAvatar,
   groupItemsByType,
   getEquippedItems,
@@ -161,9 +161,9 @@ export class AvatarService {
     const styleAnalysis = this.analyzeAvatarStyle(avatar);
 
     // 현재 착용하지 않은 타입의 아이템 우선 추천
-    const missingTypeItems = availableItems.filter(item => 
-      !equippedTypeNames.includes(item.itemType.name)
-    );
+    // const missingTypeItems = availableItems.filter(item =>
+    //   !equippedTypeNames.includes(item.itemType.name)
+    // ); // TODO: 향후 미착용 타입 아이템 우선 추천 로직에 사용
 
     // 현재 스타일과 어울리는 아이템 추천
     const styleMatchItems = availableItems.filter(item => {

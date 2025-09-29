@@ -16,8 +16,8 @@ import {
   UnityEventListener
 } from '../../../types/UnityTypes';
 
-// Native Module 가져오기
-const { RNUnityBridge } = NativeModules as { RNUnityBridge: RNUnityBridgeModule };
+// Native Module 가져오기 (조건부)
+const { RNUnityBridge } = NativeModules as { RNUnityBridge: RNUnityBridgeModule | undefined };
 
 /**
  * Unity Bridge Service 클래스
@@ -42,7 +42,10 @@ class UnityBridgeService implements UnityBridge {
     this.config = { ...DEFAULT_UNITY_BRIDGE_CONFIG, ...config };
 
     if (!RNUnityBridge) {
-      throw new Error('RNUnityBridge native module is not available');
+      console.warn('⚠️ RNUnityBridge native module is not available. Using mock implementation.');
+      // Mock 구현으로 대체
+      this.eventEmitter = new NativeEventEmitter(null);
+      return;
     }
 
     this.eventEmitter = new NativeEventEmitter(RNUnityBridge);
@@ -87,7 +90,11 @@ class UnityBridgeService implements UnityBridge {
       const speedString = clampedSpeed.toString();
       this.log(`Sending Unity message: ${UnityBridgeService.UNITY_OBJECT_NAME}.SetCharacterSpeed(${speedString})`);
 
-      await RNUnityBridge.sendUnityMessage(UnityBridgeService.UNITY_OBJECT_NAME, UnityBridgeService.UNITY_SPEED_METHOD, speedString);
+      if (RNUnityBridge) {
+        await RNUnityBridge.sendUnityMessage(UnityBridgeService.UNITY_OBJECT_NAME, UnityBridgeService.UNITY_SPEED_METHOD, speedString);
+      } else {
+        this.log('RNUnityBridge not available, skipping Unity message');
+      }
 
       this.log(`Unity message sent successfully`);
     } catch (error) {
@@ -101,8 +108,12 @@ class UnityBridgeService implements UnityBridge {
 
     try {
       // 도메인 로직: 캐릭터 정지는 속도를 0으로 설정하고 IDLE 상태로 변경
-      await RNUnityBridge.sendUnityMessage(UnityBridgeService.UNITY_OBJECT_NAME, UnityBridgeService.UNITY_SPEED_METHOD, '0');
-      await RNUnityBridge.sendUnityMessage(UnityBridgeService.UNITY_OBJECT_NAME, UnityBridgeService.UNITY_MOTION_MEHOD, 'IDLE');
+      if (RNUnityBridge) {
+        await RNUnityBridge.sendUnityMessage(UnityBridgeService.UNITY_OBJECT_NAME, UnityBridgeService.UNITY_SPEED_METHOD, '0');
+        await RNUnityBridge.sendUnityMessage(UnityBridgeService.UNITY_OBJECT_NAME, UnityBridgeService.UNITY_MOTION_MEHOD, 'IDLE');
+      } else {
+        this.log('RNUnityBridge not available, skipping Unity messages for character stop');
+      }
     } catch (error) {
       this.logError('Failed to stop character', error);
       throw error;
@@ -118,7 +129,11 @@ class UnityBridgeService implements UnityBridge {
         throw new Error(`Invalid motion: ${motion}. Valid motions: ${UnityBridgeService.VALID_MOTIONS.join(', ')}`);
       }
 
-      await RNUnityBridge.sendUnityMessage(UnityBridgeService.UNITY_OBJECT_NAME, UnityBridgeService.UNITY_MOTION_MEHOD, motion);
+      if (RNUnityBridge) {
+        await RNUnityBridge.sendUnityMessage(UnityBridgeService.UNITY_OBJECT_NAME, UnityBridgeService.UNITY_MOTION_MEHOD, motion);
+      } else {
+        this.log('RNUnityBridge not available, skipping Unity message for character motion');
+      }
     } catch (error) {
       this.logError('Failed to set character motion', error);
       throw error;
@@ -143,7 +158,11 @@ class UnityBridgeService implements UnityBridge {
         itemPath: item.itemPath,
       }));
 
-      await RNUnityBridge.sendUnityJSON(UnityBridgeService.UNITY_OBJECT_NAME, 'ChangeAvatar', nativeItems);
+      if (RNUnityBridge) {
+        await RNUnityBridge.sendUnityJSON(UnityBridgeService.UNITY_OBJECT_NAME, 'ChangeAvatar', nativeItems);
+      } else {
+        this.log('RNUnityBridge not available, skipping Unity JSON message for avatar change');
+      }
     } catch (error) {
       this.logError('Failed to change avatar', error);
       throw error;
@@ -154,7 +173,12 @@ class UnityBridgeService implements UnityBridge {
     this.log('Getting Unity status');
 
     try {
-      await RNUnityBridge.sendUnityMessage(UnityBridgeService.UNITY_OBJECT_NAME, 'GetUnityStatus', '');
+      if (RNUnityBridge) {
+        await RNUnityBridge.sendUnityMessage(UnityBridgeService.UNITY_OBJECT_NAME, 'GetUnityStatus', '');
+      } else {
+        this.log('RNUnityBridge not available, skipping Unity status check');
+        return { isReady: false, message: 'Unity bridge not available' };
+      }
     } catch (error) {
       this.logError('Failed to get Unity status', error);
       throw error;

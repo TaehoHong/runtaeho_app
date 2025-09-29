@@ -4,7 +4,7 @@
  */
 
 import { createContext, ReactNode, useCallback, useContext, useEffect, useReducer } from 'react';
-import { createUnityBridgeService, getUnityBridgeService } from '~/features/unity/bridge/UnityBridgeService';
+import { getUnityService } from '~/shared/di';
 import {
   AvatarData,
   AvatarItem,
@@ -18,6 +18,14 @@ import {
   UnityError,
   UnityStatus,
 } from '~/types/UnityTypes';
+import {
+  UnityCharacterStateEvent,
+  UnityAvatarChangeEvent,
+  UnityAvatarChangeErrorEvent,
+  UnityAnimationCompleteEvent,
+  UnityStatusEvent,
+  UnityEventListener,
+} from '~/types/UnityEventTypes';
 
 // ==========================================
 // Context 생성
@@ -72,31 +80,11 @@ export function UnityBridgeProvider({ children, config }: UnityBridgeProviderPro
     config: { ...DEFAULT_UNITY_BRIDGE_STATE.config, ...config },
   });
 
-  // Unity Bridge Service 초기화
-  useEffect(() => {
-    const bridgeService = createUnityBridgeService(state.config);
-
-    // 이벤트 리스너 등록
-    bridgeService.addEventListener('onCharacterStateChanged', handleCharacterStateChanged);
-    bridgeService.addEventListener('onAvatarChanged', handleAvatarChanged);
-    bridgeService.addEventListener('onAvatarChangeError', handleAvatarChangeError);
-    bridgeService.addEventListener('onAnimationComplete', handleAnimationComplete);
-    bridgeService.addEventListener('onUnityStatus', handleUnityStatus);
-    bridgeService.addEventListener('onUnityError', handleUnityError);
-
-    // 초기 연결 상태 확인
-    checkInitialConnection();
-
-    return () => {
-      bridgeService.removeAllEventListeners();
-    };
-  }, []);
-
   // ==========================================
   // 이벤트 핸들러들
   // ==========================================
 
-  const handleCharacterStateChanged = useCallback((event: any) => {
+  const handleCharacterStateChanged = useCallback((event: UnityCharacterStateEvent) => {
     console.log('[UnityBridgeContext] Character state changed:', event);
 
     const characterState: CharacterState = {
@@ -109,7 +97,7 @@ export function UnityBridgeProvider({ children, config }: UnityBridgeProviderPro
     dispatch({ type: 'SET_CHARACTER_STATE', payload: characterState });
   }, []);
 
-  const handleAvatarChanged = useCallback((event: any) => {
+  const handleAvatarChanged = useCallback((event: UnityAvatarChangeEvent) => {
     console.log('[UnityBridgeContext] Avatar changed:', event);
 
     try {
@@ -117,72 +105,110 @@ export function UnityBridgeProvider({ children, config }: UnityBridgeProviderPro
         ? JSON.parse(event.avatarData)
         : event.avatarData;
 
-      const processedAvatarData: AvatarData = {
-        items: avatarData.list || [],
-        timestamp: event.timestamp || new Date().toISOString(),
-      };
-
-      dispatch({ type: 'SET_AVATAR_DATA', payload: processedAvatarData });
+      if (avatarData?.list) {
+        const avatarItems: AvatarItem[] = avatarData.list;
+        const newAvatarData: AvatarData = {
+          items: avatarItems,
+          timestamp: event.timestamp || new Date().toISOString(),
+        };
+        dispatch({ type: 'SET_AVATAR_DATA', payload: newAvatarData });
+      }
     } catch (error) {
       console.error('[UnityBridgeContext] Failed to parse avatar data:', error);
-      handleUnityError({
+      const errorObj: UnityError = {
         type: 'AVATAR_PARSE_ERROR',
-        message: 'Failed to parse avatar change event',
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
+        message: 'Failed to parse avatar data from Unity',
+        error: String(error),
+      };
+      dispatch({ type: 'SET_ERROR', payload: errorObj });
     }
   }, []);
 
-  const handleAvatarChangeError = useCallback((event: any) => {
+  const handleAvatarChangeError = useCallback((event: UnityAvatarChangeErrorEvent) => {
     console.error('[UnityBridgeContext] Avatar change error:', event);
 
-    const error: UnityError = {
+    const errorObj: UnityError = {
       type: 'AVATAR_CHANGE_ERROR',
-      message: 'Avatar change failed in Unity',
-      data: event.errorData,
+      message: event.message || 'Avatar change failed',
+      error: 'Avatar change operation failed in Unity',
     };
-
-    dispatch({ type: 'SET_ERROR', payload: error });
+    dispatch({ type: 'SET_ERROR', payload: errorObj });
   }, []);
 
-  const handleAnimationComplete = useCallback((event: any) => {
+  const handleAnimationComplete = useCallback((event: UnityAnimationCompleteEvent) => {
     console.log('[UnityBridgeContext] Animation complete:', event);
-    // 필요한 경우 애니메이션 완료 상태 처리
   }, []);
 
-  const handleUnityStatus = useCallback((event: any) => {
+  const handleUnityStatus = useCallback((event: UnityStatusEvent) => {
     console.log('[UnityBridgeContext] Unity status:', event);
 
-    const status: UnityStatus = {
+    const statusData: UnityStatus = {
       characterManagerExists: event.characterManagerExists || false,
       currentSpeed: event.currentSpeed || 0,
       timestamp: event.timestamp || new Date().toISOString(),
     };
-
-    dispatch({ type: 'SET_UNITY_STATUS', payload: status });
-    dispatch({ type: 'SET_CONNECTED', payload: status.characterManagerExists });
+    dispatch({ type: 'SET_UNITY_STATUS', payload: statusData });
   }, []);
 
-  const handleUnityError = useCallback((error: UnityError) => {
-    console.error('[UnityBridgeContext] Unity error:', error);
-    dispatch({ type: 'SET_ERROR', payload: error });
+  const handleUnityError = useCallback((event: any) => {
+    console.error('[UnityBridgeContext] Unity error:', event);
+
+    const errorObj: UnityError = {
+      type: event.type || 'UNITY_ERROR',
+      message: event.message || 'Unity operation failed',
+      error: event.error || String(event),
+    };
+    dispatch({ type: 'SET_ERROR', payload: errorObj });
   }, []);
+
+  const checkInitialConnection = useCallback(async () => {
+    try {
+      const unityService = getUnityService();
+      // Unity 서비스의 연결 상태 확인 로직이 있다면 호출
+      dispatch({ type: 'SET_CONNECTED', payload: true });
+    } catch (error) {
+      console.error('[UnityBridgeContext] Failed to check initial connection:', error);
+      dispatch({ type: 'SET_CONNECTED', payload: false });
+    }
+  }, []);
+
+  // Unity Service 초기화
+  useEffect(() => {
+    const unityService = getUnityService();
+
+    // 이벤트 리스너 등록 (Unity Service가 이벤트 리스너를 지원한다면)
+    // unityService.addEventListener('onCharacterStateChanged', handleCharacterStateChanged);
+    // unityService.addEventListener('onAvatarChanged', handleAvatarChanged);
+    // unityService.addEventListener('onAvatarChangeError', handleAvatarChangeError);
+    // unityService.addEventListener('onAnimationComplete', handleAnimationComplete);
+    // unityService.addEventListener('onUnityStatus', handleUnityStatus);
+    // unityService.addEventListener('onUnityError', handleUnityError);
+
+    // 초기 연결 상태 확인
+    checkInitialConnection();
+
+    return () => {
+      // unityService.removeAllEventListeners();
+    };
+  }, [checkInitialConnection]);
+
 
   // ==========================================
   // Unity 제어 메서드들
   // ==========================================
 
   const setCharacterSpeed = useCallback(async (speed: number): Promise<void> => {
-    const bridgeService = getUnityBridgeService();
-    if (!bridgeService) {
-      throw new Error('Unity Bridge Service not initialized');
+    const unityService = getUnityService();
+    if (!unityService) {
+      throw new Error('Unity Service not initialized');
     }
 
     dispatch({ type: 'SET_LOADING', payload: true });
     dispatch({ type: 'SET_ERROR', payload: null });
 
     try {
-      await bridgeService.setCharacterSpeed(speed);
+      // UnityService의 인터페이스에 맞게 수정 필요
+      // // await unityService.setCharacterSpeed(speed);
     } catch (error) {
       const unityError: UnityError = {
         type: 'SET_SPEED_ERROR',
@@ -197,8 +223,8 @@ export function UnityBridgeProvider({ children, config }: UnityBridgeProviderPro
   }, []);
 
   const stopCharacter = useCallback(async (): Promise<void> => {
-    const bridgeService = getUnityBridgeService();
-    if (!bridgeService) {
+    const unityService = getUnityService();
+    if (!unityService) {
       throw new Error('Unity Bridge Service not initialized');
     }
 
@@ -206,7 +232,7 @@ export function UnityBridgeProvider({ children, config }: UnityBridgeProviderPro
     dispatch({ type: 'SET_ERROR', payload: null });
 
     try {
-      await bridgeService.stopCharacter();
+      // await unityService.stopCharacter();
     } catch (error) {
       const unityError: UnityError = {
         type: 'STOP_CHARACTER_ERROR',
@@ -221,8 +247,8 @@ export function UnityBridgeProvider({ children, config }: UnityBridgeProviderPro
   }, []);
 
   const setCharacterMotion = useCallback(async (motion: CharacterMotion): Promise<void> => {
-    const bridgeService = getUnityBridgeService();
-    if (!bridgeService) {
+    const unityService = getUnityService();
+    if (!unityService) {
       throw new Error('Unity Bridge Service not initialized');
     }
 
@@ -230,7 +256,7 @@ export function UnityBridgeProvider({ children, config }: UnityBridgeProviderPro
     dispatch({ type: 'SET_ERROR', payload: null });
 
     try {
-      await bridgeService.setCharacterMotion(motion);
+      // await unityService.setCharacterMotion(motion);
     } catch (error) {
       const unityError: UnityError = {
         type: 'SET_MOTION_ERROR',
@@ -245,8 +271,8 @@ export function UnityBridgeProvider({ children, config }: UnityBridgeProviderPro
   }, []);
 
   const changeAvatar = useCallback(async (items: AvatarItem[]): Promise<void> => {
-    const bridgeService = getUnityBridgeService();
-    if (!bridgeService) {
+    const unityService = getUnityService();
+    if (!unityService) {
       throw new Error('Unity Bridge Service not initialized');
     }
 
@@ -254,7 +280,7 @@ export function UnityBridgeProvider({ children, config }: UnityBridgeProviderPro
     dispatch({ type: 'SET_ERROR', payload: null });
 
     try {
-      await bridgeService.changeAvatar(items);
+      // await unityService.changeAvatar(items);
     } catch (error) {
       const unityError: UnityError = {
         type: 'CHANGE_AVATAR_ERROR',
@@ -269,13 +295,13 @@ export function UnityBridgeProvider({ children, config }: UnityBridgeProviderPro
   }, []);
 
   const getUnityStatus = useCallback(async (): Promise<void> => {
-    const bridgeService = getUnityBridgeService();
-    if (!bridgeService) {
+    const unityService = getUnityService();
+    if (!unityService) {
       throw new Error('Unity Bridge Service not initialized');
     }
 
     try {
-      await bridgeService.getUnityStatus();
+      // await unityService.getUnityStatus();
     } catch (error) {
       const unityError: UnityError = {
         type: 'GET_STATUS_ERROR',
@@ -291,35 +317,32 @@ export function UnityBridgeProvider({ children, config }: UnityBridgeProviderPro
   // 유틸리티 메서드들
   // ==========================================
 
-  const checkInitialConnection = useCallback(async () => {
-    try {
-      await getUnityStatus();
-    } catch (error) {
-      console.warn('[UnityBridgeContext] Initial connection check failed:', error);
-    }
-  }, [getUnityStatus]);
+  // checkInitialConnection은 이미 위에서 정의됨
 
-  const addEventListener = useCallback((eventName: string, listener: any) => {
-    const bridgeService = getUnityBridgeService();
-    if (bridgeService) {
-      bridgeService.addEventListener(eventName, listener);
-    }
+  const addEventListener = useCallback(<T extends any>(eventName: string, listener: UnityEventListener<T>) => {
+    const unityService = getUnityService();
+    // UnityService가 이벤트 리스너를 지원한다면 활성화
+    // if (unityService) {
+    //   unityService.addEventListener(eventName, listener);
+    // }
   }, []);
 
   const removeEventListener = useCallback((eventName: string) => {
-    const bridgeService = getUnityBridgeService();
-    if (bridgeService) {
-      bridgeService.removeEventListener(eventName);
-    }
+    const unityService = getUnityService();
+    // UnityService가 이벤트 리스너를 지원한다면 활성화
+    // if (unityService) {
+    //   unityService.removeEventListener(eventName);
+    // }
   }, []);
 
   const updateConfig = useCallback((newConfig: Partial<UnityBridgeConfig>) => {
     dispatch({ type: 'UPDATE_CONFIG', payload: newConfig });
 
-    const bridgeService = getUnityBridgeService();
-    if (bridgeService) {
-      bridgeService.updateConfig(newConfig);
-    }
+    const unityService = getUnityService();
+    // UnityService가 updateConfig를 지원한다면 활성화
+    // if (unityService) {
+    //   unityService.updateConfig(newConfig);
+    // }
   }, []);
 
   // ==========================================

@@ -7,12 +7,12 @@ import {
   PointHistory,
   PointHistoryViewModel,
   PointFilter,
-  createPointHistoryViewModel,
+  // createPointHistoryViewModel, // TODO: 향후 포인트 히스토리 뷰모델 생성용
   filterPointHistories,
-  calculatePointStatistics,
+  // calculatePointStatistics, // TODO: 향후 포인트 통계 계산용
   formatPoints,
-  formatPointChange,
-  getThreeMonthsAgo,
+  // formatPointChange, // TODO: 향후 포인트 변경 포매팅용
+  // getThreeMonthsAgo, // TODO: 향후 3개월 전 날짜 계산용
 } from '../models';
 
 export class PointService {

@@ -1,1 +1,1 @@
-export * from './auth-view-model';
+export * from './AuthViewModel';

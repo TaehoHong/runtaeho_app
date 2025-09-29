@@ -18,434 +18,244 @@ import {
   PersonalRecords,
   calculateStatistics,
   filterRecordsByPeriod,
-  generateChartData,
-  calculatePersonalRecords,
-  calculateTrends,
-  calculateGoalProgress,
-  getStartOfWeek,
-  getStartOfMonth,
-  getStartOfYear,
-  formatDate,
+  createChartData,
 } from '../models';
-import { RunningRecord } from '../../running/models';
 
 /**
- * Statistics ViewModel
- * Swift StatisticViewModel을 React Hook으로 마이그레이션
+ * 메인 Statistics ViewModel
+ * 대시보드 및 통합 통계 정보를 관리
  */
-export const useStatisticViewModel = () => {
-  // 상태 관리
-  const [selectedPeriod, setSelectedPeriod] = useState<Period>(Period.MONTH);
-  const [startDate, setStartDate] = useState<Date>(getStartOfMonth(new Date()));
-  const [isLoading, setIsLoading] = useState(false);
-  const [records, setRecords] = useState<RunningRecord[]>([]);
+export const useStatisticsViewModel = (period: Period = Period.MONTH) => {
+  const [selectedPeriod, setSelectedPeriod] = useState<Period>(period);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  /**
-   * 러닝 기록 조회
-   * Swift StatisticViewModel.loadRuningRecords 대응
-   */
+  // API 호출들
   const {
-    data: runningRecordsData,
-    error: recordsError,
-    isLoading: isLoadingRecords,
-    isFetching: isFetchingRecords,
-    refetch: refetchRecords,
-  } = useGetRunningRecordsQuery({
-    startDate: startDate,
-    endDate: new Date(),
-    size: 100,
-  });
+    data: summary,
+    error: summaryError,
+    isLoading: summaryLoading,
+    refetch: refetchSummary,
+  } = useGetStatisticsSummaryQuery({ period: selectedPeriod });
 
-  /**
-   * 통계 요약 조회
-   * Swift StatisticViewModel.statistics 대응
-   */
-  const {
-    data: statisticsSummary,
-    error: statsError,
-    isLoading: isLoadingStats,
-    refetch: refetchStats,
-  } = useGetStatisticsSummaryQuery({
-    period: selectedPeriod,
-    startDate: formatDate(startDate, 'YYYY-MM-DD'),
-    endDate: formatDate(new Date(), 'YYYY-MM-DD'),
-  });
-
-  /**
-   * 차트 데이터 조회
-   * Swift RunningChartViewModel 대응
-   */
   const {
     data: chartData,
     error: chartError,
-    isLoading: isLoadingChart,
+    isLoading: chartLoading,
     refetch: refetchChart,
-  } = useGetChartDataQuery({
-    period: selectedPeriod,
-    startDate: formatDate(startDate, 'YYYY-MM-DD'),
-    endDate: formatDate(new Date(), 'YYYY-MM-DD'),
-  });
+  } = useGetChartDataQuery({ period: selectedPeriod });
 
-  /**
-   * 개인 기록 조회
-   */
-  const {
-    data: personalRecords,
-    isLoading: isLoadingRecords,
-  } = useGetPersonalRecordsQuery();
-
-  /**
-   * 대시보드 데이터 조회
-   */
   const {
     data: dashboardData,
-    isLoading: isLoadingDashboard,
+    error: dashboardError,
+    isLoading: dashboardLoading,
     refetch: refetchDashboard,
-  } = useGetDashboardDataQuery({
-    period: selectedPeriod,
-  });
+  } = useGetDashboardDataQuery();
 
-  /**
-   * 러닝 기록 업데이트 처리
-   * Swift StatisticViewModel.records didSet 대응
-   */
-  useEffect(() => {
-    if (runningRecordsData?.content) {
-      // 중복 제거 로직
-      const newRecords = runningRecordsData.content;
-      const uniqueRecords: RunningRecord[] = [];
+  // 로컬 계산을 위한 running records
+  const {
+    data: runningRecords,
+    error: recordsError,
+    isLoading: recordsLoading,
+  } = useGetRunningRecordsQuery({});
 
-      newRecords.forEach(record => {
-        if (!records.find(existing => existing.id === record.id)) {
-          uniqueRecords.push(record);
-        }
-      });
+  // 전체 로딩 상태
+  const isLoading = summaryLoading || chartLoading || dashboardLoading || recordsLoading;
+  const hasError = !!(summaryError || chartError || dashboardError || recordsError);
 
-      if (uniqueRecords.length > 0) {
-        setRecords(prev => [...prev, ...uniqueRecords].sort((a, b) => b.startTimestamp - a.startTimestamp));
-      }
-    }
-  }, [runningRecordsData, records]);
+  // 통계 요약 정보 포맷팅
+  const formattedSummary = useMemo(() => {
+    if (!summary) return null;
 
-  /**
-   * 기간 변경 처리
-   * Swift StatisticViewModel.selectedPeriod didSet 대응
-   */
+    return {
+      ...summary,
+      totalDistance: {
+        ...summary.totalDistance,
+        formattedValue: `${(summary.totalDistance.value / 1000).toFixed(2)}km`,
+      },
+      totalDuration: {
+        ...summary.totalDuration,
+        formattedValue: `${Math.floor(summary.totalDuration.value / 3600)}시간 ${Math.floor((summary.totalDuration.value % 3600) / 60)}분`,
+      },
+      averagePace: {
+        ...summary.averagePace,
+        formattedValue: `${summary.averagePace.value.toFixed(2)}분/km`,
+      },
+      totalCalories: {
+        ...summary.totalCalories,
+        formattedValue: `${summary.totalCalories.value}kcal`,
+      },
+    };
+  }, [summary]);
+
+  // 차트 데이터 포맷팅
+  const formattedChartData = useMemo(() => {
+    if (!chartData) return null;
+
+    return chartData.map((point: ChartDataPoint) => ({
+      ...point,
+      formattedDate: new Date(point.date).toLocaleDateString('ko-KR', {
+        month: 'short',
+        day: 'numeric',
+      }),
+      formattedDistance: `${(point.distance / 1000).toFixed(1)}km`,
+      formattedDuration: `${Math.floor(point.duration / 60)}분`,
+    }));
+  }, [chartData]);
+
+  // 로컬 통계 계산 (백업용)
+  const localStats = useMemo(() => {
+    if (!runningRecords) return null;
+
+    const filteredRecords = filterRecordsByPeriod(runningRecords, selectedPeriod);
+    return calculateStatistics(filteredRecords);
+  }, [runningRecords, selectedPeriod]);
+
+  // 기간 변경 핸들러
   const handlePeriodChange = useCallback((newPeriod: Period) => {
-    if (newPeriod === selectedPeriod) return;
-
     setSelectedPeriod(newPeriod);
-    setRecords([]); // 기록 초기화
+  }, []);
 
-    // 시작 날짜 설정
-    let newStartDate: Date;
-    switch (newPeriod) {
-      case Period.WEEK:
-        newStartDate = getStartOfWeek(new Date());
-        break;
-      case Period.MONTH:
-        newStartDate = getStartOfMonth(new Date());
-        break;
-      case Period.YEAR:
-        newStartDate = getStartOfYear(new Date());
-        break;
-      default:
-        newStartDate = getStartOfMonth(new Date());
-    }
-
-    setStartDate(newStartDate);
-  }, [selectedPeriod]);
-
-  /**
-   * 데이터 새로고침
-   * Swift StatisticViewModel.loadRuningRecords 대응
-   */
-  const refreshData = useCallback(async () => {
-    setIsLoading(true);
-
+  // 새로고침 핸들러
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
     try {
       await Promise.all([
-        refetchRecords(),
-        refetchStats(),
+        refetchSummary(),
         refetchChart(),
         refetchDashboard(),
       ]);
-    } catch (error) {
-      console.error('Failed to refresh statistics data:', error);
     } finally {
-      setIsLoading(false);
+      setIsRefreshing(false);
     }
-  }, [refetchRecords, refetchStats, refetchChart, refetchDashboard]);
+  }, [refetchSummary, refetchChart, refetchDashboard]);
 
-  /**
-   * 더 많은 기록 로드
-   * Swift StatisticViewModel.loadMoreRecords 대응
-   */
-  const loadMoreRecords = useCallback(async () => {
-    // RTK Query의 페이지네이션 로직에 의해 자동 처리됨
-    if (runningRecordsData?.hasNext) {
-      await refetchRecords();
-    }
-  }, [runningRecordsData?.hasNext, refetchRecords]);
-
-  /**
-   * 필터링된 기록
-   * Swift StatisticViewModel.filteredRecords 대응
-   */
-  const filteredRecords = useMemo(() => {
-    return filterRecordsByPeriod(records, selectedPeriod);
-  }, [records, selectedPeriod]);
-
-  /**
-   * 로컬 통계 계산
-   * Swift StatisticViewModel.statistics 대응
-   */
-  const localStatistics = useMemo(() => {
-    return calculateStatistics(filteredRecords);
-  }, [filteredRecords]);
-
-  /**
-   * 로컬 차트 데이터 생성
-   */
-  const localChartData = useMemo(() => {
-    return generateChartData(filteredRecords, selectedPeriod);
-  }, [filteredRecords, selectedPeriod]);
-
-  /**
-   * 로컬 개인 기록 계산
-   */
-  const localPersonalRecords = useMemo(() => {
-    return calculatePersonalRecords(records);
-  }, [records]);
-
-  /**
-   * 기간별 시작 날짜 포맷팅
-   */
-  const formattedPeriod = useMemo(() => {
-    const now = new Date();
-    switch (selectedPeriod) {
-      case Period.WEEK:
-        return `${formatDate(getStartOfWeek(now), 'YYYY-MM-DD')} ~ ${formatDate(now, 'YYYY-MM-DD')}`;
-      case Period.MONTH:
-        return `${now.getFullYear()}년 ${now.getMonth() + 1}월`;
-      case Period.YEAR:
-        return `${now.getFullYear()}년`;
-      default:
-        return '';
-    }
-  }, [selectedPeriod]);
-
-  /**
-   * 로딩 상태 종합
-   */
-  const isLoadingData = useMemo(() => {
-    return isLoading ||
-           isLoadingRecords ||
-           isFetchingRecords ||
-           isLoadingStats ||
-           isLoadingChart ||
-           isLoadingDashboard;
-  }, [isLoading, isLoadingRecords, isFetchingRecords, isLoadingStats, isLoadingChart, isLoadingDashboard]);
-
-  /**
-   * 에러 상태 종합
-   */
-  const hasError = useMemo(() => {
-    return !!recordsError || !!statsError || !!chartError;
-  }, [recordsError, statsError, chartError]);
-
-  /**
-   * 데이터 유효성 확인
-   */
-  const hasData = useMemo(() => {
-    return records.length > 0 || (statisticsSummary && statisticsSummary.runCount > 0);
-  }, [records.length, statisticsSummary]);
+  // 통계 데이터 유효성 검사
+  const hasValidData = useMemo(() => {
+    return !!(summary || localStats) && !!(chartData || runningRecords);
+  }, [summary, localStats, chartData, runningRecords]);
 
   return {
-    // State
-    selectedPeriod,
-    startDate,
-    records,
-    filteredRecords,
-
-    // API Data
-    statisticsSummary: statisticsSummary || localStatistics,
-    chartData: chartData || localChartData,
-    personalRecords: personalRecords || localPersonalRecords,
+    // 데이터
+    summary,
+    formattedSummary,
+    chartData,
+    formattedChartData,
     dashboardData,
+    localStats,
 
-    // Local computed data
-    localStatistics,
-    localChartData,
-    localPersonalRecords,
-
-    // Loading states
-    isLoadingData,
-    isLoadingRecords,
-    isLoadingStats,
-    isLoadingChart,
-    isLoadingDashboard,
-    hasMoreData: runningRecordsData?.hasNext || false,
-
-    // Error states
+    // 상태
+    selectedPeriod,
+    isLoading,
+    isRefreshing,
     hasError,
-    recordsError,
-    statsError,
-    chartError,
+    hasValidData,
 
-    // Actions
+    // 에러 정보
+    errors: {
+      summary: summaryError,
+      chart: chartError,
+      dashboard: dashboardError,
+      records: recordsError,
+    },
+
+    // 액션
     handlePeriodChange,
-    refreshData,
-    loadMoreRecords,
-
-    // Computed values
-    formattedPeriod,
-    hasData,
-    canLoadMore: runningRecordsData?.hasNext && !isLoadingData,
-    totalRecords: records.length,
-    filteredRecordsCount: filteredRecords.length,
+    handleRefresh,
+    refetchSummary,
+    refetchChart,
+    refetchDashboard,
   };
 };
 
 /**
- * 차트 전용 ViewModel
- * Swift RunningChartViewModel 대응
+ * 목표 진행률 ViewModel
  */
-export const useChartViewModel = (period: Period = Period.MONTH) => {
-  const [chartPeriod, setChartPeriod] = useState(period);
-
+export const useGoalProgressViewModel = () => {
   const {
-    data: chartData,
+    data: goalProgress,
     error,
     isLoading,
     refetch,
-  } = useGetChartDataQuery({
-    period: chartPeriod,
-  });
+  } = useGetGoalProgressQuery();
 
-  const updatePeriod = useCallback((newPeriod: Period) => {
-    setChartPeriod(newPeriod);
-  }, []);
-
-  return {
-    chartData: chartData || [],
-    period: chartPeriod,
-    error,
-    isLoading,
-    updatePeriod,
-    refetch,
-    hasData: (chartData?.length || 0) > 0,
-    hasError: !!error,
-  };
-};
-
-/**
- * 개인 기록 전용 ViewModel
- */
-export const usePersonalRecordsViewModel = () => {
-  const {
-    data: personalRecords,
-    error,
-    isLoading,
-    refetch,
-  } = useGetPersonalRecordsQuery();
-
-  const formattedRecords = useMemo(() => {
-    if (!personalRecords) return null;
+  const formattedProgress = useMemo(() => {
+    if (!goalProgress) return null;
 
     return {
-      ...personalRecords,
-      longestDistance: {
-        ...personalRecords.longestDistance,
-        formattedValue: `${(personalRecords.longestDistance.value / 1000).toFixed(2)}km`,
-        formattedDate: new Date(personalRecords.longestDistance.date).toLocaleDateString('ko-KR'),
+      ...goalProgress,
+      weeklyGoal: {
+        ...goalProgress.weeklyGoal,
+        progressPercentage: Math.round((goalProgress.weeklyGoal.current / goalProgress.weeklyGoal.target) * 100),
+        formattedCurrent: `${(goalProgress.weeklyGoal.current / 1000).toFixed(1)}km`,
+        formattedTarget: `${(goalProgress.weeklyGoal.target / 1000).toFixed(1)}km`,
       },
-      longestDuration: {
-        ...personalRecords.longestDuration,
-        formattedValue: `${Math.floor(personalRecords.longestDuration.value / 3600)}시간 ${Math.floor((personalRecords.longestDuration.value % 3600) / 60)}분`,
-        formattedDate: new Date(personalRecords.longestDuration.date).toLocaleDateString('ko-KR'),
-      },
-      fastestPace: {
-        ...personalRecords.fastestPace,
-        formattedValue: `${personalRecords.fastestPace.value.toFixed(2)}분/km`,
-        formattedDate: new Date(personalRecords.fastestPace.date).toLocaleDateString('ko-KR'),
-      },
-      mostCalories: {
-        ...personalRecords.mostCalories,
-        formattedValue: `${personalRecords.mostCalories.value}kcal`,
-        formattedDate: new Date(personalRecords.mostCalories.date).toLocaleDateString('ko-KR'),
+      monthlyGoal: {
+        ...goalProgress.monthlyGoal,
+        progressPercentage: Math.round((goalProgress.monthlyGoal.current / goalProgress.monthlyGoal.target) * 100),
+        formattedCurrent: `${(goalProgress.monthlyGoal.current / 1000).toFixed(1)}km`,
+        formattedTarget: `${(goalProgress.monthlyGoal.target / 1000).toFixed(1)}km`,
       },
     };
-  }, [personalRecords]);
+  }, [goalProgress]);
 
   return {
-    personalRecords,
-    formattedRecords,
+    goalProgress,
+    formattedProgress,
     error,
     isLoading,
     refetch,
-    hasRecords: !!personalRecords,
+    hasGoals: !!goalProgress,
     hasError: !!error,
   };
 };
 
 /**
- * 트렌드 분석 전용 ViewModel
+ * 성과 비교 ViewModel
  */
-export const useTrendsViewModel = (period: Period = Period.MONTH) => {
+export const usePerformanceComparisonViewModel = () => {
   const {
-    data: trends,
+    data: comparison,
     error,
     isLoading,
     refetch,
-  } = useGetTrendsQuery({
-    currentPeriod: period,
-  });
+  } = useGetPerformanceComparisonQuery();
 
-  const formattedTrends = useMemo(() => {
-    if (!trends) return null;
+  const formattedComparison = useMemo(() => {
+    if (!comparison) return null;
 
-    const formatTrend = (value: number) => {
+    const formatChange = (value: number) => {
       const prefix = value >= 0 ? '+' : '';
-      return `${prefix}${value.toFixed(1)}%`;
+      const suffix = value >= 0 ? ' 향상' : ' 감소';
+      return `${prefix}${Math.abs(value).toFixed(1)}%${suffix}`;
     };
 
     return {
-      distanceTrend: {
-        value: trends.distanceTrend,
-        formatted: formatTrend(trends.distanceTrend),
-        isPositive: trends.distanceTrend >= 0,
+      ...comparison,
+      distance: {
+        ...comparison.distance,
+        formattedChange: formatChange(comparison.distance.changePercentage),
       },
-      durationTrend: {
-        value: trends.durationTrend,
-        formatted: formatTrend(trends.durationTrend),
-        isPositive: trends.durationTrend >= 0,
+      pace: {
+        ...comparison.pace,
+        formattedChange: formatChange(comparison.pace.changePercentage),
       },
-      paceTrend: {
-        value: trends.paceTrend,
-        formatted: formatTrend(trends.paceTrend),
-        isPositive: trends.paceTrend <= 0, // 페이스는 낮을수록 좋음
-      },
-      caloriesTrend: {
-        value: trends.caloriesTrend,
-        formatted: formatTrend(trends.caloriesTrend),
-        isPositive: trends.caloriesTrend >= 0,
-      },
-      runCountTrend: {
-        value: trends.runCountTrend,
-        formatted: formatTrend(trends.runCountTrend),
-        isPositive: trends.runCountTrend >= 0,
+      consistency: {
+        ...comparison.consistency,
+        formattedChange: formatChange(comparison.consistency.changePercentage),
       },
     };
-  }, [trends]);
+  }, [comparison]);
 
   return {
-    trends,
-    formattedTrends,
+    comparison,
+    formattedComparison,
     error,
     isLoading,
     refetch,
-    hasTrends: !!trends,
+    hasComparison: !!comparison,
     hasError: !!error,
   };
 };
+
+// PersonalRecordsViewModel과 TrendsViewModel은
+// 별도 파일에서 더 자세하게 구현됩니다.

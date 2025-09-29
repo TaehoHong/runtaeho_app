@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import {
   useGetRunningRecordsQuery,
   useLoadRunningRecordsQuery,
-  useLoadMoreRecordsQuery,
+  useLazyLoadMoreRecordsQuery,
 } from '../../../store/api/runningApi';
 import { RunningRecord, formatRunningRecord } from '../models';
 
@@ -71,7 +71,7 @@ export const useRunningRecordViewModel = () => {
    * Swift loadMoreRecords 메서드 대응
    */
   const useLoadMoreRecords = () => {
-    const [loadMore, { data, error, isLoading }] = useLoadMoreRecordsQuery();
+    const [loadMore, { data, error, isLoading }] = useLazyLoadMoreRecordsQuery();
 
     const loadMoreRecords = useCallback((cursor?: number, size: number = 20) => {
       return loadMore({ cursor, size });

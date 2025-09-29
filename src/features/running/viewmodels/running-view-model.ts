@@ -1,11 +1,11 @@
-import { useState, useCallback } from 'react';
+// import { useState, useCallback } from 'react'; // TODO: 향후 Hook 변환시 사용
 import { RunningStats, RunningLocation, RunningRecord, RunningState } from '../models/running-types';
 
 export class RunningViewModel {
   private listeners: Array<() => void> = [];
   private _state: RunningState = RunningState.IDLE;
   private _currentRecord: RunningRecord | null = null;
-  private _timer: NodeJS.Timeout | null = null;
+  private _timer: ReturnType<typeof setInterval> | null = null;
   private _startTime: Date | null = null;
   private _pausedTime: number = 0;
 

@@ -4,8 +4,8 @@ import {
   useStartRunningMutation,
   useEndRunningMutation,
   useUpdateRunningRecordMutation,
-  useGetRunningRecordsQuery,
-  useLoadRunningRecordsQuery,
+  // useGetRunningRecordsQuery, // TODO: 향후 러닝 기록 목록 조회용
+  // useLoadRunningRecordsQuery, // TODO: 향후 러닝 기록 로드용
   useDeleteRunningRecordMutation,
 } from '../../../store/api/runningApi';
 import {
@@ -14,8 +14,8 @@ import {
   Location,
   createRunningRecord,
   updateRunningRecord,
-  calculateAveragePace,
-  calculateAverageSpeed,
+  // calculateAveragePace, // TODO: 향후 평균 페이스 계산용
+  // calculateAverageSpeed, // TODO: 향후 평균 속도 계산용
   formatRunningRecord,
 } from '../models';
 
@@ -49,7 +49,7 @@ export enum RunningState {
  * Swift StatsManager와 Running 관련 로직들을 React Hook으로 마이그레이션
  */
 export const useRunningViewModel = () => {
-  const dispatch = useAppDispatch();
+  // const dispatch = useAppDispatch(); // TODO: 향후 Redux 액션 디스패치용
 
   // 현재 러닝 상태
   const [runningState, setRunningState] = useState<RunningState>(RunningState.IDLE);
@@ -75,7 +75,7 @@ export const useRunningViewModel = () => {
 
   // 타이머 인터벌
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
+    let interval: ReturnType<typeof setInterval> | null = null;
 
     if (runningState === RunningState.RUNNING && startTime) {
       interval = setInterval(() => {
@@ -91,7 +91,7 @@ export const useRunningViewModel = () => {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [runningState, startTime, distance]);
+  }, [runningState, startTime, distance, updateStats]);
 
   /**
    * 실시간 통계 업데이트

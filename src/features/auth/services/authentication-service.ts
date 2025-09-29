@@ -1,6 +1,5 @@
-import { HttpClient, APIEndpoint } from '../../../shared/services/api/http-client';
-import { ApiPath } from '../../../shared/config/endpoints/api-path';
 import { TokenDto, AuthProvider, AuthenticationError, AUTH_PROVIDER_INFO } from '../models/auth-types';
+import { store } from '../../../store';
 
 export class AuthenticationService {
   private static instance: AuthenticationService;
@@ -16,64 +15,73 @@ export class AuthenticationService {
 
   /**
    * OAuth 인증 코드를 사용해 JWT 토큰을 받아옵니다
+   * RTK Query 기반으로 리팩토링
    * @param provider 인증 제공자 (GOOGLE | APPLE)
    * @param code OAuth 인증 코드
    * @returns Promise<TokenDto>
    */
   async getToken(provider: AuthProvider, code: string): Promise<TokenDto> {
-    console.log(`Getting token for ${AUTH_PROVIDER_INFO[provider].displayName} with code: ${code}`);
+    const authId = Math.random().toString(36).substr(2, 9);
+    const providerName = AUTH_PROVIDER_INFO[provider].displayName;
 
-    const urlPath = this.getOAuthPath(provider);
+    console.log(`🔐 [AUTH-${authId}] ${providerName} 토큰 요청 시작 (RTK Query)`);
+    console.log(`   Provider: ${provider}`);
+    console.log(`   Code: ${code.substring(0, 20)}...${code.substring(code.length - 10)}`);
 
-    const endpoint: APIEndpoint = {
-      path: urlPath,
-      method: 'GET',
-      parameters: { code } // GET 요청이므로 쿼리 파라미터로 전송
-    };
+    const startTime = Date.now();
 
     try {
-      const tokenDto = await HttpClient.getInstance().request<TokenDto>(endpoint);
-      console.log(`Token received for ${AUTH_PROVIDER_INFO[provider].displayName}:`, tokenDto);
-      return tokenDto;
+      // RTK Query mutation을 직접 dispatch
+      const result = await store.dispatch(
+        store.getState().api.endpoints.getOAuthToken.initiate({ provider, code })
+      ).unwrap();
+
+      const duration = Date.now() - startTime;
+
+      console.log(`✅ [AUTH-${authId}] ${providerName} 토큰 수신 성공 (${duration}ms)`);
+      console.log(`   User ID: ${result.userId}`);
+      console.log(`   Access Token: ${result.accessToken ? '***' : 'null'}`);
+      console.log(`   Refresh Token: ${result.refreshToken ? '***' : 'null'}`);
+
+      return result;
     } catch (error) {
-      console.error(`Error occurred for ${AUTH_PROVIDER_INFO[provider].displayName}:`, error);
+      const duration = Date.now() - startTime;
+      console.error(`❌ [AUTH-${authId}] ${providerName} 토큰 요청 실패 (${duration}ms):`, error);
       throw AuthenticationError.networkError(error as Error);
     }
   }
 
   /**
    * 리프레시 토큰을 사용해 새로운 JWT 토큰을 받아옵니다
+   * RTK Query 기반으로 리팩토링
    * @returns Promise<TokenDto>
    */
   async refresh(): Promise<TokenDto> {
-    const endpoint: APIEndpoint = {
-      path: ApiPath.Auth.refresh,
-      method: 'POST'
-    };
+    const refreshId = Math.random().toString(36).substr(2, 9);
+
+    console.log(`🔄 [AUTH-REFRESH-${refreshId}] 토큰 갱신 요청 시작 (RTK Query)`);
+
+    const startTime = Date.now();
 
     try {
-      const tokenDto = await HttpClient.getInstance().request<TokenDto>(endpoint);
-      console.log('Token refreshed:', tokenDto);
-      return tokenDto;
+      // RTK Query mutation을 직접 dispatch
+      const result = await store.dispatch(
+        store.getState().api.endpoints.refreshToken.initiate()
+      ).unwrap();
+
+      const duration = Date.now() - startTime;
+
+      console.log(`✅ [AUTH-REFRESH-${refreshId}] 토큰 갱신 성공 (${duration}ms)`);
+      console.log(`   User ID: ${result.userId}`);
+      console.log(`   Access Token: ${result.accessToken ? '***' : 'null'}`);
+      console.log(`   Refresh Token: ${result.refreshToken ? '***' : 'null'}`);
+
+      return result;
     } catch (error) {
-      console.error('Token refresh error:', error);
+      const duration = Date.now() - startTime;
+      console.error(`❌ [AUTH-REFRESH-${refreshId}] 토큰 갱신 실패 (${duration}ms):`, error);
       throw AuthenticationError.networkError(error as Error);
     }
   }
 
-  /**
-   * AuthProvider에 따라 적절한 OAuth 경로를 반환합니다
-   * @param provider 인증 제공자
-   * @returns OAuth API 경로
-   */
-  private getOAuthPath(provider: AuthProvider): string {
-    switch (provider) {
-      case AuthProvider.GOOGLE:
-        return ApiPath.Auth.googleOAuth;
-      case AuthProvider.APPLE:
-        return ApiPath.Auth.appleOAuth;
-      default:
-        throw new AuthenticationError(`Unsupported auth provider: ${provider}`);
-    }
-  }
 }

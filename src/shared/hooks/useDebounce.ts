@@ -28,7 +28,7 @@ export const useDebounceCallback = <T extends any[]>(
   callback: (...args: T) => void,
   delay: number
 ) => {
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const debouncedCallback = useCallback(
     (...args: T) => {
@@ -79,7 +79,7 @@ export const useAsyncDebounce = <T extends any[], R>(
   asyncFn: (...args: T) => Promise<R>,
   delay: number
 ) => {
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const resolveRef = useRef<((value: R) => void) | null>(null);
   const rejectRef = useRef<((reason?: any) => void) | null>(null);
 
@@ -146,7 +146,7 @@ export const useThrottle = <T extends any[]>(
   delay: number
 ) => {
   const lastRunRef = useRef<number>(0);
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const throttledCallback = useCallback(
     (...args: T) => {

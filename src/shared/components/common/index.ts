@@ -1,5 +1,6 @@
 export { CompleteButton } from './complete-button';
 export { DetailedStatisticsCard } from './detailed-statistics-card';
+export { LoadingView } from './LoadingView';
 export { MainDistanceCard } from './main-distance-card';
 export { PauseButton } from './pause-button';
 export { PlayButton } from './play-button';

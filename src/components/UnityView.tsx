@@ -5,14 +5,12 @@
 
 import React, { useRef, useImperativeHandle, forwardRef } from 'react';
 import {
-  View,
   ViewStyle,
   findNodeHandle,
   UIManager,
   Platform,
-  NativeModules,
+  requireNativeComponent,
 } from 'react-native';
-import { requireNativeComponent } from 'react-native';
 
 // ==========================================
 // Types
@@ -41,7 +39,7 @@ const NativeUnityView = requireNativeComponent<UnityViewProps>('UnityViewManager
 // Unity View Commands
 // ==========================================
 
-const UnityViewCommands = UIManager.getViewManagerConfig('UnityViewManager')?.Commands || {};
+// const UnityViewCommands = UIManager.getViewManagerConfig('UnityViewManager')?.Commands || {}; // TODO: 향후 직접 명령어 사용시
 
 const sendUnityCommand = (viewRef: any, command: string, args: any[] = []) => {
   if (Platform.OS === 'ios') {

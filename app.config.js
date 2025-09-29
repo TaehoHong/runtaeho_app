@@ -14,8 +14,7 @@ export default {
       supportsTablet: true,
       bundleIdentifier: "com.hongtaeho.app",
       usesAppleSignIn: true,
-      appleTeamId: "Y9XN2ZQ9G3",
-      googleServicesFile: "./GoogleService-Info.plist"
+      appleTeamId: "Y9XN2ZQ9G3"
     },
     android: {
       adaptiveIcon: {
@@ -26,8 +25,7 @@ export default {
       },
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
-      package: "com.hongtaeho.app",
-      googleServicesFile: "./google-services.json"
+      package: "com.hongtaeho.app"
     },
     web: {
       output: "static",
@@ -50,8 +48,8 @@ export default {
       [
         "@react-native-google-signin/google-signin",
         {
-          iosUrlScheme: process.env.GOOGLE_CLIENT_ID ?
-            `com.googleusercontent.apps.${process.env.GOOGLE_CLIENT_ID.split('-')[0]}-${process.env.GOOGLE_CLIENT_ID.split('-')[1]}` :
+          iosUrlScheme: process.env.GOOGLE_IOS_CLIENT_ID ?
+            `com.googleusercontent.apps.${process.env.GOOGLE_IOS_CLIENT_ID.split('-')[0]}-${process.env.GOOGLE_IOS_CLIENT_ID.split('-')[1]}` :
             "com.googleusercontent.apps.620303212609-581f7f3bgj104gtaermbtjqqf8u6khb8"
         }
       ]
@@ -63,7 +61,8 @@ export default {
     extra: {
       // 앱에서 접근 가능한 환경변수
       apiBaseUrl: process.env.API_BASE_URL,
-      googleClientId: process.env.GOOGLE_CLIENT_ID,
+      googleIosClientId: process.env.GOOGLE_IOS_CLIENT_ID,
+      googleServerClientId: process.env.GOOGLE_SERVER_CLIENT_ID,
       // 민감하지 않은 설정만 여기에
     }
   }

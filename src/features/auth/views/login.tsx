@@ -1,24 +1,22 @@
-import React, { useState, useMemo } from 'react';
+import { router } from 'expo-router';
+import React, { useMemo, useState } from 'react';
 import {
-  View,
-  StyleSheet,
-  Dimensions,
   Alert,
+  Dimensions,
   Platform,
+  StyleSheet,
   Text,
   TouchableOpacity,
+  View,
 } from 'react-native';
-import {
-  GoogleSigninButton,
-} from '@react-native-google-signin/google-signin';
-import { AuthViewModel } from '../viewmodels/auth-view-model';
-import { router } from 'expo-router';
+import { AuthViewModel } from '../viewmodels/AuthViewModel';
 
 const { width, height } = Dimensions.get('window');
 
 // iOS 전용 Apple Sign-In 모듈: 웹/안드로이드에선 로드하지 않음
 let AppleButton: any = null;
 if (Platform.OS === 'ios') {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const mod = require('@invertase/react-native-apple-authentication');
   AppleButton = mod.AppleButton;
 }
@@ -84,13 +82,17 @@ export const Login: React.FC = () => {
   return (
     <View style={styles.container}>
       <View style={styles.buttonContainer}>
-        <GoogleSigninButton
-          style={styles.googleButton}
-          size={GoogleSigninButton.Size.Wide}
-          color={GoogleSigninButton.Color.Light}
+
+        {/* Google 로그인 버튼 */}
+        <TouchableOpacity
+          style={[styles.googleButton, { backgroundColor: '#4285F4', justifyContent: 'center', alignItems: 'center' }]}
           onPress={handleGoogleSignIn}
           disabled={isLoading}
-        />
+        >
+          <Text style={{ color: 'white', fontWeight: 'bold' }}>
+            {isLoading ? '로그인 중...' : 'Google로 로그인'}
+          </Text>
+        </TouchableOpacity>
 
         {Platform.OS === 'ios' && AppleButton ? (
           <AppleButton
@@ -100,6 +102,16 @@ export const Login: React.FC = () => {
             onPress={handleAppleSignIn}
           />
         ) : null}
+
+        {/* Unity 테스트를 위한 임시 버튼 */}
+        <TouchableOpacity
+          style={[styles.googleButton, { backgroundColor: '#4CAF50', justifyContent: 'center', alignItems: 'center', marginTop: 10 }]}
+          onPress={() => router.push('/unity-test')}
+        >
+          <Text style={{ color: 'white', fontWeight: 'bold' }}>
+            Unity 테스트 (임시)
+          </Text>
+        </TouchableOpacity>
 
         <TouchableOpacity style={styles.unityTestButton} onPress={handleUnityTest}>
           <Text style={styles.unityTestButtonText}>🎮 Unity Bridge 테스트</Text>

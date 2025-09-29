@@ -99,7 +99,7 @@ export interface UnityError {
   type: string;
   message: string;
   error?: string;
-  data?: any;
+  data?: Record<string, unknown>;
 }
 
 // ==========================================
@@ -124,7 +124,7 @@ export interface UnityEventListeners {
 export interface RNUnityBridgeModule {
   // Unity 메시지 전송 (순수 브리지)
   sendUnityMessage(objectName: string, methodName: string, parameter: string): Promise<void>;
-  sendUnityJSON(objectName: string, methodName: string, data: any[]): Promise<void>;
+  sendUnityJSON(objectName: string, methodName: string, data: unknown[]): Promise<void>;
 
   // 이벤트 리스너 등록/해제
   addListener(eventName: string): void;

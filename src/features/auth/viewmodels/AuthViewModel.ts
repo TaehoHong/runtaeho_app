@@ -1,214 +1,148 @@
-import { useCallback } from 'react';
-import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import {
-  loginStart,
-  loginSuccess,
-  loginFailure,
-  logout,
-  restoreAuthState,
-  setTokens,
-  selectAuth,
-  selectIsLoggedIn,
-  selectCurrentUser,
-  selectAuthLoading,
-  selectAuthError,
-} from '../../../store/slices/authSlice';
-import {
-  useGetOAuthTokenMutation,
-  useRefreshTokenMutation,
-  useLogoutMutation,
-} from '../../../store/api/authApi';
-import { AuthProvider, UserAuthData, createUserAuthDataFromToken } from '../models';
-import { useBaseViewModel, STORAGE_KEYS } from '../../../shared/viewmodels';
-import { useApiError, useLoadingState } from '../../../shared/hooks';
+  GoogleSignin,
+  statusCodes
+} from '@react-native-google-signin/google-signin';
+import { Platform } from 'react-native';
+import Constants from 'expo-constants';
+import { UserStateManager } from '../../../shared/services/user-state-manager';
+import { UserAuthData, AuthProvider } from '../models/auth-types';
+import { AuthenticationService } from '../services/authentication-service';
+import { store } from '../../../store';
+import { loginSuccess } from '../../../store/slices/authSlice';
 
-/**
- * Authentication ViewModel
- * Swift UserStateManager의 인증 관련 기능들을 React Hook으로 마이그레이션
- * Base ViewModel 패턴 적용으로 코드 중복 제거 및 에러 처리 개선
- */
-export const useAuthViewModel = () => {
-  const dispatch = useAppDispatch();
+let appleAuth: any = null;
+if (Platform.OS === 'ios') {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const mod = require('@invertase/react-native-apple-authentication');
+  appleAuth = mod.appleAuth;
+}
 
-  // Base ViewModel 기능 사용
-  const { handleError, storage } = useBaseViewModel();
-  const { handleRtkError } = useApiError();
-  const { loading: customLoading, withLoading } = useLoadingState();
+export class AuthViewModel {
+  private userStateManager = UserStateManager.getInstance();
+  private authService = AuthenticationService.shared;
 
-  // Selectors
-  const authState = useAppSelector(selectAuth);
-  const isLoggedIn = useAppSelector(selectIsLoggedIn);
-  const currentUser = useAppSelector(selectCurrentUser);
-  const isLoading = useAppSelector(selectAuthLoading) || customLoading;
-  const error = useAppSelector(selectAuthError);
+  constructor() {
+    this.configureGoogleSignIn();
+  }
 
-  // API Mutations
-  const [getOAuthToken] = useGetOAuthTokenMutation();
-  const [refreshTokenMutation] = useRefreshTokenMutation();
-  const [logoutMutation] = useLogoutMutation();
+  private configureGoogleSignIn() {
+    const googleIosClientId = Constants.expoConfig?.extra?.googleIosClientId ||
+                             '620303212609-581f7f3bgj104gtaermbtjqqf8u6khb8.apps.googleusercontent.com';
+    const googleServerClientId = Constants.expoConfig?.extra?.googleServerClientId ||
+                                 '620303212609-tqerha7lmhgr719hd8qsd09kualf72l9.apps.googleusercontent.com';
 
-  /**
-   * OAuth 로그인 처리
-   * Swift: getToken(provider:code:) 메서드 대응
-   * Base ViewModel과 Error Handling 시스템 적용
-   */
-  const loginWithOAuth = useCallback(async (provider: AuthProvider, code: string) => {
-    return withLoading(async () => {
-      try {
-        dispatch(loginStart());
+    console.log('🔧 [DEBUG] Google 클라이언트 ID 설정:');
+    console.log('  - iOS Client ID:', googleIosClientId);
+    console.log('  - Server Client ID:', googleServerClientId);
+    console.log('  - Constants.expoConfig?.extra:', Constants.expoConfig?.extra);
 
-        const tokenResult = await getOAuthToken({ provider, code }).unwrap();
+    GoogleSignin.configure({
+      iosClientId: googleIosClientId,
+      webClientId: googleServerClientId,
+      offlineAccess: true,
+    });
+  }
 
-        // TokenDto에서 UserAuthData 생성 (Swift createUserAuthDataFromToken과 동일)
-        const userData = createUserAuthDataFromToken(tokenResult);
-
-        // Base ViewModel의 storage 사용 (에러 처리 개선)
-        const storageSuccess = await storage.multiSet([
-          [STORAGE_KEYS.ACCESS_TOKEN, userData.accessToken],
-          [STORAGE_KEYS.REFRESH_TOKEN, userData.refreshToken],
-          [STORAGE_KEYS.CURRENT_USER, userData],
-          [STORAGE_KEYS.IS_LOGGED_IN, true],
-        ]);
-
-        if (!storageSuccess) {
-          throw new Error('사용자 정보 저장에 실패했습니다.');
-        }
-
-        dispatch(loginSuccess(userData));
-        return userData;
-      } catch (error) {
-        const errorInfo = handleRtkError(error, { provider, action: 'login' });
-        dispatch(loginFailure(errorInfo.message));
-        throw error;
-      }
-    }, (error) => handleError(error).message);
-  }, [dispatch, getOAuthToken, storage, withLoading, handleRtkError, handleError]);
-
-  /**
-   * 로그아웃 처리
-   * Swift: logout 메서드 대응
-   * 에러 처리 개선 및 Base ViewModel 적용
-   */
-  const performLogout = useCallback(async () => {
-    return withLoading(async () => {
-      try {
-        // 서버에 로그아웃 요청
-        await logoutMutation().unwrap();
-      } catch (error) {
-        // 서버 로그아웃 실패해도 로컬 상태는 클리어
-        handleError(error, { action: 'server-logout' }, false);
-      } finally {
-        // Base ViewModel의 storage 사용 (클리어 작업)
-        const clearSuccess = await storage.multiRemove([
-          STORAGE_KEYS.ACCESS_TOKEN,
-          STORAGE_KEYS.REFRESH_TOKEN,
-          STORAGE_KEYS.CURRENT_USER,
-          STORAGE_KEYS.IS_LOGGED_IN,
-        ]);
-
-        if (!clearSuccess) {
-          console.warn('로컬 저장소 클리어에 실패했습니다.');
-        }
-
-        dispatch(logout());
-      }
-    }, (error) => '로그아웃 중 오류가 발생했습니다.');
-  }, [logoutMutation, dispatch, storage, withLoading, handleError]);
-
-  /**
-   * 토큰 갱신
-   * Swift: validateAndRefreshTokenIfNeeded 메서드 대응
-   * 에러 처리 및 Storage 관리 개선
-   */
-  const refreshToken = useCallback(async () => {
+  async signInWithGoogle(): Promise<{success: boolean; error?: string}> {
     try {
-      const tokenResult = await refreshTokenMutation().unwrap();
+      await GoogleSignin.hasPlayServices();
+      const userInfo = await GoogleSignin.signIn();
 
-      // Base ViewModel의 storage 사용
-      const storageSuccess = await storage.multiSet([
-        [STORAGE_KEYS.ACCESS_TOKEN, tokenResult.accessToken],
-        [STORAGE_KEYS.REFRESH_TOKEN, tokenResult.refreshToken],
-      ]);
+      if (userInfo.data?.serverAuthCode) {
+        console.log('Google Sign-In 성공:', userInfo.data.serverAuthCode);
 
-      if (!storageSuccess) {
-        throw new Error('토큰 저장에 실패했습니다.');
+        // 백엔드 API를 통해 JWT 토큰 받기
+        const tokenDto = await this.authService.getToken(
+          AuthProvider.GOOGLE,
+          userInfo.data.serverAuthCode
+        );
+
+        // UserAuthData 형태로 변환하여 로그인 처리
+        const userData: UserAuthData = {
+          accessToken: tokenDto.accessToken,
+          refreshToken: tokenDto.refreshToken,
+          nickname: userInfo.data.user.name || 'Google User',
+          email: userInfo.data.user.email,
+          profileImage: userInfo.data.user.photo || '',
+          provider: 'GOOGLE',
+          userId: tokenDto.userId.toString()
+        };
+
+        await this.userStateManager.login(userData);
+
+        // Redux store에도 로그인 상태 업데이트
+        store.dispatch(loginSuccess(userData));
+
+        return { success: true };
       }
 
-      dispatch(setTokens({
-        accessToken: tokenResult.accessToken,
-        refreshToken: tokenResult.refreshToken,
-      }));
-
-      return tokenResult;
-    } catch (error) {
-      // 토큰 갱신 실패 시 로그아웃
-      handleRtkError(error, { action: 'token-refresh' });
-      await performLogout();
-      throw error;
+      return { success: false, error: 'No server auth code received' };
+    } catch (error: any) {
+      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+        return { success: false, error: 'Sign in cancelled' };
+      } else if (error.code === statusCodes.IN_PROGRESS) {
+        return { success: false, error: 'Sign in already in progress' };
+      } else {
+        console.error('Google Sign-In Error:', error);
+        return { success: false, error: error.message || 'Unknown error' };
+      }
     }
-  }, [refreshTokenMutation, dispatch, storage, handleRtkError, performLogout]);
+  }
 
-  /**
-   * 앱 시작 시 사용자 상태 복원
-   * Swift: loadUserState 메서드 대응
-   * Base ViewModel Storage 사용 및 에러 처리 개선
-   */
-  const restoreUserState = useCallback(async () => {
+  async signInWithApple(): Promise<{success: boolean; error?: string}> {
+    if (Platform.OS !== 'ios' || !appleAuth) {
+      return { success: false, error: 'Apple Sign-In not available' };
+    }
+
     try {
-      const [storedUser, storedIsLoggedIn] = await Promise.all([
-        storage.get<UserAuthData>(STORAGE_KEYS.CURRENT_USER),
-        storage.get<boolean>(STORAGE_KEYS.IS_LOGGED_IN),
-      ]);
+      const appleAuthRequestResponse = await appleAuth.performRequest({
+        requestedOperation: appleAuth.Operation.LOGIN,
+        requestedScopes: [appleAuth.Scope.EMAIL, appleAuth.Scope.FULL_NAME],
+      });
 
-      if (storedUser && storedIsLoggedIn) {
-        dispatch(restoreAuthState(storedUser));
+      if (appleAuthRequestResponse.authorizationCode) {
+        console.log('Apple Sign-In 성공:', appleAuthRequestResponse.authorizationCode);
 
-        // 토큰 유효성 검증 및 갱신 시도
-        await refreshToken();
+        // 백엔드 API를 통해 JWT 토큰 받기
+        const tokenDto = await this.authService.getToken(
+          AuthProvider.APPLE,
+          appleAuthRequestResponse.authorizationCode
+        );
+
+        // UserAuthData 형태로 변환하여 로그인 처리
+        const userData: UserAuthData = {
+          accessToken: tokenDto.accessToken,
+          refreshToken: tokenDto.refreshToken,
+          nickname: appleAuthRequestResponse.fullName?.givenName || 'Apple User',
+          email: appleAuthRequestResponse.email,
+          provider: 'APPLE',
+          userId: tokenDto.userId.toString()
+        };
+
+        await this.userStateManager.login(userData);
+
+        // Redux store에도 로그인 상태 업데이트
+        store.dispatch(loginSuccess(userData));
+
+        return { success: true };
       }
-    } catch (error) {
-      handleError(error, { action: 'restore-user-state' }, false);
-      // 복원 실패 시 로그아웃
-      await performLogout();
-    }
-  }, [dispatch, refreshToken, performLogout, storage, handleError]);
 
-  /**
-   * 앱 포그라운드 진입 시 처리
-   * Swift: handleAppWillEnterForeground 메서드 대응
-   */
-  const handleAppWillEnterForeground = useCallback(async () => {
-    if (isLoggedIn) {
-      try {
-        await refreshToken();
-      } catch (error) {
-        console.warn('Token refresh failed on foreground:', error);
+      return { success: false, error: 'No authorization code received' };
+    } catch (error: any) {
+      if (error.code === appleAuth.Error.CANCELED) {
+        return { success: false, error: 'Sign in cancelled' };
+      } else {
+        console.error('Apple Sign-In Error:', error);
+        return { success: false, error: error.message || 'Unknown error' };
       }
     }
-  }, [isLoggedIn, refreshToken]);
+  }
 
-  /**
-   * 앱 백그라운드 진입 시 처리
-   * Swift: handleAppDidEnterBackground 메서드 대응
-   */
-  const handleAppDidEnterBackground = useCallback(() => {
-    // 필요시 상태 저장 로직 추가
-  }, []);
+  async signOut(): Promise<void> {
+    await this.userStateManager.logout();
+  }
 
-  return {
-    // State
-    authState,
-    isLoggedIn,
-    currentUser,
-    isLoading,
-    error,
-
-    // Actions
-    loginWithOAuth,
-    refreshToken,
-    logout: performLogout,
-    restoreUserState,
-    handleAppWillEnterForeground,
-    handleAppDidEnterBackground,
-  };
-};
+  get isLoggedIn(): boolean {
+    return this.userStateManager.currentState.isLoggedIn;
+  }
+}
