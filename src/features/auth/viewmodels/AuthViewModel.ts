@@ -5,7 +5,8 @@ import {
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { UserStateManager } from '../../../shared/services/user-state-manager';
-import { UserAuthData, AuthProvider } from '../models/auth-types';
+import { UserAuthData } from '../models/UserAuthData';
+import { AuthProvider } from '../models/auth-types';
 import { AuthenticationService } from '../services/authentication-service';
 import { store } from '../../../store';
 import { loginSuccess } from '../../../store/slices/authSlice';
@@ -59,13 +60,12 @@ export class AuthViewModel {
 
         // UserAuthData 형태로 변환하여 로그인 처리
         const userData: UserAuthData = {
+          id: tokenDto.userId,
           accessToken: tokenDto.accessToken,
           refreshToken: tokenDto.refreshToken,
           nickname: userInfo.data.user.name || 'Google User',
-          email: userInfo.data.user.email,
-          profileImage: userInfo.data.user.photo || '',
-          provider: 'GOOGLE',
-          userId: tokenDto.userId.toString()
+          email: userInfo.data.user.email || '',
+          profileImageURL: userInfo.data.user.photo || undefined
         };
 
         await this.userStateManager.login(userData);
@@ -111,12 +111,12 @@ export class AuthViewModel {
 
         // UserAuthData 형태로 변환하여 로그인 처리
         const userData: UserAuthData = {
+          id: tokenDto.userId,
           accessToken: tokenDto.accessToken,
           refreshToken: tokenDto.refreshToken,
           nickname: appleAuthRequestResponse.fullName?.givenName || 'Apple User',
-          email: appleAuthRequestResponse.email,
-          provider: 'APPLE',
-          userId: tokenDto.userId.toString()
+          email: appleAuthRequestResponse.email || '',
+          profileImageURL: undefined
         };
 
         await this.userStateManager.login(userData);

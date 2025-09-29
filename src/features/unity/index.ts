@@ -9,8 +9,8 @@
 export { UnityService, unityService } from './services/UnityService';
 export type { UnityServiceInterface } from './services/UnityService';
 
-// New Unity Bridge Integration
-export { UnityBridgeProvider, useUnityBridge } from '~/contexts/UnityBridgeContext';
+// Unity Bridge Integration (Redux + Service Pattern)
+// Note: UnityBridgeContext는 사용하지 않고 Redux + UnityBridgeService 패턴 사용
 export { createUnityBridgeService, disposeUnityBridgeService, getUnityBridgeService } from '~/features/unity/bridge/UnityBridgeService';
 export {
   changeAvatar, checkUnityConnection, getUnityStatus, selectCharacterState,
@@ -20,13 +20,13 @@ export {
 
 // Unity Types and DTOs
 export type {
-  UnityAnimationType, UnityAvatarDto, UnityAvatarUpdateOptions, UnityBackgroundDto, UnityBridgeMessage, UnityConfiguration, UnityEventData,
+  UnityAnimationType, UnityAvatarDto, UnityAvatarUpdateOptions, UnityBackgroundDto, UnityBridgeMessage, UnityConfiguration, UnityEvent,
   UnityEventType, UnityItemData, UnityRunningDto, UnityStatus, UnityVector3
 } from './types/UnityTypes';
 
-// Unity Components (현재는 주석 처리)
-export { UnityView } from './components/UnityView';
-export type { UnityViewProps, UnityViewRef } from './components/UnityView';
+// Unity Components (주석 처리 - 컴포넌트 구현 필요)
+// export { UnityView } from './components/UnityView';
+// export type { UnityViewProps, UnityViewRef } from './components/UnityView';
 
 // Unity Bridge (현재는 주석 처리)
 export { UnityBridge } from './bridge/UnityBridge';

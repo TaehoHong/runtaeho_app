@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { UserStateManager } from '../services/user-state-manager';
-import { UserAuthData } from '../../features/auth/models/auth-types';
+import { UserAuthData } from '../../features/auth/models/UserAuthData';
 
 interface UserState {
   isLoggedIn: boolean;

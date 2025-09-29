@@ -6,7 +6,7 @@
  */
 
 import { createUnityBridgeService } from '~/features/unity/bridge/UnityBridgeService';
-import type { AvatarItem, CharacterMotion } from '~/types/UnityTypes';
+import type { AvatarItem, CharacterMotion } from '~/features/unity/types/UnityTypes';
 import type { UnityAnimationType, UnityAvatarDto, UnityBackgroundDto, UnityRunningDto } from '../types/UnityTypes';
 
 /**

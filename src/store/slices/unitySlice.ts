@@ -13,7 +13,7 @@ import type {
   UnityBridgeConfig,
   UnityError,
   UnityStatus,
-} from '~/types/UnityTypes';
+} from '~/features/unity/types/UnityTypes';
 
 // ==========================================
 // State 인터페이스

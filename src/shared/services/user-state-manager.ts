@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { UserAuthData } from '../../features/auth/models/auth-types';
+import { UserAuthData } from '../../features/auth/models/UserAuthData';
 
 interface UserState {
   isLoggedIn: boolean;

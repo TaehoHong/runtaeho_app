@@ -4,7 +4,7 @@
  */
 
 import { useCallback, useMemo } from 'react';
-import { CharacterMotion } from '../../types/UnityTypes';
+import { CharacterMotion } from '../../features/unity/types/UnityTypes';
 
 // ==========================================
 // 캐릭터 제어 콜백 최적화

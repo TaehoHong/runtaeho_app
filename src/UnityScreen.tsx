@@ -1,108 +1,146 @@
 // UnityScreen.tsx - React Native 사용 예시
 import React, { useEffect, useState } from 'react';
-import { View, Button, StyleSheet, Alert } from 'react-native';
-import { UnityBridge, UnityView } from './UnityBridge';
+import { View, Button, StyleSheet, Alert, Text } from 'react-native';
+import { UnityBridge } from './features/unity/bridge/UnityBridge';
+import { getUnityBridgeService } from './features/unity/bridge/UnityBridgeService';
 
 export const UnityScreen: React.FC = () => {
   const [isUnityReady, setIsUnityReady] = useState(false);
-
+  const unityService = getUnityBridgeService();
+  
   useEffect(() => {
-    let readyListener: any;
-    let eventListener: any;
-    let errorListener: any;
-
+    let cleanupFns: Array<() => void> = [];
+    
     const setupUnity = async () => {
       try {
-        // Unity 초기화
-        await UnityBridge.initialize();
-        
-        // 이벤트 리스너 등록
-        readyListener = UnityBridge.addEventListener('UnityReady', (event) => {
+        // Unity Ready 리스너 등록
+        const readyCleanup = UnityBridge.addEventListener('UnityReady', (event) => {
           console.log('Unity is ready:', event);
           setIsUnityReady(true);
         });
-
-        eventListener = UnityBridge.addEventListener('UnityEvent', (event) => {
-          console.log('Unity Event:', event.eventName, event.data);
-          // Unity에서 온 이벤트 처리
-          handleUnityEvent(event);
+        cleanupFns.push(readyCleanup);
+        
+        // Unity Message 리스너 등록
+        const messageCleanup = UnityBridge.addEventListener('UnityMessage', (event) => {
+          console.log('Unity Message:', event);
+          handleUnityMessage(event);
         });
-
-        errorListener = UnityBridge.addEventListener('UnityError', (error) => {
+        cleanupFns.push(messageCleanup);
+        
+        // Unity Error 리스너 등록
+        const errorCleanup = UnityBridge.addEventListener('UnityError', (error) => {
           console.error('Unity Error:', error);
-          Alert.alert('Unity Error', error.message);
+          Alert.alert('Unity Error', error.error || 'Unknown error occurred');
         });
-
+        cleanupFns.push(errorCleanup);
+        
+        console.log('Unity setup completed');
       } catch (error) {
         console.error('Failed to setup Unity:', error);
-        Alert.alert('Setup Failed', 'Failed to initialize Unity');
+        Alert.alert('Setup Error', 'Failed to initialize Unity');
       }
     };
-
+    
     setupUnity();
-
+    
     // Cleanup
     return () => {
-      UnityBridge.removeEventListener(readyListener);
-      UnityBridge.removeEventListener(eventListener);
-      UnityBridge.removeEventListener(errorListener);
+      cleanupFns.forEach(cleanup => cleanup());
     };
   }, []);
-
-  const handleUnityEvent = (event: any) => {
-    switch (event.eventName) {
-      case 'PlayerScored':
-        // 점수 처리
-        console.log('Player scored:', event.data);
-        break;
-      case 'GameOver':
-        // 게임 오버 처리
-        console.log('Game over:', event.data);
-        break;
-      default:
-        console.log('Unknown event:', event);
-    }
+  
+  const handleUnityMessage = (message: any) => {
+    // Unity에서 온 메시지 처리
+    console.log('Processing Unity message:', message);
   };
-
-  const sendMessageToUnity = async (action: string) => {
+  
+  const handleShowUnity = async () => {
     try {
-      // Unity의 GameManager 오브젝트의 메서드 호출
-      await UnityBridge.sendMessage('GameManager', action, JSON.stringify({ 
-        timestamp: Date.now(),
-        userId: 'user123'
-      }));
+      await UnityBridge.showUnity();
     } catch (error) {
-      console.error('Failed to send message:', error);
+      Alert.alert('Error', 'Failed to show Unity');
     }
   };
-
+  
+  const handleHideUnity = async () => {
+    try {
+      await UnityBridge.hideUnity();
+    } catch (error) {
+      Alert.alert('Error', 'Failed to hide Unity');
+    }
+  };
+  
+  const handleSendMessage = async () => {
+    try {
+      await UnityBridge.sendMessage('Charactor', 'SetSpeed', '5');
+      Alert.alert('Success', 'Message sent to Unity');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to send message to Unity');
+    }
+  };
+  
+  const handleMoveCharacter = async () => {
+    if (!unityService) {
+      Alert.alert('Error', 'Unity service not initialized');
+      return;
+    }
+    
+    try {
+      await unityService.startMoving(5.0);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to move character');
+    }
+  };
+  
+  const handleStopCharacter = async () => {
+    if (!unityService) {
+      Alert.alert('Error', 'Unity service not initialized');
+      return;
+    }
+    
+    try {
+      await unityService.stopMoving();
+    } catch (error) {
+      Alert.alert('Error', 'Failed to stop character');
+    }
+  };
+  
+  const handleAttack = async () => {
+    if (!unityService) {
+      Alert.alert('Error', 'Unity service not initialized');
+      return;
+    }
+    
+    try {
+      await unityService.performAttack();
+    } catch (error) {
+      Alert.alert('Error', 'Failed to perform attack');
+    }
+  };
+  
   return (
     <View style={styles.container}>
-      {/* Unity View */}
-      <UnityView style={styles.unityView} />
+      <Text style={styles.title}>Unity Bridge Demo</Text>
+      <Text style={styles.status}>
+        Unity Status: {isUnityReady ? 'Ready ✅' : 'Not Ready ❌'}
+      </Text>
       
-      {/* Control Buttons */}
-      <View style={styles.controls}>
-        <Button 
-          title="Start Game" 
-          onPress={() => sendMessageToUnity('StartGame')}
-          disabled={!isUnityReady}
-        />
-        <Button 
-          title="Pause" 
-          onPress={() => UnityBridge.pause(true)}
-          disabled={!isUnityReady}
-        />
-        <Button 
-          title="Resume" 
-          onPress={() => UnityBridge.pause(false)}
-          disabled={!isUnityReady}
-        />
-        <Button 
-          title="Reset" 
-          onPress={() => sendMessageToUnity('ResetGame')}
-          disabled={!isUnityReady}
-        />
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Unity Control</Text>
+        <Button title="Show Unity" onPress={handleShowUnity} />
+        <View style={styles.buttonSpacing} />
+        <Button title="Hide Unity" onPress={handleHideUnity} />
+        <View style={styles.buttonSpacing} />
+        <Button title="Send Test Message" onPress={handleSendMessage} />
+      </View>
+      
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Character Control</Text>
+        <Button title="Move Character" onPress={handleMoveCharacter} />
+        <View style={styles.buttonSpacing} />
+        <Button title="Stop Character" onPress={handleStopCharacter} />
+        <View style={styles.buttonSpacing} />
+        <Button title="Attack" onPress={handleAttack} />
       </View>
     </View>
   );
@@ -111,18 +149,34 @@ export const UnityScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    padding: 20,
+    backgroundColor: '#f5f5f5',
   },
-  unityView: {
-    flex: 1,
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 20,
   },
-  controls: {
-    position: 'absolute',
-    bottom: 50,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingHorizontal: 20,
+  status: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  section: {
+    backgroundColor: 'white',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 15,
+  },
+  buttonSpacing: {
+    height: 10,
   },
 });
+
+export default UnityScreen;

@@ -1,4 +1,4 @@
-export * from './running';
+export * from './RunningView';
 export * from './running-active';
 export * from './running-finished';
 export * from './running-paused';

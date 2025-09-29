@@ -86,7 +86,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         } catch (navError) {
           console.log('⚠️ [AuthProvider] /(tabs)/running 실패, /(tabs) 시도');
           try {
-            router.replace('/(tabs)');
+            router.replace('/(tabs)' as any);
             console.log('✅ [AuthProvider] 네비게이션 성공: /(tabs)');
           } catch (navError2) {
             console.log('⚠️ [AuthProvider] /(tabs) 실패, push 시도');

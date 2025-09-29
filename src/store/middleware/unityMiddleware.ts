@@ -43,6 +43,21 @@ const unityEventToAction = {
   },
 
   onUnityStatus: (event: any) => updateUnityStatus({
+    // 기본 상태
+    isInitialized: event.isInitialized || true,
+    isVisible: event.isVisible || true,
+    isLoading: event.isLoading || false,
+    currentScene: event.currentScene || 'MainScene',
+    currentAnimation: event.currentAnimation || null,
+
+    // 성능 정보
+    performance: {
+      fps: event.performance?.fps || 60,
+      memoryUsage: event.performance?.memoryUsage || 0,
+      renderTime: event.performance?.renderTime || 0,
+    },
+
+    // 캐릭터 매니저 관련
     characterManagerExists: event.characterManagerExists || false,
     currentSpeed: event.currentSpeed || 0,
     timestamp: event.timestamp || new Date().toISOString(),

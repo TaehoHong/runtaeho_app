@@ -52,8 +52,8 @@ export const RunningView: React.FC = () => {
     }
 
     return () => {
-      // 컴포넌트 언마운트 시 Unity 이벤트 리스너 정리
-      unityBridge.removeAllEventListeners();
+      // 컴포넌트 언마운트 시 정리 작업
+      console.log('🔄 [RunningView] 컴포넌트 언마운트');
     };
   }, [viewState, dispatch, unityBridge]);
 

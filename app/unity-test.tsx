@@ -2,8 +2,8 @@
  * Unity Bridge 테스트 페이지
  */
 
-import UnityTestScreen from '../src/components/UnityTestScreen';
+import { UnityScreen } from '../src/UnityScreen';
 
 export default function UnityTestPage() {
-  return <UnityTestScreen />;
+  return <UnityScreen />;
 }

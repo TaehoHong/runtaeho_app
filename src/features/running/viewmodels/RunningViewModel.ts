@@ -73,26 +73,6 @@ export const useRunningViewModel = () => {
   const [updateRecordMutation] = useUpdateRunningRecordMutation();
   const [deleteRecordMutation] = useDeleteRunningRecordMutation();
 
-  // 타이머 인터벌
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | null = null;
-
-    if (runningState === RunningState.RUNNING && startTime) {
-      interval = setInterval(() => {
-        const now = Date.now();
-        const elapsed = Math.floor((now - startTime) / 1000);
-        setElapsedTime(elapsed);
-
-        // 실시간 통계 업데이트 (Swift updateStats 메서드와 동일)
-        updateStats(distance, elapsed);
-      }, 1000);
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [runningState, startTime, distance, updateStats]);
-
   /**
    * 실시간 통계 업데이트
    * Swift StatsManager.updateStats 메서드와 동일
@@ -128,6 +108,26 @@ export const useRunningViewModel = () => {
       calories: caloriesBurned,
     });
   }, []);
+
+  // 타이머 인터벌
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | null = null;
+
+    if (runningState === RunningState.RUNNING && startTime) {
+      interval = setInterval(() => {
+        const now = Date.now();
+        const elapsed = Math.floor((now - startTime) / 1000);
+        setElapsedTime(elapsed);
+
+        // 실시간 통계 업데이트 (Swift updateStats 메서드와 동일)
+        updateStats(distance, elapsed);
+      }, 1000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [runningState, startTime, distance, updateStats]);
 
   /**
    * 러닝 시작

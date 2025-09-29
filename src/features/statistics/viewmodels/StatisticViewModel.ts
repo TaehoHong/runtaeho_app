@@ -18,7 +18,7 @@ import {
   PersonalRecords,
   calculateStatistics,
   filterRecordsByPeriod,
-  createChartData,
+  generateChartData,
 } from '../models';
 
 /**
@@ -49,7 +49,7 @@ export const useStatisticsViewModel = (period: Period = Period.MONTH) => {
     error: dashboardError,
     isLoading: dashboardLoading,
     refetch: refetchDashboard,
-  } = useGetDashboardDataQuery();
+  } = useGetDashboardDataQuery({ period: selectedPeriod });
 
   // 로컬 계산을 위한 running records
   const {
@@ -68,22 +68,10 @@ export const useStatisticsViewModel = (period: Period = Period.MONTH) => {
 
     return {
       ...summary,
-      totalDistance: {
-        ...summary.totalDistance,
-        formattedValue: `${(summary.totalDistance.value / 1000).toFixed(2)}km`,
-      },
-      totalDuration: {
-        ...summary.totalDuration,
-        formattedValue: `${Math.floor(summary.totalDuration.value / 3600)}시간 ${Math.floor((summary.totalDuration.value % 3600) / 60)}분`,
-      },
-      averagePace: {
-        ...summary.averagePace,
-        formattedValue: `${summary.averagePace.value.toFixed(2)}분/km`,
-      },
-      totalCalories: {
-        ...summary.totalCalories,
-        formattedValue: `${summary.totalCalories.value}kcal`,
-      },
+      totalDistanceFormatted: `${(summary.totalDistance / 1000).toFixed(2)}km`,
+      totalDurationFormatted: `${Math.floor(summary.totalDuration / 3600)}시간 ${Math.floor((summary.totalDuration % 3600) / 60)}분`,
+      averagePaceFormatted: `${summary.averagePace.toFixed(2)}분/km`,
+      totalCaloriesFormatted: `${summary.totalCalories}kcal`,
     };
   }, [summary]);
 
@@ -106,7 +94,9 @@ export const useStatisticsViewModel = (period: Period = Period.MONTH) => {
   const localStats = useMemo(() => {
     if (!runningRecords) return null;
 
-    const filteredRecords = filterRecordsByPeriod(runningRecords, selectedPeriod);
+    // CursorResult<RunningRecord> 형태의 데이터에서 content 배열 추출
+    const recordsArray = Array.isArray(runningRecords) ? runningRecords : runningRecords.content || [];
+    const filteredRecords = filterRecordsByPeriod(recordsArray, selectedPeriod);
     return calculateStatistics(filteredRecords);
   }, [runningRecords, selectedPeriod]);
 
@@ -131,7 +121,8 @@ export const useStatisticsViewModel = (period: Period = Period.MONTH) => {
 
   // 통계 데이터 유효성 검사
   const hasValidData = useMemo(() => {
-    return !!(summary || localStats) && !!(chartData || runningRecords);
+    const hasRecords = runningRecords && (Array.isArray(runningRecords) ? runningRecords.length > 0 : runningRecords.content?.length > 0);
+    return !!(summary || localStats) && !!(chartData || hasRecords);
   }, [summary, localStats, chartData, runningRecords]);
 
   return {
@@ -170,31 +161,30 @@ export const useStatisticsViewModel = (period: Period = Period.MONTH) => {
 /**
  * 목표 진행률 ViewModel
  */
-export const useGoalProgressViewModel = () => {
+export const useGoalProgressViewModel = (goals?: {
+  weeklyDistance?: number;
+  monthlyDistance?: number;
+  yearlyDistance?: number;
+  weeklyRuns?: number;
+  monthlyRuns?: number;
+}) => {
   const {
     data: goalProgress,
     error,
     isLoading,
     refetch,
-  } = useGetGoalProgressQuery();
+  } = useGetGoalProgressQuery(goals || {});
 
   const formattedProgress = useMemo(() => {
     if (!goalProgress) return null;
 
     return {
       ...goalProgress,
-      weeklyGoal: {
-        ...goalProgress.weeklyGoal,
-        progressPercentage: Math.round((goalProgress.weeklyGoal.current / goalProgress.weeklyGoal.target) * 100),
-        formattedCurrent: `${(goalProgress.weeklyGoal.current / 1000).toFixed(1)}km`,
-        formattedTarget: `${(goalProgress.weeklyGoal.target / 1000).toFixed(1)}km`,
-      },
-      monthlyGoal: {
-        ...goalProgress.monthlyGoal,
-        progressPercentage: Math.round((goalProgress.monthlyGoal.current / goalProgress.monthlyGoal.target) * 100),
-        formattedCurrent: `${(goalProgress.monthlyGoal.current / 1000).toFixed(1)}km`,
-        formattedTarget: `${(goalProgress.monthlyGoal.target / 1000).toFixed(1)}km`,
-      },
+      weeklyDistanceFormatted: `${goalProgress.weeklyDistanceProgress.toFixed(1)}%`,
+      monthlyDistanceFormatted: `${goalProgress.monthlyDistanceProgress.toFixed(1)}%`,
+      yearlyDistanceFormatted: `${goalProgress.yearlyDistanceProgress.toFixed(1)}%`,
+      weeklyRunsFormatted: `${goalProgress.weeklyRunsProgress.toFixed(1)}%`,
+      monthlyRunsFormatted: `${goalProgress.monthlyRunsProgress.toFixed(1)}%`,
     };
   }, [goalProgress]);
 
@@ -212,13 +202,13 @@ export const useGoalProgressViewModel = () => {
 /**
  * 성과 비교 ViewModel
  */
-export const usePerformanceComparisonViewModel = () => {
+export const usePerformanceComparisonViewModel = (period: Period = Period.MONTH) => {
   const {
     data: comparison,
     error,
     isLoading,
     refetch,
-  } = useGetPerformanceComparisonQuery();
+  } = useGetPerformanceComparisonQuery({ period });
 
   const formattedComparison = useMemo(() => {
     if (!comparison) return null;
@@ -232,16 +222,24 @@ export const usePerformanceComparisonViewModel = () => {
     return {
       ...comparison,
       distance: {
-        ...comparison.distance,
-        formattedChange: formatChange(comparison.distance.changePercentage),
+        changePercentage: comparison.improvement.distance,
+        formattedChange: formatChange(comparison.improvement.distance),
       },
       pace: {
-        ...comparison.pace,
-        formattedChange: formatChange(comparison.pace.changePercentage),
+        changePercentage: comparison.improvement.pace,
+        formattedChange: formatChange(comparison.improvement.pace),
       },
-      consistency: {
-        ...comparison.consistency,
-        formattedChange: formatChange(comparison.consistency.changePercentage),
+      duration: {
+        changePercentage: comparison.improvement.duration,
+        formattedChange: formatChange(comparison.improvement.duration),
+      },
+      calories: {
+        changePercentage: comparison.improvement.calories,
+        formattedChange: formatChange(comparison.improvement.calories),
+      },
+      runCount: {
+        changePercentage: comparison.improvement.runCount,
+        formattedChange: formatChange(comparison.improvement.runCount),
       },
     };
   }, [comparison]);

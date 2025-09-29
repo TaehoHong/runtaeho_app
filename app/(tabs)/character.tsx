@@ -28,8 +28,8 @@ import {
   selectUnityLoading,
   selectUnityError,
 } from '~/store/slices/unitySlice';
-import type { AvatarItem, CharacterMotion } from '~/types/UnityTypes';
-import { UnityView, UnityViewRef } from '~/components/UnityView';
+import type { AvatarItem, CharacterMotion } from '~/features/unity/types/UnityTypes';
+// import { UnityView, UnityViewRef } from '~/components/UnityView'; // TODO: UnityView 컴포넌트 구현 필요
 import { CharacterStatus } from './character/components/CharacterStatus';
 import { CharacterControls } from './character/components/CharacterControls';
 import { usePerformanceMonitor } from '~/shared/hooks/usePerformanceMonitor';
@@ -38,7 +38,7 @@ import { getUnityService } from '~/shared/di';
 
 export default function CharacterScreen() {
   const dispatch = useDispatch();
-  const unityViewRef = useRef<UnityViewRef>(null);
+  // const unityViewRef = useRef<UnityViewRef>(null); // TODO: UnityView 컴포넌트 구현 필요
 
   // 성능 모니터링
   usePerformanceMonitor('CharacterScreen', {
@@ -315,13 +315,14 @@ export default function CharacterScreen() {
   const renderUnityView = () => (
     <View style={styles.unityContainer}>
       <Text style={styles.sectionTitle}>Unity 캐릭터 뷰</Text>
-      <UnityView
-        ref={unityViewRef}
-        style={styles.unityView}
-        onUnityReady={handleUnityReady}
-        onUnityError={handleUnityError}
-        onCharacterStateChanged={handleUnityCharacterStateChanged}
-      />
+      <View style={styles.unityView}>
+        <Text style={{ textAlign: 'center', marginTop: 100, fontSize: 16, color: '#666' }}>
+          Unity View 준비중... 🎮
+        </Text>
+        <Text style={{ textAlign: 'center', marginTop: 10, fontSize: 14, color: '#999' }}>
+          UnityView 컴포넌트 구현 필요
+        </Text>
+      </View>
     </View>
   );
 

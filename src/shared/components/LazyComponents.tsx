@@ -23,8 +23,8 @@ const LoadingFallback: React.FC<{ message?: string }> = ({ message = '로딩 중
 
 // Unity 테스트 화면 (큰 컴포넌트)
 export const LazyUnityTestScreen = lazy(() =>
-  import('../../components/UnityTestScreen').then(module => ({
-    default: module.default,
+  import('../../UnityScreen').then(module => ({
+    default: module.UnityScreen,
   }))
 );
 

@@ -1,238 +1,155 @@
 /**
  * Unity Bridge
- *
  * React Native와 Unity 간의 통신을 담당하는 브릿지
- * Swift UnityBridge 기능을 React Native로 마이그레이션
- * 현재는 주석 처리된 상태로 구조만 준비
+ * Swift Native Module과 연동
  */
 
-/*
 import { NativeModules, NativeEventEmitter } from 'react-native';
-import type { UnityBridgeMessage, UnityEventData, UnityEventType } from '../types/UnityTypes';
 
-// Unity Native Module (iOS/Android)
-const { UnityNativeModule } = NativeModules;
+// Unity Native Module (Swift)
+const { UnityBridge: NativeUnityBridge } = NativeModules;
 
+// Unity Bridge 인터페이스
 export interface UnityBridgeInterface {
-  // 초기화
+  // Unity 초기화
   initialize(): Promise<void>;
-
-  // 메시지 전송
-  sendMessage(message: UnityBridgeMessage): Promise<any>;
-
+  
+  // Unity 화면 제어
+  showUnity(): Promise<void>;
+  hideUnity(): Promise<void>;
+  
+  // Unity로 메시지 전송
+  sendMessage(gameObject: string, methodName: string, message: string): Promise<void>;
+  
   // 이벤트 리스너
-  addEventListener(eventType: UnityEventType, listener: (data: UnityEventData) => void): void;
-  removeEventListener(eventType: UnityEventType, listener: (data: UnityEventData) => void): void;
-
+  addEventListener(eventType: string, listener: (data: any) => void): () => void;
+  
   // Unity 상태
-  isUnityLoaded(): Promise<boolean>;
-  getUnityStatus(): Promise<any>;
-
-  // 정리
-  cleanup(): Promise<void>;
+  isReady: boolean;
 }
 
 class UnityBridgeImpl implements UnityBridgeInterface {
   private eventEmitter: NativeEventEmitter | null = null;
-  private messageId = 0;
-  private pendingMessages = new Map<string, { resolve: Function; reject: Function }>();
-  private eventListeners = new Map<UnityEventType, Set<Function>>();
-
+  private eventListeners = new Map<string, any>();
+  private _isReady = false;
+  
   constructor() {
-    if (UnityNativeModule) {
-      this.eventEmitter = new NativeEventEmitter(UnityNativeModule);
+    if (NativeUnityBridge) {
+      this.eventEmitter = new NativeEventEmitter(NativeUnityBridge);
       this.setupEventListeners();
+    } else {
+      console.warn('[UnityBridge] Native Unity Bridge module not available');
     }
   }
-
+  
   private setupEventListeners(): void {
     if (!this.eventEmitter) return;
-
-    // Unity에서 오는 메시지 처리
-    this.eventEmitter.addListener('UnityMessage', (data: any) => {
-      this.handleUnityMessage(data);
+    
+    // Unity Ready 이벤트
+    this.eventEmitter.addListener('UnityReady', (data) => {
+      console.log('[UnityBridge] Unity is ready:', data);
+      this._isReady = true;
     });
-
-    // Unity 이벤트 처리
-    this.eventEmitter.addListener('UnityEvent', (data: UnityEventData) => {
-      this.handleUnityEvent(data);
+    
+    // Unity Error 이벤트
+    this.eventEmitter.addListener('UnityError', (error) => {
+      console.error('[UnityBridge] Unity error:', error);
     });
   }
-
-  private handleUnityMessage(data: any): void {
-    try {
-      const message = JSON.parse(data);
-
-      if (message.id && this.pendingMessages.has(message.id)) {
-        const { resolve, reject } = this.pendingMessages.get(message.id)!;
-        this.pendingMessages.delete(message.id);
-
-        if (message.error) {
-          reject(new Error(message.error));
-        } else {
-          resolve(message.result);
-        }
-      }
-    } catch (error) {
-      console.error('[UnityBridge] Failed to handle Unity message:', error);
-    }
+  
+  get isReady(): boolean {
+    return this._isReady;
   }
-
-  private handleUnityEvent(data: UnityEventData): void {
-    const listeners = this.eventListeners.get(data.type);
-    if (listeners) {
-      listeners.forEach(listener => {
-        try {
-          listener(data);
-        } catch (error) {
-          console.error('[UnityBridge] Error in event listener:', error);
-        }
-      });
-    }
-  }
-
-  private generateMessageId(): string {
-    return `msg_${++this.messageId}_${Date.now()}`;
-  }
-
+  
   async initialize(): Promise<void> {
-    if (!UnityNativeModule) {
+    if (!NativeUnityBridge) {
       throw new Error('Unity Native Module not available');
     }
-
+    
     try {
-      await UnityNativeModule.initialize();
-      console.log('[UnityBridge] Unity Bridge initialized');
+      await NativeUnityBridge.initialize();
+      console.log('[UnityBridge] Unity initialized');
     } catch (error) {
-      console.error('[UnityBridge] Failed to initialize Unity Bridge:', error);
+      console.error('[UnityBridge] Failed to initialize Unity:', error);
       throw error;
     }
   }
-
-  async sendMessage(message: UnityBridgeMessage): Promise<any> {
-    if (!UnityNativeModule) {
+  
+  async showUnity(): Promise<void> {
+    if (!NativeUnityBridge) {
       throw new Error('Unity Native Module not available');
     }
-
-    return new Promise((resolve, reject) => {
-      const messageWithId = {
-        ...message,
-        id: this.generateMessageId(),
-        timestamp: Date.now(),
-      };
-
-      this.pendingMessages.set(messageWithId.id, { resolve, reject });
-
-      // 타임아웃 설정 (30초)
-      setTimeout(() => {
-        if (this.pendingMessages.has(messageWithId.id)) {
-          this.pendingMessages.delete(messageWithId.id);
-          reject(new Error('Unity message timeout'));
-        }
-      }, 30000);
-
-      UnityNativeModule.sendMessage(JSON.stringify(messageWithId))
-        .catch((error: Error) => {
-          this.pendingMessages.delete(messageWithId.id);
-          reject(error);
-        });
+    
+    try {
+      await NativeUnityBridge.showUnity();
+      console.log('[UnityBridge] Unity shown');
+    } catch (error) {
+      console.error('[UnityBridge] Failed to show Unity:', error);
+      throw error;
+    }
+  }
+  
+  async hideUnity(): Promise<void> {
+    if (!NativeUnityBridge) {
+      throw new Error('Unity Native Module not available');
+    }
+    
+    try {
+      await NativeUnityBridge.hideUnity();
+      console.log('[UnityBridge] Unity hidden');
+    } catch (error) {
+      console.error('[UnityBridge] Failed to hide Unity:', error);
+      throw error;
+    }
+  }
+  
+  async sendMessage(gameObject: string, methodName: string, message: string = ''): Promise<void> {
+    if (!NativeUnityBridge) {
+      throw new Error('Unity Native Module not available');
+    }
+    
+    try {
+      await NativeUnityBridge.sendMessage(gameObject, methodName, message);
+      console.log(`[UnityBridge] Message sent to ${gameObject}.${methodName}`);
+    } catch (error) {
+      console.error('[UnityBridge] Failed to send message to Unity:', error);
+      throw error;
+    }
+  }
+  
+  addEventListener(eventType: string, listener: (data: any) => void): () => void {
+    if (!this.eventEmitter) {
+      console.warn('[UnityBridge] Event emitter not available');
+      return () => {};
+    }
+    
+    const subscription = this.eventEmitter.addListener(eventType, listener);
+    this.eventListeners.set(eventType, subscription);
+    
+    // 구독 해제 함수 반환
+    return () => {
+      subscription.remove();
+      this.eventListeners.delete(eventType);
+    };
+  }
+  
+  dispose(): void {
+    // 모든 이벤트 리스너 정리
+    this.eventListeners.forEach((subscription) => {
+      subscription.remove();
     });
-  }
-
-  addEventListener(eventType: UnityEventType, listener: (data: UnityEventData) => void): void {
-    if (!this.eventListeners.has(eventType)) {
-      this.eventListeners.set(eventType, new Set());
+    this.eventListeners.clear();
+    
+    // Event Emitter 정리
+    if (this.eventEmitter) {
+      this.eventEmitter.removeAllListeners('UnityReady');
+      this.eventEmitter.removeAllListeners('UnityMessage');
+      this.eventEmitter.removeAllListeners('UnityError');
     }
-    this.eventListeners.get(eventType)!.add(listener);
-  }
-
-  removeEventListener(eventType: UnityEventType, listener: (data: UnityEventData) => void): void {
-    const listeners = this.eventListeners.get(eventType);
-    if (listeners) {
-      listeners.delete(listener);
-      if (listeners.size === 0) {
-        this.eventListeners.delete(eventType);
-      }
-    }
-  }
-
-  async isUnityLoaded(): Promise<boolean> {
-    if (!UnityNativeModule) {
-      return false;
-    }
-
-    try {
-      return await UnityNativeModule.isUnityLoaded();
-    } catch (error) {
-      console.error('[UnityBridge] Failed to check Unity status:', error);
-      return false;
-    }
-  }
-
-  async getUnityStatus(): Promise<any> {
-    if (!UnityNativeModule) {
-      throw new Error('Unity Native Module not available');
-    }
-
-    try {
-      return await UnityNativeModule.getUnityStatus();
-    } catch (error) {
-      console.error('[UnityBridge] Failed to get Unity status:', error);
-      throw error;
-    }
-  }
-
-  async cleanup(): Promise<void> {
-    try {
-      // 대기 중인 메시지들 정리
-      this.pendingMessages.clear();
-
-      // 이벤트 리스너 정리
-      this.eventListeners.clear();
-
-      // Unity Native Module 정리
-      if (UnityNativeModule) {
-        await UnityNativeModule.cleanup();
-      }
-
-      // Event Emitter 정리
-      if (this.eventEmitter) {
-        this.eventEmitter.removeAllListeners('UnityMessage');
-        this.eventEmitter.removeAllListeners('UnityEvent');
-      }
-
-      console.log('[UnityBridge] Unity Bridge cleaned up');
-    } catch (error) {
-      console.error('[UnityBridge] Failed to cleanup Unity Bridge:', error);
-      throw error;
-    }
+    
+    console.log('[UnityBridge] Disposed');
   }
 }
 
+// 싱글톤 인스턴스
 export const UnityBridge = new UnityBridgeImpl();
-*/
-
-// 현재는 Unity 연동이 완료되지 않아 모든 코드를 주석 처리
-// Unity Framework 연동 완료 후 위 코드의 주석을 해제하여 사용
-
-// Placeholder exports for TypeScript
-export interface UnityBridgeInterface {
-  initialize(): Promise<void>;
-  sendMessage(message: any): Promise<any>;
-  addEventListener(eventType: any, listener: (data: any) => void): void;
-  removeEventListener(eventType: any, listener: (data: any) => void): void;
-  isUnityLoaded(): Promise<boolean>;
-  getUnityStatus(): Promise<any>;
-  cleanup(): Promise<void>;
-}
-
-// Placeholder UnityBridge
-export const UnityBridge = {
-  initialize: async () => { console.log('[UnityBridge] Placeholder - not implemented'); },
-  sendMessage: async () => { console.log('[UnityBridge] Placeholder - not implemented'); },
-  addEventListener: () => { console.log('[UnityBridge] Placeholder - not implemented'); },
-  removeEventListener: () => { console.log('[UnityBridge] Placeholder - not implemented'); },
-  isUnityLoaded: async () => false,
-  getUnityStatus: async () => ({}),
-  cleanup: async () => { console.log('[UnityBridge] Placeholder - not implemented'); },
-} as UnityBridgeInterface;

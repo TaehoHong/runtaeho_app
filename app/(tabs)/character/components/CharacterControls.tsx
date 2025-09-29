@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { CharacterMotion } from '~/types/UnityTypes';
+import { CharacterMotion } from '~/features/unity/types/UnityTypes';
 
 interface CharacterControlsProps {
   isLoading: boolean;
