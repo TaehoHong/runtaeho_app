@@ -12,101 +12,9 @@
  * Swift UnityAvatarDto 대응
  */
 export interface UnityAvatarDto {
-  id: number;
-  userId: number;
-
-  // 캐릭터 기본 정보
-  characterType?: string;
-  gender?: 'MALE' | 'FEMALE';
-
-  // 아이템 정보
-  hair?: UnityItemData;
-  top?: UnityItemData;
-  bottom?: UnityItemData;
-  shoes?: UnityItemData;
-  accessory?: UnityItemData;
-
-  // Unity 전용 데이터
-  unityFilePath?: string;
-  animationSet?: string;
-  scale?: number;
-  position?: UnityVector3;
-  rotation?: UnityVector3;
-
-  // 추가 설정
-  skinColor?: string;
-  hairColor?: string;
-  eyeColor?: string;
-}
-
-/**
- * Unity Item Data
- * Unity에서 사용할 아이템 정보
- */
-export interface UnityItemData {
-  id: number;
-  name: string;
-  category: 'HAIR' | 'TOP' | 'BOTTOM' | 'SHOES' | 'ACCESSORY';
-  unityFilePath?: string;
-  thumbnailPath?: string;
-  color?: string;
-  material?: string;
-  layer?: number;
-}
-
-/**
- * Unity Running DTO
- * 러닝 중 Unity로 전달할 데이터
- */
-export interface UnityRunningDto {
-  // 러닝 상태
-  isRunning: boolean;
-  isPaused: boolean;
-
-  // 러닝 데이터
-  distance: number;        // 거리 (미터)
-  duration: number;        // 시간 (초)
-  pace: number;           // 페이스 (분/km)
-  speed: number;          // 속도 (km/h)
-  calories: number;       // 칼로리
-
-  // 실시간 위치
-  latitude?: number;
-  longitude?: number;
-  altitude?: number;
-
-  // Unity 애니메이션 제어
-  animationSpeed: number;
-  movementDirection: UnityVector3;
-
-  // 환경 정보
-  weather?: string;
-  timeOfDay?: 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT';
-}
-
-/**
- * Unity Background DTO
- * Unity 배경 설정용 데이터
- */
-export interface UnityBackgroundDto {
-  type: 'PARK' | 'BEACH' | 'CITY' | 'MOUNTAIN' | 'TRACK' | 'CUSTOM';
-  sceneName: string;
-  assetPath?: string;
-
-  // 환경 설정
-  weather: 'SUNNY' | 'CLOUDY' | 'RAINY' | 'SNOWY';
-  timeOfDay: 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT';
-
-  // 조명 설정
-  lighting?: {
-    intensity: number;
-    color: string;
-    direction: UnityVector3;
-  };
-
-  // 음향 설정
-  ambientSound?: string;
-  musicTrack?: string;
+  name: String;
+  part: String;
+  itemPath: String;
 }
 
 /**
@@ -126,16 +34,6 @@ export type UnityAnimationType =
   | 'TIRED'          // 피곤함
   | 'VICTORY'        // 승리
   | 'CUSTOM';        // 커스텀
-
-/**
- * Unity Vector3
- * Unity 3D 벡터 좌표
- */
-export interface UnityVector3 {
-  x: number;
-  y: number;
-  z: number;
-}
 
 /**
  * Unity Event Type (확장)

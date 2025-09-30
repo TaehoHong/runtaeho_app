@@ -44,7 +44,7 @@ export {
   POINT_ENDPOINTS,
   SHOE_ENDPOINTS,
   STATISTICS_ENDPOINTS,
-} from './api-endpoints';
+} from './apiEndpoints';
 
 export {
   ENVIRONMENT,
@@ -59,4 +59,4 @@ export {
   PERMISSIONS,
   ERROR_MESSAGES,
   SUCCESS_MESSAGES,
-} from './app-constants';
+} from './appConstants';

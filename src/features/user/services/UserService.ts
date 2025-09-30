@@ -8,6 +8,11 @@
 
 import { User } from '../models';
 import { AuthProvider } from '../../auth/models';
+import { UserDataDto } from '../models/UserDataDto';
+import { UserAuthData } from '../../auth/models/UserAuthData';
+import { authenticationService } from '../../auth/services/AuthenticationService';
+import { store } from '~/store';
+import { userApi } from '~/store/api/userApi';
 
 export class UserService {
   private static instance: UserService;
@@ -148,6 +153,51 @@ export class UserService {
     }
 
     return { isValid: true };
+  }
+
+  /**
+   * 백엔드에서 최신 사용자 데이터 조회
+   * Swift getUserDataDto() 메서드와 동일
+   */
+  async fetchUserDataDto(): Promise<UserDataDto | null> {
+    try {
+      console.log('🔍 [UserService] 백엔드에서 사용자 데이터 조회 시작');
+
+      const result = await store.dispatch(
+        userApi.endpoints.getUserData.initiate()
+      );
+
+      if (result.data) {
+        console.log('✅ [UserService] 백엔드 사용자 데이터 조회 성공:', result.data);
+        return result.data;
+      } else {
+        console.warn('⚠️ [UserService] 백엔드에서 데이터 조회 실패');
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ [UserService] 백엔드 데이터 조회 오류:', error);
+      throw error;
+    }
+  }
+
+  async getUserDataDto(): Promise<UserDataDto | null> {
+    try {
+      console.log('🔄 [UserService] 백엔드와 사용자 데이터 동기화 시작');
+
+      // 백엔드에서 최신 데이터 조회
+      // 토큰 검증 및 갱신은 TokenRefreshInterceptor가 자동 처리
+      const userDataDto = await this.fetchUserDataDto();
+
+       if (!userDataDto) {
+        return null
+      } else {
+        return userDataDto
+      }
+
+    } catch (error) {
+      console.error('❌ [UserService] 동기화 실패:', error);
+      throw error
+    }
   }
 }
 

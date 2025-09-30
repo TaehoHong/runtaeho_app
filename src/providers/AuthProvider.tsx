@@ -1,11 +1,9 @@
-import React, { useEffect, ReactNode, useState, useCallback } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { selectIsLoggedIn, restoreAuthState } from '~/store/slices/authSlice';
-import { setViewState, ViewState } from '~/store/slices/appSlice';
 import { router } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { UserAuthData } from '~/features/auth/models';
-import { UserStateManager } from '~/shared/services/user-state-manager';
+import React, { ReactNode, useCallback, useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { UserStateManager } from '~/shared/services/userStateManager';
+import { setViewState, ViewState } from '~/store/slices/appSlice';
+import { restoreAuthState, selectIsLoggedIn } from '~/store/slices/authSlice';
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -30,24 +28,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('🔍 [AuthProvider] 저장된 인증 상태 확인 중...');
 
       const userStateManager = UserStateManager.getInstance();
-      const userData = userStateManager.userData;
 
-      if (userData && userStateManager.isLoggedIn) {
-        // 토큰 유효성 간단 검증
-        if (userData.accessToken && isTokenValid(userData.accessToken)) {
-          console.log('✅ [AuthProvider] UserStateManager에서 인증 상태 복원 성공');
-          dispatch(restoreAuthState(userData));
-        } else {
-          console.log('❌ [AuthProvider] 토큰 만료 또는 유효하지 않음');
-          await userStateManager.logout();
-        }
+      // UserStateManager에서 인증 상태 복원 및 동기화 처리
+      const authResult = await userStateManager.initializeWithBackendSync();
+
+      if (authResult.success && authResult.userData) {
+        console.log('✅ [AuthProvider] 인증 상태 복원 및 동기화 성공');
+        dispatch(restoreAuthState(authResult.userData));
       } else {
-        console.log('ℹ️ [AuthProvider] 저장된 인증 상태 없음');
+        console.log('❌ [AuthProvider] 인증 상태 복원 실패 또는 로그아웃 상태');
       }
     } catch (error) {
       console.error('⚠️ [AuthProvider] 인증 상태 초기화 실패:', error);
-      const userStateManager = UserStateManager.getInstance();
-      await userStateManager.logout();
     }
   }, [dispatch]);
 
@@ -164,6 +156,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.error('⚠️ [AuthProvider] 권한 요청 스케줄링 실패:', error);
     }
   };
+
 
   return <>{children}</>;
 };

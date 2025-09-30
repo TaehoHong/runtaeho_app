@@ -4,6 +4,7 @@
  */
 
 import type { UnityAvatarDto } from '../../unity/types/UnityTypes';
+import { Item } from './Item';
 
 /**
  * 아바타 기본 모델
@@ -21,20 +22,8 @@ export interface Avatar {
  */
 export interface AvatarItem {
   id: number;
-  itemType: ItemType;
-  name: string;
-  filePath: string;
-  unityFilePath: string;
-  isOwned: boolean;
-  point: number;
-}
-
-/**
- * 아이템 타입 모델
- */
-export interface ItemType {
-  id: number;
-  name: string;
+  item: Item;
+  isEnabled: boolean;
 }
 
 /**
@@ -70,55 +59,6 @@ export const createAvatar = (
 });
 
 /**
- * 아바타 아이템 생성 헬퍼 함수
- */
-export const createAvatarItem = (
-  id: number,
-  itemType: ItemType,
-  name: string,
-  filePath: string,
-  unityFilePath: string,
-  point: number = 0,
-  isOwned: boolean = false
-): AvatarItem => ({
-  id,
-  itemType,
-  name,
-  filePath,
-  unityFilePath,
-  isOwned,
-  point,
-});
-
-/**
- * 아바타 포맷팅 헬퍼 함수
- * Swift formatAvatar 메서드 대응
- */
-export const formatAvatar = (avatar: Avatar) => ({
-  ...avatar,
-  displayName: `아바타 ${avatar.id}`,
-  itemsByType: avatar.avatarItems.reduce((acc, item) => {
-    const typeName = item.itemType.name;
-    if (!acc[typeName]) {
-      acc[typeName] = [];
-    }
-    acc[typeName].push(item);
-    return acc;
-  }, {} as Record<string, AvatarItem[]>),
-  totalItems: avatar.avatarItems.length,
-  ownedItems: avatar.avatarItems.filter(item => item.isOwned).length,
-});
-
-/**
- * 아바타 검증 헬퍼 함수
- */
-export const validateAvatar = (avatar: Avatar): boolean => {
-  if (!avatar.id || avatar.id <= 0) return false;
-  if (!avatar.userId || avatar.userId <= 0) return false;
-  return true;
-};
-
-/**
  * 아이템 타입별 그룹화
  */
 export const groupItemsByType = (items: AvatarItem[]): Record<string, AvatarItem[]> => {
@@ -136,16 +76,7 @@ export const groupItemsByType = (items: AvatarItem[]): Record<string, AvatarItem
  * 착용 중인 아이템 필터링
  */
 export const getEquippedItems = (avatar: Avatar): AvatarItem[] => {
-  return avatar.avatarItems.filter(item => item.isOwned);
-};
-
-/**
- * 특정 타입의 착용 아이템 조회
- */
-export const getEquippedItemByType = (avatar: Avatar, itemTypeName: string): AvatarItem | null => {
-  return avatar.avatarItems.find(item =>
-    item.itemType.name === itemTypeName && item.isOwned
-  ) || null;
+  return avatar.avatarItems.filter(item => item.isEnabled);
 };
 
 /**

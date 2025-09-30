@@ -2,14 +2,14 @@ import {
   GoogleSignin,
   statusCodes
 } from '@react-native-google-signin/google-signin';
-import { Platform } from 'react-native';
 import Constants from 'expo-constants';
-import { UserStateManager } from '../../../shared/services/user-state-manager';
+import { Platform } from 'react-native';
+import { UserStateManager } from '../../../shared/services/userStateManager';
+import { store } from '../../../store';
+import { loginSuccess } from '../../../store/slices/authSlice';
 import { UserAuthData } from '../models/UserAuthData';
 import { AuthProvider } from '../models/auth-types';
 import { AuthenticationService } from '../services/authentication-service';
-import { store } from '../../../store';
-import { loginSuccess } from '../../../store/slices/authSlice';
 
 let appleAuth: any = null;
 if (Platform.OS === 'ios') {

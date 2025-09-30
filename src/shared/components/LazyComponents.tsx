@@ -4,7 +4,7 @@
  */
 
 import React, { Suspense, lazy } from 'react';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 // ==========================================
 // 로딩 컴포넌트
@@ -23,7 +23,7 @@ const LoadingFallback: React.FC<{ message?: string }> = ({ message = '로딩 중
 
 // Unity 테스트 화면 (큰 컴포넌트)
 export const LazyUnityTestScreen = lazy(() =>
-  import('../../UnityScreen').then(module => ({
+  import('../../features/unity/UnityScreen').then(module => ({
     default: module.UnityScreen,
   }))
 );

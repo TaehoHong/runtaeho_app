@@ -10,15 +10,15 @@ import { runningApi } from '../../store/api/runningApi';
 import { userApi } from '../../store/api/userApi';
 
 // Business Services
-import { RunningService } from '../../features/running/services/RunningService';
 import { AuthenticationService } from '../../features/auth/services/AuthenticationService';
 import { AvatarService } from '../../features/avatar/services/AvatarService';
+import { RunningService } from '../../features/running/services/RunningService';
 import { StatisticsService } from '../../features/statistics/services/StatisticsService';
 import { UserService } from '../../features/user/services/UserService';
 
 // Infrastructure Services
 import { ErrorService } from '../../shared/services/ErrorService';
-import { UserStateManager } from '../../shared/services/user-state-manager';
+import { UserStateManager } from '../services/userStateManager';
 
 // Unity Services
 import { UnityService } from '../../features/unity/services/UnityService';

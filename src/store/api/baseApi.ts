@@ -1,7 +1,9 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { RootState } from '../index';
+import { tokenRefreshInterceptor } from '../../shared/services/TokenRefreshInterceptor';
 
+// 기본 fetchBaseQuery 설정
 export const baseQuery = fetchBaseQuery({
   baseUrl: process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:8080/api/v1',
   prepareHeaders: async (headers, { getState }) => {
@@ -17,51 +19,9 @@ export const baseQuery = fetchBaseQuery({
   },
 });
 
-// Base query with automatic token refresh
-export const baseQueryWithReauth = async (args: any, api: any, extraOptions: any) => {
-  let result = await baseQuery(args, api, extraOptions);
-
-  if (result.error && result.error.status === 401) {
-    // Try to get a new token using refresh token
-    const state = api.getState() as RootState;
-    const refreshToken = state.auth.refreshToken || await AsyncStorage.getItem('refreshToken');
-
-    if (refreshToken) {
-      const refreshResult = await baseQuery(
-        {
-          url: '/auth/refresh',
-          method: 'POST',
-          body: { refreshToken }
-        },
-        api,
-        extraOptions
-      );
-
-      if (refreshResult.data) {
-        const { accessToken, refreshToken: newRefreshToken } = refreshResult.data as any;
-
-        // Store new tokens
-        await AsyncStorage.setItem('accessToken', accessToken);
-        await AsyncStorage.setItem('refreshToken', newRefreshToken);
-
-        // Update auth state
-        api.dispatch({
-          type: 'auth/setTokens',
-          payload: { accessToken, refreshToken: newRefreshToken }
-        });
-
-        // Retry the original query
-        result = await baseQuery(args, api, extraOptions);
-      } else {
-        // Refresh failed, logout user
-        api.dispatch({ type: 'auth/logout' });
-        await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'currentUser']);
-      }
-    }
-  }
-
-  return result;
-};
+// TokenRefreshInterceptor를 사용한 자동 토큰 갱신 baseQuery
+// Spring AOP/Interceptor 패턴을 모방한 통합 관리
+export const baseQueryWithReauth = tokenRefreshInterceptor.createBaseQueryWithAuth(baseQuery);
 
 export const baseApi = createApi({
   reducerPath: 'api',
@@ -69,3 +29,23 @@ export const baseApi = createApi({
   tagTypes: ['Auth', 'User', 'Running', 'Avatar', 'Point', 'Shoe', 'Statistic'],
   endpoints: () => ({}),
 });
+
+/**
+ * 발전된 아키텍처 설명:
+ *
+ * 1. TokenRefreshInterceptor (주력 클래스)
+ *    - 전역 토큰 갱신 로직 관리
+ *    - Spring AOP/Interceptor 패턴 모방
+ *    - 동시 요청 처리 (대기열 기능)
+ *    - UserStateManager와 통합
+ *
+ * 2. UserStateManager (상태 관리)
+ *    - refreshTokens(): 실제 토큰 갱신 API 호출
+ *    - ensureValidTokens(): 사전 토큰 유효성 검사
+ *    - 로컬 상태 및 AsyncStorage 관리
+ *
+ * 3. 모든 API 호출이 자동으로 토큰 갱신 적용
+ *    - 개별 API에서 토큰 검증 로직 불필요
+ *    - 401 에러 시 자동 갱신 후 재시도
+ *    - 갱신 실패 시 자동 로그아웃
+ */

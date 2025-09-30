@@ -36,7 +36,6 @@ class UnityBridgeImpl implements UnityBridgeInterface {
   private _isReady = false;
   
   constructor() {
-    console.error('🔥 [CONSTRUCTOR TEST] UnityBridge constructor called!');
     console.log('[UnityBridge] Available native modules:', Object.keys(NativeModules));
     console.log('[UnityBridge] UnityBridge available:', !!NativeModules.UnityBridge);
     console.log('[UnityBridge] NativeUnityBridge reference:', NativeUnityBridge);

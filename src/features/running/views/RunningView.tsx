@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { selectViewState, selectRunningState, ViewState, RunningState, setViewState } from '~/store/slices/appSlice';
+import { selectIsLoggedIn } from '~/store/slices/authSlice';
 import { LoadingView } from '~/shared/components';
 import { ControlPanelView } from './ControlPanelView';
 import { createUnityBridgeService } from '~/features/unity/bridge/UnityBridgeService';
@@ -16,10 +17,12 @@ export const RunningView: React.FC = () => {
   const dispatch = useDispatch();
   const viewState = useSelector(selectViewState);
   const runningState = useSelector(selectRunningState);
+  const isLoggedIn = useSelector(selectIsLoggedIn);
   const [unityReady, setUnityReady] = useState(false);
+  const [unityStarted, setUnityStarted] = useState(false);
   const [unityBridge] = useState(() => createUnityBridgeService());
 
-  console.log('🏃 [RunningView] 렌더링, viewState:', viewState, 'runningState:', runningState);
+  console.log('🏃 [RunningView] 렌더링, viewState:', viewState, 'runningState:', runningState, 'isLoggedIn:', isLoggedIn);
 
   useEffect(() => {
     console.log('🔄 [RunningView] 컴포넌트 마운트');
@@ -38,9 +41,10 @@ export const RunningView: React.FC = () => {
       setUnityReady(false);
     });
 
-    // iOS와 동일한 Unity 시작 로직
-    if (viewState === ViewState.Loading) {
-      console.log('🎮 [RunningView] Unity 시작 및 Loaded 상태로 전환');
+    // 로그인 완료 후에만 Unity 시작
+    if (isLoggedIn && viewState === ViewState.Loading && !unityStarted) {
+      console.log('🎮 [RunningView] 로그인 완료 - Unity 시작 및 Loaded 상태로 전환');
+      setUnityStarted(true);
 
       // Unity 시작 로직 (iOS unity.start() 대응)
       startUnity();
@@ -49,13 +53,15 @@ export const RunningView: React.FC = () => {
       setTimeout(() => {
         dispatch(setViewState(ViewState.Loaded));
       }, 0);
+    } else if (viewState === ViewState.Loading && !isLoggedIn) {
+      console.log('🔄 [RunningView] 로그인 대기 중 - Unity 시작 보류');
     }
 
     return () => {
       // 컴포넌트 언마운트 시 정리 작업
       console.log('🔄 [RunningView] 컴포넌트 언마운트');
     };
-  }, [viewState, dispatch, unityBridge]);
+  }, [viewState, isLoggedIn, unityStarted, dispatch, unityBridge]);
 
   /**
    * Unity 시작
@@ -81,7 +87,6 @@ export const RunningView: React.FC = () => {
     }
   };
 
-  // iOS와 동일한 로딩 상태 처리
   if (viewState === ViewState.Loading) {
     console.log('⏳ [RunningView] 로딩 화면 표시');
     return (
@@ -93,7 +98,6 @@ export const RunningView: React.FC = () => {
     );
   }
 
-  // iOS와 동일한 Loaded 상태 UI
   console.log('✅ [RunningView] Loaded 상태 - Unity + 컴트롤 패널 표시');
   
   return (
@@ -217,6 +221,8 @@ const styles = StyleSheet.create({
   unityContainer: {
     flex: 0.5, // 화면 상단 50%
     backgroundColor: '#f0f0f0',
+    borderBottomWidth: 2,
+    borderBottomColor: '#ddd',
   },
   unityView: {
     flex: 1,
@@ -224,8 +230,11 @@ const styles = StyleSheet.create({
   },
   controlPanelContainer: {
     flex: 0.5, // 화면 하단 50%
-    justifyContent: 'flex-end',
-    padding: 10,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#ddd',
   },
   debugContainer: {
     position: 'absolute',
@@ -241,7 +250,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#e8f4f8',
+    margin: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#ddd',
   },
   characterArea: {
     alignItems: 'center',

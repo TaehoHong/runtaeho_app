@@ -3,8 +3,6 @@
  * Swift Item 구조체에서 마이그레이션
  */
 
-import { ItemType } from './Avatar';
-
 /**
  * 아이템 기본 모델
  */
@@ -16,6 +14,11 @@ export interface Item {
   filePath: string;
   point: number;
   createdAt: string;
+}
+
+export interface ItemType {
+  id: number;
+  name: String;
 }
 
 /**

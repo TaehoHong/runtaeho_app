@@ -75,7 +75,7 @@ class UnityBridgeService {
     this.log('Showing Unity');
     
     try {
-      await UnityBridge.showUnity();
+      // await UnityBridge.showUnity();
     } catch (error) {
       this.logError('Failed to show Unity', error);
       throw error;

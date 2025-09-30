@@ -9,8 +9,8 @@
  * 일반적인 REST API 호출은 RTK Query 사용을 권장합니다.
  */
 
-import { UserStateManager } from '../user-state-manager';
 import { TokenDto } from '../../../features/auth/models/auth-types';
+import { UserStateManager } from '../userStateManager';
 
 export interface APIEndpoint {
   path: string;

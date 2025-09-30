@@ -41,18 +41,6 @@ export const createUserAuthData = (data: {
 });
 
 /**
- * Legacy constructor - TokenDto에서 UserAuthData 생성
- */
-export const createUserAuthDataFromToken = (tokenDto: TokenDto): UserAuthData => ({
-  id: tokenDto.userId,
-  email: 'unknown@example.com',
-  nickname: '사용자',
-  accessToken: tokenDto.accessToken,
-  refreshToken: tokenDto.refreshToken,
-  profileImageURL: undefined,
-});
-
-/**
  * UserAuthData에서 userId getter (Legacy Support)
  */
 export const getUserId = (userAuthData: UserAuthData): number => userAuthData.id;
