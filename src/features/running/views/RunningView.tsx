@@ -47,7 +47,7 @@ export const RunningView: React.FC = () => {
       setUnityStarted(true);
 
       // Unity 시작 로직 (iOS unity.start() 대응)
-      startUnity();
+      // startUnity();
 
       // 다음 프레임에서 Loaded 상태로 전환 (메인 스레드 위반 방지)
       setTimeout(() => {

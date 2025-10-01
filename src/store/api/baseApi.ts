@@ -1,7 +1,6 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { RootState } from '../index';
-import { tokenRefreshInterceptor } from '../../shared/services/TokenRefreshInterceptor';
+import type { RootState } from '../index';
 
 // 기본 fetchBaseQuery 설정
 export const baseQuery = fetchBaseQuery({
@@ -21,7 +20,16 @@ export const baseQuery = fetchBaseQuery({
 
 // TokenRefreshInterceptor를 사용한 자동 토큰 갱신 baseQuery
 // Spring AOP/Interceptor 패턴을 모방한 통합 관리
-export const baseQueryWithReauth = tokenRefreshInterceptor.createBaseQueryWithAuth(baseQuery);
+// 순환 참조 방지를 위해 lazy import 사용
+let baseQueryWithReauthInstance: ReturnType<any> | null = null;
+
+export const baseQueryWithReauth: typeof baseQuery = async (args, api, extraOptions) => {
+  if (!baseQueryWithReauthInstance) {
+    const { tokenRefreshInterceptor } = await import('../../shared/services/TokenRefreshInterceptor');
+    baseQueryWithReauthInstance = tokenRefreshInterceptor.createBaseQueryWithAuth(baseQuery);
+  }
+  return baseQueryWithReauthInstance(args, api, extraOptions);
+};
 
 export const baseApi = createApi({
   reducerPath: 'api',

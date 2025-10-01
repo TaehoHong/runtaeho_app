@@ -1,7 +1,6 @@
 import { router } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React from 'react';
 import {
-  Alert,
   Dimensions,
   Platform,
   StyleSheet,
@@ -9,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { AuthViewModel } from '../viewmodels/AuthViewModel';
+import { useAuthSignIn } from '../hooks/useAuthSignIn';
 
 const { width, height } = Dimensions.get('window');
 
@@ -23,56 +22,8 @@ if (Platform.OS === 'ios') {
 
 export const Login: React.FC = () => {
   console.log('🔐 [LOGIN] 로그인 화면 렌더링');
-  const [isLoading, setIsLoading] = useState(false);
 
-  const authViewModel = useMemo(() => {
-    console.log('🏗️ [LOGIN] AuthViewModel 생성');
-    return new AuthViewModel();
-  }, []);
-
-  const handleGoogleSignIn = async () => {
-    if (isLoading) return;
-
-    console.log('🟦 [LOGIN] Google 로그인 시도');
-    setIsLoading(true);
-
-    try {
-      const result = await authViewModel.signInWithGoogle();
-      if (result.success) {
-        console.log('✅ [LOGIN] Google 로그인 성공');
-      } else {
-        console.log('❌ [LOGIN] Google 로그인 실패:', result.error);
-        Alert.alert('로그인 실패', result.error || '알 수 없는 오류가 발생했습니다.');
-      }
-    } catch (error: any) {
-      console.error('❌ [LOGIN] Google 로그인 예외:', error);
-      Alert.alert('로그인 실패', '로그인 중 오류가 발생했습니다.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleAppleSignIn = async () => {
-    if (isLoading || Platform.OS !== 'ios') return;
-
-    console.log('🍎 [LOGIN] Apple 로그인 시도');
-    setIsLoading(true);
-
-    try {
-      const result = await authViewModel.signInWithApple();
-      if (result.success) {
-        console.log('✅ [LOGIN] Apple 로그인 성공');
-      } else {
-        console.log('❌ [LOGIN] Apple 로그인 실패:', result.error);
-        Alert.alert('로그인 실패', result.error || '알 수 없는 오류가 발생했습니다.');
-      }
-    } catch (error: any) {
-      console.error('❌ [LOGIN] Apple 로그인 예외:', error);
-      Alert.alert('로그인 실패', '로그인 중 오류가 발생했습니다.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const { isLoading, signInWithGoogle, signInWithApple } = useAuthSignIn();
 
   const handleUnityTest = () => {
     console.log('🎮 [LOGIN] Unity 테스트 페이지로 이동');
@@ -86,7 +37,7 @@ export const Login: React.FC = () => {
         {/* Google 로그인 버튼 */}
         <TouchableOpacity
           style={[styles.googleButton, { backgroundColor: '#4285F4', justifyContent: 'center', alignItems: 'center' }]}
-          onPress={handleGoogleSignIn}
+          onPress={signInWithGoogle}
           disabled={isLoading}
         >
           <Text style={{ color: 'white', fontWeight: 'bold' }}>
@@ -99,20 +50,11 @@ export const Login: React.FC = () => {
             buttonStyle={AppleButton.Style.BLACK}
             buttonType={AppleButton.Type.SIGN_IN}
             style={styles.appleButton}
-            onPress={handleAppleSignIn}
+            onPress={signInWithApple}
           />
         ) : null}
 
         {/* Unity 테스트를 위한 임시 버튼 */}
-        <TouchableOpacity
-          style={[styles.googleButton, { backgroundColor: '#4CAF50', justifyContent: 'center', alignItems: 'center', marginTop: 10 }]}
-          onPress={() => router.push('/unity-test')}
-        >
-          <Text style={{ color: 'white', fontWeight: 'bold' }}>
-            Unity 테스트 (임시)
-          </Text>
-        </TouchableOpacity>
-
         <TouchableOpacity style={styles.unityTestButton} onPress={handleUnityTest}>
           <Text style={styles.unityTestButtonText}>🎮 Unity Bridge 테스트</Text>
         </TouchableOpacity>

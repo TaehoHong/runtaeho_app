@@ -1,4 +1,4 @@
-import React, { useEffect, ReactNode, useCallback } from 'react';
+import React, { useEffect, ReactNode, useCallback, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppState, AppStateStatus } from 'react-native';
 import { setViewState, ViewState } from '~/store/slices/appSlice';
@@ -9,6 +9,47 @@ interface AppStateProviderProps {
   children: ReactNode;
 }
 
+// 임계치 상수 (5분)
+const BACKGROUND_SYNC_THRESHOLD_SECONDS = 300 as const;
+
+// 최신 값을 참조하기 위한 ref 헬퍼
+function useLatestRef<T>(value: T) {
+  const ref = React.useRef(value);
+  useEffect(() => { ref.current = value; }, [value]);
+  return ref;
+}
+
+// AppState 구독을 캡슐화한 헬퍼 (중복 구독 방지용)
+function subscribeToAppLifecycle(params: {
+  onForeground: (bgSeconds: number) => void | Promise<void>;
+  onBackground: () => void | Promise<void>;
+  setupTokenRefreshNotificationsOnce: () => void;
+}) {
+  const { onForeground, onBackground, setupTokenRefreshNotificationsOnce } = params;
+
+  const handleAppStateChange = (nextAppState: AppStateStatus) => {
+    console.log('🔄 [AppStateProvider] 앱 상태 변경:', nextAppState);
+    switch (nextAppState) {
+      case 'active':
+        onForeground(0); // 실제 bgSeconds 계산은 Provider 내부에서 수행
+        break;
+      case 'background':
+        onBackground();
+        break;
+      case 'inactive':
+        console.log('⏸️ [AppStateProvider] 앱 Inactive 상태');
+        break;
+    }
+  };
+
+  const subscription = AppState.addEventListener('change', handleAppStateChange);
+  setupTokenRefreshNotificationsOnce();
+
+  return () => {
+    subscription?.remove();
+  };
+}
+
 /**
  * 앱 상태를 관리하는 Provider
  * iOS AppState.swift 대응
@@ -17,77 +58,76 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
   const dispatch = useDispatch();
   const isLoggedIn = useSelector(selectIsLoggedIn);
 
+  const isLoggedInRef = useLatestRef(isLoggedIn);
+  const fgInFlight = useRef(false); // 포그라운드 재진입 가드
+  const tokenSetupDone = useRef(false); // 토큰 알림 1회 설정 가드
+
   /**
    * 앱이 Foreground로 진입할 때 처리
    * iOS UserStateManager.handleAppWillEnterForeground() 대응
    */
   const handleAppForeground = useCallback(async () => {
-    console.log('🌅 [AppStateProvider] App entering foreground, performing comprehensive check');
-
-    // 백그라운드에 있던 시간 계산
-    const backgroundDuration = await calculateBackgroundDuration();
-    console.log('⏰ [AppStateProvider] App was in background for', Math.floor(backgroundDuration), 'seconds');
-
-    // 기본 토큰 검증 (5분 이상 백그라운드시에만)
-    if (backgroundDuration > 300) {
-      console.log('🔍 [AppStateProvider] Long background duration, validating token');
-      // TODO: 토큰 검증 로직
+    if (fgInFlight.current) {
+      console.log('🛡️ [AppStateProvider] Foreground 작업이 이미 진행 중, 중복 호출 차단');
+      return;
     }
+    fgInFlight.current = true;
+    try {
+      console.log('🌅 [AppStateProvider] App entering foreground, performing comprehensive check');
+      const backgroundDuration = await calculateBackgroundDuration();
+      console.log('⏰ [AppStateProvider] App was in background for', Math.floor(backgroundDuration), 'seconds');
 
-    // 추가 포그라운드 작업들 수행
-    await performForegroundTasks(backgroundDuration);
+      if (backgroundDuration > BACKGROUND_SYNC_THRESHOLD_SECONDS) {
+        console.log('🔍 [AppStateProvider] Long background duration, validating token');
+        // TODO: 토큰 검증 로직 (SessionGuard.verifyOnForeground 등)
+      }
 
-    // 백그라운드 시간 제거
-    await AsyncStorage.removeItem('backgroundEnterTime');
+      await performForegroundTasks(backgroundDuration);
+      await AsyncStorage.removeItem('backgroundEnterTime');
+    } finally {
+      fgInFlight.current = false;
+    }
   }, []);
 
   useEffect(() => {
     console.log('🌍 [AppStateProvider] 앱 상태 관리 시작');
-    
+
     // 초기 로딩 상태 설정
     dispatch(setViewState(ViewState.Loading));
-    
+
     // 약간의 로딩 시간 후 Loaded 상태로 전환
     const initTimer = setTimeout(() => {
       console.log('✅ [AppStateProvider] 앱 초기화 완료 - Loaded 상태로 전환');
       dispatch(setViewState(ViewState.Loaded));
     }, 100);
 
-    // 앱 상태 변경 리스너
-    const handleAppStateChange = (nextAppState: AppStateStatus) => {
-      console.log('🔄 [AppStateProvider] 앱 상태 변경:', nextAppState);
-      
-      switch (nextAppState) {
-        case 'active':
-          console.log('🌅 [AppStateProvider] 앱 Foreground 진입');
-          // iOS UserStateManager.handleAppWillEnterForeground() 대응
-          if (isLoggedIn) {
-            handleAppForeground();
-          }
-          break;
-        case 'background':
-          console.log('🌙 [AppStateProvider] 앱 Background 진입');
-          // iOS UserStateManager.handleAppDidEnterBackground() 대응
-          if (isLoggedIn) {
-            handleAppBackground();
-          }
-          break;
-        case 'inactive':
-          console.log('⏸️ [AppStateProvider] 앱 Inactive 상태');
-          break;
+    // AppState 구독(단일 진입점)
+    const unsubscribe = subscribeToAppLifecycle({
+      onForeground: async () => {
+        if (isLoggedInRef.current) {
+          await handleAppForeground();
+        }
+      },
+      onBackground: async () => {
+        if (isLoggedInRef.current) {
+          await handleAppBackground();
+        }
+      },
+      setupTokenRefreshNotificationsOnce: () => {
+        if (tokenSetupDone.current) return;
+        tokenSetupDone.current = true;
+        console.log('🔔 [AppStateProvider] 토큰 갱신 알림 시스템 설정 완료');
+        // TODO: 실제 토큰 갱신 시스템 연동 시 Redux 액션이나 Context API 사용
       }
-    };
-
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
-
-    // iOS와 동일한 토큰 갱신 알림 구독
-    setupTokenRefreshNotifications();
+    });
 
     return () => {
       clearTimeout(initTimer);
-      subscription?.remove();
+      unsubscribe();
     };
-  }, [dispatch, isLoggedIn, handleAppForeground]);
+    // `isLoggedIn`으로 재구독이 발생하지 않도록 제외하고,
+    // 최신 값은 isLoggedInRef.current로 참조합니다.
+  }, [dispatch, handleAppForeground]);
 
 
   /**
@@ -96,11 +136,7 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
    */
   const handleAppBackground = async () => {
     console.log('🌙 [AppStateProvider] App entering background, saving state');
-
-    // 백그라운드 진입 시간 저장
-    await AsyncStorage.setItem('backgroundEnterTime', new Date().toISOString());
-
-    // 현재 상태 저장
+    await AsyncStorage.setItem('backgroundEnterTime', String(Date.now()));
     // TODO: 현재 상태 저장 로직
     console.log('💾 [AppStateProvider] Background 상태 저장 완료');
   };
@@ -111,12 +147,11 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
    */
   const calculateBackgroundDuration = async (): Promise<number> => {
     try {
-      const backgroundTimeStr = await AsyncStorage.getItem('backgroundEnterTime');
-      if (!backgroundTimeStr) return 0;
-
-      const backgroundTime = new Date(backgroundTimeStr);
-      const currentTime = new Date();
-      return (currentTime.getTime() - backgroundTime.getTime()) / 1000;
+      const ts = await AsyncStorage.getItem('backgroundEnterTime');
+      if (!ts) return 0;
+      const bgMillis = Number(ts);
+      if (!Number.isFinite(bgMillis)) return 0;
+      return (Date.now() - bgMillis) / 1000;
     } catch (error) {
       console.error('⚠️ [AppStateProvider] 백그라운드 시간 계산 실패:', error);
       return 0;
@@ -179,16 +214,6 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
   const handlePendingTasks = async () => {
     console.log('📋 [AppStateProvider] Handling pending background tasks');
     // TODO: 백그라운드에서 실패한 API 호출 재시도 등
-  };
-
-  /**
-   * 토큰 갱신 관련 알림 설정
-   * iOS setupTokenRefreshNotifications() 대응
-   */
-  const setupTokenRefreshNotifications = () => {
-    // React Native에서는 간단한 글로벌 이벤트 핸들러로 구현
-    // TODO: 실제 토큰 갱신 시스템 연동 시 Redux 액션이나 Context API 사용
-    console.log('🔔 [AppStateProvider] 토큰 갱신 알림 시스템 설정 완료');
   };
 
   return <>{children}</>;
