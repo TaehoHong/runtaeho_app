@@ -9,6 +9,7 @@
 import { AuthProvider } from '../models/AuthProvider';
 import { TokenDto, AuthenticationError, AUTH_PROVIDER_INFO } from '../models/auth-types';
 import { store } from '../../../store';
+import { authApi } from '../../../store/api/authApi';
 
 export class AuthenticationService {
   private static instance: AuthenticationService;
@@ -123,7 +124,7 @@ export class AuthenticationService {
     try {
       // RTK Query mutation을 직접 dispatch
       const result = await store.dispatch(
-        store.getState().api.endpoints.getOAuthToken.initiate({ provider, code })
+        authApi.endpoints.getOAuthToken.initiate({ provider, code })
       ).unwrap();
 
       const duration = Date.now() - startTime;
@@ -156,7 +157,7 @@ export class AuthenticationService {
     try {
       // RTK Query mutation을 직접 dispatch
       const result = await store.dispatch(
-        store.getState().api.endpoints.refreshToken.initiate()
+        authApi.endpoints.refreshToken.initiate()
       ).unwrap();
 
       const duration = Date.now() - startTime;

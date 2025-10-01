@@ -44,6 +44,8 @@ class UnityManager: NSObject {
                 argv: CommandLine.unsafeArgv,
                 appLaunchOpts: nil
             )
+
+            unityFramework?.appController()?.window.isHidden = true
         }
         
         // Unity View Controller 생성
@@ -53,38 +55,31 @@ class UnityManager: NSObject {
     }
     
     func showUnity() {
-        guard isUnityInitialized,
-              let rootViewController = UIApplication.shared.keyWindow?.rootViewController else {
+        guard isUnityInitialized else {
+            print("[UnityManager] Unity not initialized")
             return
         }
-        
-        guard let unityVC = unityViewController else { return }
-        
-        // 이미 표시 중인 경우 무시
-        if unityVC.presentingViewController != nil {
-            return
-        }
-        
-        // Unity 표시
-        currentPresentingViewController = rootViewController
-        rootViewController.present(unityVC, animated: true) {
-            // Unity 재개
-            self.unityFramework?.showUnityWindow()
-            self.unityFramework?.pause(false)
-        }
+
+        // Unity Window 표시 (iOS 메인 프로젝트 방식과 동일)
+        unityFramework?.appController()?.window.isHidden = false
+        unityFramework?.pause(false)
+
+        print("[UnityManager] Unity window shown")
     }
     
     func hideUnity() {
-        guard let unityVC = unityViewController,
-              unityVC.presentingViewController != nil else {
+        guard isUnityInitialized else {
+            print("[UnityManager] Unity not initialized")
             return
         }
-        
+
         // Unity 일시정지
         unityFramework?.pause(true)
-        
-        // Unity 화면 닫기
-        unityVC.dismiss(animated: true, completion: nil)
+
+        // Unity Window 숨김 (iOS 메인 프로젝트 방식과 동일)
+        unityFramework?.appController()?.window.isHidden = true
+
+        print("[UnityManager] Unity window hidden")
     }
     
     // MARK: - Unity Communication
