@@ -1,18 +1,18 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
-  useGetAllItemsQuery,
-  useGetItemsByTypeQuery,
-  useGetItemDetailQuery,
-  usePurchaseItemMutation,
-  useGetUserItemsQuery,
-  useToggleUserItemMutation,
-  useDeleteUserItemMutation,
-  useGetItemTypesQuery,
-  useSearchItemsQuery,
-  useGetPopularItemsQuery,
-  useGetNewItemsQuery,
-  useGetRecommendedItemsQuery,
-} from '../../../store/api/avatarApi';
+  useGetAllItems,
+  useGetItemsByType,
+  useGetItemDetail,
+  usePurchaseItem,
+  useGetUserItems,
+  useToggleUserItem,
+  useDeleteUserItem,
+  useGetItemTypes,
+  useSearchItems,
+  useGetPopularItems,
+  useGetNewItems,
+  useGetRecommendedItems,
+} from '../../../services/avatar';
 import {
   Item,
   // UserItem, // TODO: 향후 사용자 아이템 데이터 처리용
@@ -53,7 +53,7 @@ export const useItemViewModel = () => {
     isLoading: isLoadingItems,
     isFetching: isFetchingItems,
     refetch: refetchItems,
-  } = useGetAllItemsQuery(searchParams);
+  } = useGetAllItems(searchParams);
 
   /**
    * 아이템 타입 목록 조회
@@ -62,7 +62,7 @@ export const useItemViewModel = () => {
   const {
     data: itemTypes,
     isLoading: isLoadingItemTypes,
-  } = useGetItemTypesQuery();
+  } = useGetItemTypes();
 
   /**
    * 사용자 보유 아이템 목록 조회
@@ -73,7 +73,7 @@ export const useItemViewModel = () => {
     error: userItemsError,
     isLoading: isLoadingUserItems,
     refetch: refetchUserItems,
-  } = useGetUserItemsQuery();
+  } = useGetUserItems();
 
   /**
    * 인기 아이템 조회
@@ -82,7 +82,7 @@ export const useItemViewModel = () => {
   const {
     data: popularItems,
     isLoading: isLoadingPopularItems,
-  } = useGetPopularItemsQuery({ limit: 10 });
+  } = useGetPopularItems({ limit: 10 });
 
   /**
    * 신규 아이템 조회
@@ -91,7 +91,7 @@ export const useItemViewModel = () => {
   const {
     data: newItems,
     isLoading: isLoadingNewItems,
-  } = useGetNewItemsQuery({ limit: 10 });
+  } = useGetNewItems({ limit: 10 });
 
   /**
    * 추천 아이템 조회
@@ -100,12 +100,12 @@ export const useItemViewModel = () => {
   const {
     data: recommendedItems,
     isLoading: isLoadingRecommendedItems,
-  } = useGetRecommendedItemsQuery({ limit: 10 });
+  } = useGetRecommendedItems({ limit: 10 });
 
   // Mutations
-  const [purchaseItem, { isLoading: isPurchasing }] = usePurchaseItemMutation();
-  const [toggleUserItem, { isLoading: isToggling }] = useToggleUserItemMutation();
-  const [deleteUserItem, { isLoading: isDeleting }] = useDeleteUserItemMutation();
+  const { mutateAsync: purchaseItem, isPending: isPurchasing } = usePurchaseItem();
+  const { mutateAsync: toggleUserItem, isPending: isToggling } = useToggleUserItem();
+  const { mutateAsync: deleteUserItem, isPending: isDeleting } = useDeleteUserItem();
 
   /**
    * 아이템 구매
@@ -113,7 +113,7 @@ export const useItemViewModel = () => {
    */
   const handlePurchaseItem = useCallback(async (itemId: number, avatarId?: number) => {
     try {
-      const result = await purchaseItem({ itemId, avatarId }).unwrap();
+      const result = await purchaseItem({ itemId, avatarId });
       return result;
     } catch (error) {
       console.error('Failed to purchase item:', error);
@@ -127,7 +127,7 @@ export const useItemViewModel = () => {
    */
   const handleToggleUserItem = useCallback(async (userItemId: number, isEnabled: boolean) => {
     try {
-      const result = await toggleUserItem({ userItemId, isEnabled }).unwrap();
+      const result = await toggleUserItem({ userItemId, isEnabled });
       return result;
     } catch (error) {
       console.error('Failed to toggle user item:', error);
@@ -141,7 +141,7 @@ export const useItemViewModel = () => {
    */
   const handleDeleteUserItem = useCallback(async (userItemId: number) => {
     try {
-      await deleteUserItem(userItemId).unwrap();
+      await deleteUserItem(userItemId);
     } catch (error) {
       console.error('Failed to delete user item:', error);
       throw error;
@@ -304,7 +304,7 @@ export const useItemDetailViewModel = (itemId: number) => {
     isLoading,
     isFetching,
     refetch,
-  } = useGetItemDetailQuery(itemId);
+  } = useGetItemDetail(itemId);
 
   const formattedItem = useMemo(() => {
     if (!item) return null;
@@ -334,7 +334,7 @@ export const useItemsByTypeViewModel = (itemTypeId: number) => {
     isLoading,
     isFetching,
     refetch,
-  } = useGetItemsByTypeQuery(itemTypeId);
+  } = useGetItemsByType(itemTypeId);
 
   const formattedItems = useMemo(() => {
     if (!items) return [];
@@ -367,7 +367,7 @@ export const useItemSearchViewModel = () => {
     isLoading,
     isFetching,
     refetch,
-  } = useSearchItemsQuery(
+  } = useSearchItems(
     { ...searchFilters, query: searchQuery },
     { skip: !searchQuery.trim() }
   );

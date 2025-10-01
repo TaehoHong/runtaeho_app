@@ -12,22 +12,8 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { useDispatch, useSelector } from 'react-redux';
-// import { useUnityBridge } from '~/contexts/UnityBridgeContext'; // TODO: 향후 직접 통신용
-import {
-  setCharacterSpeed,
-  stopCharacter,
-  setCharacterMotion,
-  changeAvatar,
-  getUnityStatus,
-  checkUnityConnection,
-  // selectUnityState, // TODO: 향후 디버깅용
-  selectIsUnityConnected,
-  selectCharacterState,
-  selectCurrentAvatar,
-  selectUnityLoading,
-  selectUnityError,
-} from '~/store/slices/unitySlice';
+import { useUnityStore } from '~/stores/unity/unityStore';
+import { useUnityViewModel } from '~/features/unity/viewmodels/UnityViewModel';
 import type { AvatarItem, CharacterMotion } from '~/features/unity/types/UnityTypes';
 import { CharacterStatus } from './character/components/CharacterStatus';
 import { CharacterControls } from './character/components/CharacterControls';
@@ -36,8 +22,6 @@ import { useOptimizedCharacterCallbacks } from '~/shared/hooks/useOptimizedCallb
 import { getUnityService } from '~/shared/di';
 
 export default function CharacterScreen() {
-  const dispatch = useDispatch();
-
   // 성능 모니터링
   usePerformanceMonitor('CharacterScreen', {
     enableRenderMonitor: true,
@@ -45,13 +29,15 @@ export default function CharacterScreen() {
     logInterval: 15000, // 15초마다 로깅
   });
 
-  // Redux state
-  // const unityState = useSelector(selectUnityState); // TODO: 향후 디버깅용으로 사용
-  const isConnected = useSelector(selectIsUnityConnected);
-  const characterState = useSelector(selectCharacterState);
-  const currentAvatar = useSelector(selectCurrentAvatar);
-  const isLoading = useSelector(selectUnityLoading);
-  const error = useSelector(selectUnityError);
+  // Zustand state
+  const isConnected = useUnityStore((state) => state.isConnected);
+  const characterState = useUnityStore((state) => state.characterState);
+  const currentAvatar = useUnityStore((state) => state.currentAvatar);
+  const isLoading = useUnityStore((state) => state.isLoading);
+  const error = useUnityStore((state) => state.error);
+
+  // Unity ViewModel (비즈니스 로직)
+  const unityViewModel = useUnityViewModel();
 
   // Unity Bridge Context (백업용)
   // const unityBridge = useUnityBridge(); // TODO: 향후 직접 통신용으로 사용

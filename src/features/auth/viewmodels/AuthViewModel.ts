@@ -3,9 +3,7 @@ import { AuthError } from '../models/AuthError';
 import { AuthProvider } from '../models/auth-types';
 import { AuthenticationService } from '../services/AuthenticationService';
 import { AuthStrategyFactory } from '../strategies/AuthStrategyFactory';
-import { userService } from '../../user/services/UserService';
-import { store } from '../../../store';
-import { userApi } from '../../../store/api/userApi';
+import { userService } from '../../../services/user/userService';
 
 export class AuthViewModel {
   private userStateManager = UserStateManager.getInstance();
@@ -37,17 +35,15 @@ export class AuthViewModel {
       );
 
       // 토큰을 사용하여 사용자 전체 데이터 조회
-      const getUserDataResult = await store.dispatch(
-        userApi.endpoints.getUserData.initiate()
-      );
+      const userData = await userService.getUserData();
 
-      if (!getUserDataResult.data) {
+      if (!userData) {
         throw AuthError.networkError('Failed to fetch user data');
       }
 
       // UserStateManager에 로그인 처리 (UserDataDto, accessToken, refreshToken)
       await this.userStateManager.login(
-        getUserDataResult.data,
+        userData,
         tokenDto.accessToken,
         tokenDto.refreshToken
       );

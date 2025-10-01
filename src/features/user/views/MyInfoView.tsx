@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal } from 'react-native';
-import { useSelector, useDispatch } from 'react-redux';
-import { selectCurrentUser, logout } from '~/store/slices/authSlice';
+import { useUserStore } from '~/stores/user/userStore';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
@@ -11,8 +10,8 @@ import { router } from 'expo-router';
  * 프로필 카드 + 메인 메뉴 + 설정 메뉴 + 로그아웃
  */
 export const MyInfoView: React.FC = () => {
-  const dispatch = useDispatch();
-  const currentUser = useSelector(selectCurrentUser);
+  const currentUser = useUserStore((state) => state.currentUser);
+  const logout = useUserStore((state) => state.logout);
   const [showLogoutAlert, setShowLogoutAlert] = useState(false);
   const [showPointModal, setShowPointModal] = useState(false);
   const [showShoesModal, setShowShoesModal] = useState(false);
@@ -22,7 +21,7 @@ export const MyInfoView: React.FC = () => {
 
   const handleLogout = () => {
     console.log('🚪 [MyInfoView] 로그아웃 실행');
-    dispatch(logout());
+    logout();
     setShowLogoutAlert(false);
   };
 

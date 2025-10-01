@@ -1,14 +1,15 @@
 import { useCallback } from 'react';
 import {
-  useGetRunningRecordsQuery,
-  useLoadRunningRecordsQuery,
-  useLazyLoadMoreRecordsQuery,
-} from '../../../store/api/runningApi';
+  useGetRunningRecords,
+  useLoadRunningRecords,
+  useInfiniteRunningRecords,
+} from '../../../services/running';
 import { RunningRecord, formatRunningRecord } from '../models';
 
 /**
  * 러닝 기록 조회 ViewModel
  * Swift RunningRecordService의 조회 관련 기능들을 React Hook으로 마이그레이션
+ * Redux + RTK Query → React Query
  */
 export const useRunningRecordViewModel = () => {
   /**
@@ -27,7 +28,7 @@ export const useRunningRecordViewModel = () => {
       isLoading,
       isFetching,
       refetch,
-    } = useGetRunningRecordsQuery(params);
+    } = useGetRunningRecords(params);
 
     return {
       records: data?.content || [],
@@ -51,7 +52,7 @@ export const useRunningRecordViewModel = () => {
       isLoading,
       isFetching,
       refetch,
-    } = useLoadRunningRecordsQuery(params);
+    } = useLoadRunningRecords(params);
 
     return {
       records: records || [],
@@ -69,21 +70,34 @@ export const useRunningRecordViewModel = () => {
   /**
    * 무한 스크롤을 위한 더 많은 기록 로드
    * Swift loadMoreRecords 메서드 대응
+   * React Query의 useInfiniteQuery 사용
    */
-  const useLoadMoreRecords = () => {
-    const [loadMore, { data, error, isLoading }] = useLazyLoadMoreRecordsQuery();
-
-    const loadMoreRecords = useCallback((cursor?: number, size: number = 20) => {
-      return loadMore({ cursor, size });
-    }, [loadMore]);
-
-    return {
-      loadMoreRecords,
-      moreRecords: data?.content || [],
-      cursor: data?.cursor,
-      hasNext: data?.hasNext || false,
+  const useLoadMoreRecords = (params: {
+    size: number;
+    startDate?: Date;
+    endDate?: Date;
+  }) => {
+    const {
+      data,
       error,
       isLoading,
+      isFetching,
+      fetchNextPage,
+      hasNextPage,
+      isFetchingNextPage,
+    } = useInfiniteRunningRecords(params);
+
+    // 모든 페이지의 기록을 평탄화
+    const allRecords = data?.pages.flatMap(page => page.content) || [];
+
+    return {
+      records: allRecords,
+      error,
+      isLoading,
+      isFetching,
+      fetchNextPage,
+      hasNextPage,
+      isFetchingNextPage,
     };
   };
 

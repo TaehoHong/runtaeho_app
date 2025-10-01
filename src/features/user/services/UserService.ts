@@ -11,8 +11,6 @@ import { AuthProvider } from '../../auth/models';
 import { UserDataDto } from '../models/UserDataDto';
 import { UserAuthData } from '../../auth/models/UserAuthData';
 import { authenticationService } from '../../auth/services/AuthenticationService';
-import { store } from '~/store';
-import { userApi } from '~/store/api/userApi';
 
 export class UserService {
   private static instance: UserService;

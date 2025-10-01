@@ -1,6 +1,5 @@
 import { Tabs } from 'expo-router';
-import { useSelector } from 'react-redux';
-import { selectRunningState, selectViewState, RunningState, ViewState } from '~/store/slices/appSlice';
+import { useAppStore, RunningState, ViewState } from '~/stores/app/appStore';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 
@@ -10,8 +9,8 @@ import React from 'react';
  * 러닝 상태에 따라 탭바 표시/숨김 제어
  */
 export default function TabLayout() {
-  const runningState = useSelector(selectRunningState);
-  const viewState = useSelector(selectViewState);
+  const runningState = useAppStore((state) => state.runningState);
+  const viewState = useAppStore((state) => state.viewState);
 
   // iOS와 동일한 로직: 러닝 중이 아니고 로딩 완료 시에만 탭바 표시
   const shouldShowTabBar = runningState === RunningState.Stopped && viewState === ViewState.Loaded;

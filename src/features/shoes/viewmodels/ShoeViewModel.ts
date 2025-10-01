@@ -1,19 +1,19 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
-  useGetShoesCursorQuery,
-  useGetAllShoesQuery,
-  useGetShoeDetailQuery,
-  useGetMainShoeQuery,
-  useAddShoeMutation,
-  usePatchShoeMutation,
-  useDeleteShoeMutation,
-  useSetMainShoeMutation,
-  useToggleShoeEnabledMutation,
-  useUpdateShoeDistanceMutation,
-  useSetShoeTargetMutation,
-  useRetireShoeMutation,
-  useGetShoeStatisticsQuery,
-} from '../../../store/api/shoeApi';
+  useGetShoesCursor,
+  useGetAllShoes,
+  useGetShoeDetail,
+  useGetMainShoe,
+  useAddShoe,
+  usePatchShoe,
+  useDeleteShoe,
+  useSetMainShoe,
+  useToggleShoeEnabled,
+  useUpdateShoeDistance,
+  useSetShoeTarget,
+  useRetireShoe,
+  useGetShoeStatistics,
+} from '../../../services/shoe';
 import {
   Shoe,
   AddShoeDto,
@@ -62,7 +62,7 @@ export const useShoeViewModel = () => {
     isLoading: isLoadingShoes,
     isFetching: isFetchingShoes,
     refetch: refetchShoes,
-  } = useGetShoesCursorQuery({
+  } = useGetShoesCursor({
     isEnabled: shoeFilters.isEnabled,
     size: 20,
   });
@@ -76,7 +76,7 @@ export const useShoeViewModel = () => {
     error: allShoesError,
     isLoading: isLoadingAllShoes,
     refetch: refetchAllShoes,
-  } = useGetAllShoesQuery({
+  } = useGetAllShoes({
     isEnabled: shoeFilters.isEnabled,
   });
 
@@ -89,7 +89,7 @@ export const useShoeViewModel = () => {
     error: mainShoeError,
     isLoading: isLoadingMainShoe,
     refetch: refetchMainShoe,
-  } = useGetMainShoeQuery();
+  } = useGetMainShoe();
 
   /**
    * 신발 통계 조회
@@ -98,17 +98,17 @@ export const useShoeViewModel = () => {
   const {
     data: shoeStatistics,
     isLoading: isLoadingStatistics,
-  } = useGetShoeStatisticsQuery();
+  } = useGetShoeStatistics();
 
   // Mutations
-  const [addShoe, { isLoading: isAddingShoe }] = useAddShoeMutation();
-  const [patchShoe, { isLoading: isPatchingShoe }] = usePatchShoeMutation();
-  const [deleteShoe, { isLoading: isDeletingShoe }] = useDeleteShoeMutation();
-  const [setMainShoe, { isLoading: isSettingMainShoe }] = useSetMainShoeMutation();
-  const [toggleShoeEnabled, { isLoading: isTogglingShoe }] = useToggleShoeEnabledMutation();
-  const [updateShoeDistance, { isLoading: isUpdatingDistance }] = useUpdateShoeDistanceMutation();
-  const [setShoeTarget, { isLoading: isSettingTarget }] = useSetShoeTargetMutation();
-  const [retireShoe, { isLoading: isRetiringShoe }] = useRetireShoeMutation();
+  const { mutateAsync: addShoe, isPending: isAddingShoe } = useAddShoe();
+  const { mutateAsync: patchShoe, isPending: isPatchingShoe } = usePatchShoe();
+  const { mutateAsync: deleteShoe, isPending: isDeletingShoe } = useDeleteShoe();
+  const { mutateAsync: setMainShoe, isPending: isSettingMainShoe } = useSetMainShoe();
+  const { mutateAsync: toggleShoeEnabled, isPending: isTogglingShoe } = useToggleShoeEnabled();
+  const { mutateAsync: updateShoeDistance, isPending: isUpdatingDistance } = useUpdateShoeDistance();
+  const { mutateAsync: setShoeTarget, isPending: isSettingTarget } = useSetShoeTarget();
+  const { mutateAsync: retireShoe, isPending: isRetiringShoe } = useRetireShoe();
 
   /**
    * 신발 추가
@@ -122,7 +122,7 @@ export const useShoeViewModel = () => {
   ) => {
     try {
       const addShoeDto = createAddShoeDto(brand, model, targetDistance, isMain);
-      const result = await addShoe(addShoeDto).unwrap();
+      const result = await addShoe(addShoeDto);
       return result;
     } catch (error) {
       console.error('Failed to add shoe:', error);
@@ -140,7 +140,7 @@ export const useShoeViewModel = () => {
   ) => {
     try {
       const patchShoeDto = createPatchShoeDto(id, updates);
-      const result = await patchShoe(patchShoeDto).unwrap();
+      const result = await patchShoe(patchShoeDto);
       return result;
     } catch (error) {
       console.error('Failed to patch shoe:', error);
@@ -154,7 +154,7 @@ export const useShoeViewModel = () => {
    */
   const handleDeleteShoe = useCallback(async (shoeId: number) => {
     try {
-      await deleteShoe(shoeId).unwrap();
+      await deleteShoe(shoeId);
     } catch (error) {
       console.error('Failed to delete shoe:', error);
       throw error;
@@ -167,7 +167,7 @@ export const useShoeViewModel = () => {
    */
   const handleSetMainShoe = useCallback(async (shoeId: number) => {
     try {
-      const result = await setMainShoe(shoeId).unwrap();
+      const result = await setMainShoe(shoeId);
       return result;
     } catch (error) {
       console.error('Failed to set main shoe:', error);
@@ -181,7 +181,7 @@ export const useShoeViewModel = () => {
    */
   const handleToggleShoeEnabled = useCallback(async (shoeId: number, isEnabled: boolean) => {
     try {
-      const result = await toggleShoeEnabled({ shoeId, isEnabled }).unwrap();
+      const result = await toggleShoeEnabled({ shoeId, isEnabled });
       return result;
     } catch (error) {
       console.error('Failed to toggle shoe enabled:', error);
@@ -195,7 +195,7 @@ export const useShoeViewModel = () => {
    */
   const handleUpdateShoeDistance = useCallback(async (shoeId: number, distance: number) => {
     try {
-      const result = await updateShoeDistance({ shoeId, distance }).unwrap();
+      const result = await updateShoeDistance({ shoeId, distance });
       return result;
     } catch (error) {
       console.error('Failed to update shoe distance:', error);
@@ -209,7 +209,7 @@ export const useShoeViewModel = () => {
    */
   const handleSetShoeTarget = useCallback(async (shoeId: number, targetDistance: number) => {
     try {
-      const result = await setShoeTarget({ shoeId, targetDistance }).unwrap();
+      const result = await setShoeTarget({ shoeId, targetDistance });
       return result;
     } catch (error) {
       console.error('Failed to set shoe target:', error);
@@ -223,7 +223,7 @@ export const useShoeViewModel = () => {
    */
   const handleRetireShoe = useCallback(async (shoeId: number) => {
     try {
-      const result = await retireShoe(shoeId).unwrap();
+      const result = await retireShoe(shoeId);
       return result;
     } catch (error) {
       console.error('Failed to retire shoe:', error);
@@ -392,7 +392,7 @@ export const useShoeDetailViewModel = (shoeId: number) => {
     isLoading,
     isFetching,
     refetch,
-  } = useGetShoeDetailQuery(shoeId);
+  } = useGetShoeDetail(shoeId);
 
   const shoeViewModel = useMemo(() => {
     return shoe ? createShoeViewModel(shoe) : null;
@@ -425,10 +425,10 @@ export const useCurrentShoeViewModel = () => {
     error,
     isLoading,
     refetch,
-  } = useGetMainShoeQuery();
+  } = useGetMainShoe();
 
-  const [setMainShoe, { isLoading: isSettingMain }] = useSetMainShoeMutation();
-  const [updateDistance, { isLoading: isUpdatingDistance }] = useUpdateShoeDistanceMutation();
+  const { mutateAsync: setMainShoe, isPending: isSettingMain } = useSetMainShoe();
+  const { mutateAsync: updateDistance, isPending: isUpdatingDistance } = useUpdateShoeDistance();
 
   const mainShoeViewModel = useMemo(() => {
     return mainShoe ? createShoeViewModel(mainShoe) : null;
@@ -440,7 +440,7 @@ export const useCurrentShoeViewModel = () => {
 
   const handleSetAsMain = useCallback(async (shoeId: number) => {
     try {
-      const result = await setMainShoe(shoeId).unwrap();
+      const result = await setMainShoe(shoeId);
       return result;
     } catch (error) {
       console.error('Failed to set main shoe:', error);
@@ -452,7 +452,7 @@ export const useCurrentShoeViewModel = () => {
     if (!mainShoe) return;
 
     try {
-      const result = await updateDistance({ shoeId: mainShoe.id, distance }).unwrap();
+      const result = await updateDistance({ shoeId: mainShoe.id, distance });
       return result;
     } catch (error) {
       console.error('Failed to update main shoe distance:', error);

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useGetTrendsQuery } from '../../../store/api/statisticApi';
+import { useGetTrends } from '../../../services/statistics';
 import { Period } from '../models';
 
 /**
@@ -12,7 +12,7 @@ export const useTrendsViewModel = (period: Period = Period.MONTH) => {
     error,
     isLoading,
     refetch,
-  } = useGetTrendsQuery({
+  } = useGetTrends({
     currentPeriod: period,
   });
 

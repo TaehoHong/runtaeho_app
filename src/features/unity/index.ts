@@ -9,14 +9,15 @@
 export { UnityService, unityService } from './services/UnityService';
 export type { UnityServiceInterface } from './services/UnityService';
 
-// Unity Bridge Integration (Redux + Service Pattern)
-// Note: UnityBridgeContext는 사용하지 않고 Redux + UnityBridgeService 패턴 사용
+// Unity Bridge Integration (Zustand + Service Pattern)
+// Note: UnityBridgeContext는 사용하지 않고 Zustand + UnityBridgeService 패턴 사용
 export { createUnityBridgeService, disposeUnityBridgeService, getUnityBridgeService } from '~/features/unity/bridge/UnityBridgeService';
-export {
-  changeAvatar, checkUnityConnection, getUnityStatus, selectCharacterState,
-  selectCurrentAvatar, selectIsUnityConnected, selectUnityError, selectUnityLoading, selectUnityState, setCharacterMotion, setCharacterSpeed,
-  stopCharacter
-} from '~/store/slices/unitySlice';
+
+// Unity Store (Zustand)
+export { useUnityStore } from '~/stores/unity/unityStore';
+
+// Unity ViewModel (비즈니스 로직)
+export { useUnityViewModel } from '~/features/unity/viewmodels/UnityViewModel';
 
 // Unity Types and DTOs
 export type {

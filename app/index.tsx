@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { useSelector } from 'react-redux';
-import { selectIsLoggedIn } from '~/store/slices/authSlice';
-import { selectViewState, ViewState } from '~/store/slices/appSlice';
+import { useUserStore } from '~/stores/user/userStore';
+import { useAppStore, ViewState } from '~/stores/app/appStore';
 import { router } from 'expo-router';
 
 /**
@@ -13,8 +12,8 @@ import { router } from 'expo-router';
 export default function Index() {
   console.log('🚀 [APP] 앱 메인 진입점 시작');
 
-  const isLoggedIn = useSelector(selectIsLoggedIn);
-  const viewState = useSelector(selectViewState);
+  const isLoggedIn = useUserStore((state) => state.isLoggedIn);
+  const viewState = useAppStore((state) => state.viewState);
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {

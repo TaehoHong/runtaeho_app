@@ -5,10 +5,6 @@
 
 import { container, SERVICE_TOKENS, ServiceLifetime } from './ServiceContainer';
 
-// API Services (RTK Query APIs)
-import { runningApi } from '../../store/api/runningApi';
-import { userApi } from '../../store/api/userApi';
-
 // Business Services
 import { AuthenticationService } from '../../features/auth/services/AuthenticationService';
 import { AvatarService } from '../../features/avatar/services/AvatarService';

@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useState, useMemo } from 'react';
 import {
-  useGetStatisticsSummaryQuery,
-  useGetChartDataQuery,
-  useGetPersonalRecordsQuery,
-  useGetTrendsQuery,
-  useGetGoalProgressQuery,
-  useGetPerformanceComparisonQuery,
-  useGetConsistencyAnalysisQuery,
-  useGetTimePatternAnalysisQuery,
-  useGetDashboardDataQuery,
-} from '../../../store/api/statisticApi';
-import { useGetRunningRecordsQuery } from '../../../store/api/runningApi';
+  useGetStatisticsSummary,
+  useGetChartData,
+  useGetPersonalRecords,
+  useGetTrends,
+  useGetGoalProgress,
+  useGetPerformanceComparison,
+  useGetConsistencyAnalysis,
+  useGetTimePatternAnalysis,
+  useGetDashboardData,
+} from '../../../services/statistics';
+import { useGetRunningRecords } from '../../../services/running';
 import {
   Period,
   StatisticsSummary,
@@ -35,28 +35,28 @@ export const useStatisticsViewModel = (period: Period = Period.MONTH) => {
     error: summaryError,
     isLoading: summaryLoading,
     refetch: refetchSummary,
-  } = useGetStatisticsSummaryQuery({ period: selectedPeriod });
+  } = useGetStatisticsSummary({ period: selectedPeriod });
 
   const {
     data: chartData,
     error: chartError,
     isLoading: chartLoading,
     refetch: refetchChart,
-  } = useGetChartDataQuery({ period: selectedPeriod });
+  } = useGetChartData({ period: selectedPeriod });
 
   const {
     data: dashboardData,
     error: dashboardError,
     isLoading: dashboardLoading,
     refetch: refetchDashboard,
-  } = useGetDashboardDataQuery({ period: selectedPeriod });
+  } = useGetDashboardData({ period: selectedPeriod });
 
   // 로컬 계산을 위한 running records
   const {
     data: runningRecords,
     error: recordsError,
     isLoading: recordsLoading,
-  } = useGetRunningRecordsQuery({});
+  } = useGetRunningRecords({});
 
   // 전체 로딩 상태
   const isLoading = summaryLoading || chartLoading || dashboardLoading || recordsLoading;
@@ -173,7 +173,7 @@ export const useGoalProgressViewModel = (goals?: {
     error,
     isLoading,
     refetch,
-  } = useGetGoalProgressQuery(goals || {});
+  } = useGetGoalProgress(goals || {});
 
   const formattedProgress = useMemo(() => {
     if (!goalProgress) return null;
@@ -208,7 +208,7 @@ export const usePerformanceComparisonViewModel = (period: Period = Period.MONTH)
     error,
     isLoading,
     refetch,
-  } = useGetPerformanceComparisonQuery({ period });
+  } = useGetPerformanceComparison({ period });
 
   const formattedComparison = useMemo(() => {
     if (!comparison) return null;

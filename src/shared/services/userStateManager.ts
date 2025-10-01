@@ -1,28 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppState, AppStateStatus } from 'react-native';
-import { store } from '../../store';
 import { systemInfoManager } from '../utils/SystemInfoManager';
-import {
-  setLoginData,
-  logout as logoutAction,
-  updateProfile as updateProfileAction,
-  disconnectAccount as disconnectAccountAction,
-  connectAccount as connectAccountAction,
-  earnPoints as earnPointsAction,
-  setTokens as setTokensAction,
-  setNickname as setNicknameAction,
-  setLevel as setLevelAction,
-  setAvatarId as setAvatarIdAction,
-  setEquippedItems as setEquippedItemsAction,
-  setUserPreferences as setUserPreferencesAction,
-  incrementAppLaunchCount,
-  setLastAppVersion,
-  setLoading,
-  setBackgroundEnterTime,
-  syncUserData,
-  resetAppState,
-  UserPreferences,
-} from '../../store/slices/userSlice';
+import { useUserStore, UserPreferences } from '../../stores/user/userStore';
 import { KeychainManager, KeychainKeys } from './KeychainManager';
 import { UserDataDto, userDataDtoToUser } from '../../features/user/models/UserDataDto';
 import { User } from '../../features/user/models/User';
@@ -47,7 +25,7 @@ const STORAGE_KEYS = {
 /**
  * User State Manager
  * SwiftUI UserStateManager와 동일한 구조
- * Redux를 통해 상태 관리
+ * Zustand를 통해 상태 관리 (Phase 3: Redux → Zustand 마이그레이션 완료)
  */
 export class UserStateManager {
   private static instance: UserStateManager;
@@ -59,7 +37,7 @@ export class UserStateManager {
   // MARK: - Initialization
   private constructor() {
     this.keychain = KeychainManager.getInstance();
-    
+
     this.loadUserState();
     this.incrementAppLaunchCountInternal();
   }
@@ -71,49 +49,49 @@ export class UserStateManager {
     return UserStateManager.instance;
   }
 
-  // MARK: - Getters (Redux State에서 값 가져오기)
+  // MARK: - Getters (Zustand State에서 값 가져오기)
   get currentUser(): User | null {
-    return store.getState().user.currentUser;
+    return useUserStore.getState().currentUser;
   }
 
   get totalPoint(): number {
-    return store.getState().user.totalPoint;
+    return useUserStore.getState().totalPoint;
   }
 
   get isLoggedIn(): boolean {
-    return store.getState().user.isLoggedIn;
+    return useUserStore.getState().isLoggedIn;
   }
 
   get isLoading(): boolean {
-    return store.getState().user.isLoading;
+    return useUserStore.getState().isLoading;
   }
 
   get accessToken(): string | null {
-    return store.getState().user.accessToken;
+    return useUserStore.getState().accessToken;
   }
 
   get refreshToken(): string | null {
-    return store.getState().user.refreshToken;
+    return useUserStore.getState().refreshToken;
   }
 
   get avatarId(): number {
-    return store.getState().user.avatarId;
+    return useUserStore.getState().avatarId;
   }
 
   get equippedItems(): Record<string, AvatarItem> {
-    return store.getState().user.equippedItems;
+    return useUserStore.getState().equippedItems;
   }
 
   get userPreferences(): UserPreferences {
-    return store.getState().user.userPreferences;
+    return useUserStore.getState().userPreferences;
   }
 
   get appLaunchCount(): number {
-    return store.getState().user.appLaunchCount;
+    return useUserStore.getState().appLaunchCount;
   }
 
   get lastAppVersion(): string | null {
-    return store.getState().user.lastAppVersion;
+    return useUserStore.getState().lastAppVersion;
   }
 
   get userAccounts(): UserAccount[] {
@@ -131,15 +109,15 @@ export class UserStateManager {
       // UserDataDto를 User로 변환
       const user = userDataDtoToUser(userData);
 
-      // Redux에 로그인 데이터 저장
-      store.dispatch(setLoginData({
+      // Zustand에 로그인 데이터 저장
+      useUserStore.getState().setLoginData({
         user,
         totalPoint: userData.totalPoint,
         avatarId: userData.avatarId,
         equippedItems: this.convertEquippedItems(userData.equippedItems),
         accessToken: authToken,
         refreshToken,
-      }));
+      });
 
       // 토큰 저장 (Keychain에)
       await this.setTokens(authToken, refreshToken);
@@ -158,8 +136,8 @@ export class UserStateManager {
    */
   async logout(): Promise<void> {
     try {
-      // Redux 상태 초기화
-      store.dispatch(logoutAction());
+      // Zustand 상태 초기화
+      useUserStore.getState().logout();
 
       // 저장된 상태 삭제
       await this.clearUserState();
@@ -175,12 +153,12 @@ export class UserStateManager {
    */
   updateProfile(nickname?: string, imageURL?: string): void {
     if (!this.currentUser) return;
-    
-    store.dispatch(updateProfileAction({
+
+    useUserStore.getState().updateProfile({
       nickname,
       profileImageURL: imageURL,
-    }));
-    
+    });
+
     this.saveUserState();
   }
 
@@ -190,8 +168,8 @@ export class UserStateManager {
    */
   disconnectAccount(provider: AuthProvider): void {
     if (!this.currentUser) return;
-    
-    store.dispatch(disconnectAccountAction(provider));
+
+    useUserStore.getState().disconnectAccount(provider);
     this.saveUserState();
   }
 
@@ -201,8 +179,8 @@ export class UserStateManager {
    */
   connectAccount(account: UserAccount): void {
     if (!this.currentUser) return;
-    
-    store.dispatch(connectAccountAction(account));
+
+    useUserStore.getState().connectAccount(account);
     this.saveUserState();
   }
 
@@ -211,7 +189,7 @@ export class UserStateManager {
    * SwiftUI UserStateManager.earnPoints와 동일
    */
   earnPoints(points: number): void {
-    store.dispatch(earnPointsAction(points));
+    useUserStore.getState().earnPoints(points);
     this.saveUserState();
   }
 
@@ -220,7 +198,7 @@ export class UserStateManager {
    * SwiftUI UserStateManager.setPreferences와 동일
    */
   async setPreferences(preferences: UserPreferences): Promise<void> {
-    store.dispatch(setUserPreferencesAction(preferences));
+    useUserStore.getState().setUserPreferences(preferences);
     await this.saveUserPreferences();
   }
 
@@ -229,7 +207,7 @@ export class UserStateManager {
    * SwiftUI UserStateManager.setTokens와 동일
    */
   async setTokens(accessToken: string, refreshToken?: string): Promise<void> {
-    store.dispatch(setTokensAction({ accessToken, refreshToken }));
+    useUserStore.getState().setTokens({ accessToken, refreshToken });
     await this.saveTokensToKeychain();
   }
 
@@ -247,12 +225,12 @@ export class UserStateManager {
    */
   async resetAppState(): Promise<void> {
     await this.logout();
-    store.dispatch(resetAppState());
-    
+    useUserStore.getState().resetAppState();
+
     // UserDefaults(AsyncStorage) 클리어
     const keysToRemove = Object.values(STORAGE_KEYS);
     await AsyncStorage.multiRemove(keysToRemove);
-    
+
     // Keychain 클리어
     await this.keychain.clearAll();
   }
@@ -454,8 +432,8 @@ export class UserStateManager {
       // const appLaunchCount = await AsyncStorage.getItem(STORAGE_KEYS.APP_LAUNCH_COUNT);
       // const lastAppVersion = await AsyncStorage.getItem(STORAGE_KEYS.LAST_APP_VERSION);
 
-      // 4) Redux rehydrate: 로그인 상태 체크
-      // accessToken/refreshToken은 이미 loadTokensFromKeychain에서 Redux에 들어감
+      // 4) Zustand rehydrate: 로그인 상태 체크
+      // accessToken/refreshToken은 이미 loadTokensFromKeychain에서 Zustand에 들어감
       if (
         isLoggedInString === 'true' &&
         (userDataString && (this.accessToken || this.refreshToken))
@@ -491,16 +469,14 @@ export class UserStateManager {
           return;
         }
 
-        store.dispatch(
-          setLoginData({
-            user,
-            totalPoint,
-            avatarId,
-            equippedItems,
-            accessToken: this.accessToken || '',
-            refreshToken: this.refreshToken || undefined,
-          })
-        );
+        useUserStore.getState().setLoginData({
+          user,
+          totalPoint,
+          avatarId,
+          equippedItems,
+          accessToken: this.accessToken || '',
+          refreshToken: this.refreshToken || undefined,
+        });
       }
     } catch (error) {
       console.error('Failed to load user state:', error);
@@ -561,10 +537,10 @@ export class UserStateManager {
     const refreshToken = await this.keychain.load(KeychainKeys.REFRESH_TOKEN);
 
     if (accessToken || refreshToken) {
-      store.dispatch(setTokensAction({
+      useUserStore.getState().setTokens({
         accessToken: accessToken || '',
         refreshToken: refreshToken || undefined,
-      }));
+      });
     }
   }
 
@@ -600,7 +576,7 @@ export class UserStateManager {
       const preferencesString = await AsyncStorage.getItem(STORAGE_KEYS.USER_PREFERENCES);
       if (preferencesString) {
         const preferences = JSON.parse(preferencesString) as UserPreferences;
-        store.dispatch(setUserPreferencesAction(preferences));
+        useUserStore.getState().setUserPreferences(preferences);
       }
     } catch (error) {
       console.error('Failed to load user preferences:', error);
@@ -625,19 +601,19 @@ export class UserStateManager {
    * SwiftUI UserStateManager.incrementAppLaunchCount와 동일
    */
   private async incrementAppLaunchCountInternal(): Promise<void> {
-    store.dispatch(incrementAppLaunchCount());
-    
+    useUserStore.getState().incrementAppLaunchCount();
+
     const appLaunchCount = this.appLaunchCount;
     await AsyncStorage.setItem(STORAGE_KEYS.APP_LAUNCH_COUNT, String(appLaunchCount));
 
     // 현재 앱 버전 저장 (SystemInfoManager 사용)
     const fullVersion = systemInfoManager.getFullVersionString();
-    store.dispatch(setLastAppVersion(fullVersion));
+    useUserStore.getState().setLastAppVersion(fullVersion);
     await AsyncStorage.setItem(STORAGE_KEYS.LAST_APP_VERSION, fullVersion);
-    
+
     console.log(`📱 [UserStateManager] App version: ${fullVersion}`);
     console.log(`📱 [UserStateManager] Launch count: ${appLaunchCount}`);
-    
+
     // 개발 환경에서는 시스템 정보 출력
     if (__DEV__ && appLaunchCount === 1) {
       systemInfoManager.printDebugInfo();

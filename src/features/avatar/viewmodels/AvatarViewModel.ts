@@ -1,11 +1,11 @@
 import { useCallback, useMemo } from 'react';
 import {
-  useGetMainAvatarQuery,
-  useUpdateAvatarItemsMutation,
-  usePurchaseAndEquipItemMutation,
-  useRemoveAvatarItemMutation,
-  useRemoveAllAvatarItemsMutation,
-} from '../../../store/api/avatarApi';
+  useGetMainAvatar,
+  useUpdateAvatarItems,
+  usePurchaseAndEquipItem,
+  useRemoveAvatarItem,
+  useRemoveAllAvatarItems,
+} from '../../../services/avatar';
 import {
   Avatar,
   formatAvatar,
@@ -30,13 +30,13 @@ export const useAvatarViewModel = () => {
     isLoading: isLoadingAvatar,
     isFetching: isFetchingAvatar,
     refetch: refetchAvatar,
-  } = useGetMainAvatarQuery();
+  } = useGetMainAvatar();
 
   // Mutations
-  const [updateAvatarItems, { isLoading: isUpdatingItems }] = useUpdateAvatarItemsMutation();
-  const [purchaseAndEquipItem, { isLoading: isPurchasing }] = usePurchaseAndEquipItemMutation();
-  const [removeAvatarItem, { isLoading: isRemovingItem }] = useRemoveAvatarItemMutation();
-  const [removeAllItems, { isLoading: isRemovingAllItems }] = useRemoveAllAvatarItemsMutation();
+  const { mutateAsync: updateAvatarItems, isPending: isUpdatingItems } = useUpdateAvatarItems();
+  const { mutateAsync: purchaseAndEquipItem, isPending: isPurchasing } = usePurchaseAndEquipItem();
+  const { mutateAsync: removeAvatarItem, isPending: isRemovingItem } = useRemoveAvatarItem();
+  const { mutateAsync: removeAllItems, isPending: isRemovingAllItems } = useRemoveAllAvatarItems();
 
   /**
    * 아바타 아이템 업데이트
@@ -44,7 +44,7 @@ export const useAvatarViewModel = () => {
    */
   const updateItems = useCallback(async (avatarId: number, itemIds: number[]) => {
     try {
-      const result = await updateAvatarItems({ avatarId, itemIds }).unwrap();
+      const result = await updateAvatarItems({ avatarId, itemIds });
       return result;
     } catch (error) {
       console.error('Failed to update avatar items:', error);
@@ -58,7 +58,7 @@ export const useAvatarViewModel = () => {
    */
   const purchaseAndEquip = useCallback(async (avatarId: number, itemIds: number[]) => {
     try {
-      const result = await purchaseAndEquipItem({ avatarId, itemIds }).unwrap();
+      const result = await purchaseAndEquipItem({ avatarId, itemIds });
       return result;
     } catch (error) {
       console.error('Failed to purchase and equip item:', error);
@@ -72,7 +72,7 @@ export const useAvatarViewModel = () => {
    */
   const removeItem = useCallback(async (avatarId: number, itemId: number) => {
     try {
-      await removeAvatarItem({ avatarId, itemId }).unwrap();
+      await removeAvatarItem({ avatarId, itemId });
     } catch (error) {
       console.error('Failed to remove avatar item:', error);
       throw error;
@@ -85,7 +85,7 @@ export const useAvatarViewModel = () => {
    */
   const removeAllAvatarItems = useCallback(async (avatarId: number) => {
     try {
-      await removeAllItems(avatarId).unwrap();
+      await removeAllItems(avatarId);
     } catch (error) {
       console.error('Failed to remove all avatar items:', error);
       throw error;

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useGetPersonalRecordsQuery } from '../../../store/api/statisticApi';
+import { useGetPersonalRecords } from '../../../services/statistics';
 
 /**
  * 개인 기록 전용 ViewModel
@@ -11,7 +11,7 @@ export const usePersonalRecordsViewModel = () => {
     error,
     isLoading,
     refetch,
-  } = useGetPersonalRecordsQuery();
+  } = useGetPersonalRecords();
 
   const formattedRecords = useMemo(() => {
     if (!personalRecords) return null;

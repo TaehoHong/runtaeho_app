@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
-import { useSelector, useDispatch } from 'react-redux';
-import { selectViewState, selectRunningState, ViewState, RunningState, setViewState } from '~/store/slices/appSlice';
-import { selectIsLoggedIn } from '~/store/slices/authSlice';
+import { useAppStore, ViewState, RunningState } from '~/stores/app/appStore';
+import { useUserStore } from '~/stores/user/userStore';
 import { LoadingView } from '~/shared/components';
 import { ControlPanelView } from './ControlPanelView';
 import { createUnityBridgeService } from '~/features/unity/bridge/UnityBridgeService';
@@ -14,10 +13,10 @@ import { createUnityBridgeService } from '~/features/unity/bridge/UnityBridgeSer
  * Unity 컴포넌트 + 상태별 컴트롤 패널
  */
 export const RunningView: React.FC = () => {
-  const dispatch = useDispatch();
-  const viewState = useSelector(selectViewState);
-  const runningState = useSelector(selectRunningState);
-  const isLoggedIn = useSelector(selectIsLoggedIn);
+  const viewState = useAppStore((state) => state.viewState);
+  const runningState = useAppStore((state) => state.runningState);
+  const setViewState = useAppStore((state) => state.setViewState);
+  const isLoggedIn = useUserStore((state) => state.isLoggedIn);
   const [unityReady, setUnityReady] = useState(false);
   const [unityStarted, setUnityStarted] = useState(false);
   const [unityBridge] = useState(() => createUnityBridgeService());
@@ -51,7 +50,7 @@ export const RunningView: React.FC = () => {
 
       // 다음 프레임에서 Loaded 상태로 전환 (메인 스레드 위반 방지)
       setTimeout(() => {
-        dispatch(setViewState(ViewState.Loaded));
+        setViewState(ViewState.Loaded);
       }, 0);
     } else if (viewState === ViewState.Loading && !isLoggedIn) {
       console.log('🔄 [RunningView] 로그인 대기 중 - Unity 시작 보류');
@@ -61,7 +60,7 @@ export const RunningView: React.FC = () => {
       // 컴포넌트 언마운트 시 정리 작업
       console.log('🔄 [RunningView] 컴포넌트 언마운트');
     };
-  }, [viewState, isLoggedIn, unityStarted, dispatch, unityBridge]);
+  }, [viewState, isLoggedIn, unityStarted, setViewState, unityBridge]);
 
   /**
    * Unity 시작

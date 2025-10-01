@@ -1,14 +1,13 @@
 import { useCallback } from 'react';
-import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import {
-  useGetCurrentUserQuery,
-  useGetUserDataQuery,
-  useUpdateUserProfileMutation,
-  useConnectAccountMutation,
-  useDisconnectAccountMutation,
-  useDeleteUserMutation,
-} from '../../../store/api/userApi';
-import { incrementAppLaunchCount, setLastAppVersion } from '../../../store/slices/userSlice';
+  useGetCurrentUser,
+  useGetUserData,
+  useUpdateUserProfile,
+  useConnectAccount as useConnectAccountMutation,
+  useDisconnectAccount as useDisconnectAccountMutation,
+  useDeleteUser,
+} from '../../../services/user';
+import { useUserStore } from '../../../stores/user/userStore';
 import {
   getUserAccount,
   getConnectedAccountsCount,
@@ -18,34 +17,35 @@ import { AuthProvider } from '../../auth/models';
 /**
  * User ViewModel
  * Swift UserStateManager의 User 관련 기능들을 React Hook으로 마이그레이션
+ * Redux + RTK Query → Zustand + React Query
  */
 export const useUserViewModel = () => {
-  const dispatch = useAppDispatch();
+  // Zustand Store
+  const appLaunchCount = useUserStore((state) => state.appLaunchCount);
+  const lastAppVersion = useUserStore((state) => state.lastAppVersion);
+  const incrementAppLaunchCount = useUserStore((state) => state.incrementAppLaunchCount);
+  const setLastAppVersion = useUserStore((state) => state.setLastAppVersion);
 
-  // API Queries
+  // React Query
   const {
     data: currentUser,
     isLoading: isUserLoading,
     error: userError,
     refetch: refetchUser,
-  } = useGetCurrentUserQuery();
+  } = useGetCurrentUser();
 
   const {
     data: userData,
     isLoading: isUserDataLoading,
     error: userDataError,
     refetch: refetchUserData,
-  } = useGetUserDataQuery();
+  } = useGetUserData();
 
-  // API Mutations
-  const [updateProfileMutation, { isLoading: isUpdatingProfile }] = useUpdateUserProfileMutation();
-  const [connectAccountMutation, { isLoading: isConnectingAccount }] = useConnectAccountMutation();
-  const [disconnectAccountMutation, { isLoading: isDisconnectingAccount }] = useDisconnectAccountMutation();
-  const [deleteUserMutation, { isLoading: isDeletingUser }] = useDeleteUserMutation();
-
-  // App state from Redux
-  const appLaunchCount = useAppSelector((state) => state.user.appLaunchCount);
-  const lastAppVersion = useAppSelector((state) => state.user.lastAppVersion);
+  // Mutations
+  const { mutateAsync: updateProfileMutation, isPending: isUpdatingProfile } = useUpdateUserProfile();
+  const { mutateAsync: connectAccountMutation, isPending: isConnectingAccount } = useConnectAccountMutation();
+  const { mutateAsync: disconnectAccountMutation, isPending: isDisconnectingAccount } = useDisconnectAccountMutation();
+  const { mutateAsync: deleteUserMutation, isPending: isDeletingUser } = useDeleteUser();
 
   /**
    * 프로필 업데이트
@@ -53,7 +53,7 @@ export const useUserViewModel = () => {
    */
   const updateProfile = useCallback(async (updates: { nickname?: string; profileImageURL?: string }) => {
     try {
-      const result = await updateProfileMutation(updates).unwrap();
+      const result = await updateProfileMutation(updates);
       await refetchUser(); // 업데이트 후 최신 데이터 다시 가져오기
       return result;
     } catch (error) {
@@ -68,7 +68,7 @@ export const useUserViewModel = () => {
    */
   const connectAccount = useCallback(async (provider: AuthProvider, token: string) => {
     try {
-      await connectAccountMutation({ provider, token }).unwrap();
+      await connectAccountMutation({ provider, token });
       await refetchUser(); // 연결 후 최신 데이터 다시 가져오기
     } catch (error) {
       console.error('Failed to connect account:', error);
@@ -82,7 +82,7 @@ export const useUserViewModel = () => {
    */
   const disconnectAccount = useCallback(async (provider: AuthProvider) => {
     try {
-      await disconnectAccountMutation({ provider }).unwrap();
+      await disconnectAccountMutation(provider);
       await refetchUser(); // 해제 후 최신 데이터 다시 가져오기
     } catch (error) {
       console.error('Failed to disconnect account:', error);
@@ -95,7 +95,7 @@ export const useUserViewModel = () => {
    */
   const deleteAccount = useCallback(async () => {
     try {
-      await deleteUserMutation().unwrap();
+      await deleteUserMutation();
     } catch (error) {
       console.error('Failed to delete user:', error);
       throw error;
@@ -107,16 +107,16 @@ export const useUserViewModel = () => {
    * Swift incrementAppLaunchCount() 메서드 대응
    */
   const incrementLaunchCount = useCallback(() => {
-    dispatch(incrementAppLaunchCount());
-  }, [dispatch]);
+    incrementAppLaunchCount();
+  }, [incrementAppLaunchCount]);
 
   /**
    * 마지막 앱 버전 설정
    * Swift setLastAppVersion() 메서드 대응
    */
   const updateLastAppVersion = useCallback((version: string) => {
-    dispatch(setLastAppVersion(version));
-  }, [dispatch]);
+    setLastAppVersion(version);
+  }, [setLastAppVersion]);
 
   /**
    * 특정 provider의 연결된 계정 조회

@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
-import { useDispatch } from 'react-redux';
-import { setRunningState, RunningState } from '~/store/slices/appSlice';
+import { useAppStore, RunningState } from '~/stores/app/appStore';
 import { StatsView, PauseButton, StopButton } from '~/shared/components';
 
 const { width, height } = Dimensions.get('window');
@@ -11,7 +10,7 @@ const { width, height } = Dimensions.get('window');
  * iOS RunningActiveView 대응
  */
 export const RunningActiveView: React.FC = () => {
-  const dispatch = useDispatch();
+  const setRunningState = useAppStore((state) => state.setRunningState);
 
   const handlePauseRunning = () => {
     console.log('⏸️ [RunningActiveView] 러닝 일시정지 버튼 눌러짐');
@@ -19,7 +18,7 @@ export const RunningActiveView: React.FC = () => {
     // TODO: RunningViewModel.pauseRunning() 호출
     // TODO: GPS 추적 일시정지
 
-    dispatch(setRunningState(RunningState.Paused));
+    setRunningState(RunningState.Paused);
   };
 
   const handleStopRunning = () => {
@@ -28,7 +27,7 @@ export const RunningActiveView: React.FC = () => {
     // TODO: RunningViewModel.stopRunning() 호출
     // TODO: GPS 추적 종료 및 데이터 저장
 
-    dispatch(setRunningState(RunningState.Finished));
+    setRunningState(RunningState.Finished);
   };
 
   return (

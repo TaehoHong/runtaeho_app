@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState, useMemo } from 'react';
 import {
-  useGetPointHistoriesQuery,
-  useGetUserPointQuery,
-  useUpdateUserPointMutation,
-  useEarnRunningPointsMutation,
-  useSpendPointsForItemMutation,
-  useEarnDailyBonusMutation,
-  useGetRecentPointHistoriesQuery,
-  useGetPointStatisticsQuery,
-} from '../../../store/api/pointApi';
+  useGetPointHistories,
+  useGetUserPoint,
+  useUpdateUserPoint,
+  useEarnRunningPoints,
+  useSpendPointsForItem,
+  useEarnDailyBonus,
+  useGetRecentPointHistories,
+  useGetPointStatistics,
+} from '../../../services/point';
 import {
   PointFilter,
   PointHistory,
@@ -44,7 +44,7 @@ export const usePointViewModel = (initialPoints: number = 0) => {
     error: pointError,
     isLoading: isLoadingPoint,
     refetch: refetchUserPoint,
-  } = useGetUserPointQuery();
+  } = useGetUserPoint();
 
   /**
    * 최근 3개월 포인트 히스토리 조회 (필터 없이)
@@ -55,7 +55,7 @@ export const usePointViewModel = (initialPoints: number = 0) => {
     error: recentError,
     isLoading: isLoadingRecent,
     refetch: refetchRecent,
-  } = useGetRecentPointHistoriesQuery({
+  } = useGetRecentPointHistories({
     startDate: getThreeMonthsAgo(),
   });
 
@@ -69,7 +69,7 @@ export const usePointViewModel = (initialPoints: number = 0) => {
     isLoading: isLoadingOlder,
     isFetching: isFetchingOlder,
     refetch: refetchOlder,
-  } = useGetPointHistoriesQuery(
+  } = useGetPointHistories(
     {
       cursor: lastPointHistoryId,
       isEarned: getIsEarnedFromFilter(selectedFilter),
@@ -86,13 +86,13 @@ export const usePointViewModel = (initialPoints: number = 0) => {
   const {
     data: pointStatistics,
     isLoading: isLoadingStatistics,
-  } = useGetPointStatisticsQuery();
+  } = useGetPointStatistics();
 
   // Mutations
-  const [updateUserPoint, { isLoading: isUpdatingPoint }] = useUpdateUserPointMutation();
-  const [earnRunningPoints, { isLoading: isEarningPoints }] = useEarnRunningPointsMutation();
-  const [spendPointsForItem, { isLoading: isSpendingPoints }] = useSpendPointsForItemMutation();
-  const [earnDailyBonus, { isLoading: isEarningBonus }] = useEarnDailyBonusMutation();
+  const { mutateAsync: updateUserPoint, isPending: isUpdatingPoint } = useUpdateUserPoint();
+  const { mutateAsync: earnRunningPoints, isPending: isEarningPoints } = useEarnRunningPoints();
+  const { mutateAsync: spendPointsForItem, isPending: isSpendingPoints } = useSpendPointsForItem();
+  const { mutateAsync: earnDailyBonus, isPending: isEarningBonus } = useEarnDailyBonus();
 
   /**
    * 최근 히스토리 데이터 처리
@@ -198,7 +198,7 @@ export const usePointViewModel = (initialPoints: number = 0) => {
         runningRecordId,
         distance,
         duration,
-      }).unwrap();
+      });
       return result;
     } catch (error) {
       console.error('Failed to earn running points:', error);
@@ -218,7 +218,7 @@ export const usePointViewModel = (initialPoints: number = 0) => {
       const result = await spendPointsForItem({
         itemId,
         itemPrice,
-      }).unwrap();
+      });
       return result;
     } catch (error) {
       console.error('Failed to spend points for item:', error);
@@ -232,7 +232,7 @@ export const usePointViewModel = (initialPoints: number = 0) => {
    */
   const handleEarnDailyBonus = useCallback(async (consecutiveDays: number) => {
     try {
-      const result = await earnDailyBonus({ consecutiveDays }).unwrap();
+      const result = await earnDailyBonus({ consecutiveDays });
       return result;
     } catch (error) {
       console.error('Failed to earn daily bonus:', error);
@@ -256,7 +256,7 @@ export const usePointViewModel = (initialPoints: number = 0) => {
         point,
         runningRecordId,
         itemId,
-      }).unwrap();
+      });
       return result;
     } catch (error) {
       console.error('Failed to update user point:', error);

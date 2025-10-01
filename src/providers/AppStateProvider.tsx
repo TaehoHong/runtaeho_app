@@ -1,9 +1,9 @@
 import React, { useEffect, ReactNode, useCallback, useRef } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 import { AppState, AppStateStatus } from 'react-native';
-import { setViewState, ViewState } from '~/store/slices/appSlice';
-import { selectIsLoggedIn } from '~/store/slices/authSlice';
+import { useAppStore, ViewState } from '../stores/app/appStore';
+import { useAuthStore } from '../stores/auth/authStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useUserStore } from '~/stores';
 
 interface AppStateProviderProps {
   children: ReactNode;
@@ -55,8 +55,8 @@ function subscribeToAppLifecycle(params: {
  * iOS AppState.swift 대응
  */
 export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) => {
-  const dispatch = useDispatch();
-  const isLoggedIn = useSelector(selectIsLoggedIn);
+  const setViewState = useAppStore((state) => state.setViewState);
+  const isLoggedIn = useUserStore((state) => state.isLoggedIn);
 
   const isLoggedInRef = useLatestRef(isLoggedIn);
   const fgInFlight = useRef(false); // 포그라운드 재진입 가드
@@ -93,12 +93,12 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
     console.log('🌍 [AppStateProvider] 앱 상태 관리 시작');
 
     // 초기 로딩 상태 설정
-    dispatch(setViewState(ViewState.Loading));
+    setViewState(ViewState.Loading);
 
     // 약간의 로딩 시간 후 Loaded 상태로 전환
     const initTimer = setTimeout(() => {
       console.log('✅ [AppStateProvider] 앱 초기화 완료 - Loaded 상태로 전환');
-      dispatch(setViewState(ViewState.Loaded));
+      setViewState(ViewState.Loaded);
     }, 100);
 
     // AppState 구독(단일 진입점)
@@ -127,7 +127,7 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
     };
     // `isLoggedIn`으로 재구독이 발생하지 않도록 제외하고,
     // 최신 값은 isLoggedInRef.current로 참조합니다.
-  }, [dispatch, handleAppForeground]);
+  }, [setViewState, handleAppForeground]);
 
 
   /**

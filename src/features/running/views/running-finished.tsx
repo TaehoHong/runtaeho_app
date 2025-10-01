@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, ScrollView, Dimensions } from 'react-native';
-import { useDispatch } from 'react-redux';
-import { setRunningState, RunningState } from '~/store/slices/appSlice';
+import { useAppStore, RunningState } from '~/stores/app/appStore';
 import { PointEarnCard, MainDistanceCard, DetailedStatisticsCard, ShoeSelectionArea, CompleteButton } from '~/shared/components';
 
 const { width, height } = Dimensions.get('window');
@@ -12,7 +11,7 @@ const { width, height } = Dimensions.get('window');
  * 결과 데이터와 저장 버튼 표시
  */
 export const RunningFinishedView: React.FC = () => {
-  const dispatch = useDispatch();
+  const setRunningState = useAppStore((state) => state.setRunningState);
 
   // TODO: RunningFinishedViewModel 데이터 연결
   const hasShoe = true; // 임시 데이터
@@ -25,7 +24,7 @@ export const RunningFinishedView: React.FC = () => {
     // TODO: 포인트 지급
 
     // 러닝 종료 후 Stopped 상태로 복귀
-    dispatch(setRunningState(RunningState.Stopped));
+    setRunningState(RunningState.Stopped);
   };
 
   return (

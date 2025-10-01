@@ -1,7 +1,6 @@
 import { Stack } from 'expo-router/stack';
-import { Provider } from 'react-redux';
-import { store } from '~/store';
-// import { UnityBridgeProvider } from '~/contexts/UnityBridgeContext'; // 제거: Redux + Service 패턴 사용
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from '~/services/queryClient';
 import { AuthProvider } from '~/providers/AuthProvider';
 import { AppStateProvider } from '~/providers/AppStateProvider';
 import { registerServices, analyzeDependencies } from '~/shared/di';
@@ -33,7 +32,7 @@ export default function RootLayout() {
   }
 
   return (
-    <Provider store={store}>
+    <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <AppStateProvider>
           <Stack>
@@ -66,6 +65,6 @@ export default function RootLayout() {
             </Stack>
         </AppStateProvider>
       </AuthProvider>
-    </Provider>
+    </QueryClientProvider>
   );
 }

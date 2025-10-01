@@ -1,9 +1,9 @@
 import { router } from 'expo-router';
 import React, { ReactNode, useCallback, useEffect, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { UserStateManager } from '~/shared/services/userStateManager';
-import { setViewState, ViewState } from '~/store/slices/appSlice';
-import { restoreAuthState, selectIsLoggedIn } from '~/store/slices/authSlice';
+import { UserStateManager } from '../shared/services/userStateManager';
+import { useAppStore, ViewState } from '../stores/app/appStore';
+import { useAuthStore } from '../stores/auth/authStore';
+import { useUserStore } from '~/stores';
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -14,8 +14,8 @@ interface AuthProviderProps {
  * iOS RootView와 UserStateManager 로직 대응
  */
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const dispatch = useDispatch();
-  const isLoggedIn = useSelector(selectIsLoggedIn);
+  const setViewState = useAppStore((state) => state.setViewState);
+  const { isLoggedIn, restoreAuthState } = useUserStore();
   const [hasRequestedPermissions, setHasRequestedPermissions] = useState(false);
   const [isNavigationReady, setIsNavigationReady] = useState(false);
 
@@ -34,14 +34,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (authResult.success && authResult.userData) {
         console.log('✅ [AuthProvider] 인증 상태 복원 및 동기화 성공');
-        dispatch(restoreAuthState(authResult.userData));
+        restoreAuthState(authResult.userData);
       } else {
         console.log('❌ [AuthProvider] 인증 상태 복원 실패 또는 로그아웃 상태');
       }
     } catch (error) {
       console.error('⚠️ [AuthProvider] 인증 상태 초기화 실패:', error);
     }
-  }, [dispatch]);
+  }, [restoreAuthState]);
 
   useEffect(() => {
     console.log('🔐 [AuthProvider] 인증 상태 초기화 시작');
@@ -69,7 +69,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (isLoggedIn) {
         console.log('✅ [AuthProvider] 로그인 상태 - 메인 화면으로 이동');
         // ViewState를 Loaded로 설정하여 탭바 표시 보장
-        dispatch(setViewState(ViewState.Loaded));
+        setViewState(ViewState.Loaded);
 
         // 네비게이션 시도 (여러 방법 시도)
         try {

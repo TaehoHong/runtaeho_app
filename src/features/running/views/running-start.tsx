@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useDispatch } from 'react-redux';
-import { setRunningState, RunningState } from '~/store/slices/appSlice';
+import { useAppStore, RunningState } from '~/stores/app/appStore';
 import { StartButton } from '~/shared/components';
 
 /**
@@ -9,7 +8,7 @@ import { StartButton } from '~/shared/components';
  * iOS RunningStartView 대응
  */
 export const RunningStartView: React.FC = () => {
-  const dispatch = useDispatch();
+  const setRunningState = useAppStore((state) => state.setRunningState);
 
   const handleStartRunning = () => {
     console.log('🏃 [RunningStartView] 러닝 시작 버튼 눌러짐');
@@ -19,7 +18,7 @@ export const RunningStartView: React.FC = () => {
     // TODO: GPS 추적 시작
 
     // 러닝 상태로 전환
-    dispatch(setRunningState(RunningState.Running));
+    setRunningState(RunningState.Running);
   };
 
   return (

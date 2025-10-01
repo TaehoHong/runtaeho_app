@@ -1,21 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useAppDispatch } from '../../../store/hooks';
 import {
-  useStartRunningMutation,
-  useEndRunningMutation,
-  useUpdateRunningRecordMutation,
-  // useGetRunningRecordsQuery, // TODO: 향후 러닝 기록 목록 조회용
-  // useLoadRunningRecordsQuery, // TODO: 향후 러닝 기록 로드용
-  useDeleteRunningRecordMutation,
-} from '../../../store/api/runningApi';
+  useStartRunning,
+  useEndRunning,
+  useUpdateRunningRecord,
+  useDeleteRunningRecord,
+} from '../../../services/running';
 import {
   RunningRecord,
   EndRunningRecord,
   Location,
   createRunningRecord,
   updateRunningRecord,
-  // calculateAveragePace, // TODO: 향후 평균 페이스 계산용
-  // calculateAverageSpeed, // TODO: 향후 평균 속도 계산용
   formatRunningRecord,
 } from '../models';
 
@@ -49,8 +44,6 @@ export enum RunningState {
  * Swift StatsManager와 Running 관련 로직들을 React Hook으로 마이그레이션
  */
 export const useRunningViewModel = () => {
-  // const dispatch = useAppDispatch(); // TODO: 향후 Redux 액션 디스패치용
-
   // 현재 러닝 상태
   const [runningState, setRunningState] = useState<RunningState>(RunningState.IDLE);
   const [currentRecord, setCurrentRecord] = useState<RunningRecord | null>(null);
@@ -67,11 +60,11 @@ export const useRunningViewModel = () => {
     calories: 0,
   });
 
-  // API Mutations
-  const [startRunningMutation, { isLoading: isStarting }] = useStartRunningMutation();
-  const [endRunningMutation, { isLoading: isEnding }] = useEndRunningMutation();
-  const [updateRecordMutation] = useUpdateRunningRecordMutation();
-  const [deleteRecordMutation] = useDeleteRunningRecordMutation();
+  // React Query Mutations
+  const { mutateAsync: startRunningMutation, isPending: isStarting } = useStartRunning();
+  const { mutateAsync: endRunningMutation, isPending: isEnding } = useEndRunning();
+  const { mutateAsync: updateRecordMutation } = useUpdateRunningRecord();
+  const { mutateAsync: deleteRecordMutation } = useDeleteRunningRecord();
 
   /**
    * 실시간 통계 업데이트
@@ -135,7 +128,7 @@ export const useRunningViewModel = () => {
    */
   const startRunning = useCallback(async () => {
     try {
-      const record = await startRunningMutation().unwrap();
+      const record = await startRunningMutation();
       setCurrentRecord(record);
       setStartTime(Date.now());
       setElapsedTime(0);
@@ -194,7 +187,7 @@ export const useRunningViewModel = () => {
         durationSec: elapsedTime,
       });
 
-      const endRecord = await endRunningMutation(finalRecord).unwrap();
+      const endRecord = await endRunningMutation(finalRecord);
 
       setRunningState(RunningState.COMPLETED);
       return endRecord;
@@ -219,7 +212,7 @@ export const useRunningViewModel = () => {
         durationSec: elapsedTime,
       });
 
-      await updateRecordMutation(updatedRecord).unwrap();
+      await updateRecordMutation(updatedRecord);
       setCurrentRecord(updatedRecord);
     } catch (error) {
       console.error('Failed to update running record:', error);
@@ -245,7 +238,7 @@ export const useRunningViewModel = () => {
    */
   const deleteRecord = useCallback(async (recordId: number) => {
     try {
-      await deleteRecordMutation(recordId).unwrap();
+      await deleteRecordMutation(recordId);
     } catch (error) {
       console.error('Failed to delete running record:', error);
       throw error;

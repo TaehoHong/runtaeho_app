@@ -8,8 +8,7 @@
 
 import { AuthProvider } from '../models/AuthProvider';
 import { TokenDto, AuthenticationError, AUTH_PROVIDER_INFO } from '../models/auth-types';
-import { store } from '../../../store';
-import { authApi } from '../../../store/api/authApi';
+import { authService } from '../../../services/auth/authService';
 
 export class AuthenticationService {
   private static instance: AuthenticationService;
@@ -106,7 +105,7 @@ export class AuthenticationService {
 
   /**
    * OAuth 인증 코드를 사용해 JWT 토큰을 받아옵니다
-   * RTK Query 기반 (authentication-service.ts에서 통합)
+   * Axios 기반 (authService 사용)
    * @param provider 인증 제공자 (GOOGLE | APPLE)
    * @param code OAuth 인증 코드
    * @returns Promise<TokenDto>
@@ -115,17 +114,15 @@ export class AuthenticationService {
     const authId = Math.random().toString(36).substr(2, 9);
     const providerName = AUTH_PROVIDER_INFO[provider].displayName;
 
-    console.log(`🔐 [AUTH-${authId}] ${providerName} 토큰 요청 시작 (RTK Query)`);
+    console.log(`🔐 [AUTH-${authId}] ${providerName} 토큰 요청 시작`);
     console.log(`   Provider: ${provider}`);
     console.log(`   Code: ${code.substring(0, 20)}...${code.substring(code.length - 10)}`);
 
     const startTime = Date.now();
 
     try {
-      // RTK Query mutation을 직접 dispatch
-      const result = await store.dispatch(
-        authApi.endpoints.getOAuthToken.initiate({ provider, code })
-      ).unwrap();
+      // authService를 사용하여 토큰 요청
+      const result = await authService.getOAuthToken(provider, code);
 
       const duration = Date.now() - startTime;
 
@@ -144,21 +141,19 @@ export class AuthenticationService {
 
   /**
    * 리프레시 토큰을 사용해 새로운 JWT 토큰을 받아옵니다
-   * RTK Query 기반 (authentication-service.ts에서 통합)
+   * Axios 기반 (authService 사용)
    * @returns Promise<TokenDto>
    */
   async refresh(): Promise<TokenDto> {
     const refreshId = Math.random().toString(36).substr(2, 9);
 
-    console.log(`🔄 [AUTH-REFRESH-${refreshId}] 토큰 갱신 요청 시작 (RTK Query)`);
+    console.log(`🔄 [AUTH-REFRESH-${refreshId}] 토큰 갱신 요청 시작`);
 
     const startTime = Date.now();
 
     try {
-      // RTK Query mutation을 직접 dispatch
-      const result = await store.dispatch(
-        authApi.endpoints.refreshToken.initiate()
-      ).unwrap();
+      // authService를 사용하여 토큰 갱신
+      const result = await authService.refreshToken();
 
       const duration = Date.now() - startTime;
 
