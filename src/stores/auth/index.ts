@@ -1,4 +1,5 @@
 /**
  * Auth Store Export
+ * Re-export from features/auth/stores for backward compatibility
  */
-export * from './authStore';
+export * from '../../features/auth/stores';

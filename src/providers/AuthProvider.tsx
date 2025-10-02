@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import React, { type ReactNode, useCallback, useEffect, useState } from 'react';
 import { UserStateManager } from '../shared/services/userStateManager';
 import { useAppStore, ViewState } from '../stores/app/appStore';
-import { useAuthStore } from '../stores/auth/authStore';
+import { useAuthStore } from '../features/auth/stores/authStore';
 
 interface AuthProviderProps {
   children: ReactNode;

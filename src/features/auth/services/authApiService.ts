@@ -1,16 +1,14 @@
 /**
- * Auth Service
- * 기존 authApi.ts에서 마이그레이션
- * RTK Query → Axios
+ * Auth API Service
+ * OAuth 및 토큰 관련 API 호출을 담당
  */
 
-import { AuthProviderType, type TokenDto } from '~/features/auth/models';
-import { apiClient } from '../api/client';
-import { API_ENDPOINTS } from '../api/config';
+import { AuthProviderType, type TokenDto } from '../models';
+import { apiClient } from '../../../services/api/client';
+import { API_ENDPOINTS } from '../../../services/api/config';
 
 /**
  * OAuth 경로 매핑
- * 기존 getOAuthPath 함수와 동일
  */
 const getOAuthPath = (provider: AuthProviderType): string => {
   switch (provider) {
@@ -25,12 +23,10 @@ const getOAuthPath = (provider: AuthProviderType): string => {
 
 /**
  * Authentication API Service
- * 기존 authApi.endpoints를 함수로 변환
  */
-export const authService = {
+export const authApiService = {
   /**
    * OAuth 토큰 획득
-   * 기존: getOAuthToken mutation
    */
   getOAuthToken: async (provider: AuthProviderType, code: string): Promise<TokenDto> => {
     const oauthPath = getOAuthPath(provider);
@@ -48,5 +44,4 @@ export const authService = {
     const { data } = await apiClient.post<TokenDto>(API_ENDPOINTS.AUTH.REFRESH);
     return data;
   }
-
 };

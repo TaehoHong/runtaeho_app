@@ -5,8 +5,8 @@
  */
 
 import { tokenStorage } from '~/utils/storage';
-import { authService } from '../../../services/auth/authService';
-import { useAuthStore } from '../../../stores/auth/authStore';
+import { authApiService } from './authApiService';
+import { useAuthStore } from '../stores/authStore';
 import { AuthProviderType } from '../models/AuthType';
 import { type TokenDto, AuthenticationError } from '../models/UserAuthData';
 
@@ -65,8 +65,8 @@ export class AuthenticationService {
     const startTime = Date.now();
 
     try {
-      // authService를 사용하여 토큰 요청
-      const result = await authService.getOAuthToken(provider, code);
+      // authApiService를 사용하여 토큰 요청
+      const result = await authApiService.getOAuthToken(provider, code);
 
       const duration = Date.now() - startTime;
 

@@ -5,12 +5,12 @@ import type { AvatarItem } from '../../features/avatar/models';
 import type { User } from '../../features/user/models/User';
 import type { UserAccount } from '../../features/user/models/UserAccount';
 import { userDataDtoToUser, type UserDataDto } from '../../features/user/models/UserDataDto';
-import { useAuthStore } from '../../stores/auth/authStore';
+import { useAuthStore } from '../../features/auth/stores/authStore';
 import { useUserStore, type UserPreferences } from '../../stores/user/userStore';
 import { tokenStorage } from '../../utils/storage';
 import { systemInfoManager } from '../utils/SystemInfoManager';
 import { PermissionManager } from './PermissionManager';
-import { TokenStatus, tokenUtils } from '../utils/tokenUtils'
+import { TokenStatus, tokenUtils } from '../../features/auth//utils/tokenUtils'
 
 // Storage Keys (SwiftUI UserStateManager.Keys와 동일)
 const STORAGE_KEYS = {

@@ -22,8 +22,6 @@ export const queryClient = new QueryClient({
 
 /**
  * Query Keys 중앙 관리
- * RTK Query의 tagTypes와 동일한 역할
- *
  * 사용 예시:
  * - useQuery({ queryKey: queryKeys.auth.current })
  * - queryClient.invalidateQueries({ queryKey: queryKeys.user.all })
