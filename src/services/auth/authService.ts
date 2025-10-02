@@ -6,7 +6,7 @@
 
 import { apiClient } from '../api/client';
 import { API_ENDPOINTS } from '../api/config';
-import { AuthProvider, TokenDto, UserAuthData } from '~/features/auth/models';
+import { AuthProvider, type TokenDto, type UserAuthData } from '~/features/auth/models';
 
 /**
  * OAuth 경로 매핑
@@ -31,40 +31,22 @@ export const authService = {
   /**
    * OAuth 토큰 획득
    * 기존: getOAuthToken mutation
-   * Swift: getToken(provider:code:) 메서드
    */
   getOAuthToken: async (provider: AuthProvider, code: string): Promise<TokenDto> => {
     const oauthPath = getOAuthPath(provider);
     const { data } = await apiClient.get<TokenDto>(oauthPath, {
       params: { code }, // GET 요청이므로 쿼리 파라미터로 전송
+      headers: { 'x-requires-auth': 'false' }
     });
     return data;
   },
 
   /**
    * 토큰 갱신
-   * 기존: refreshToken mutation
-   * Swift: refresh() 메서드
    */
   refreshToken: async (): Promise<TokenDto> => {
     const { data } = await apiClient.post<TokenDto>(API_ENDPOINTS.AUTH.REFRESH);
     return data;
-  },
+  }
 
-  /**
-   * 로그아웃
-   * 기존: logout mutation
-   */
-  logout: async (): Promise<void> => {
-    await apiClient.post(API_ENDPOINTS.AUTH.LOGOUT);
-  },
-
-  /**
-   * 현재 사용자 인증 정보 조회
-   * 기존: getCurrentUserAuth query
-   */
-  getCurrentUserAuth: async (): Promise<UserAuthData> => {
-    const { data } = await apiClient.get<UserAuthData>(API_ENDPOINTS.AUTH.ME);
-    return data;
-  },
 };

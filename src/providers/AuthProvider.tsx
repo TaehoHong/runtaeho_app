@@ -1,9 +1,8 @@
 import { router } from 'expo-router';
-import React, { ReactNode, useCallback, useEffect, useState } from 'react';
+import React, { type ReactNode, useCallback, useEffect, useState } from 'react';
 import { UserStateManager } from '../shared/services/userStateManager';
 import { useAppStore, ViewState } from '../stores/app/appStore';
 import { useAuthStore } from '../stores/auth/authStore';
-import { useUserStore } from '~/stores';
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -11,17 +10,18 @@ interface AuthProviderProps {
 
 /**
  * 인증 상태를 관리하고 로그인 상태에 따라 네비게이션을 제어하는 Provider
- * iOS RootView와 UserStateManager 로직 대응
  */
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const setViewState = useAppStore((state) => state.setViewState);
-  const { isLoggedIn, restoreAuthState } = useUserStore();
+  const isLoggedIn = useAuthStore((state) => state.isLoggedIn); // ✅ AuthStore로 변경
   const [hasRequestedPermissions, setHasRequestedPermissions] = useState(false);
   const [isNavigationReady, setIsNavigationReady] = useState(false);
 
   /**
    * 앱 시작 시 저장된 인증 상태 복원
-   * iOS UserStateManager.loadUserState() 대응
+   * - Zustand persist 미들웨어가 자동으로 AsyncStorage에서 상태 복원
+   * - UserStateManager constructor에서 Keychain 토큰 로드 및 Zustand 동기화
+   * - 토큰 유효성 검증만 수행
    */
   const initializeAuthState = useCallback(async () => {
     try {
@@ -29,19 +29,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       const userStateManager = UserStateManager.getInstance();
 
-      // UserStateManager에서 인증 상태 복원 및 동기화 처리
-      const authResult = await userStateManager.initializeWithBackendSync();
+      // 1. Zustand persist가 이미 AsyncStorage에서 상태 복원 완료
+      // 2. UserStateManager.loadUserState()가 constructor에서 호출되어
+      //    - Keychain에서 토큰 로드
+      //    - AsyncStorage에서 사용자 정보 로드
+      //    - Zustand store에 setLoginData() 호출 완료
 
-      if (authResult.success && authResult.userData) {
-        console.log('✅ [AuthProvider] 인증 상태 복원 및 동기화 성공');
-        restoreAuthState(authResult.userData);
-      } else {
-        console.log('❌ [AuthProvider] 인증 상태 복원 실패 또는 로그아웃 상태');
-      }
+      // 3. 토큰 검증 및 갱신만 수행
+      await userStateManager.verifyTokens();
+
+      console.log('✅ [AuthProvider] 인증 상태 복원 완료');
     } catch (error) {
       console.error('⚠️ [AuthProvider] 인증 상태 초기화 실패:', error);
     }
-  }, [restoreAuthState]);
+  }, []);
 
   useEffect(() => {
     console.log('🔐 [AuthProvider] 인증 상태 초기화 시작');
@@ -105,27 +106,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, [isLoggedIn, hasRequestedPermissions, isNavigationReady]);
 
-
-  /**
-   * JWT 토큰 유효성 간단 검증
-   * iOS UserStateManager.parseTokenPayload() 대응
-   */
-  const isTokenValid = (token: string): boolean => {
-    try {
-      const payload = token.split('.')[1];
-      const decodedPayload = JSON.parse(atob(payload));
-      const currentTime = Math.floor(Date.now() / 1000);
-
-      return decodedPayload.exp > currentTime;
-    } catch (error) {
-      console.error('⚠️ [AuthProvider] 토큰 파싱 실패:', error);
-      return false;
-    }
-  };
-
   /**
    * 로그인 완료 후 권한 요청
-   * iOS PermissionManager.shared.requestAllPermissionsOnFirstLaunch() 대응
    */
   const requestPermissionsOnFirstLogin = async () => {
     try {

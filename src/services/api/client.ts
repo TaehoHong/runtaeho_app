@@ -1,16 +1,10 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios';
+import { tokenStorage } from '../../utils/storage';
 import { API_CONFIG } from './config';
+import { httpRequestLogging, httpResponseLogging } from './interceptors';
 
 /**
  * Axios API Client
- * RTK Query의 baseApi를 대체
- *
- * Features:
- * - 자동 토큰 주입
- * - 요청/응답 로깅
- * - 에러 핸들링
- * - Token Refresh Interceptor (별도 파일에서 설정)
  */
 
 /**
@@ -22,114 +16,6 @@ export const apiClient: AxiosInstance = axios.create({
   headers: API_CONFIG.DEFAULT_HEADERS,
 });
 
-/**
- * Request Interceptor
- * - Access Token 자동 주입
- * - 요청 로깅
- */
-apiClient.interceptors.request.use(
-  async (config) => {
-    // Access Token 가져오기 (AsyncStorage에서)
-    try {
-      const accessToken = await AsyncStorage.getItem('accessToken');
-      if (accessToken) {
-        config.headers.Authorization = `Bearer ${accessToken}`;
-      }
-    } catch (error) {
-      console.error('[API Client] Failed to get access token:', error);
-    }
-
-    // 요청 로깅 (개발 환경에서만)
-    if (API_CONFIG.LOGGING.ENABLED && API_CONFIG.LOGGING.LOG_REQUEST) {
-      const timestamp = new Date().toISOString();
-      console.log(`🚀 [REQUEST] ${timestamp}`);
-      console.log(`   ${config.method?.toUpperCase()} ${config.url}`);
-
-      if (config.params && Object.keys(config.params).length > 0) {
-        console.log('   Params:', config.params);
-      }
-
-      if (config.data) {
-        console.log('   Body:', config.data);
-      }
-    }
-
-    return config;
-  },
-  (error) => {
-    console.error('[API Client] Request interceptor error:', error);
-    return Promise.reject(error);
-  }
-);
-
-/**
- * Response Interceptor
- * - 응답 로깅
- * - 에러 핸들링
- */
-apiClient.interceptors.response.use(
-  (response) => {
-    // 응답 로깅 (개발 환경에서만)
-    if (API_CONFIG.LOGGING.ENABLED && API_CONFIG.LOGGING.LOG_RESPONSE) {
-      const timestamp = new Date().toISOString();
-      const duration = response.config.metadata?.startTime
-        ? Date.now() - response.config.metadata.startTime
-        : 0;
-
-      console.log(`📥 [RESPONSE] ${timestamp} (${duration}ms)`);
-      console.log(`   ${response.config.method?.toUpperCase()} ${response.config.url}`);
-      console.log(`   Status: ${response.status} ${response.statusText}`);
-
-      if (response.data) {
-        console.log('   Data:', response.data);
-      }
-    }
-
-    return response;
-  },
-  (error: AxiosError) => {
-    // 에러 로깅 (개발 환경에서만)
-    if (API_CONFIG.LOGGING.ENABLED && API_CONFIG.LOGGING.LOG_ERROR) {
-      const timestamp = new Date().toISOString();
-      console.log(`❌ [ERROR] ${timestamp}`);
-      console.log(`   ${error.config?.method?.toUpperCase()} ${error.config?.url}`);
-      console.log(`   Status: ${error.response?.status || 'Network Error'}`);
-
-      if (error.response?.data) {
-        console.log('   Error Data:', error.response.data);
-      }
-
-      if (error.message) {
-        console.log('   Message:', error.message);
-      }
-    }
-
-    return Promise.reject(error);
-  }
-);
-
-/**
- * Request 시작 시간 기록을 위한 Interceptor
- */
-apiClient.interceptors.request.use((config) => {
-  config.metadata = { startTime: Date.now() };
-  return config;
-});
-
-/**
- * 타입 확장: Axios Config에 metadata 추가
- */
-declare module 'axios' {
-  export interface AxiosRequestConfig {
-    metadata?: {
-      startTime: number;
-    };
-  }
-}
-
-/**
- * API Client 유틸리티 함수
- */
 export const apiUtils = {
   /**
    * GET 요청
@@ -187,5 +73,21 @@ export const apiUtils = {
     delete apiClient.defaults.headers.common[key];
   },
 };
+
+// ---- Interceptor Registration Order ----
+httpRequestLogging(apiClient);
+
+apiClient.interceptors.request.use((config) => {
+  const token = tokenStorage.getAccessToken();
+  if(__DEV__) console.debug('[API_CLIENT] add Token to Headers token: ', token)
+  const needsAuth = config.headers?.['x-requires-auth'] !== 'false'; // 기본: 필요, 옵션으로 끔
+  if (needsAuth && token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Response는 FIFO이므로, "마지막에 실행"되게 하려면 가장 나중에 등록합니다.
+httpResponseLogging(apiClient);
 
 export default apiClient;

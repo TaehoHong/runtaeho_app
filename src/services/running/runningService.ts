@@ -7,8 +7,8 @@
 import { apiClient } from '../api/client';
 import { API_ENDPOINTS } from '../api/config';
 import {
-  RunningRecord,
-  EndRunningRecord,
+  type RunningRecord,
+  type EndRunningRecord,
   createRunningRecord,
 } from '~/features/running/models';
 

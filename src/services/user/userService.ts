@@ -6,7 +6,7 @@
 
 import { apiClient } from '../api/client';
 import { API_ENDPOINTS } from '../api/config';
-import { User, UserDataDto, userDataDtoToUser } from '~/features/user/models';
+import { type User, type UserDataDto, userDataDtoToUser } from '~/features/user/models';
 
 /**
  * User API Service

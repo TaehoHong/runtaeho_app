@@ -4,15 +4,19 @@ import { useUserStore } from '~/stores/user/userStore';
 import { useAppStore, ViewState } from '~/stores/app/appStore';
 import { router } from 'expo-router';
 
+// API 인터셉터 초기화 (TokenRefreshInterceptor 등록)
+import '~/config/apiSetup';
+import { useAuthStore } from '~/stores';
+
 /**
- * 앵의 메인 진입점
+ * 앱의 메인 진입점
  * iOS RootView와 RunTaehoApp 로직 대응
  * 인증 상태에 따라 로그인/메인 화면으로 분기
  */
 export default function Index() {
   console.log('🚀 [APP] 앱 메인 진입점 시작');
 
-  const isLoggedIn = useUserStore((state) => state.isLoggedIn);
+  const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const viewState = useAppStore((state) => state.viewState);
   const [isInitialized, setIsInitialized] = useState(false);
 

@@ -1,10 +1,3 @@
-/**
- * Silent Token Refresh Service
- * SwiftUI SilentTokenRefreshService와 동일
- */
-
-export type TokenStatus = 'valid' | 'expiringSoon' | 'expired' | 'noToken';
-
 export interface TokenPair {
   accessToken: string;
   refreshToken: string;
@@ -12,9 +5,6 @@ export interface TokenPair {
 
 export class SilentTokenRefreshService {
   private static instance: SilentTokenRefreshService;
-  
-  // 토큰 만료 전 갱신할 시간 (5분)
-  private readonly TOKEN_REFRESH_THRESHOLD = 5 * 60; // 5 minutes in seconds
   
   // 최대 재시도 횟수
   private readonly MAX_RETRY_COUNT = 3;
@@ -28,39 +18,6 @@ export class SilentTokenRefreshService {
     return SilentTokenRefreshService.instance;
   }
   
-  /**
-   * 토큰 상태 확인
-   * SwiftUI SilentTokenRefreshService.checkTokenStatus와 동일
-   */
-  checkTokenStatus(token?: string | null): TokenStatus {
-    if (!token) {
-      return 'noToken';
-    }
-    
-    try {
-      const payload = this.parseTokenPayload(token);
-      if (!payload || !payload.exp) {
-        return 'expired';
-      }
-      
-      const currentTime = Date.now() / 1000;
-      const expirationTime = payload.exp;
-      const timeUntilExpiry = expirationTime - currentTime;
-      
-      if (timeUntilExpiry <= 0) {
-        return 'expired';
-      }
-      
-      if (timeUntilExpiry <= this.TOKEN_REFRESH_THRESHOLD) {
-        return 'expiringSoon';
-      }
-      
-      return 'valid';
-    } catch (error) {
-      console.error('❌ [SilentTokenRefreshService] Failed to check token status:', error);
-      return 'expired';
-    }
-  }
   
   /**
    * Silent 토큰 갱신 수행
@@ -109,7 +66,7 @@ export class SilentTokenRefreshService {
   private async refreshTokensFromBackend(): Promise<TokenPair> {
     // userStateManager에서 refreshToken 가져오기
     const { userStateManager } = await import('../../../shared/services/userStateManager');
-    const refreshToken = userStateManager.refreshToken;
+    const refreshToken = userStateManager.getRefreshToken();
     
     if (!refreshToken) {
       throw new Error('RefreshTokenNotFound');
@@ -145,85 +102,10 @@ export class SilentTokenRefreshService {
   }
   
   /**
-   * JWT 토큰 페이로드 파싱
-   */
-  private parseTokenPayload(token: string): any {
-    try {
-      const components = token.split('.');
-      if (components.length !== 3) return null;
-      
-      const payload = components[1];
-      
-      // Base64 URL 디코딩
-      let base64 = payload
-        .replace(/-/g, '+')
-        .replace(/_/g, '/');
-      
-      const remainder = base64.length % 4;
-      if (remainder > 0) {
-        base64 = base64.padEnd(base64.length + 4 - remainder, '=');
-      }
-      
-      const decoded = atob(base64);
-      return JSON.parse(decoded);
-    } catch (error) {
-      console.error('Failed to parse token payload:', error);
-      return null;
-    }
-  }
-  
-  /**
    * 지연 유틸리티
    */
   private delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
-  }
-  
-  /**
-   * 토큰이 곧 만료되는지 확인
-   * @param token JWT 토큰
-   * @param thresholdSeconds 만료 전 체크할 시간 (초)
-   */
-  isTokenExpiringSoon(token: string, thresholdSeconds: number = 300): boolean {
-    const status = this.checkTokenStatus(token);
-    return status === 'expiringSoon' || status === 'expired';
-  }
-  
-  /**
-   * 토큰 만료 시간 가져오기
-   */
-  getTokenExpirationTime(token: string): Date | null {
-    try {
-      const payload = this.parseTokenPayload(token);
-      if (!payload || !payload.exp) {
-        return null;
-      }
-      
-      return new Date(payload.exp * 1000);
-    } catch (error) {
-      console.error('Failed to get token expiration time:', error);
-      return null;
-    }
-  }
-  
-  /**
-   * 토큰 남은 시간 (초)
-   */
-  getTokenRemainingTime(token: string): number {
-    try {
-      const payload = this.parseTokenPayload(token);
-      if (!payload || !payload.exp) {
-        return 0;
-      }
-      
-      const currentTime = Date.now() / 1000;
-      const remainingTime = payload.exp - currentTime;
-      
-      return Math.max(0, remainingTime);
-    } catch (error) {
-      console.error('Failed to get token remaining time:', error);
-      return 0;
-    }
   }
 }
 

@@ -1,14 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { systemInfoManager } from '../utils/SystemInfoManager';
-import { useUserStore, UserPreferences } from '../../stores/user/userStore';
-import { KeychainManager, KeychainKeys } from './KeychainManager';
-import { UserDataDto, userDataDtoToUser } from '../../features/user/models/UserDataDto';
-import { User } from '../../features/user/models/User';
-import { UserAccount } from '../../features/user/models/UserAccount';
-import { AuthProvider } from '../../features/auth/models/AuthProvider';
+import { useUserStore, type UserPreferences } from '../../stores/user/userStore';
+import { useAuthStore } from '../../stores/auth/authStore';
+import { tokenStorage, TOKEN_KEYS } from '../../utils/storage';
+import { type UserDataDto, userDataDtoToUser } from '../../features/user/models/UserDataDto';
+import type { User } from '../../features/user/models/User';
+import type { UserAccount } from '../../features/user/models/UserAccount';
+import type { AuthProvider } from '../../features/auth/models/AuthProvider';
 import { SilentTokenRefreshService } from '../../features/auth/services/SilentTokenRefreshService';
 import { PermissionManager } from './PermissionManager';
-import { AvatarItem } from '../../features/avatar/models';
+import type { AvatarItem } from '../../features/avatar/models';
 
 // Storage Keys (SwiftUI UserStateManager.Keys와 동일)
 const STORAGE_KEYS = {
@@ -29,15 +30,12 @@ const STORAGE_KEYS = {
  */
 export class UserStateManager {
   private static instance: UserStateManager;
-  private keychain: KeychainManager;
   private appStateSubscription: any;
   private backgroundEnterTime: Date | null = null;
   private refreshInFlight: Promise<void> | null = null;
 
   // MARK: - Initialization
   private constructor() {
-    this.keychain = KeychainManager.getInstance();
-
     this.loadUserState();
     this.incrementAppLaunchCountInternal();
   }
@@ -50,28 +48,14 @@ export class UserStateManager {
   }
 
   // MARK: - Getters (Zustand State에서 값 가져오기)
+
+  // UserStore getters
   get currentUser(): User | null {
     return useUserStore.getState().currentUser;
   }
 
   get totalPoint(): number {
     return useUserStore.getState().totalPoint;
-  }
-
-  get isLoggedIn(): boolean {
-    return useUserStore.getState().isLoggedIn;
-  }
-
-  get isLoading(): boolean {
-    return useUserStore.getState().isLoading;
-  }
-
-  get accessToken(): string | null {
-    return useUserStore.getState().accessToken;
-  }
-
-  get refreshToken(): string | null {
-    return useUserStore.getState().refreshToken;
   }
 
   get avatarId(): number {
@@ -102,6 +86,26 @@ export class UserStateManager {
     return this.totalPoint;
   }
 
+  // AuthStore getters
+  get isLoggedIn(): boolean {
+    return useAuthStore.getState().isLoggedIn;
+  }
+
+  get isLoading(): boolean {
+    return useAuthStore.getState().isLoading;
+  }
+
+  // Token getters (토큰은 SecureStorage에서만 관리)
+  // ⚠️ Deprecated: TokenRefreshInterceptor와 tokenUtils에서 tokenStorage 직접 사용 권장
+  // 동기적 접근 불가능 - async 메서드 사용 필요
+  async getAccessToken(): Promise<string | null> {
+    return await tokenStorage.getAccessToken();
+  }
+
+  async getRefreshToken(): Promise<string | null> {
+    return await tokenStorage.getRefreshToken();
+  }
+
   // MARK: - Public Methods
   
   async login(userData: UserDataDto, authToken: string, refreshToken?: string): Promise<void> {
@@ -109,17 +113,18 @@ export class UserStateManager {
       // UserDataDto를 User로 변환
       const user = userDataDtoToUser(userData);
 
-      // Zustand에 로그인 데이터 저장
+      // UserStore에 사용자 데이터 저장 (토큰 제외)
       useUserStore.getState().setLoginData({
         user,
         totalPoint: userData.totalPoint,
         avatarId: userData.avatarId,
         equippedItems: this.convertEquippedItems(userData.equippedItems),
-        accessToken: authToken,
-        refreshToken,
       });
 
-      // 토큰 저장 (Keychain에)
+      // AuthStore에 로그인 상태 저장
+      useAuthStore.getState().login();
+
+      // 토큰 저장 (Keychain에만)
       await this.setTokens(authToken, refreshToken);
 
       // 상태 저장
@@ -136,8 +141,11 @@ export class UserStateManager {
    */
   async logout(): Promise<void> {
     try {
-      // Zustand 상태 초기화
+      // UserStore 상태 초기화
       useUserStore.getState().logout();
+
+      // AuthStore 상태 초기화
+      useAuthStore.getState().logout();
 
       // 저장된 상태 삭제
       await this.clearUserState();
@@ -155,8 +163,8 @@ export class UserStateManager {
     if (!this.currentUser) return;
 
     useUserStore.getState().updateProfile({
-      nickname,
-      profileImageURL: imageURL,
+      nickname: nickname || '',
+      profileImageURL: imageURL || '',
     });
 
     this.saveUserState();
@@ -205,10 +213,19 @@ export class UserStateManager {
   /**
    * 토큰 설정
    * SwiftUI UserStateManager.setTokens와 동일
+   * Phase 4: SecureStorage에만 저장 (Store에 저장하지 않음)
    */
   async setTokens(accessToken: string, refreshToken?: string): Promise<void> {
-    useUserStore.getState().setTokens({ accessToken, refreshToken });
-    await this.saveTokensToKeychain();
+    // SecureStorage에 직접 저장
+    if (accessToken) {
+      if (refreshToken) {
+        await tokenStorage.saveTokens(accessToken, refreshToken);
+      } else {
+        await tokenStorage.updateAccessToken(accessToken);
+      }
+    } else {
+      await tokenStorage.clearTokens();
+    }
   }
 
   /**
@@ -231,8 +248,8 @@ export class UserStateManager {
     const keysToRemove = Object.values(STORAGE_KEYS);
     await AsyncStorage.multiRemove(keysToRemove);
 
-    // Keychain 클리어
-    await this.keychain.clearAll();
+    // SecureStorage 클리어
+    await tokenStorage.clearTokens();
   }
 
   // MARK: - 토큰 검증 및 갱신
@@ -241,28 +258,35 @@ export class UserStateManager {
    * SwiftUI UserStateManager.verifyTokens와 동일
    */
   async verifyTokens(): Promise<void> {
-    if (!this.isLoggedIn || !this.accessToken) {
-      console.log('⚪ [UserStateManager] No user logged in or no token available');
+    if (!this.isLoggedIn) {
+      console.log('⚪ [UserStateManager] No user logged in');
       return;
     }
 
-    const tokenStatus = SilentTokenRefreshService.getInstance().checkTokenStatus(this.accessToken);
+    // Keychain에서 토큰 로드
+    const accessToken = await this.getAccessToken();
+    if (!accessToken) {
+      console.log('⚪ [UserStateManager] No token available');
+      return;
+    }
+
+    const tokenStatus = SilentTokenRefreshService.getInstance().checkTokenStatus(accessToken);
 
     switch (tokenStatus) {
       case 'valid':
         console.log('🟢 [UserStateManager] Token is valid');
         break;
-        
+
       case 'expiringSoon':
         console.log('🟡 [UserStateManager] Token expiring soon, performing proactive refresh');
         await this.refreshTokensProactively();
         break;
-        
+
       case 'expired':
         console.log('🔴 [UserStateManager] Token expired, attempting refresh');
         await this.refreshTokensProactively();
         break;
-        
+
       case 'noToken':
         console.log('⚪ [UserStateManager] No token found, user will be logged out');
         await this.logout();
@@ -361,13 +385,14 @@ export class UserStateManager {
   /**
    * 토큰 만료까지 남은 시간
    * SwiftUI UserStateManager.tokenTimeRemaining과 동일
+   * ⚠️ Deprecated: async 버전 사용 필요
    */
-  get tokenTimeRemaining(): number | null {
-    const token = this.accessToken;
+  async getTokenTimeRemaining(): Promise<number | null> {
+    const token = await this.getAccessToken();
     if (!token) return null;
 
     const payload = this.parseTokenPayload(token);
-    if (!payload || !payload.exp) return null;
+    if (!payload?.exp) return null;
 
     const currentTime = Date.now() / 1000;
     const remainingTime = payload.exp - currentTime;
@@ -379,13 +404,14 @@ export class UserStateManager {
    * JWT 토큰 페이로드 파싱
    * SwiftUI UserStateManager.parseTokenPayload와 동일
    */
-  private parseTokenPayload(token: string): any {
+  private parseTokenPayload(token: string): { exp?: number } | null {
     try {
       const components = token.split('.');
       if (components.length !== 3) return null;
 
       const payload = components[1];
-      
+      if (!payload) return null;
+
       // Base64 URL 디코딩
       let base64 = payload
         .replace(/-/g, '+')
@@ -397,7 +423,7 @@ export class UserStateManager {
       }
 
       const decoded = atob(base64);
-      return JSON.parse(decoded);
+      return JSON.parse(decoded) as { exp?: number };
     } catch (error) {
       console.error('Failed to parse token payload:', error);
       return null;
@@ -433,10 +459,13 @@ export class UserStateManager {
       // const lastAppVersion = await AsyncStorage.getItem(STORAGE_KEYS.LAST_APP_VERSION);
 
       // 4) Zustand rehydrate: 로그인 상태 체크
-      // accessToken/refreshToken은 이미 loadTokensFromKeychain에서 Zustand에 들어감
+      // accessToken/refreshToken은 이미 loadTokensFromKeychain에서 Keychain에 로드됨
+      const hasAccessToken = await this.getAccessToken();
+      const hasRefreshToken = await this.getRefreshToken();
+
       if (
         isLoggedInString === 'true' &&
-        (userDataString && (this.accessToken || this.refreshToken))
+        (userDataString && (hasAccessToken || hasRefreshToken))
       ) {
         let user: User | null = null;
         let totalPoint = 0;
@@ -474,8 +503,6 @@ export class UserStateManager {
           totalPoint,
           avatarId,
           equippedItems,
-          accessToken: this.accessToken || '',
-          refreshToken: this.refreshToken || undefined,
         });
       }
     } catch (error) {
@@ -520,50 +547,24 @@ export class UserStateManager {
       await AsyncStorage.removeItem(STORAGE_KEYS.AVATAR_ID);
       await AsyncStorage.removeItem(STORAGE_KEYS.EQUIPPED_ITEMS);
 
-      // Keychain에서 토큰 삭제
-      await this.keychain.delete(KeychainKeys.AUTH_TOKEN);
-      await this.keychain.delete(KeychainKeys.REFRESH_TOKEN);
+      // SecureStorage에서 토큰 삭제
+      await tokenStorage.clearTokens();
     } catch (error) {
       console.error('Failed to clear user state:', error);
     }
   }
 
   /**
-   * 토큰을 Keychain에서 로드
+   * 토큰을 SecureStorage에서 로드
    * SwiftUI UserStateManager.loadTokensFromKeychain과 동일
+   * Phase 4: SecureStorage에서만 로드 (Store에 저장하지 않음)
    */
   private async loadTokensFromKeychain(): Promise<void> {
-    const accessToken = await this.keychain.load(KeychainKeys.AUTH_TOKEN);
-    const refreshToken = await this.keychain.load(KeychainKeys.REFRESH_TOKEN);
+    // SecureStorage에서 로드만 수행 (검증용)
+    const { accessToken, refreshToken } = await tokenStorage.loadTokens();
 
     if (accessToken || refreshToken) {
-      useUserStore.getState().setTokens({
-        accessToken: accessToken || '',
-        refreshToken: refreshToken || undefined,
-      });
-    }
-  }
-
-  /**
-   * 토큰을 Keychain에 저장
-   * SwiftUI UserStateManager.saveTokensToKeychain과 동일
-   */
-  private async saveTokensToKeychain(): Promise<void> {
-    const accessToken = this.accessToken;
-    const refreshToken = this.refreshToken;
-
-    // Access token
-    if (accessToken) {
-      await this.keychain.save(KeychainKeys.AUTH_TOKEN, accessToken);
-    } else {
-      await this.keychain.delete(KeychainKeys.AUTH_TOKEN);
-    }
-
-    // Refresh token
-    if (refreshToken) {
-      await this.keychain.save(KeychainKeys.REFRESH_TOKEN, refreshToken);
-    } else {
-      await this.keychain.delete(KeychainKeys.REFRESH_TOKEN);
+      console.log('🔐 [UserStateManager] Tokens loaded from SecureStorage');
     }
   }
 

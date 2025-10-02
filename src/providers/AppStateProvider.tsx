@@ -1,9 +1,9 @@
-import React, { useEffect, ReactNode, useCallback, useRef } from 'react';
-import { AppState, AppStateStatus } from 'react-native';
+import React, { useEffect, type ReactNode, useCallback, useRef, useState } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 import { useAppStore, ViewState } from '../stores/app/appStore';
 import { useAuthStore } from '../stores/auth/authStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useUserStore } from '~/stores';
+import { migrateFromReactNativeKeychain, type MigrationResult } from '../utils/storage';
 
 interface AppStateProviderProps {
   children: ReactNode;
@@ -56,11 +56,22 @@ function subscribeToAppLifecycle(params: {
  */
 export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) => {
   const setViewState = useAppStore((state) => state.setViewState);
-  const isLoggedIn = useUserStore((state) => state.isLoggedIn);
+  const isLoggedIn = useAuthStore((state) => state.isLoggedIn); // ✅ AuthStore로 변경
 
   const isLoggedInRef = useLatestRef(isLoggedIn);
   const fgInFlight = useRef(false); // 포그라운드 재진입 가드
   const tokenSetupDone = useRef(false); // 토큰 알림 1회 설정 가드
+
+  // 마이그레이션 상태
+  const [migrationState, setMigrationState] = useState<{
+    inProgress: boolean;
+    completed: boolean;
+    error: string | null;
+  }>({
+    inProgress: false,
+    completed: false,
+    error: null,
+  });
 
   /**
    * 앱이 Foreground로 진입할 때 처리
@@ -89,10 +100,54 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
     }
   }, []);
 
+  /**
+   * Keychain 데이터 마이그레이션
+   * react-native-keychain → expo-secure-store
+   */
+  useEffect(() => {
+    async function runMigration() {
+      try {
+        setMigrationState({ inProgress: true, completed: false, error: null });
+        console.log('🔄 [Migration] Starting keychain migration...');
+
+        const result: MigrationResult = await migrateFromReactNativeKeychain();
+
+        if (result.skipped) {
+          console.log('✅ [Migration] Already completed, skipping');
+          setMigrationState({ inProgress: false, completed: true, error: null });
+          return;
+        }
+
+        if (result.success) {
+          console.log(
+            `✅ [Migration] Completed successfully: ${result.migratedKeys.length} keys migrated`
+          );
+          setMigrationState({ inProgress: false, completed: true, error: null });
+        } else {
+          const errorMsg = `Failed to migrate keys: ${result.failedKeys.join(', ')}`;
+          console.error(`❌ [Migration] ${errorMsg}`);
+          setMigrationState({ inProgress: false, completed: false, error: errorMsg });
+        }
+      } catch (error) {
+        const errorMsg = `Migration error: ${String(error)}`;
+        console.error(`❌ [Migration] ${errorMsg}`);
+        setMigrationState({ inProgress: false, completed: false, error: errorMsg });
+      }
+    }
+
+    runMigration();
+  }, []); // 앱 시작 시 1회만 실행
+
   useEffect(() => {
     console.log('🌍 [AppStateProvider] 앱 상태 관리 시작');
 
-    // 초기 로딩 상태 설정
+    // 마이그레이션 중에는 로딩 상태 유지
+    if (migrationState.inProgress) {
+      setViewState(ViewState.Loading);
+      return;
+    }
+
+    // 마이그레이션 완료 후 초기화
     setViewState(ViewState.Loading);
 
     // 약간의 로딩 시간 후 Loaded 상태로 전환
@@ -127,7 +182,8 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
     };
     // `isLoggedIn`으로 재구독이 발생하지 않도록 제외하고,
     // 최신 값은 isLoggedInRef.current로 참조합니다.
-  }, [setViewState, handleAppForeground]);
+    // migrationState 의존성 추가로 마이그레이션 완료 후 앱 초기화
+  }, [setViewState, handleAppForeground, migrationState.inProgress]);
 
 
   /**

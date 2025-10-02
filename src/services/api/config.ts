@@ -43,11 +43,9 @@ export const API_CONFIG = {
  */
 export const API_ENDPOINTS = {
   AUTH: {
-    OAUTH_GOOGLE: '/auth/oauth/google',
-    OAUTH_APPLE: '/auth/oauth/apple',
-    REFRESH: '/auth/refresh',
-    LOGOUT: '/auth/logout',
-    ME: '/auth/me',
+    OAUTH_GOOGLE: '/oauth/google',
+    OAUTH_APPLE: '/oauth/apple',
+    REFRESH: '/auth/refresh'
   },
   USER: {
     BASE: '/user',

@@ -7,15 +7,23 @@
     "module": "ESNext",
     "strict": true,
     "noEmit": true,
+
+    "skipLibCheck": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "useUnknownInCatchVariables": true,
+    "verbatimModuleSyntax": true,
+    "ignoreDeprecations": "5.0",
+
+    "resolveJsonModule": true,
+    "allowJs": false,
+
     "baseUrl": ".",
     "paths": {
       "@/*": ["./app/*"],
       "~/*": ["./src/*"]
-    },
-    "types": [
-      "react",
-      "react-native"
-    ]
+    }
+    // "types": ["react", "react-native"]
   },
   "include": [
     "**/*.ts",
@@ -23,7 +31,5 @@
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
   ],
-  "exclude": [
-    "node_modules"
-  ]
+  "exclude": ["node_modules"]
 }

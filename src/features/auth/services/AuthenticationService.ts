@@ -1,13 +1,11 @@
 /**
  * Authentication Service
- * Swift AuthenticationService.swift에서 마이그레이션
  *
  * OAuth 플랫폼별 로직, 유틸리티 함수, 토큰 관리를 담당
- * authentication-service.ts와 통합됨
  */
 
 import { AuthProvider } from '../models/AuthProvider';
-import { TokenDto, AuthenticationError, AUTH_PROVIDER_INFO } from '../models/auth-types';
+import { type TokenDto, AuthenticationError, AUTH_PROVIDER_INFO } from '../models/auth-types';
 import { authService } from '../../../services/auth/authService';
 
 export class AuthenticationService {
@@ -30,21 +28,6 @@ export class AuthenticationService {
   }
 
   /**
-   * OAuth 경로 매핑
-   * Swift getOAuthPath(for:) 메서드와 동일한 로직
-   */
-  getOAuthPath(provider: AuthProvider): string {
-    switch (provider) {
-      case AuthProvider.GOOGLE:
-        return '/auth/oauth/google';
-      case AuthProvider.APPLE:
-        return '/auth/oauth/apple';
-      default:
-        throw new Error(`Unsupported auth provider: ${provider}`);
-    }
-  }
-
-  /**
    * 에러 메시지 매핑
    */
   getAuthErrorMessage(error: any): string {
@@ -61,46 +44,6 @@ export class AuthenticationService {
       return error.message;
     }
     return '로그인 중 오류가 발생했습니다.';
-  }
-
-  /**
-   * 토큰 유효성 검사 (기본적인 형식 체크)
-   */
-  isValidToken(token: string): boolean {
-    if (!token || token.trim().length === 0) {
-      return false;
-    }
-
-    // JWT 토큰 기본 형식 검사 (3개 부분으로 구성)
-    const parts = token.split('.');
-    return parts.length === 3;
-  }
-
-  /**
-   * 토큰 만료 시간 체크 (JWT 디코딩)
-   */
-  isTokenExpired(token: string): boolean {
-    try {
-      if (!this.isValidToken(token)) {
-        return true;
-      }
-
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      const exp = payload.exp;
-
-      if (!exp) {
-        return true;
-      }
-
-      // 현재 시간과 비교 (5분 버퍼 추가)
-      const currentTime = Math.floor(Date.now() / 1000);
-      const bufferTime = 5 * 60; // 5분
-
-      return (exp - bufferTime) <= currentTime;
-    } catch (error) {
-      console.warn('Failed to parse token:', error);
-      return true;
-    }
   }
 
   /**

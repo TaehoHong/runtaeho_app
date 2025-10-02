@@ -1,12 +1,15 @@
 /**
- * Token Refresh Interceptor
+ * Token Refresh Interceptor (Axios-based)
  * Spring AOP/Interceptor 패턴을 모방한 토큰 갱신 관리 서비스
  * 모든 API 호출에서 자동으로 토큰 갱신 처리
  */
 
-import { BaseQueryFn, FetchArgs, FetchBaseQueryError } from '@reduxjs/toolkit/query';
-import { UserStateManager } from './userStateManager';
+import { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { SilentTokenRefreshService } from '../../features/auth/services/SilentTokenRefreshService';
+import { TokenService } from '../../features/auth/services/TokenService';
+import { apiClient } from '../../services/api/client';
+import { tokenStorage } from '../../utils/storage';
+import { UserStateManager } from './userStateManager';
 
 export interface TokenRefreshResult {
   success: boolean;
@@ -18,9 +21,7 @@ export interface TokenRefreshResult {
 interface PendingRequest {
   resolve: (value: any) => void;
   reject: (reason: any) => void;
-  args: FetchArgs;
-  api: any;
-  extraOptions: any;
+  config: InternalAxiosRequestConfig;
 }
 
 // 토큰 갱신 전 대기 시간 (초)
@@ -31,9 +32,14 @@ export class TokenRefreshInterceptor {
   private isRefreshing = false;
   private failedQueue: PendingRequest[] = [];
   private silentTokenRefreshService: SilentTokenRefreshService;
+  private userStateManager: UserStateManager;
+  private tokenService: TokenService;
 
   private constructor() {
     this.silentTokenRefreshService = SilentTokenRefreshService.getInstance();
+    this.userStateManager = UserStateManager.getInstance();
+    this.tokenService = TokenService.getInstance();
+    this.setupInterceptors();
   }
 
   static getInstance(): TokenRefreshInterceptor {
@@ -44,76 +50,58 @@ export class TokenRefreshInterceptor {
   }
 
   /**
-   * 타입 가드: FetchBaseQueryError 여부 확인
+   * Axios Interceptor 설정
    */
-  private isFetchBaseQueryError(error: unknown): error is FetchBaseQueryError {
-    return (
-      typeof error === 'object' &&
-      error !== null &&
-      'status' in error
+  private setupInterceptors() {
+    // Response Interceptor: 401 에러 처리
+    apiClient.interceptors.response.use(
+      (response) => response,
+      async (error: AxiosError) => {
+        const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+
+        // 401 에러가 아니거나 이미 재시도한 요청이면 그대로 에러 반환
+        if (!error.response || error.response.status !== 401 || originalRequest._retry) {
+          return Promise.reject(error);
+        }
+
+        console.log('🔄 [TokenInterceptor] 401 응답 감지, 토큰 갱신 시도');
+
+        // 이미 갱신 중이면 대기열에 추가
+        if (this.isRefreshing) {
+          return this.addToFailedQueue(originalRequest);
+        }
+
+        // 토큰 갱신 시도
+        originalRequest._retry = true;
+
+        const refreshResult = await this.refreshTokens();
+
+        if (refreshResult.success) {
+          console.log('✅ [TokenInterceptor] 토큰 갱신 성공, 원본 요청 재시도');
+
+          // 대기열 처리
+          await this.processFailedQueue();
+
+          // 새 토큰으로 원본 요청 재시도
+          if (refreshResult.accessToken && originalRequest.headers) {
+            originalRequest.headers.Authorization = `Bearer ${refreshResult.accessToken}`;
+          }
+
+          return apiClient(originalRequest);
+        } else {
+          console.error('❌ [TokenInterceptor] 토큰 갱신 실패, 로그아웃 처리');
+
+          // 대기열 에러 처리
+          this.clearFailedQueue(new Error('Token refresh failed'));
+
+          // 로그아웃 처리
+          await this.handleAuthFailure();
+
+          return Promise.reject(error);
+        }
+      }
     );
   }
-
-  /**
-   * RTK Query baseQuery wrapper
-   * 모든 API 호출을 가로채서 토큰 갱신 처리
-   */
-  createBaseQueryWithAuth = <
-    Args = FetchArgs,
-    Result = unknown,
-    Error = FetchBaseQueryError,
-    DefinitionExtraOptions = {},
-    Meta = {}
-  >(
-    baseQuery: BaseQueryFn<Args, Result, Error, DefinitionExtraOptions, Meta>
-  ): BaseQueryFn<Args, Result, Error, DefinitionExtraOptions, Meta> => {
-    return async (args, api, extraOptions) => {
-      // 1. 토큰 사전 검증 (만료 임박 시 미리 갱신)
-      await this.validateAndRefreshIfNeeded();
-
-      // 2. 기본 요청 실행
-      let result = await baseQuery(args, api, extraOptions);
-
-      // 3. 401 오류가 아니면 정상 응답 반환
-      if (!result.error || !this.isFetchBaseQueryError(result.error) || result.error.status !== 401) {
-        return result;
-      }
-
-      console.log('🔄 [TokenInterceptor] 401 응답 감지, 토큰 갱신 시도');
-
-      // 4. 이미 갱신 중이면 대기열에 추가
-      if (this.isRefreshing) {
-        return this.addToFailedQueue(args, api, extraOptions, baseQuery);
-      }
-
-      // 5. 토큰 갱신 수행
-      const refreshResult = await this.refreshTokens();
-
-      if (refreshResult.success) {
-        console.log('✅ [TokenInterceptor] 토큰 갱신 성공, 원본 요청 재시도');
-
-        // 6. 갱신 성공: 대기열 처리 및 원본 요청 재시도
-        await this.processFailedQueue(baseQuery);
-        result = await baseQuery(args, api, extraOptions);
-      } else {
-        console.error('❌ [TokenInterceptor] 토큰 갱신 실패, 로그아웃 처리');
-
-        // 7. 갱신 실패: 로그아웃 처리
-        this.clearFailedQueue(new Error('Token refresh failed'));
-        await this.handleAuthFailure();
-
-        // 로그아웃 상태 반영
-        result = {
-          error: {
-            status: 401,
-            data: { message: 'Authentication failed' }
-          } as FetchBaseQueryError
-        } as any;
-      }
-
-      return result;
-    };
-  };
 
   /**
    * 토큰 사전 검증 및 필요 시 갱신
@@ -121,17 +109,16 @@ export class TokenRefreshInterceptor {
    */
   private async validateAndRefreshIfNeeded(): Promise<void> {
     try {
-      const userStateManager = UserStateManager.getInstance();
-      const accessToken = userStateManager.accessToken;
+      const accessToken = await this.userStateManager.getAccessToken();
 
       if (!accessToken) {
         return; // 로그인하지 않은 상태
       }
 
       // 토큰이 곧 만료될 예정이면 미리 갱신
-      if (this.silentTokenRefreshService.isTokenExpiringSoon(accessToken, TOKEN_REFRESH_THRESHOLD_SECONDS)) {
+      if (this.tokenService.isTokenExpiringSoon(accessToken, TOKEN_REFRESH_THRESHOLD_SECONDS)) {
         console.log('⏰ [TokenInterceptor] 토큰 만료 임박, 사전 갱신 시도');
-        
+
         // 이미 갱신 중이면 대기
         if (this.isRefreshing) {
           await this.waitForRefresh();
@@ -148,7 +135,7 @@ export class TokenRefreshInterceptor {
 
   /**
    * 토큰 갱신 수행
-   * UserStateManager를 통해 통합 관리
+   * UserStateManager와 SilentTokenRefreshService를 통해 통합 관리
    */
   private async refreshTokens(): Promise<TokenRefreshResult> {
     if (this.isRefreshing) {
@@ -161,8 +148,7 @@ export class TokenRefreshInterceptor {
     try {
       console.log('🔄 [TokenInterceptor] 토큰 갱신 시작');
 
-      const userStateManager = UserStateManager.getInstance();
-      const currentRefreshToken = userStateManager.refreshToken;
+      const currentRefreshToken = await this.userStateManager.getRefreshToken();
 
       if (!currentRefreshToken) {
         console.log('❌ [TokenInterceptor] Refresh token이 없음');
@@ -174,8 +160,8 @@ export class TokenRefreshInterceptor {
 
       if (tokenPair) {
         // UserStateManager에 새 토큰 저장
-        await userStateManager.setTokens(tokenPair.accessToken, tokenPair.refreshToken);
-        
+        await this.userStateManager.setTokens(tokenPair.accessToken, tokenPair.refreshToken);
+
         console.log('✅ [TokenInterceptor] 토큰 갱신 및 저장 성공');
 
         return {
@@ -190,12 +176,12 @@ export class TokenRefreshInterceptor {
 
     } catch (error) {
       console.error('❌ [TokenInterceptor] 토큰 갱신 중 오류:', error);
-      
+
       // RefreshTokenExpired 에러는 로그아웃 필요
       if (error instanceof Error && error.message === 'RefreshTokenExpired') {
         await this.handleAuthFailure();
       }
-      
+
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -208,19 +194,12 @@ export class TokenRefreshInterceptor {
   /**
    * 대기열에 요청 추가 (동시 요청 처리)
    */
-  private addToFailedQueue<Args, Result, Error, DefinitionExtraOptions, Meta>(
-    args: Args,
-    api: any,
-    extraOptions: DefinitionExtraOptions,
-    baseQuery: BaseQueryFn<Args, Result, Error, DefinitionExtraOptions, Meta>
-  ): Promise<any> {
+  private addToFailedQueue(config: InternalAxiosRequestConfig): Promise<any> {
     return new Promise((resolve, reject) => {
       this.failedQueue.push({
         resolve,
         reject,
-        args: args as any,
-        api,
-        extraOptions
+        config,
       });
     });
   }
@@ -229,19 +208,18 @@ export class TokenRefreshInterceptor {
    * 대기열 처리 (갱신 성공 후)
    * 대기 중이던 모든 요청을 재시도
    */
-  private async processFailedQueue<Args, Result, Error, DefinitionExtraOptions, Meta>(
-    baseQuery: BaseQueryFn<Args, Result, Error, DefinitionExtraOptions, Meta>
-  ): Promise<void> {
+  private async processFailedQueue(): Promise<void> {
     const queue = [...this.failedQueue];
     this.failedQueue = [];
 
     for (const request of queue) {
       try {
-        const result = await baseQuery(
-          request.args as Args,
-          request.api,
-          request.extraOptions as DefinitionExtraOptions
-        );
+        const accessToken = await tokenStorage.getAccessToken();
+        if (accessToken && request.config.headers) {
+          request.config.headers.Authorization = `Bearer ${accessToken}`;
+        }
+
+        const result = await apiClient(request.config);
         request.resolve(result);
       } catch (error) {
         request.reject(error);
@@ -286,8 +264,7 @@ export class TokenRefreshInterceptor {
     try {
       console.log('🚪 [TokenInterceptor] 인증 실패, 로그아웃 처리');
 
-      const userStateManager = UserStateManager.getInstance();
-      await userStateManager.logout();
+      await this.userStateManager.logout();
 
       // 추가적인 로그아웃 후 처리가 필요하면 여기에 추가
       // 예: 로그인 화면으로 리다이렉트, 알림 표시 등
@@ -295,20 +272,6 @@ export class TokenRefreshInterceptor {
     } catch (error) {
       console.error('❌ [TokenInterceptor] 로그아웃 처리 중 오류:', error);
     }
-  }
-
-  /**
-   * 토큰 남은 시간 확인 (디버깅용)
-   */
-  getTokenRemainingTime(): number | null {
-    const userStateManager = UserStateManager.getInstance();
-    const accessToken = userStateManager.accessToken;
-
-    if (!accessToken) {
-      return null;
-    }
-
-    return this.silentTokenRefreshService.getTokenRemainingTime(accessToken);
   }
 
   /**

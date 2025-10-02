@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
-import { useAppStore, ViewState, RunningState } from '~/stores/app/appStore';
-import { useUserStore } from '~/stores/user/userStore';
+import { useAppStore, ViewState } from '~/stores/app/appStore';
+import { useAuthStore } from '~/stores/auth/authStore';
 import { LoadingView } from '~/shared/components';
 import { ControlPanelView } from './ControlPanelView';
 import { createUnityBridgeService } from '~/features/unity/bridge/UnityBridgeService';
@@ -16,7 +16,7 @@ export const RunningView: React.FC = () => {
   const viewState = useAppStore((state) => state.viewState);
   const runningState = useAppStore((state) => state.runningState);
   const setViewState = useAppStore((state) => state.setViewState);
-  const isLoggedIn = useUserStore((state) => state.isLoggedIn);
+  const isLoggedIn = useAuthStore((state) => state.isLoggedIn); // ✅ AuthStore로 변경
   const [unityReady, setUnityReady] = useState(false);
   const [unityStarted, setUnityStarted] = useState(false);
   const [unityBridge] = useState(() => createUnityBridgeService());

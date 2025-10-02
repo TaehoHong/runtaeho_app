@@ -6,8 +6,9 @@
  */
 
 import { authService } from './authService';
-import { keychain } from '~/utils/keychain';
+import { tokenStorage } from '~/utils/storage';
 import { useUserStore } from '~/stores/user/userStore';
+import { useAuthStore } from '~/stores';
 
 export type TokenStatus = 'valid' | 'expiringSoon' | 'expired' | 'noToken';
 
@@ -23,6 +24,8 @@ function parseToken(token: string): any {
     if (components.length !== 3) return null;
 
     const payload = components[1];
+
+    if(payload == undefined) throw Error('payload is undefined')
 
     // Base64 URL 디코딩
     let base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
@@ -87,7 +90,7 @@ function getTokenRemainingTime(token: string | null): number | null {
  * 토큰 검증 및 필요시 갱신
  */
 async function verifyAndRefreshTokens(): Promise<void> {
-  const tokens = await keychain.loadTokens();
+  const tokens = await tokenStorage.loadTokens();
   const status = checkTokenStatus(tokens.accessToken);
 
   switch (status) {
@@ -108,7 +111,7 @@ async function verifyAndRefreshTokens(): Promise<void> {
     case 'noToken':
       console.log('⚪ [TokenUtils] No token found, logging out');
       await useUserStore.getState().logout();
-      await keychain.clearTokens();
+      await tokenStorage.clearTokens();
       break;
   }
 }
@@ -122,14 +125,13 @@ async function refreshTokens(): Promise<void> {
 
     const newTokens = await authService.refreshToken();
 
-    // Keychain에 저장
-    await keychain.saveTokens(newTokens.accessToken, newTokens.refreshToken);
+    // SecureStorage에 저장
+    await tokenStorage.saveTokens(newTokens.accessToken, newTokens.refreshToken);
 
     // Zustand store 업데이트
-    useUserStore.getState().setTokens({
-      accessToken: newTokens.accessToken,
-      refreshToken: newTokens.refreshToken,
-    });
+    useAuthStore.getState().setAccessToken(newTokens.accessToken);
+    useAuthStore.getState().setRefreshToken(newTokens.refreshToken);
+    
 
     console.log('✅ [TokenUtils] Token refresh successful');
   } catch (error: any) {
@@ -139,7 +141,7 @@ async function refreshTokens(): Promise<void> {
     if (error?.response?.status === 401 || error?.response?.status === 403) {
       console.log('🚪 [TokenUtils] Refresh token expired, logging out');
       await useUserStore.getState().logout();
-      await keychain.clearTokens();
+      await tokenStorage.clearTokens();
     }
 
     throw error;

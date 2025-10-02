@@ -3,18 +3,18 @@
  * 기존 userSlice.ts + UserStateManager에서 마이그레이션
  * Redux → Zustand
  *
- * Phase 3: 주 Store로서 사용자 정보, 토큰, 로그인 상태 모두 관리
- * AuthStore는 인증 플로우(로딩/에러)만 관리
+ * Phase 4: 사용자 데이터만 관리 (인증 상태는 AuthStore)
+ * - 토큰은 Keychain에만 저장 (Store에 저장하지 않음)
+ * - isLoggedIn은 AuthStore로 이동
  */
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { User } from '~/features/user/models/User';
-import { UserAccount } from '~/features/user/models/UserAccount';
-import { AuthProvider } from '~/features/auth/models/AuthProvider';
-import { AvatarItem } from '~/features/avatar/models';
-import { UserDataDto, userDataDtoToUser } from '~/features/user/models/UserDataDto';
+import { type User } from '~/features/user/models/User';
+import { type UserAccount } from '~/features/user/models/UserAccount';
+import { type AvatarItem } from '~/features/avatar/models';
+import { type UserDataDto, userDataDtoToUser } from '~/features/user/models/UserDataDto';
 
 /**
  * Theme Mode
@@ -59,22 +59,11 @@ const defaultPreferences: UserPreferences = {
 
 /**
  * User State
- * 기존 userSlice.ts의 UserState와 동일
- *
- * Phase 3: AuthStore와 중복 제거
- * - isLoggedIn, accessToken, refreshToken은 UserStore에서 관리
- * - AuthStore는 인증 플로우(isLoading, error)만 관리
  */
 interface UserState {
   // User 정보
   currentUser: User | null;
   totalPoint: number;
-  isLoggedIn: boolean;
-  isLoading: boolean;
-
-  // 토큰 정보 (실제 토큰은 Keychain에 저장, 여기는 상태만)
-  accessToken: string | null;
-  refreshToken: string | null;
 
   // Avatar 정보
   avatarId: number;
@@ -96,8 +85,6 @@ interface UserState {
     totalPoint: number;
     avatarId: number;
     equippedItems: Record<string, AvatarItem>;
-    accessToken: string;
-    refreshToken?: string;
   }) => void;
   logout: () => void;
   updateProfile: (params: { nickname?: string; profileImageURL?: string }) => void;
@@ -105,7 +92,6 @@ interface UserState {
   connectAccount: (account: UserAccount) => void;
   earnPoints: (points: number) => void;
   setTotalPoint: (totalPoint: number) => void;
-  setTokens: (params: { accessToken: string; refreshToken?: string }) => void;
   setNickname: (nickname: string) => void;
   setLevel: (level: number) => void;
   setAvatarId: (avatarId: number) => void;
@@ -114,7 +100,6 @@ interface UserState {
   updateUserPreferences: (preferences: Partial<UserPreferences>) => void;
   incrementAppLaunchCount: () => void;
   setLastAppVersion: (version: string) => void;
-  setLoading: (isLoading: boolean) => void;
   setBackgroundEnterTime: (time: Date | null) => void;
   syncUserData: (params: {
     totalPoint?: number;
@@ -125,12 +110,11 @@ interface UserState {
   resetAppState: () => void;
 
   // 추가 헬퍼 메서드 (UserStateManager에서 사용)
-  login: (userData: UserDataDto, accessToken: string, refreshToken?: string) => void;
+  login: (userData: UserDataDto) => void;
 }
 
 /**
  * User Store
- * 기존 userSlice의 initialState와 reducers를 Zustand로 변환
  */
 export const useUserStore = create<UserState>()(
   persist(
@@ -138,10 +122,6 @@ export const useUserStore = create<UserState>()(
       // Initial State (기존 userSlice의 initialState)
       currentUser: null,
       totalPoint: 0,
-      isLoggedIn: false,
-      isLoading: false,
-      accessToken: null,
-      refreshToken: null,
       avatarId: 0,
       equippedItems: {},
       userPreferences: defaultPreferences,
@@ -154,8 +134,10 @@ export const useUserStore = create<UserState>()(
       /**
        * 로그인 데이터 설정
        * 기존: setLoginData reducer
+       *
+       * ⚠️ 토큰은 파라미터에서 제거됨 (Keychain에서만 관리)
        */
-      setLoginData: ({ user, totalPoint, avatarId, equippedItems, accessToken, refreshToken }) => {
+      setLoginData: ({ user, totalPoint, avatarId, equippedItems }) => {
         // Update last login
         user.lastLoginAt = new Date();
 
@@ -164,9 +146,6 @@ export const useUserStore = create<UserState>()(
           totalPoint,
           avatarId,
           equippedItems,
-          isLoggedIn: true,
-          accessToken,
-          refreshToken: refreshToken || get().refreshToken,
         });
 
         // Debug logging
@@ -182,13 +161,12 @@ export const useUserStore = create<UserState>()(
       /**
        * 로그아웃
        * 기존: logout reducer
+       *
+       * ⚠️ 토큰 관련 state 제거됨
        */
       logout: () =>
         set({
           currentUser: null,
-          accessToken: null,
-          refreshToken: null,
-          isLoggedIn: false,
           totalPoint: 0,
           avatarId: 0,
           equippedItems: {},
@@ -285,16 +263,6 @@ export const useUserStore = create<UserState>()(
         }),
 
       /**
-       * 토큰 설정
-       * 기존: setTokens reducer
-       */
-      setTokens: ({ accessToken, refreshToken }) =>
-        set((state) => ({
-          accessToken,
-          refreshToken: refreshToken || state.refreshToken,
-        })),
-
-      /**
        * 닉네임 설정
        * 기존: setNickname reducer
        */
@@ -384,15 +352,6 @@ export const useUserStore = create<UserState>()(
         }),
 
       /**
-       * 로딩 상태 설정
-       * 기존: setLoading reducer
-       */
-      setLoading: (isLoading) =>
-        set({
-          isLoading,
-        }),
-
-      /**
        * 백그라운드 진입 시간 설정
        * 기존: setBackgroundEnterTime reducer
        */
@@ -442,10 +401,6 @@ export const useUserStore = create<UserState>()(
         set({
           currentUser: null,
           totalPoint: 0,
-          isLoggedIn: false,
-          isLoading: false,
-          accessToken: null,
-          refreshToken: null,
           avatarId: 0,
           equippedItems: {},
           userPreferences: defaultPreferences,
@@ -457,8 +412,10 @@ export const useUserStore = create<UserState>()(
       /**
        * 로그인 헬퍼 메서드
        * UserStateManager.login()을 위한 래퍼
+       *
+       * ⚠️ 토큰은 파라미터에서 제거됨 (Keychain에서만 관리)
        */
-      login: (userData, accessToken, refreshToken) => {
+      login: (userData) => {
         const user = userDataDtoToUser(userData);
 
         // EquippedItemDataDto를 AvatarItem으로 변환
@@ -489,8 +446,6 @@ export const useUserStore = create<UserState>()(
           totalPoint: userData.totalPoint,
           avatarId: userData.avatarId,
           equippedItems: convertEquippedItems(userData.equippedItems || []),
-          accessToken,
-          refreshToken,
         });
       },
     }),
@@ -500,14 +455,13 @@ export const useUserStore = create<UserState>()(
       // 필요한 필드만 persist (토큰은 Keychain에 별도 저장)
       partialize: (state) => ({
         currentUser: state.currentUser,
-        isLoggedIn: state.isLoggedIn,
         totalPoint: state.totalPoint,
         avatarId: state.avatarId,
         equippedItems: state.equippedItems,
         userPreferences: state.userPreferences,
         appLaunchCount: state.appLaunchCount,
         lastAppVersion: state.lastAppVersion,
-        // accessToken, refreshToken은 Keychain에 저장되므로 제외
+        // ❌ accessToken, refreshToken 제거됨 (Keychain에만 저장)
       }),
     }
   )
@@ -516,7 +470,7 @@ export const useUserStore = create<UserState>()(
 /**
  * Selectors (복잡한 로직이 필요한 경우만 제공)
  *
- * Phase 3: 불필요한 단순 selector 제거
+ * Phase 4: 불필요한 단순 selector 제거
  * 단순 필드 접근은 Hook으로 직접 사용:
  *
  * @example

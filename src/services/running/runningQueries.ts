@@ -6,7 +6,7 @@
 import { useMutation, useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { runningService } from './runningService';
 import { queryKeys } from '../queryClient';
-import { RunningRecord } from '~/features/running/models';
+import { type RunningRecord } from '~/features/running/models';
 
 /**
  * 러닝 시작

@@ -37,10 +37,6 @@ export const registerServices = () => {
     ServiceLifetime.SINGLETON
   );
 
-  // RTK Query API Services (싱글톤 인스턴스)
-  container.registerInstance(SERVICE_TOKENS.RUNNING_API, runningApi);
-  container.registerInstance(SERVICE_TOKENS.USER_API, userApi);
-
   // Business Services (Singleton 패턴 사용)
   container.registerFactory(
     SERVICE_TOKENS.RUNNING_SERVICE,
