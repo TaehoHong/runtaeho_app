@@ -4,19 +4,19 @@
  * RTK Query → Axios
  */
 
+import { AuthProviderType, type TokenDto } from '~/features/auth/models';
 import { apiClient } from '../api/client';
 import { API_ENDPOINTS } from '../api/config';
-import { AuthProvider, type TokenDto, type UserAuthData } from '~/features/auth/models';
 
 /**
  * OAuth 경로 매핑
  * 기존 getOAuthPath 함수와 동일
  */
-const getOAuthPath = (provider: AuthProvider): string => {
+const getOAuthPath = (provider: AuthProviderType): string => {
   switch (provider) {
-    case AuthProvider.GOOGLE:
+    case AuthProviderType.GOOGLE:
       return API_ENDPOINTS.AUTH.OAUTH_GOOGLE;
-    case AuthProvider.APPLE:
+    case AuthProviderType.APPLE:
       return API_ENDPOINTS.AUTH.OAUTH_APPLE;
     default:
       throw new Error(`Unsupported auth provider: ${provider}`);
@@ -32,7 +32,7 @@ export const authService = {
    * OAuth 토큰 획득
    * 기존: getOAuthToken mutation
    */
-  getOAuthToken: async (provider: AuthProvider, code: string): Promise<TokenDto> => {
+  getOAuthToken: async (provider: AuthProviderType, code: string): Promise<TokenDto> => {
     const oauthPath = getOAuthPath(provider);
     const { data } = await apiClient.get<TokenDto>(oauthPath, {
       params: { code }, // GET 요청이므로 쿼리 파라미터로 전송

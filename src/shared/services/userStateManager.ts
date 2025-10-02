@@ -1,15 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { systemInfoManager } from '../utils/SystemInfoManager';
-import { useUserStore, type UserPreferences } from '../../stores/user/userStore';
-import { useAuthStore } from '../../stores/auth/authStore';
-import { tokenStorage, TOKEN_KEYS } from '../../utils/storage';
-import { type UserDataDto, userDataDtoToUser } from '../../features/user/models/UserDataDto';
+import type { AuthProviderType } from '../../features/auth/models/AuthType';
+import { SilentTokenRefreshService } from '../../features/auth/services/SilentTokenRefreshService';
+import type { AvatarItem } from '../../features/avatar/models';
 import type { User } from '../../features/user/models/User';
 import type { UserAccount } from '../../features/user/models/UserAccount';
-import type { AuthProvider } from '../../features/auth/models/AuthProvider';
-import { SilentTokenRefreshService } from '../../features/auth/services/SilentTokenRefreshService';
+import { userDataDtoToUser, type UserDataDto } from '../../features/user/models/UserDataDto';
+import { useAuthStore } from '../../stores/auth/authStore';
+import { useUserStore, type UserPreferences } from '../../stores/user/userStore';
+import { tokenStorage } from '../../utils/storage';
+import { systemInfoManager } from '../utils/SystemInfoManager';
 import { PermissionManager } from './PermissionManager';
-import type { AvatarItem } from '../../features/avatar/models';
+import { TokenStatus, tokenUtils } from '../utils/tokenUtils'
 
 // Storage Keys (SwiftUI UserStateManager.Keys와 동일)
 const STORAGE_KEYS = {
@@ -174,7 +175,7 @@ export class UserStateManager {
    * 계정 연결 해제
    * SwiftUI UserStateManager.disconnectAccount와 동일
    */
-  disconnectAccount(provider: AuthProvider): void {
+  disconnectAccount(provider: AuthProviderType): void {
     if (!this.currentUser) return;
 
     useUserStore.getState().disconnectAccount(provider);
@@ -232,7 +233,7 @@ export class UserStateManager {
    * 계정 연결 해제 (중복 제거용)
    * SwiftUI UserStateManager.removeUserAccount와 동일
    */
-  removeUserAccount(provider: AuthProvider): void {
+  removeUserAccount(provider: AuthProviderType): void {
     this.disconnectAccount(provider);
   }
   
@@ -270,24 +271,24 @@ export class UserStateManager {
       return;
     }
 
-    const tokenStatus = SilentTokenRefreshService.getInstance().checkTokenStatus(accessToken);
+    const tokenStatus = tokenUtils.verifyToken(accessToken)
 
     switch (tokenStatus) {
-      case 'valid':
+      case TokenStatus.VALID:
         console.log('🟢 [UserStateManager] Token is valid');
         break;
 
-      case 'expiringSoon':
+      case TokenStatus.SOON_EXPIRING:
         console.log('🟡 [UserStateManager] Token expiring soon, performing proactive refresh');
         await this.refreshTokensProactively();
         break;
 
-      case 'expired':
+      case TokenStatus.EXPIRED:
         console.log('🔴 [UserStateManager] Token expired, attempting refresh');
         await this.refreshTokensProactively();
         break;
 
-      case 'noToken':
+      case TokenStatus.NO_TOKEN:
         console.log('⚪ [UserStateManager] No token found, user will be logged out');
         await this.logout();
         break;

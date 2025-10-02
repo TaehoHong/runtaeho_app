@@ -1,6 +1,6 @@
 import { UserStateManager } from '../../../shared/services/userStateManager';
 import { AuthError } from '../models/AuthError';
-import { AuthProvider } from '../models/auth-types';
+import { AuthProviderType } from '../models/AuthType';
 import { AuthenticationService } from '../services/AuthenticationService';
 import { AuthStrategyFactory } from '../strategies/AuthStrategyFactory';
 import { userService } from '../../../services/user/userService';
@@ -10,14 +10,14 @@ export class AuthViewModel {
   private authService = AuthenticationService.shared;
 
   async signInWithGoogle(): Promise<{success: boolean; error?: AuthError}> {
-    return this.signIn(AuthProvider.GOOGLE);
+    return this.signIn(AuthProviderType.GOOGLE);
   }
 
   async signInWithApple(): Promise<{success: boolean; error?: AuthError}> {
-    return this.signIn(AuthProvider.APPLE);
+    return this.signIn(AuthProviderType.APPLE);
   }
 
-  private async signIn(provider: AuthProvider): Promise<{success: boolean; error?: AuthError}> {
+  private async signIn(provider: AuthProviderType): Promise<{success: boolean; error?: AuthError}> {
     try {
       const strategy = AuthStrategyFactory.getStrategy(provider);
 

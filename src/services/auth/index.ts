@@ -2,6 +2,7 @@
  * Auth Services Export
  */
 
-export { authService } from './authService';
+export { tokenUtils } from '../../shared/utils/tokenUtils';
 export * from './authQueries';
-export { tokenUtils } from './tokenUtils';
+export { authService } from './authService';
+

@@ -1,4 +1,4 @@
-import { AuthProvider } from '../../auth/models/AuthProvider';
+import { AuthProviderType } from '../../auth/models/AuthType';
 import { User, createUser } from './User';
 import { UserAccount, createUserAccount } from './UserAccount';
 
@@ -23,7 +23,7 @@ export interface UserDataDto {
 export interface UserAccountDataDto {
   id: number;
   email: string;
-  accountType: AuthProvider;
+  accountType: AuthProviderType;
 }
 
 /**
@@ -44,13 +44,13 @@ export interface EquippedItemDataDto {
  */
 export const userDataDtoToUser = (dto: UserDataDto): User => {
   // userAccounts를 Map으로 변환
-  const userAccountMap = new Map<AuthProvider, UserAccountDataDto>();
+  const userAccountMap = new Map<AuthProviderType, UserAccountDataDto>();
   dto.userAccounts.forEach((account) => {
     userAccountMap.set(account.accountType, account);
   });
 
   // 모든 AuthProvider에 대해 UserAccount 생성
-  const accounts: UserAccount[] = Object.values(AuthProvider).map((provider) => {
+  const accounts: UserAccount[] = Object.values(AuthProviderType).map((provider) => {
     const accountData = userAccountMap.get(provider);
     return accountData ? userAccountDataDtoToUserAccount(accountData) : createUserAccount({ provider });
   });

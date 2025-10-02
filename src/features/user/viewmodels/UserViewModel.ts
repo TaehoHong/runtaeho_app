@@ -1,18 +1,18 @@
 import { useCallback } from 'react';
 import {
+  useConnectAccount as useConnectAccountMutation,
+  useDeleteUser,
+  useDisconnectAccount as useDisconnectAccountMutation,
   useGetCurrentUser,
   useGetUserData,
   useUpdateUserProfile,
-  useConnectAccount as useConnectAccountMutation,
-  useDisconnectAccount as useDisconnectAccountMutation,
-  useDeleteUser,
 } from '../../../services/user';
 import { useUserStore } from '../../../stores/user/userStore';
+import { AuthProviderType } from '../../auth/models';
 import {
-  getUserAccount,
   getConnectedAccountsCount,
+  getUserAccount,
 } from '../models';
-import { AuthProvider } from '../../auth/models';
 
 /**
  * User ViewModel
@@ -66,7 +66,7 @@ export const useUserViewModel = () => {
    * 계정 연결
    * Swift addUserAccount() 메서드 대응
    */
-  const connectAccount = useCallback(async (provider: AuthProvider, token: string) => {
+  const connectAccount = useCallback(async (provider: AuthProviderType, token: string) => {
     try {
       await connectAccountMutation({ provider, token });
       await refetchUser(); // 연결 후 최신 데이터 다시 가져오기
@@ -80,7 +80,7 @@ export const useUserViewModel = () => {
    * 계정 연결 해제
    * Swift removeUserAccount() 메서드 대응
    */
-  const disconnectAccount = useCallback(async (provider: AuthProvider) => {
+  const disconnectAccount = useCallback(async (provider: AuthProviderType) => {
     try {
       await disconnectAccountMutation(provider);
       await refetchUser(); // 해제 후 최신 데이터 다시 가져오기
@@ -121,7 +121,7 @@ export const useUserViewModel = () => {
   /**
    * 특정 provider의 연결된 계정 조회
    */
-  const getConnectedAccount = useCallback((provider: AuthProvider) => {
+  const getConnectedAccount = useCallback((provider: AuthProviderType) => {
     if (!currentUser) return undefined;
     return getUserAccount(currentUser, provider);
   }, [currentUser]);
@@ -137,7 +137,7 @@ export const useUserViewModel = () => {
   /**
    * 계정 연결 상태 확인
    */
-  const isAccountConnected = useCallback((provider: AuthProvider): boolean => {
+  const isAccountConnected = useCallback((provider: AuthProviderType): boolean => {
     const account = getConnectedAccount(provider);
     return account?.isConnected ?? false;
   }, [getConnectedAccount]);

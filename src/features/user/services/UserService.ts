@@ -6,11 +6,9 @@
  * 이 서비스는 복잡한 비즈니스 로직이나 유틸리티 함수들을 위해 사용
  */
 
+import { AuthProviderType } from '../../auth/models';
 import { User } from '../models';
-import { AuthProvider } from '../../auth/models';
 import { UserDataDto } from '../models/UserDataDto';
-import { UserAuthData } from '../../auth/models/UserAuthData';
-import { authenticationService } from '../../auth/services/AuthenticationService';
 
 export class UserService {
   private static instance: UserService;
@@ -49,7 +47,7 @@ export class UserService {
   /**
    * 사용자 계정 연결 가능 여부 확인
    */
-  canConnectAccount(user: User, provider: AuthProvider): boolean {
+  canConnectAccount(user: User, provider: AuthProviderType): boolean {
     // 이미 연결된 계정이 있는지 확인
     const existingAccount = user.userAccounts.find(
       (account) => account.provider === provider
@@ -114,7 +112,7 @@ export class UserService {
     displayName: string;
     grade: string;
     completeness: number;
-    connectedProviders: AuthProvider[];
+    connectedProviders: AuthProviderType[];
     isActive: boolean;
   } {
     return {

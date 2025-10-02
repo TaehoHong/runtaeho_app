@@ -1,4 +1,4 @@
-import { AuthProvider } from '../../auth/models/AuthProvider';
+import { AuthProviderType } from '../../auth/models/AuthType';
 import { UserAccount } from './UserAccount';
 
 /**
@@ -86,7 +86,7 @@ export const addUserAccount = (user: User, account: UserAccount): User => {
  * 사용자 계정 제거
  * Swift removeUserAccount() 메서드와 동일
  */
-export const removeUserAccount = (user: User, provider: AuthProvider): User => ({
+export const removeUserAccount = (user: User, provider: AuthProviderType): User => ({
   ...user,
   userAccounts: user.userAccounts.filter((account) => account.provider !== provider),
 });
@@ -94,7 +94,7 @@ export const removeUserAccount = (user: User, provider: AuthProvider): User => (
 /**
  * 특정 provider의 계정 조회
  */
-export const getUserAccount = (user: User, provider: AuthProvider): UserAccount | undefined => {
+export const getUserAccount = (user: User, provider: AuthProviderType): UserAccount | undefined => {
   return user.userAccounts.find((account) => account.provider === provider);
 };
 

@@ -1,4 +1,4 @@
-import { AuthProvider } from '../../auth/models/AuthProvider';
+import { AuthProviderType } from '../../auth/models/AuthType';
 
 /**
  * 연결 계정 모델
@@ -6,7 +6,7 @@ import { AuthProvider } from '../../auth/models/AuthProvider';
  */
 export interface UserAccount {
   id: number;
-  provider: AuthProvider;
+  provider: AuthProviderType;
   isConnected: boolean;
   connectedAt: Date | null;
   email: string | null;
@@ -36,7 +36,7 @@ export const AccountConnectionConfig = {
  */
 export const createUserAccount = (data: {
   id?: number;
-  provider: AuthProvider;
+  provider: AuthProviderType;
   isConnected?: boolean;
   connectedAt?: Date | null;
   email?: string | null;

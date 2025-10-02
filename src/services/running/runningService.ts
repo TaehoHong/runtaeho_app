@@ -6,20 +6,13 @@
 
 import { apiClient } from '../api/client';
 import { API_ENDPOINTS } from '../api/config';
+import { type CursorResult } from '~/shared/utils/dto/CursorResult';
 import {
   type RunningRecord,
   type EndRunningRecord,
   createRunningRecord,
 } from '~/features/running/models';
 
-/**
- * 페이지네이션 결과 인터페이스
- */
-export interface CursorResult<T> {
-  content: T[];
-  cursor?: number;
-  hasNext: boolean;
-}
 
 /**
  * Running API Service

@@ -4,9 +4,9 @@
  */
 
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { authService } from './authService';
+import { AuthProviderType } from '~/features/auth/models';
 import { queryKeys } from '../queryClient';
-import { AuthProvider } from '~/features/auth/models';
+import { authService } from './authService';
 
 /**
  * OAuth 토큰 획득 Mutation
@@ -14,7 +14,7 @@ import { AuthProvider } from '~/features/auth/models';
  */
 export const useGetOAuthToken = () => {
   return useMutation({
-    mutationFn: ({ provider, code }: { provider: AuthProvider; code: string }) =>
+    mutationFn: ({ provider, code }: { provider: AuthProviderType; code: string }) =>
       authService.getOAuthToken(provider, code),
   });
 };

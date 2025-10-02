@@ -13,7 +13,6 @@ export interface UserAuthData {
 
 /**
  * 토큰 DTO
- * Swift TokenDto.swift에서 마이그레이션
  */
 export interface TokenDto {
   userId: number;
@@ -37,8 +36,19 @@ export const createUserAuthData = (data: {
   nickname: data.nickname,
   accessToken: data.accessToken,
   refreshToken: data.refreshToken,
-  profileImageURL: data.profileImageURL,
+  profileImageURL: data.profileImageURL == undefined ? "": data.profileImageURL,
 });
+
+export class AuthenticationError extends Error {
+  constructor(message: string, public cause?: Error) {
+    super(message);
+    this.name = 'AuthenticationError';
+  }
+
+  static networkError(error: Error): AuthenticationError {
+    return new AuthenticationError('Network error occurred', error);
+  }
+}
 
 /**
  * UserAuthData에서 userId getter (Legacy Support)

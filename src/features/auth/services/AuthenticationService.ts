@@ -4,11 +4,11 @@
  * OAuth 플랫폼별 로직, 유틸리티 함수, 토큰 관리를 담당
  */
 
-import { AuthProvider } from '../models/AuthProvider';
-import { type TokenDto, AuthenticationError, AUTH_PROVIDER_INFO } from '../models/auth-types';
+import { tokenStorage } from '~/utils/storage';
 import { authService } from '../../../services/auth/authService';
 import { useAuthStore } from '../../../stores/auth/authStore';
-import { tokenStorage } from '~/utils/storage';
+import { AuthProviderType } from '../models/AuthType';
+import { type TokenDto, AuthenticationError } from '../models/UserAuthData';
 
 export class AuthenticationService {
   private static instance: AuthenticationService;
@@ -55,11 +55,10 @@ export class AuthenticationService {
    * @param code OAuth 인증 코드
    * @returns Promise<TokenDto>
    */
-  async getToken(provider: AuthProvider, code: string): Promise<TokenDto> {
+  async getToken(provider: AuthProviderType, code: string): Promise<TokenDto> {
     const authId = Math.random().toString(36).substr(2, 9);
-    const providerName = AUTH_PROVIDER_INFO[provider].displayName;
 
-    console.log(`🔐 [AUTH-${authId}] ${providerName} 토큰 요청 시작`);
+    console.log(`🔐 [AUTH-${authId}] ${provider} 토큰 요청 시작`);
     console.log(`   Provider: ${provider}`);
     console.log(`   Code: ${code.substring(0, 20)}...${code.substring(code.length - 10)}`);
 
@@ -76,7 +75,7 @@ export class AuthenticationService {
       tokenStorage.saveTokens(result.accessToken, result.refreshToken)
 
 
-      console.log(`✅ [AUTH-${authId}] ${providerName} 토큰 수신 성공 (${duration}ms)`);
+      console.log(`✅ [AUTH-${authId}] ${provider} 토큰 수신 성공 (${duration}ms)`);
       console.log(`   User ID: ${result.userId}`);
       console.log(`   Access Token: ${result.accessToken ? '***' : 'null'}`);
       console.log(`   Refresh Token: ${result.refreshToken ? '***' : 'null'}`);
@@ -84,7 +83,7 @@ export class AuthenticationService {
       return result;
     } catch (error) {
       const duration = Date.now() - startTime;
-      console.error(`❌ [AUTH-${authId}] ${providerName} 토큰 요청 실패 (${duration}ms):`, error);
+      console.error(`❌ [AUTH-${authId}] ${provider} 토큰 요청 실패 (${duration}ms):`, error);
       throw AuthenticationError.networkError(error as Error);
     }
   }
