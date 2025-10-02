@@ -1,5 +1,6 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios';
 import { tokenStorage } from '../../utils/storage';
+import { useAuthStore } from '~/stores';
 import { API_CONFIG } from './config';
 import { httpRequestLogging, httpResponseLogging } from './interceptors';
 
@@ -78,7 +79,7 @@ export const apiUtils = {
 httpRequestLogging(apiClient);
 
 apiClient.interceptors.request.use((config) => {
-  const token = tokenStorage.getAccessToken();
+  const token = useAuthStore.getState().accessToken;
   if(__DEV__) console.debug('[API_CLIENT] add Token to Headers token: ', token)
   const needsAuth = config.headers?.['x-requires-auth'] !== 'false'; // 기본: 필요, 옵션으로 끔
   if (needsAuth && token) {

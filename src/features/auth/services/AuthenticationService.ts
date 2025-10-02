@@ -7,6 +7,8 @@
 import { AuthProvider } from '../models/AuthProvider';
 import { type TokenDto, AuthenticationError, AUTH_PROVIDER_INFO } from '../models/auth-types';
 import { authService } from '../../../services/auth/authService';
+import { useAuthStore } from '../../../stores/auth/authStore';
+import { tokenStorage } from '~/utils/storage';
 
 export class AuthenticationService {
   private static instance: AuthenticationService;
@@ -68,6 +70,11 @@ export class AuthenticationService {
       const result = await authService.getOAuthToken(provider, code);
 
       const duration = Date.now() - startTime;
+
+      useAuthStore.getState().setAccessToken(result.accessToken);
+      useAuthStore.getState().setAccessToken(result.refreshToken);
+      tokenStorage.saveTokens(result.accessToken, result.refreshToken)
+
 
       console.log(`✅ [AUTH-${authId}] ${providerName} 토큰 수신 성공 (${duration}ms)`);
       console.log(`   User ID: ${result.userId}`);

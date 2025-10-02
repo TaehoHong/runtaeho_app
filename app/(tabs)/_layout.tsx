@@ -19,7 +19,7 @@ export default function TabLayout() {
 
   return (
     <Tabs
-      initialRouteName="runnin"
+      initialRouteName="running"
       screenOptions={{
         headerShown: false,
         tabBarStyle: {

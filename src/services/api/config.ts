@@ -48,9 +48,8 @@ export const API_ENDPOINTS = {
     REFRESH: '/auth/refresh'
   },
   USER: {
-    BASE: '/user',
-    ME: '/user/me',
-    PROFILE: '/user/profile',
+    BASE: '/users',
+    ME: '/users/me',
     ACCOUNT_CONNECT: (provider: string) => `/user/account/connect/${provider}`,
     ACCOUNT_DISCONNECT: (provider: string) => `/user/account/disconnect/${provider}`,
   },
