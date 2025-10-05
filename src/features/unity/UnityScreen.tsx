@@ -16,50 +16,40 @@ export const UnityScreen: React.FC = () => {
   
   useEffect(() => {
     let cleanupFns: Array<() => void> = [];
-    
+
     const setupUnity = async () => {
       try {
         // 네이티브 모듈 디버깅
         console.log('🔍 All NativeModules:', Object.keys(NativeModules));
-        console.log('🔍 UnityBridge in NativeModules:', !!NativeModules.UnityBridge);
-        console.log('🔍 UnityBridge module:', NativeModules.UnityBridge);
-        // Unity Ready 리스너 등록
-        const readyCleanup = UnityBridge.addEventListener('UnityReady', (event) => {
-          console.log('✅ [UnityScreen] Unity is ready:', event);
+        console.log('🔍 RNUnityBridge in NativeModules:', !!NativeModules.RNUnityBridge);
+        console.log('🔍 RNUnityBridge module:', NativeModules.RNUnityBridge);
+
+        // RNUnityBridge 이벤트 리스너 등록
+        const statusCleanup = UnityBridge.addEventListener('onUnityStatus', (event) => {
+          console.log('✅ [UnityScreen] Unity status:', event);
         });
-        cleanupFns.push(readyCleanup);
-        
-        // Unity Message 리스너 등록
-        const messageCleanup = UnityBridge.addEventListener('UnityMessage', (event) => {
-          console.log('Unity Message:', event);
-          handleUnityMessage(event);
-        });
-        cleanupFns.push(messageCleanup);
-        
-        // Unity Error 리스너 등록
-        const errorCleanup = UnityBridge.addEventListener('UnityError', (error) => {
-          console.error('Unity Error:', error);
-          Alert.alert('Unity Error', error.error || 'Unknown error occurred');
+        cleanupFns.push(statusCleanup);
+
+        const errorCleanup = UnityBridge.addEventListener('onUnityError', (error) => {
+          console.error('❌ [UnityScreen] Unity Error:', error);
+          Alert.alert('Unity Error', error.message || 'Unknown error occurred');
         });
         cleanupFns.push(errorCleanup);
 
-        // Unity 초기화
-        console.log('🚀 [UnityScreen] Initializing Unity...');
-        await UnityBridge.initialize();
-        console.log('✅ [UnityScreen] Unity.initialize() completed');
-        
-        // Unity 초기화가 끝난 뒤 바로 Unity 화면 표시
-        // await UnityBridge.showUnity();
+        const characterStateCleanup = UnityBridge.addEventListener('onCharacterStateChanged', (event) => {
+          console.log('🎮 [UnityScreen] Character state changed:', event);
+        });
+        cleanupFns.push(characterStateCleanup);
 
-        console.log('Unity setup completed');
+        console.log('✅ [UnityScreen] Unity event listeners setup completed');
       } catch (error) {
         console.error('Failed to setup Unity:', error);
-        Alert.alert('Setup Error', 'Failed to initialize Unity');
+        Alert.alert('Setup Error', 'Failed to initialize Unity listeners');
       }
     };
-    
+
     setupUnity();
-    
+
     // Cleanup
     return () => {
       cleanupFns.forEach(cleanup => cleanup());
@@ -75,21 +65,21 @@ export const UnityScreen: React.FC = () => {
     try {
       console.log('🎮 [UnityScreen] Show Unity button pressed');
       console.log('🎮 [UnityScreen] showUnityView:', showUnityView);
-      
+
       setShowUnityView(true);
-      await UnityBridge.showUnity(); // Unity pause(false)
+      // UnityView 컴포넌트가 자동으로 Unity를 시작합니다
       console.log('✅ [UnityScreen] Unity view shown');
     } catch (error) {
       console.error('❌ [UnityScreen] Failed to show Unity:', error);
       Alert.alert('Error', 'Failed to show Unity');
     }
   };
-  
+
   const handleHideUnity = async () => {
     try {
       console.log('[DEBUG] About to hide Unity view');
       setShowUnityView(false);
-      await UnityBridge.hideUnity(); // Unity pause(true)
+      // UnityView 컴포넌트가 자동으로 Unity를 정리합니다
     } catch (error) {
       console.error('[DEBUG] Failed to hide Unity:', error);
       Alert.alert('Error', 'Failed to hide Unity');
@@ -98,7 +88,7 @@ export const UnityScreen: React.FC = () => {
   
   const handleSendMessage = async () => {
     try {
-      await UnityBridge.sendMessage('Charactor', 'SetSpeed', '5');
+      await UnityBridge.sendUnityMessage('Charactor', 'SetSpeed', '5');
       Alert.alert('Success', 'Message sent to Unity');
     } catch (error) {
       Alert.alert('Error', 'Failed to send message to Unity');

@@ -1,96 +1,66 @@
-import Foundation
-import UIKit
-import React
+//
+//  UnityViewManager.swift
+//  app
+//
+//  Created by Hong Taeho on 9/23/25.
+//  React Native Unity View Manager
+//
 
-@objc(UnityViewManager)
+import React
+import UIKit
+
+@objc(UnityView)
 class UnityViewManager: RCTViewManager {
 
     override static func requiresMainQueueSetup() -> Bool {
         return true
     }
 
-    override func view() -> UIView! {
-        NSLog("🎯 [UnityViewManager] Creating Unity view")
-
-        // UnityManager에서 Unity rootView 가져오기
-        guard let unityRootView = UnityManager.shared.getUnityView() else {
-            NSLog("❌ [UnityViewManager] Failed to get Unity view, returning placeholder")
-            return createPlaceholderView()
-        }
-
-        NSLog("✅ [UnityViewManager] Unity rootView obtained, creating container")
-
-        // 컨테이너 뷰 생성
-        let containerView = UnityContainerView()
-        containerView.backgroundColor = .black
-
-        // Unity rootView를 컨테이너에 추가
-        containerView.setUnityView(unityRootView)
-
-        NSLog("✅ [UnityViewManager] Container view created successfully")
-        return containerView
+    override var methodQueue: DispatchQueue? {
+        return DispatchQueue.main
     }
 
-    private func createPlaceholderView() -> UIView {
-        let placeholder = UIView()
-        placeholder.backgroundColor = .darkGray
-
-        let label = UILabel()
-        label.text = "Unity Not Ready"
-        label.textColor = .white
-        label.textAlignment = .center
-        label.translatesAutoresizingMaskIntoConstraints = false
-
-        placeholder.addSubview(label)
-        NSLayoutConstraint.activate([
-            label.centerXAnchor.constraint(equalTo: placeholder.centerXAnchor),
-            label.centerYAnchor.constraint(equalTo: placeholder.centerYAnchor)
-        ])
-
-        return placeholder
-    }
-}
-
-// MARK: - Unity Container View
-
-class UnityContainerView: UIView {
-    private weak var unityView: UIView?
-
-    func setUnityView(_ view: UIView) {
-        NSLog("📦 [UnityContainerView] Setting Unity view")
-
-        // 기존 Unity 뷰 제거
-        unityView?.removeFromSuperview()
-
-        // 새 Unity 뷰 설정
-        self.unityView = view
-
-        // Unity 뷰를 컨테이너에 추가
-        view.frame = self.bounds
-        view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        self.addSubview(view)
-
-        NSLog("📦 [UnityContainerView] Unity view added - container bounds: \(self.bounds), unity frame: \(view.frame)")
+    override func view() -> UIView {
+        let unityView = UnityView()
+        return unityView
     }
 
-    override func layoutSubviews() {
-        super.layoutSubviews()
+    // MARK: - React Native Props
+    // 이벤트들은 .m 파일에서 RCT_EXPORT_VIEW_PROPERTY로 등록됩니다.
 
-        // 레이아웃이 변경될 때마다 Unity 뷰 크기 강제 동기화
-        if let unityView = unityView {
-            let oldFrame = unityView.frame
-            unityView.frame = self.bounds
-            NSLog("📦 [UnityContainerView] layoutSubviews - bounds: \(self.bounds), unity frame: \(oldFrame) → \(unityView.frame)")
+    // MARK: - React Native Commands
+
+    // Unity에 메시지 전송
+    @objc func sendMessageToUnity(_ node: NSNumber, objectName: NSString, methodName: NSString, parameter: NSString) {
+        DispatchQueue.main.async {
+            guard let unityView = self.bridge.uiManager.view(forReactTag: node) as? UnityView else {
+                print("[UnityViewManager] Could not find UnityView for tag: \(node)")
+                return
+            }
+
+            unityView.sendMessageToUnity(objectName as String, methodName: methodName as String, parameter: parameter as String)
         }
     }
 
-    override func didMoveToWindow() {
-        super.didMoveToWindow()
+    // Unity 일시정지
+    @objc func pauseUnity(_ node: NSNumber) {
+        DispatchQueue.main.async {
+            guard let unityView = self.bridge.uiManager.view(forReactTag: node) as? UnityView else {
+                return
+            }
 
-        if let window = window {
-            NSLog("📦 [UnityContainerView] Added to window - bounds: \(self.bounds)")
-        } else {
-            NSLog("📦 [UnityContainerView] Removed from window")
+            unityView.pauseUnity()
+        }
+    }
+
+    // Unity 재개
+    @objc func resumeUnity(_ node: NSNumber) {
+        DispatchQueue.main.async {
+            guard let unityView = self.bridge.uiManager.view(forReactTag: node) as? UnityView else {
+                return
+            }
+
+            unityView.resumeUnity()
         }
     }
 }

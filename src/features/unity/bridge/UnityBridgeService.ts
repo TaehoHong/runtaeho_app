@@ -31,24 +31,21 @@ class UnityBridgeService {
   // ==========================================
   // 초기화 및 설정
   // ==========================================
-  
+
   private async initialize(): Promise<void> {
     if (this.isInitialized) return;
-    
+
     this.log('UnityBridgeService 초기화 중...');
-    
+
     try {
-      // Unity 초기화
-      await UnityBridge.initialize();
-      
-      // 기본 에러 리스너 등록
-      UnityBridge.addEventListener('UnityError', this.handleUnityError.bind(this));
-      
-      // Unity Ready 리스너 등록
-      UnityBridge.addEventListener('UnityReady', () => {
-        this.log('Unity is ready');
+      // 기본 에러 리스너 등록 (RNUnityBridge 이벤트)
+      UnityBridge.addEventListener('onUnityError', this.handleUnityError.bind(this));
+
+      // Unity Status 리스너 등록
+      UnityBridge.addEventListener('onUnityStatus', (data) => {
+        this.log('Unity status received:', data);
       });
-      
+
       this.isInitialized = true;
       this.log('UnityBridgeService 초기화 완료');
     } catch (error) {
@@ -62,29 +59,17 @@ class UnityBridgeService {
   }
   
   // ==========================================
-  // Unity 화면 제어
+  // Unity 화면 제어 (UnityView 컴포넌트에서 처리)
   // ==========================================
-  
+
   async showUnity(): Promise<void> {
-    this.log('Showing Unity');
-    
-    try {
-      // await UnityBridge.showUnity();
-    } catch (error) {
-      this.logError('Failed to show Unity', error);
-      throw error;
-    }
+    this.log('Showing Unity (handled by UnityView component)');
+    // UnityView 컴포넌트가 직접 Unity를 표시/숨김 처리
   }
-  
+
   async hideUnity(): Promise<void> {
-    this.log('Hiding Unity');
-    
-    try {
-      await UnityBridge.hideUnity();
-    } catch (error) {
-      this.logError('Failed to hide Unity', error);
-      throw error;
-    }
+    this.log('Hiding Unity (handled by UnityView component)');
+    // UnityView 컴포넌트가 직접 Unity를 표시/숨김 처리
   }
   
   // ==========================================
@@ -93,22 +78,22 @@ class UnityBridgeService {
   
   async setCharacterSpeed(speed: number): Promise<void> {
     this.log(`Setting character speed: ${speed}`);
-    
+
     try {
       // 도메인 로직: 속도 범위 검증 및 변환
       const clampedSpeed = Math.max(UnityBridgeService.MIN_SPEED, Math.min(speed, UnityBridgeService.MAX_SPEED));
-      
+
       if (speed !== clampedSpeed) {
         this.log(`Speed clamped from ${speed} to ${clampedSpeed}`);
       }
-      
+
       const speedString = clampedSpeed.toString();
-      await UnityBridge.sendMessage(
+      await UnityBridge.sendUnityMessage(
         UnityBridgeService.UNITY_OBJECT_NAME,
         UnityBridgeService.UNITY_SPEED_METHOD,
         speedString
       );
-      
+
       this.log(`Character speed set to ${clampedSpeed}`);
     } catch (error) {
       this.logError('Failed to set character speed', error);
@@ -118,20 +103,20 @@ class UnityBridgeService {
   
   async stopCharacter(): Promise<void> {
     this.log('Stopping character');
-    
+
     try {
       // 도메인 로직: 캐릭터 정지는 속도를 0으로 설정하고 IDLE 상태로 변경
-      await UnityBridge.sendMessage(
+      await UnityBridge.sendUnityMessage(
         UnityBridgeService.UNITY_OBJECT_NAME,
         UnityBridgeService.UNITY_SPEED_METHOD,
         '0'
       );
-      await UnityBridge.sendMessage(
+      await UnityBridge.sendUnityMessage(
         UnityBridgeService.UNITY_OBJECT_NAME,
         UnityBridgeService.UNITY_MOTION_METHOD,
         'IDLE'
       );
-      
+
       this.log('Character stopped');
     } catch (error) {
       this.logError('Failed to stop character', error);
@@ -141,19 +126,19 @@ class UnityBridgeService {
   
   async setCharacterMotion(motion: CharacterMotion): Promise<void> {
     this.log(`Setting character motion: ${motion}`);
-    
+
     try {
       // 도메인 로직: 모션 타입 검증
       if (!UnityBridgeService.VALID_MOTIONS.includes(motion)) {
         throw new Error(`Invalid motion: ${motion}. Valid motions: ${UnityBridgeService.VALID_MOTIONS.join(', ')}`);
       }
-      
-      await UnityBridge.sendMessage(
+
+      await UnityBridge.sendUnityMessage(
         UnityBridgeService.UNITY_OBJECT_NAME,
         UnityBridgeService.UNITY_MOTION_METHOD,
         motion
       );
-      
+
       this.log(`Character motion set to ${motion}`);
     } catch (error) {
       this.logError('Failed to set character motion', error);
@@ -163,24 +148,22 @@ class UnityBridgeService {
   
   async changeAvatar(items: AvatarItem[]): Promise<void> {
     this.log(`Changing avatar with ${items.length} items`);
-    
+
     try {
       // 도메인 로직: 아바타 아이템 검증 및 변환
       const validatedItems = this.validateAvatarItems(items);
-      
+
       if (validatedItems.length === 0) {
         throw new Error('No valid avatar items provided');
       }
-      
-      // Unity에서 기대하는 형태로 변환
-      const avatarData = JSON.stringify(validatedItems);
-      
-      await UnityBridge.sendMessage(
+
+      // Unity에서 기대하는 형태로 변환 (sendUnityJSON 사용)
+      await UnityBridge.sendUnityJSON(
         UnityBridgeService.UNITY_OBJECT_NAME,
         'ChangeAvatar',
-        avatarData
+        validatedItems as any[]
       );
-      
+
       this.log(`Avatar changed with ${validatedItems.length} items`);
     } catch (error) {
       this.logError('Failed to change avatar', error);
@@ -190,9 +173,9 @@ class UnityBridgeService {
   
   async getUnityStatus(): Promise<void> {
     this.log('Getting Unity status');
-    
+
     try {
-      await UnityBridge.sendMessage(
+      await UnityBridge.sendUnityMessage(
         UnityBridgeService.UNITY_OBJECT_NAME,
         'GetUnityStatus',
         ''
@@ -283,7 +266,7 @@ class UnityBridgeService {
   // ==========================================
   // 연결 상태 관리
   // ==========================================
-  
+
   async checkConnection(): Promise<boolean> {
     try {
       await this.getUnityStatus();
@@ -293,9 +276,9 @@ class UnityBridgeService {
       return false;
     }
   }
-  
+
   isReady(): boolean {
-    return UnityBridge.isReady;
+    return this.isInitialized;
   }
   
   // ==========================================
