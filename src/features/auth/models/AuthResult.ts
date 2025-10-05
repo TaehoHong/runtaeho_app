@@ -1,4 +1,4 @@
-import { UserAuthData } from './UserAuthData';
+import { type UserAuthData } from './UserAuthData';
 
 export interface AuthResult {
   success: boolean;
@@ -8,9 +8,8 @@ export interface AuthResult {
 
 export interface AuthCodeResult {
   authorizationCode: string;
-  userInfo?: {
-    name?: string;
-    email?: string;
-    photo?: string;
+  userInfo: {
+    name: string | null;
+    email: string | null;
   };
 }

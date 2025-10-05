@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Alert } from 'react-native';
-import { AuthProvider } from '../models/auth-types';
+import { AuthProviderType } from '../models/AuthType';
 import { AuthViewModel } from '../viewmodels/AuthViewModel';
 import { AuthMessages } from '../constants/AuthMessages';
 import { AuthError, AuthErrorType } from '../models/AuthError';
@@ -20,7 +20,7 @@ export const useAuthSignIn = () => {
   /**
    * AuthError 타입별 처리 함수
    */
-  const handleAuthError = (provider: AuthProvider, error: AuthError): void => {
+  const handleAuthError = (provider: AuthProviderType, error: AuthError): void => {
     switch (error.type) {
       case AuthErrorType.CANCELLED:
         // 사용자 취소 - Alert 표시 안 함
@@ -65,7 +65,7 @@ export const useAuthSignIn = () => {
    * 공통 로그인 처리 함수
    */
   const handleSignIn = async (
-    provider: AuthProvider,
+    provider: AuthProviderType,
     signInMethod: () => Promise<{ success: boolean; error?: AuthError }>
   ): Promise<void> => {
     if (isLoading) return;
@@ -117,7 +117,7 @@ export const useAuthSignIn = () => {
    */
   const signInWithGoogle = async () => {
     await handleSignIn(
-      AuthProvider.GOOGLE,
+      AuthProviderType.GOOGLE,
       () => authViewModel.signInWithGoogle()
     );
   };
@@ -127,7 +127,7 @@ export const useAuthSignIn = () => {
    */
   const signInWithApple = async () => {
     await handleSignIn(
-      AuthProvider.APPLE,
+      AuthProviderType.APPLE,
       () => authViewModel.signInWithApple()
     );
   };

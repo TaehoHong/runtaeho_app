@@ -1,7 +1,6 @@
 import React, { useEffect, type ReactNode, useCallback, useRef, useState } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
-import { useAppStore, ViewState } from '../stores/app/appStore';
-import { useAuthStore } from '../stores/auth/authStore';
+import { useAuthStore, useAppStore, ViewState } from '~/stores';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { migrateFromReactNativeKeychain, type MigrationResult } from '../utils/storage';
 

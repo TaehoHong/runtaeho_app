@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
-import { useAppStore, ViewState } from '~/stores/app/appStore';
-import { useAuthStore } from '~/stores/auth/authStore';
+import { useAuthStore, useAppStore, ViewState } from '~/stores';
 import { LoadingView } from '~/shared/components';
 import { ControlPanelView } from './ControlPanelView';
 import { createUnityBridgeService } from '~/features/unity/bridge/UnityBridgeService';
@@ -16,7 +15,7 @@ export const RunningView: React.FC = () => {
   const viewState = useAppStore((state) => state.viewState);
   const runningState = useAppStore((state) => state.runningState);
   const setViewState = useAppStore((state) => state.setViewState);
-  const isLoggedIn = useAuthStore((state) => state.isLoggedIn); // ✅ AuthStore로 변경
+  const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const [unityReady, setUnityReady] = useState(false);
   const [unityStarted, setUnityStarted] = useState(false);
   const [unityBridge] = useState(() => createUnityBridgeService());
@@ -27,26 +26,23 @@ export const RunningView: React.FC = () => {
     console.log('🔄 [RunningView] 컴포넌트 마운트');
 
     // Unity 이벤트 리스너 등록
-    unityBridge.addEventListener('onUnityEvent', (event: any) => {
-      console.log('🎮 [RunningView] Unity 이벤트:', event);
-      if (event.eventType === 'ready') {
-        console.log('🎮 [RunningView] Unity 준비 완료');
-        setUnityReady(true);
-      }
+    unityBridge.addEventListener('UnityReady', (event: any) => {
+      console.log('🎮 [RunningView] Unity 준비 완료:', event);
+      setUnityReady(true);
     });
 
-    unityBridge.addEventListener('onUnityError', (error: any) => {
+    unityBridge.addEventListener('UnityError', (error: any) => {
       console.error('❌ [RunningView] Unity 오류:', error);
       setUnityReady(false);
     });
 
     // 로그인 완료 후에만 Unity 시작
-    if (isLoggedIn && viewState === ViewState.Loading && !unityStarted) {
+    if (isLoggedIn && !unityStarted) {
       console.log('🎮 [RunningView] 로그인 완료 - Unity 시작 및 Loaded 상태로 전환');
       setUnityStarted(true);
 
       // Unity 시작 로직 (iOS unity.start() 대응)
-      // startUnity();
+      startUnity();
 
       // 다음 프레임에서 Loaded 상태로 전환 (메인 스레드 위반 방지)
       setTimeout(() => {

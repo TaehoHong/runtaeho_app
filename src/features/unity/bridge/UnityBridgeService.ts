@@ -1,16 +1,10 @@
 /**
  * Unity Bridge Service for React Native
  * Unity와 React Native 간의 통신을 담당하는 서비스
- * 도메인 로직을 포함하여 비즈니스 규칙을 처리
  */
 
 import { UnityBridge } from './UnityBridge';
-import {
-  AvatarItem,
-  CharacterMotion,
-  UnityBridgeConfig,
-  DEFAULT_UNITY_BRIDGE_CONFIG
-} from '../types/UnityTypes';
+import { type AvatarItem, type CharacterMotion, type UnityBridgeConfig,DEFAULT_UNITY_BRIDGE_CONFIG } from '../types/UnityTypes';
 
 /**
  * Unity Bridge Service 클래스

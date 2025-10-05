@@ -6,7 +6,7 @@
 
 import { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { SilentTokenRefreshService } from '../../features/auth/services/SilentTokenRefreshService';
-import { TokenService } from '../../features/auth/services/TokenService';
+import { tokenUtils } from '~/features'; 
 import { apiClient } from '../../services/api/client';
 import { tokenStorage } from '../../utils/storage';
 import { UserStateManager } from './userStateManager';
@@ -33,12 +33,10 @@ export class TokenRefreshInterceptor {
   private failedQueue: PendingRequest[] = [];
   private silentTokenRefreshService: SilentTokenRefreshService;
   private userStateManager: UserStateManager;
-  private tokenService: TokenService;
 
   private constructor() {
     this.silentTokenRefreshService = SilentTokenRefreshService.getInstance();
     this.userStateManager = UserStateManager.getInstance();
-    this.tokenService = TokenService.getInstance();
     this.setupInterceptors();
   }
 
@@ -116,7 +114,7 @@ export class TokenRefreshInterceptor {
       }
 
       // 토큰이 곧 만료될 예정이면 미리 갱신
-      if (this.tokenService.isTokenExpiringSoon(accessToken, TOKEN_REFRESH_THRESHOLD_SECONDS)) {
+      if (tokenUtils.isTokenExpiringSoon(accessToken, TOKEN_REFRESH_THRESHOLD_SECONDS)) {
         console.log('⏰ [TokenInterceptor] 토큰 만료 임박, 사전 갱신 시도');
 
         // 이미 갱신 중이면 대기

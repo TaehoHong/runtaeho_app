@@ -3,9 +3,9 @@ import {
   statusCodes
 } from '@react-native-google-signin/google-signin';
 import Constants from 'expo-constants';
-import { AuthCodeResult } from '../models/AuthResult';
+import { type AuthCodeResult } from '../models/AuthResult';
 import { AuthError } from '../models/AuthError';
-import { AuthProviderStrategy } from './AuthProviderStrategy';
+import { type AuthProviderStrategy } from './AuthProviderStrategy';
 
 export class GoogleAuthStrategy implements AuthProviderStrategy {
   configure(): void {
@@ -37,9 +37,8 @@ export class GoogleAuthStrategy implements AuthProviderStrategy {
         return {
           authorizationCode: userInfo.data.serverAuthCode,
           userInfo: {
-            name: userInfo.data.user.name || undefined,
-            email: userInfo.data.user.email || undefined,
-            photo: userInfo.data.user.photo || undefined,
+            name: userInfo.data.user.name,
+            email: userInfo.data.user.email,
           }
         };
       }

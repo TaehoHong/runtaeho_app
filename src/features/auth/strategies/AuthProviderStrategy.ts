@@ -1,4 +1,4 @@
-import { AuthCodeResult } from '../models/AuthResult';
+import { type AuthCodeResult } from '../models/AuthResult';
 
 export interface AuthProviderStrategy {
   /**

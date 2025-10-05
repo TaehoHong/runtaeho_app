@@ -1,7 +1,6 @@
 /**
  * Auth Store (Zustand)
  */
-
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -33,7 +32,6 @@ interface AuthState {
 
 /**
  * Auth Store
- * Phase 4: 인증 상태 전담
  */
 export const useAuthStore = create<AuthState>()(
   persist(

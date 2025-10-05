@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
-import { AuthCodeResult } from '../models/AuthResult';
+import { type AuthCodeResult } from '../models/AuthResult';
 import { AuthError } from '../models/AuthError';
-import { AuthProviderStrategy } from './AuthProviderStrategy';
+import { type AuthProviderStrategy } from './AuthProviderStrategy';
 
 let appleAuth: any = null;
 if (Platform.OS === 'ios') {
@@ -32,9 +32,8 @@ export class AppleAuthStrategy implements AuthProviderStrategy {
         return {
           authorizationCode: appleAuthRequestResponse.authorizationCode,
           userInfo: {
-            name: appleAuthRequestResponse.fullName?.givenName || undefined,
-            email: appleAuthRequestResponse.email || undefined,
-            photo: undefined,
+            name: appleAuthRequestResponse.fullName?.givenName,
+            email: appleAuthRequestResponse.email,
           }
         };
       }

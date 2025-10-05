@@ -5,10 +5,9 @@
  */
 
 import { create } from 'zustand';
-
+  
 /**
  * ViewState Enum
- * iOS의 ViewState 대응
  */
 export enum ViewState {
   Loading = 'Loading',
