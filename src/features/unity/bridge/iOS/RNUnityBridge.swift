@@ -18,17 +18,6 @@ class RNUnityBridge: RCTEventEmitter {
         return true
     }
 
-    override func supportedEvents() -> [String] {
-        return [
-            "onCharacterStateChanged",
-            "onAvatarChanged",
-            "onAvatarChangeError",
-            "onAnimationComplete",
-            "onUnityStatus",
-            "onUnityError"
-        ]
-    }
-
     // MARK: - React Native에서 호출할 수 있는 메서드들
 
     /// Unity에 일반 메시지 전송 (순수 브리지)
@@ -70,7 +59,4 @@ class RNUnityBridge: RCTEventEmitter {
         }
     }
 
-    // MARK: - React Native 이벤트 시스템
-
-    /// React Native에서 구독 가능한 이벤트 목록
 }

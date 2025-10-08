@@ -4,6 +4,8 @@ import { useAuthStore, useAppStore, ViewState } from '~/stores';
 import { LoadingView } from '~/shared/components';
 import { ControlPanelView } from './ControlPanelView';
 import { createUnityBridgeService } from '~/features/unity/bridge/UnityBridgeService';
+import { UnityView } from '~/features/unity/components/UnityView';
+
 
 /**
  * 메인 러닝 화면
@@ -24,17 +26,6 @@ export const RunningView: React.FC = () => {
 
   useEffect(() => {
     console.log('🔄 [RunningView] 컴포넌트 마운트');
-
-    // Unity 이벤트 리스너 등록
-    unityBridge.addEventListener('UnityReady', (event: any) => {
-      console.log('🎮 [RunningView] Unity 준비 완료:', event);
-      setUnityReady(true);
-    });
-
-    unityBridge.addEventListener('UnityError', (error: any) => {
-      console.error('❌ [RunningView] Unity 오류:', error);
-      setUnityReady(false);
-    });
 
     // 로그인 완료 후에만 Unity 시작
     if (isLoggedIn && !unityStarted) {
@@ -65,13 +56,8 @@ export const RunningView: React.FC = () => {
   const startUnity = async () => {
     try {
       console.log('🎮 [RunningView] Unity 시작 시도');
-
-      // Unity 상태 확인 및 초기화
-      await unityBridge.getUnityStatus();
-      console.log('✅ [RunningView] Unity 브릿지 연결 성공');
-
+      
       // Unity 캐릭터 초기 설정
-      await unityBridge.setCharacterMotion('IDLE');
       await unityBridge.setCharacterSpeed(0);
 
       setUnityReady(true);
@@ -99,7 +85,7 @@ export const RunningView: React.FC = () => {
     <View style={styles.container}>
       {/* Unity 컴포넌트 - 화면 상단 50% */}
       <View style={styles.unityContainer}>
-        <UnityPlaceholder isReady={unityReady} bridge={unityBridge} />
+        <UnityView style={styles.unityView} />
       </View>
       
       {/* DEBUG 뷰 (개발 모드에서만) */}
@@ -128,71 +114,6 @@ const DebugView: React.FC = () => {
   return (
     <View style={styles.debugContainer}>
       {/* TODO: 디버그 UI 구현 */}
-    </View>
-  );
-};
-
-/**
- * Unity 플레이스홀더 컴포넌트
- * Unity가 준비될 때까지 표시되는 안전한 컴포넌트
- */
-const UnityPlaceholder: React.FC<{ isReady: boolean; bridge: any }> = ({ isReady, bridge }) => {
-  const [dotCount, setDotCount] = React.useState(0);
-  const [testMessage, setTestMessage] = React.useState('');
-
-  React.useEffect(() => {
-    if (!isReady) {
-      const interval = setInterval(() => {
-        setDotCount((prev) => (prev + 1) % 4);
-      }, 500);
-      return () => clearInterval(interval);
-    }
-  }, [isReady]);
-
-  const testUnityConnection = async () => {
-    try {
-      await bridge.setCharacterSpeed(Math.random() * 10);
-      await bridge.setCharacterMotion('MOVE');
-      setTestMessage('Unity 브릿지 테스트 성공! 🎮');
-
-      setTimeout(() => {
-        bridge.setCharacterMotion('IDLE');
-      }, 2000);
-    } catch (error) {
-      setTestMessage('Unity 브릿지 테스트 실패 ❌');
-    }
-  };
-
-  if (isReady) {
-    return (
-      <View style={styles.unityPlaceholder}>
-        <View style={styles.characterArea}>
-          <Text style={styles.characterIcon}>🎮</Text>
-          <Text style={styles.placeholderTitle}>Unity 연결됨!</Text>
-          <Text style={styles.placeholderSubtitle}>3D 캐릭터 준비 완료</Text>
-          {testMessage ? (
-            <Text style={styles.testMessage}>{testMessage}</Text>
-          ) : null}
-          <Text
-            style={styles.testButton}
-            onPress={testUnityConnection}
-          >
-            Unity 테스트 🔄
-          </Text>
-        </View>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.unityPlaceholder}>
-      <View style={styles.characterArea}>
-        <Text style={styles.characterIcon}>🏃‍♂️</Text>
-        <Text style={styles.placeholderTitle}>
-          Unity 준비 중{'.'.repeat(dotCount)}
-        </Text>
-        <Text style={styles.placeholderSubtitle}>3D 캐릭터 표시 영역</Text>
-      </View>
     </View>
   );
 };
@@ -240,50 +161,5 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     borderWidth: 1,
     borderColor: '#ccc',
-  },
-  unityPlaceholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#e8f4f8',
-    margin: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  characterArea: {
-    alignItems: 'center',
-    padding: 20,
-  },
-  characterIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  placeholderTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#666',
-    marginBottom: 8,
-  },
-  placeholderSubtitle: {
-    fontSize: 14,
-    color: '#999',
-  },
-  testMessage: {
-    fontSize: 12,
-    color: '#4CAF50',
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  testButton: {
-    fontSize: 16,
-    color: '#2196F3',
-    marginTop: 16,
-    padding: 8,
-    textAlign: 'center',
-    backgroundColor: '#f0f8ff',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#2196F3',
-  },
+  }
 });

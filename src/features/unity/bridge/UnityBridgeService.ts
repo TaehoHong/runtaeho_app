@@ -38,13 +38,6 @@ class UnityBridgeService {
     this.log('UnityBridgeService 초기화 중...');
 
     try {
-      // 기본 에러 리스너 등록 (RNUnityBridge 이벤트)
-      UnityBridge.addEventListener('onUnityError', this.handleUnityError.bind(this));
-
-      // Unity Status 리스너 등록
-      UnityBridge.addEventListener('onUnityStatus', (data) => {
-        this.log('Unity status received:', data);
-      });
 
       this.isInitialized = true;
       this.log('UnityBridgeService 초기화 완료');
@@ -171,21 +164,6 @@ class UnityBridgeService {
     }
   }
   
-  async getUnityStatus(): Promise<void> {
-    this.log('Getting Unity status');
-
-    try {
-      await UnityBridge.sendUnityMessage(
-        UnityBridgeService.UNITY_OBJECT_NAME,
-        'GetUnityStatus',
-        ''
-      );
-    } catch (error) {
-      this.logError('Failed to get Unity status', error);
-      throw error;
-    }
-  }
-  
   // ==========================================
   // 도메인 로직 헬퍼 메서드들
   // ==========================================
@@ -209,48 +187,6 @@ class UnityBridgeService {
   }
   
   // ==========================================
-  // 편의 메서드들 (도메인 로직 포함)
-  // ==========================================
-  
-  /**
-   * 캐릭터를 특정 속도로 움직이기 시작
-   */
-  async startMoving(speed: number = 5.0): Promise<void> {
-    await this.setCharacterMotion('MOVE');
-    await this.setCharacterSpeed(speed);
-  }
-  
-  /**
-   * 캐릭터 완전 정지
-   */
-  async stopMoving(): Promise<void> {
-    await this.stopCharacter();
-  }
-  
-  /**
-   * 캐릭터 공격 액션
-   */
-  async performAttack(): Promise<void> {
-    await this.setCharacterMotion('ATTACK');
-  }
-  
-  /**
-   * 캐릭터 피해 액션
-   */
-  async takeDamage(): Promise<void> {
-    await this.setCharacterMotion('DAMAGED');
-  }
-  
-  // ==========================================
-  // 이벤트 관리
-  // ==========================================
-  
-  addEventListener(eventName: string, listener: (data: any) => void): () => void {
-    this.log(`Adding event listener for: ${eventName}`);
-    return UnityBridge.addEventListener(eventName, listener);
-  }
-  
-  // ==========================================
   // 설정 관리
   // ==========================================
   
@@ -261,24 +197,6 @@ class UnityBridgeService {
   
   getConfig(): UnityBridgeConfig {
     return { ...this.config };
-  }
-  
-  // ==========================================
-  // 연결 상태 관리
-  // ==========================================
-
-  async checkConnection(): Promise<boolean> {
-    try {
-      await this.getUnityStatus();
-      return true;
-    } catch (error) {
-      this.logError('Unity connection check failed', error);
-      return false;
-    }
-  }
-
-  isReady(): boolean {
-    return this.isInitialized;
   }
   
   // ==========================================
@@ -301,7 +219,6 @@ class UnityBridgeService {
   
   dispose(): void {
     this.log('Disposing UnityBridgeService');
-    UnityBridge.dispose();
     this.isInitialized = false;
   }
 }

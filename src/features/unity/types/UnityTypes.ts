@@ -227,21 +227,6 @@ export interface UnityError {
 }
 
 // ==========================================
-// Unity Bridge 이벤트 리스너 타입들
-// ==========================================
-
-export type UnityEventListener<T = any> = (event: T) => void;
-
-export interface UnityEventListeners {
-  onCharacterStateChanged?: UnityEventListener<CharacterStateChangedEvent>;
-  onAvatarChanged?: UnityEventListener<AvatarChangedEvent>;
-  onAvatarChangeError?: UnityEventListener<UnityErrorEvent>;
-  onAnimationComplete?: UnityEventListener<AnimationCompleteEvent>;
-  onUnityStatus?: UnityEventListener<UnityStatusEvent>;
-  onUnityError?: UnityEventListener<UnityErrorEvent>;
-}
-
-// ==========================================
 // React Native Native Module 인터페이스
 // ==========================================
 
@@ -292,9 +277,6 @@ export interface UnityBridgeContextValue {
   getUnityStatus: () => Promise<void>;
   unityStatus: UnityStatus | null;
 
-  // Event Listeners
-  addEventListener: <T>(eventName: string, listener: UnityEventListener<T>) => void;
-  removeEventListener: (eventName: string) => void;
 
   // Configuration
   config: UnityBridgeConfig;

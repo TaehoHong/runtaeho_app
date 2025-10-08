@@ -2,7 +2,6 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, Button, NativeModules, StyleSheet, Text, View } from 'react-native';
 import { UnityBridge } from './bridge/UnityBridge';
-import { getUnityBridgeService } from './bridge/UnityBridgeService';
 import { UnityView } from './components/UnityView';
 
 console.log('[UnityScreen] Import completed. UnityBridge:', UnityBridge);
@@ -12,49 +11,7 @@ console.log('[UnityScreen] UnityBridge methods:', Object.getOwnPropertyNames(Uni
 
 export const UnityScreen: React.FC = () => {
   const [showUnityView, setShowUnityView] = useState(false);
-  const unityService = getUnityBridgeService();
-  
-  useEffect(() => {
-    let cleanupFns: Array<() => void> = [];
 
-    const setupUnity = async () => {
-      try {
-        // 네이티브 모듈 디버깅
-        console.log('🔍 All NativeModules:', Object.keys(NativeModules));
-        console.log('🔍 RNUnityBridge in NativeModules:', !!NativeModules.RNUnityBridge);
-        console.log('🔍 RNUnityBridge module:', NativeModules.RNUnityBridge);
-
-        // RNUnityBridge 이벤트 리스너 등록
-        const statusCleanup = UnityBridge.addEventListener('onUnityStatus', (event) => {
-          console.log('✅ [UnityScreen] Unity status:', event);
-        });
-        cleanupFns.push(statusCleanup);
-
-        const errorCleanup = UnityBridge.addEventListener('onUnityError', (error) => {
-          console.error('❌ [UnityScreen] Unity Error:', error);
-          Alert.alert('Unity Error', error.message || 'Unknown error occurred');
-        });
-        cleanupFns.push(errorCleanup);
-
-        const characterStateCleanup = UnityBridge.addEventListener('onCharacterStateChanged', (event) => {
-          console.log('🎮 [UnityScreen] Character state changed:', event);
-        });
-        cleanupFns.push(characterStateCleanup);
-
-        console.log('✅ [UnityScreen] Unity event listeners setup completed');
-      } catch (error) {
-        console.error('Failed to setup Unity:', error);
-        Alert.alert('Setup Error', 'Failed to initialize Unity listeners');
-      }
-    };
-
-    setupUnity();
-
-    // Cleanup
-    return () => {
-      cleanupFns.forEach(cleanup => cleanup());
-    };
-  }, []);
   
   const handleUnityMessage = (message: any) => {
     // Unity에서 온 메시지 처리
@@ -94,46 +51,7 @@ export const UnityScreen: React.FC = () => {
       Alert.alert('Error', 'Failed to send message to Unity');
     }
   };
-  
-  const handleMoveCharacter = async () => {
-    if (!unityService) {
-      Alert.alert('Error', 'Unity service not initialized');
-      return;
-    }
-    
-    try {
-      await unityService.startMoving(5.0);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to move character');
-    }
-  };
-  
-  const handleStopCharacter = async () => {
-    if (!unityService) {
-      Alert.alert('Error', 'Unity service not initialized');
-      return;
-    }
-    
-    try {
-      await unityService.stopMoving();
-    } catch (error) {
-      Alert.alert('Error', 'Failed to stop character');
-    }
-  };
-  
-  const handleAttack = async () => {
-    if (!unityService) {
-      Alert.alert('Error', 'Unity service not initialized');
-      return;
-    }
-    
-    try {
-      await unityService.performAttack();
-    } catch (error) {
-      Alert.alert('Error', 'Failed to perform attack');
-    }
-  };
-  
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Unity Bridge Demo</Text>
@@ -149,14 +67,6 @@ export const UnityScreen: React.FC = () => {
           <Button title="Hide Unity" onPress={handleHideUnity} />
           <View style={styles.buttonSpacing} />
           <Button title="Send Test Message" onPress={handleSendMessage} />
-        </View>
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Character Control</Text>
-          <Button title="Move Character" onPress={handleMoveCharacter} />
-          <View style={styles.buttonSpacing} />
-          <Button title="Stop Character" onPress={handleStopCharacter} />
-          <View style={styles.buttonSpacing} />
-          <Button title="Attack" onPress={handleAttack} />
         </View>
       </View>
     </View>
