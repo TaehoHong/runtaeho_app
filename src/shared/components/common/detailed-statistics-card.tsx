@@ -1,9 +1,9 @@
 import React from 'react';
 import {
   View,
-  Text,
   StyleSheet,
 } from 'react-native';
+import { Text } from '~/shared/components/typography';
 
 interface StatItemProps {
   title: string;

@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
   Image,
 } from 'react-native';
+import { Text } from '~/shared/components/typography';
 
 interface Shoe {
   id: string;

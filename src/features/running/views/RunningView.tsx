@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Text } from 'react-native';
-import { useAuthStore, useAppStore, ViewState } from '~/stores';
+import { View, StyleSheet} from 'react-native';
+import { Text } from '~/shared/components/typography';import { useAuthStore, useAppStore, ViewState } from '~/stores';
 import { LoadingView } from '~/shared/components';
 import { ControlPanelView } from './ControlPanelView';
 import { createUnityBridgeService } from '~/features/unity/bridge/UnityBridgeService';

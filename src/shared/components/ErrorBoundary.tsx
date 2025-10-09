@@ -1,6 +1,6 @@
 import React, { Component, ReactNode } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { ErrorService } from '../services/ErrorService';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text } from '~/shared/components/typography';import { ErrorService } from '../services/ErrorService';
 
 interface Props {
   children: ReactNode;

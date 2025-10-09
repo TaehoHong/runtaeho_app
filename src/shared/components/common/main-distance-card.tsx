@@ -1,9 +1,9 @@
 import React from 'react';
 import {
   View,
-  Text,
   StyleSheet,
 } from 'react-native';
+import { Text } from '~/shared/components/typography';
 
 export const MainDistanceCard: React.FC = () => {
   // TODO: RunningFinishedViewModel에서 거리 데이터 가져오기

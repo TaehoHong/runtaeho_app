@@ -4,8 +4,8 @@
  */
 
 import React, { Suspense, lazy } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { Text } from '~/shared/components/typography';
 // ==========================================
 // 로딩 컴포넌트
 // ==========================================

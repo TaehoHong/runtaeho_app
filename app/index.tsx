@@ -1,16 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { useUserStore } from '~/stores/user/userStore';
 import { useAppStore, ViewState } from '~/stores/app/appStore';
 import { router } from 'expo-router';
-
-// API 인터셉터 초기화 (TokenRefreshInterceptor 등록)
 import '~/config/apiSetup';
 import { useAuthStore } from '~/stores';
+import * as Font from 'expo-font'
 
 /**
  * 앱의 메인 진입점
- * iOS RootView와 RunTaehoApp 로직 대응
  * 인증 상태에 따라 로그인/메인 화면으로 분기
  */
 export default function Index() {
@@ -19,24 +16,31 @@ export default function Index() {
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const viewState = useAppStore((state) => state.viewState);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [fontsLoaded] = Font.useFonts({
+    'Pretendard-Thin': require('../assets/fonts/Pretendard-Thin.ttf'),
+    'Pretendard-ExtraLight': require('../assets/fonts/Pretendard-ExtraLight.ttf'),
+    'Pretendard-Light': require('../assets/fonts/Pretendard-Light.ttf'),
+    'Pretendard-Regular': require('../assets/fonts/Pretendard-Regular.ttf'),
+    'Pretendard-Medium': require('../assets/fonts/Pretendard-Medium.ttf'),
+    'Pretendard-SemiBold': require('../assets/fonts/Pretendard-SemiBold.ttf'),
+    'Pretendard-Bold': require('../assets/fonts/Pretendard-Bold.ttf'),
+    'Pretendard-ExtraBold': require('../assets/fonts/Pretendard-ExtraBold.ttf'),
+    'Pretendard-Black': require('../assets/fonts/Pretendard-Black.ttf'),
+  });
 
   useEffect(() => {
     console.log('🔄 [APP] 앱 초기화 시작');
 
-    // iOS RootView의 초기화 로직 대응
     const initializeApp = async () => {
       try {
-        // 약간의 딩레이를 둘어 초기화 완료 보장
+        // 약간의 딜레이를 둘어 초기화 완료 보장
         await new Promise(resolve => setTimeout(resolve, 100));
-
-        console.log('✅ [APP] 앱 초기화 완료');
         setIsInitialized(true);
       } catch (error) {
         console.error('❌ [APP] 앱 초기화 실패:', error);
         setIsInitialized(true); // 오류가 있어도 계속 진행
       }
     };
-
     initializeApp();
   }, []);
 
@@ -81,7 +85,6 @@ export default function Index() {
 
   // 초기화 완료 후 대기 화면
   // AuthProvider에서 자동으로 로그인/메인 화면으로 리다이렉트
-  console.log('⏳ [APP] 네비게이션 대기 중...');
   return (
     <View style={styles.loadingContainer}>
       <ActivityIndicator size="large" color="#4d99e5" />
@@ -122,4 +125,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
   },
+  fonts: {
+    fontFamily: "Pretendard"
+  }
 });

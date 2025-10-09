@@ -4,10 +4,10 @@ import {
   Dimensions,
   Platform,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Text } from '~/shared/components/typography';
 import { useAuthSignIn } from '../hooks/useAuthSignIn';
 
 const { width, height } = Dimensions.get('window');

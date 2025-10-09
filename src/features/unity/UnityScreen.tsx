@@ -1,7 +1,7 @@
 // UnityScreen.tsx - React Native 사용 예시
 import React, { useEffect, useState } from 'react';
-import { Alert, Button, NativeModules, StyleSheet, Text, View } from 'react-native';
-import { UnityBridge } from './bridge/UnityBridge';
+import { Alert, Button, NativeModules, StyleSheet, View } from 'react-native';
+import { Text } from '~/shared/components/typography';import { UnityBridge } from './bridge/UnityBridge';
 import { UnityView } from './components/UnityView';
 
 console.log('[UnityScreen] Import completed. UnityBridge:', UnityBridge);

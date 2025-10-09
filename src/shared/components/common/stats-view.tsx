@@ -1,9 +1,9 @@
 import React from 'react';
 import {
   View,
-  Text,
   StyleSheet,
 } from 'react-native';
+import { Text } from '~/shared/components/typography';
 
 export const StatsView: React.FC = () => {
   // TODO: RunningViewModel에서 실시간 데이터 가져오기

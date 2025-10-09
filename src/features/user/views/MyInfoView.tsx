@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal } from 'react-native';
-import { useUserStore } from '~/stores/user/userStore';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Modal } from 'react-native';
+import { Text } from '~/shared/components/typography';import { useUserStore } from '~/stores/user/userStore';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 

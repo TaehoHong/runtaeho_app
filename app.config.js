@@ -10,11 +10,16 @@ export default {
     scheme: "app",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
+    assetBundlePatterns: ["**/*"],
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.hongtaeho.app",
       usesAppleSignIn: true,
-      appleTeamId: "Y9XN2ZQ9G3"
+      appleTeamId: "Y9XN2ZQ9G3",
+      infoPlist: {
+        NSLocationWhenInUseUsageDescription: "이 앱은 러닝 기록을 위해 위치 정보를 사용합니다.",
+        NSLocationAlwaysAndWhenInUseUsageDescription: "이 앱은 러닝 기록을 위해 위치 정보를 사용합니다."
+      }
     },
     android: {
       adaptiveIcon: {
@@ -25,7 +30,12 @@ export default {
       },
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
-      package: "com.hongtaeho.app"
+      package: "com.hongtaeho.app",
+      permissions: [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "FOREGROUND_SERVICE"
+      ]
     },
     web: {
       output: "static",
@@ -52,7 +62,11 @@ export default {
             `com.googleusercontent.apps.${process.env.GOOGLE_IOS_CLIENT_ID.split('-')[0]}-${process.env.GOOGLE_IOS_CLIENT_ID.split('-')[1]}` :
             "com.googleusercontent.apps.620303212609-581f7f3bgj104gtaermbtjqqf8u6khb8"
         }
-      ]
+      ],
+      // "expo-asset",
+      // {
+      //   "assets": ["./assets/fonts"]
+      // }
     ],
     experiments: {
       typedRoutes: true,
