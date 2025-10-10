@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Modal } from 'react-native';
-import { Text } from '~/shared/components/typography';import { useUserStore } from '~/stores/user/userStore';
+import { Image, View, StyleSheet, ScrollView, TouchableOpacity, Modal } from 'react-native';
+import { Text } from '~/shared/components/typography';
+import { Icon } from '~/shared/components/ui';
+import { useUserStore } from '~/stores/user/userStore';
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
@@ -90,21 +93,49 @@ interface ProfileCardProps {
   user: any;
 }
 
-const ProfileCard: React.FC<ProfileCardProps> = ({ user }) => {
-  // TODO: totalPoint 데이터 연동
-  const totalPoint = 0;
+// const ProfileCard: React.FC<ProfileCardProps> = ({ user }) => {
+//   // TODO: totalPoint 데이터 연동
+//   const totalPoint = 0;
   
-  return (
-    <View style={styles.profileCard}>
-      <View style={styles.profileImageContainer}>
-        <View style={styles.profileImage} />
-      </View>
-      <View style={styles.profileInfo}>
-        <Text style={styles.nickname}>{user?.nickname || '사용자'}</Text>
-        <Text style={styles.userLevel}>러너 Lv.{user?.level || 1} | 포인트: {totalPoint}P</Text>
-      </View>
-    </View>
-  );
+//   return (
+//     <View style={styles.profileCard}>
+//       <View style={styles.profileImageContainer}>
+//         <View style={styles.profileImage} />
+//       </View>
+//       <View style={styles.profileInfo}>
+//         <Text style={styles.nickname}>{user?.nickname || '사용자'}</Text>
+//         <Text style={styles.userLevel}>러너 Lv.{user?.level || 1} | 포인트: {totalPoint}P</Text>
+//       </View>
+//     </View>
+//   );
+// };
+
+const ProfileCard: React.FC<ProfileCardProps> = ({ user }) => {
+  	
+  	return (
+    		<SafeAreaView>
+      			<View style={[styles.profileCard]}>
+        				<View style={[styles.profileHeader, styles.rowCentered]}>
+          					<Image style={styles.profileImage} resizeMode="cover" />
+          					<View style={styles.usernameContainer}>
+            						<Text style={styles.username}>{user?.nickname || '사용자'}</Text>
+                        <Icon name="pencil" size={18} />
+          					</View>
+        				</View>
+        				<View style={styles.horizontalDivider} />
+        				<View style={[styles.pointRow, styles.rowCentered]}>
+          					<View style={[styles.pointLabel, styles.rowCentered]}>
+                        <Icon name="point" size={24} />
+            						<Text style={[styles.pointLabelText, styles.pointColor]}>포인트</Text>
+          					</View>
+          					<View style={[styles.pointValue, styles.rowCentered]}>
+            						<Text style={[styles.pointValueText, styles.pointColor]}>{ user?.totalPoint || 0 } P</Text>
+                        <Icon style={styles.chevronIcon} name="chevron" size={16} />
+          					</View>
+        				</View>
+      			</View>
+    		</SafeAreaView>
+    );
 };
 
 /**
@@ -123,7 +154,7 @@ const MainMenuCard: React.FC<MainMenuCardProps> = ({ onPointPress, onShoesPress,
   return (
     <View style={styles.mainMenuCard}>
       <TouchableOpacity style={styles.menuItem} onPress={onPointPress}>
-        <Ionicons name="diamond-outline" size={24} color="#4d99e5" />
+        <Icon name="point" size={24} />
         <Text style={styles.menuItemValue}>{totalPoint}</Text>
       </TouchableOpacity>
       
@@ -263,38 +294,6 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  profileCard: {
-    flexDirection: 'row',
-    backgroundColor: 'white',
-    margin: 20,
-    padding: 20,
-    borderRadius: 16,
-    alignItems: 'center',
-  },
-  profileImageContainer: {
-    marginRight: 15,
-  },
-  profileImage: {
-    width: 83,
-    height: 83,
-    borderRadius: 41.5,
-    backgroundColor: '#d9d9d9',
-    borderWidth: 2,
-    borderColor: '#4d99e5',
-  },
-  profileInfo: {
-    flex: 1,
-  },
-  nickname: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: 'black',
-    marginBottom: 8,
-  },
-  userLevel: {
-    fontSize: 16,
-    color: '#808080',
-  },
   mainMenuCard: {
     flexDirection: 'row',
     backgroundColor: 'white',
@@ -342,11 +341,6 @@ const styles = StyleSheet.create({
   menuSettingTitle: {
     fontSize: 24,
     color: 'black',
-  },
-  horizontalDivider: {
-    height: 1,
-    backgroundColor: '#f2f2f2',
-    marginHorizontal: 20,
   },
   logoutButtonContainer: {
     flexDirection: 'row',
@@ -429,5 +423,90 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  rowCentered: {
+      alignItems: "center",
+      flexDirection: "row"
+  },
+  pointColor: {
+      color: "#414141",
+      lineHeight: 18,
+      fontFamily: "Pretendard"
+  },
+  profileCard: {
+    marginHorizontal: 20,    // 외부 마진
+    paddingHorizontal: 12,   // 내부 패딩
+    paddingTop: 12,
+    paddingBottom: 16,
+    gap: 12,
+    borderRadius: 8,
+    backgroundColor: "#fff"
+  },
+  profileHeader: {
+      width: 173,
+      gap: 12
+  },
+  profileImage: {
+      width: 60,
+      borderRadius: 60,
+      height: 60
+  },
+  usernameContainer: {
+      alignItems: "flex-end",
+      gap: 2,
+      flexDirection: "row"
+  },
+  username: {
+      fontSize: 16,
+      letterSpacing: 0.5,
+      lineHeight: 24,
+      color: "#2b2b2b",
+      textAlign: "left",
+      fontFamily: "Pretendard",
+      fontWeight: "600"
+  },
+  editIcon: {
+      width: 18,
+      borderRadius: 32,
+      height: 18,
+      color: "#fff"
+  },
+  horizontalDivider: {
+      borderStyle: "solid",
+      borderColor: "#f5f5f5",
+      borderTopWidth: 0.8,
+      height: 1,
+      alignSelf: "stretch"
+  },
+  pointRow: {
+      gap: 168,
+      alignSelf: "stretch"
+  },
+  pointLabel: {
+      gap: 6
+  },
+  pointIcon: {
+      width: 24,
+      height: 24
+  },
+  pointLabelText: {
+      fontSize: 13,
+      fontWeight: "500",
+      textAlign: "left"
+  },
+  pointValue: {
+      gap: 4
+  },
+  pointValueText: {
+      width: 58,
+      fontSize: 14,
+      textAlign: "right",
+      fontWeight: "600",
+      lineHeight: 18
+  },
+  chevronIcon: {
+      width: 16,
+      height: 16,
+      color: "#9d9d9d"
+  }
 });
 

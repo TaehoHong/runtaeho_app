@@ -63,10 +63,12 @@ export default {
             "com.googleusercontent.apps.620303212609-581f7f3bgj104gtaermbtjqqf8u6khb8"
         }
       ],
-      // "expo-asset",
-      // {
-      //   "assets": ["./assets/fonts"]
-      // }
+      [
+        "expo-asset",
+        {
+          "assets": ["./assets/fonts"]
+        }
+      ]
     ],
     experiments: {
       typedRoutes: true,
