@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Image, View, StyleSheet, ScrollView, TouchableOpacity, Modal } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Modal } from 'react-native';
 import { Text } from '~/shared/components/typography';
 import { Icon } from '~/shared/components/ui';
 import { useUserStore } from '~/stores/user/userStore';
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { Image } from 'expo-image'
 
 /**
  * 내정보 화면
@@ -89,36 +89,27 @@ export const MyInfoView: React.FC = () => {
 
 /**
  * 프로필 카드
- * iOS ProfileCard 대응
  */
 interface ProfileCardProps {
   user: any;
   onPointPress: () => void;
 }
 
-// const ProfileCard: React.FC<ProfileCardProps> = ({ user }) => {
-//   // TODO: totalPoint 데이터 연동
-//   const totalPoint = 0;
-  
-//   return (
-//     <View style={styles.profileCard}>
-//       <View style={styles.profileImageContainer}>
-//         <View style={styles.profileImage} />
-//       </View>
-//       <View style={styles.profileInfo}>
-//         <Text style={styles.nickname}>{user?.nickname || '사용자'}</Text>
-//         <Text style={styles.userLevel}>러너 Lv.{user?.level || 1} | 포인트: {totalPoint}P</Text>
-//       </View>
-//     </View>
-//   );
-// };
 
 const ProfileCard: React.FC<ProfileCardProps> = ({ user, onPointPress }) => {
-  	
+  	// 프로필 이미지 source 결정
+  	const imageSource = user?.profileImgUrl
+      ? { uri: user.profileImgUrl }  // URL인 경우 객체로 감싸기
+      : require('assets/images/default-profile-image.png');  // 로컬 파일
+
   	return (
         <View style={[styles.profileCard]}>
             <View style={[styles.profileHeader, styles.rowCentered]}>
-                <Image style={styles.profileImage} resizeMode="cover" />
+                <Image
+                  style={styles.profileImage}
+                  source={imageSource}
+                  contentFit="cover"
+                 />
                 <View style={styles.usernameContainer}>
                     <Text style={styles.username}>{user?.nickname || '사용자'}</Text>
                     <Icon name="pencil" size={18} />
@@ -173,28 +164,55 @@ const MainMenuCard: React.FC<MainMenuCardProps> = ({ onShoesPress, onAvatarPress
 };
 
 /**
+ * 메뉴 아이템 Props
+ */
+interface MenuItemProps {
+  title: string;
+  onPress: () => void;
+}
+
+/**
+ * 개별 메뉴 아이템 컴포넌트
+ */
+const MenuItem: React.FC<MenuItemProps> = ({ title, onPress }) => {
+  return (
+    <TouchableOpacity
+      style={[styles.menuItem, styles.rowCentered]}
+      onPress={onPress}
+    >
+      <Text style={styles.menuItemText}>{title}</Text>
+      <Icon name="chevron" size={16} />
+    </TouchableOpacity>
+  );
+};
+
+/**
+ * 메뉴 설정 카드 Props
+ */
+interface MenuSettingsCardProps {
+  items?: MenuItemProps[];
+}
+
+/**
  * 메뉴 설정 카드
  * iOS MenuSettingsCard 대응
  */
-const MenuSettingsCard: React.FC = () => {
-  const menuItems = [
-    { title: '계정 연결', onPress: () => console.log('계정 연결') },
-    { title: '통계', onPress: () => router.push('/(tabs)/statistics') },
+const MenuSettingsCard: React.FC<MenuSettingsCardProps> = ({ items }) => {
+  const defaultMenuItems: MenuItemProps[] = [
+    { title: '연결 계정 관리', onPress: () => console.log('연결 계정 관리') },
     { title: '공지사항', onPress: () => console.log('공지사항') },
-    { title: '약관', onPress: () => console.log('약관') },
   ];
-  
+
+  const menuItems = items || defaultMenuItems;
+
   return (
-    <View style={styles.menuSettingsCard}>
-      {menuItems.map((item, index) => (
-        <View key={index}>
-          <TouchableOpacity style={styles.menuSettingRow} onPress={item.onPress}>
-            <Text style={styles.menuSettingTitle}>{item.title}</Text>
-            <Ionicons name="chevron-forward" size={16} color="#666" />
-          </TouchableOpacity>
-          {index < menuItems.length - 1 && <View style={styles.horizontalDivider} />}
-        </View>
-      ))}
+    <View style={styles.menuSettingsSection}>
+      <Text style={styles.sectionTitle}>서비스</Text>
+      <View style={styles.menuItemsContainer}>
+        {menuItems.map((item, index) => (
+          <MenuItem key={index} {...item} />
+        ))}
+      </View>
     </View>
   );
 };
@@ -286,7 +304,7 @@ const AvatarModal: React.FC<ModalProps> = ({ visible, onClose }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fafafa',
+    backgroundColor: '#f5f5f5',
   },
   scrollView: {
     flex: 1,
@@ -314,22 +332,40 @@ const styles = StyleSheet.create({
     color: '#414141',
     textAlign: 'left',
   },
-  menuSettingsCard: {
-    backgroundColor: 'white',
+  menuSettingsSection: {
+    // width: '100%',
+    padding: 16,
+    gap: 20,
     marginHorizontal: 20,
     marginBottom: 20,
-    borderRadius: 16,
+    backgroundColor: '#fff',
+    borderRadius: 8,
   },
-  menuSettingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
+  sectionTitle: {
+    fontWeight: '600',
+    color: '#202020',
+    fontSize: 14,
+    lineHeight: 18,
+    fontFamily: 'Pretendard',
+    textAlign: 'left',
+    alignSelf: 'stretch',
   },
-  menuSettingTitle: {
-    fontSize: 24,
-    color: 'black',
+  menuItemsContainer: {
+    alignSelf: 'stretch',
+    gap: 20,
+  },
+  menuItem: {
+    gap: 8,
+    alignSelf: 'stretch',
+  },
+  menuItemText: {
+    fontWeight: '500',
+    color: '#414141',
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 18,
+    fontFamily: 'Pretendard',
+    textAlign: 'left',
   },
   logoutButtonContainer: {
     flexDirection: 'row',

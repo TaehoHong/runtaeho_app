@@ -64,6 +64,7 @@ interface UserState {
   // User 정보
   currentUser: User | null;
   totalPoint: number;
+  profileImgUrl: string | null;
 
   // Avatar 정보
   avatarId: number;
