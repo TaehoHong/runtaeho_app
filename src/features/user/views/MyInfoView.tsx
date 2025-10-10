@@ -5,7 +5,9 @@ import { Icon } from '~/shared/components/ui';
 import { useUserStore } from '~/stores/user/userStore';
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image'
+import { Image } from 'expo-image';
+import { PointHistoryView } from '~/features/point/views';
+import type { User } from '../models';
 
 /**
  * 내정보 화면
@@ -14,6 +16,7 @@ import { Image } from 'expo-image'
  */
 export const MyInfoView: React.FC = () => {
   const currentUser = useUserStore((state) => state.currentUser);
+  const totalPoint = useUserStore((state) => state.totalPoint);
   const logout = useUserStore((state) => state.logout);
   const [showLogoutAlert, setShowLogoutAlert] = useState(false);
   const [showPointModal, setShowPointModal] = useState(false);
@@ -34,6 +37,7 @@ export const MyInfoView: React.FC = () => {
         {/* 프로필 카드 */}
         <ProfileCard 
           user={currentUser} 
+          totalPoint={totalPoint}
           onPointPress={() => setShowPointModal(true)}
         />
         
@@ -91,15 +95,16 @@ export const MyInfoView: React.FC = () => {
  * 프로필 카드
  */
 interface ProfileCardProps {
-  user: any;
+  user: User | null;
+  totalPoint: number;
   onPointPress: () => void;
 }
 
 
-const ProfileCard: React.FC<ProfileCardProps> = ({ user, onPointPress }) => {
+const ProfileCard: React.FC<ProfileCardProps> = ({ user, totalPoint, onPointPress }) => {
   	// 프로필 이미지 source 결정
-  	const imageSource = user?.profileImgUrl
-      ? { uri: user.profileImgUrl }  // URL인 경우 객체로 감싸기
+  	const imageSource = user?.profileImageURL
+      ? { uri: user.profileImageURL }  // URL인 경우 객체로 감싸기
       : require('assets/images/default-profile-image.png');  // 로컬 파일
 
   	return (
@@ -123,7 +128,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({ user, onPointPress }) => {
                 </View>
                   <TouchableOpacity onPress={onPointPress}>
                   <View style={[styles.pointValue, styles.rowCentered]}>
-                      <Text style={[styles.pointValueText, styles.pointColor]}>{ user?.totalPoint || 0 } P</Text>
+                      <Text style={[styles.pointValueText, styles.pointColor]}>{ totalPoint || 0 } P</Text>
                       <Icon style={styles.chevronIcon} name="chevron" size={16} />
                   </View>
                 </TouchableOpacity>
@@ -246,18 +251,7 @@ interface ModalProps {
 const PointModal: React.FC<ModalProps> = ({ visible, onClose }) => {
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={styles.modalContainer}>
-        <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>포인트</Text>
-          <TouchableOpacity onPress={onClose}>
-            <Ionicons name="close" size={24} color="#666" />
-          </TouchableOpacity>
-        </View>
-        <View style={styles.modalContent}>
-          <Text>포인트 내역 화면</Text>
-          <Text>필터 옵션</Text>
-        </View>
-      </View>
+      <PointHistoryView onClose={onClose} />
     </Modal>
   );
 };

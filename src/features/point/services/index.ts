@@ -1,4 +1,5 @@
 /**
  * Point Services 통합 Export
  */
-export * from './PointService';
+export * from './pointService';
+export * from './pointQueries';

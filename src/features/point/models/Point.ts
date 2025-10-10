@@ -1,11 +1,5 @@
 /**
- * Point 모델
- * Swift Point 구조체에서 마이그레이션
- */
-
-/**
  * 포인트 내역 모델
- * Swift PointHistory 구조체 대응
  */
 export interface PointHistory {
   id: number;
@@ -16,7 +10,6 @@ export interface PointHistory {
 
 /**
  * 포인트 필터 enum
- * Swift PointFilter enum 대응
  */
 export enum PointFilter {
   ALL = 'all',
@@ -26,7 +19,6 @@ export enum PointFilter {
 
 /**
  * 포인트 필터 설정
- * Swift PointFilter displayName 대응
  */
 export const PointFilterConfig = {
   [PointFilter.ALL]: {
@@ -45,7 +37,6 @@ export const PointFilterConfig = {
 
 /**
  * 포인트 히스토리 요청 파라미터
- * Swift PointApiService makeRequestParameters 대응
  */
 export interface PointHistoryRequest {
   cursor?: number;
@@ -56,7 +47,6 @@ export interface PointHistoryRequest {
 
 /**
  * 커서 결과 모델
- * Swift CursorResult 대응
  */
 export interface CursorResult<T> {
   content: T[];
@@ -66,7 +56,6 @@ export interface CursorResult<T> {
 
 /**
  * 포인트 히스토리 뷰모델
- * Swift PointHistoryViewModel 구조체 대응
  */
 export interface PointHistoryViewModel {
   id: number;
@@ -80,7 +69,6 @@ export interface PointHistoryViewModel {
 
 /**
  * 포인트 히스토리 뷰모델 생성
- * Swift PointHistoryViewModel init 대응
  */
 export const createPointHistoryViewModel = (pointHistory: PointHistory): PointHistoryViewModel => {
   const isPositive = pointHistory.point > 0;
@@ -100,7 +88,6 @@ export const createPointHistoryViewModel = (pointHistory: PointHistory): PointHi
 
 /**
  * 날짜 포맷팅 헬퍼
- * Swift DateFormatter 대응
  */
 export const formatDate = (date: Date): string => {
   const year = date.getFullYear();
@@ -129,7 +116,6 @@ export const formatPointChange = (points: number): string => {
 
 /**
  * 포인트 히스토리 필터링
- * Swift PointViewModel filterHistories 메서드 대응
  */
 export const filterPointHistories = (
   histories: PointHistoryViewModel[],
@@ -149,7 +135,6 @@ export const filterPointHistories = (
 
 /**
  * isEarned 파라미터 변환
- * Swift PointViewModel getIsEarned 메서드 대응
  */
 export const getIsEarnedFromFilter = (filter: PointFilter): boolean | undefined => {
   switch (filter) {
@@ -238,20 +223,4 @@ export const sortPointHistories = (
 
     return order === 'asc' ? comparison : -comparison;
   });
-};
-
-/**
- * 포인트 히스토리 그룹화 (날짜별)
- */
-export const groupPointHistoriesByDate = (
-  histories: PointHistoryViewModel[]
-): Record<string, PointHistoryViewModel[]> => {
-  return histories.reduce((groups, history) => {
-    const dateKey = history.date.toDateString();
-    if (!groups[dateKey]) {
-      groups[dateKey] = [];
-    }
-    groups[dateKey].push(history);
-    return groups;
-  }, {} as Record<string, PointHistoryViewModel[]>);
 };

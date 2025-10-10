@@ -123,6 +123,7 @@ export const useUserStore = create<UserState>()(
       // Initial State (기존 userSlice의 initialState)
       currentUser: null,
       totalPoint: 0,
+      profileImgUrl: null,
       avatarId: 0,
       equippedItems: {},
       userPreferences: defaultPreferences,

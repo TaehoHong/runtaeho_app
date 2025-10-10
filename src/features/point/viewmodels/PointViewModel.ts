@@ -1,18 +1,10 @@
 import { useCallback, useEffect, useState, useMemo } from 'react';
-import {
-  useGetPointHistories,
-  useGetUserPoint,
-  useUpdateUserPoint,
-  useEarnRunningPoints,
-  useSpendPointsForItem,
-  useEarnDailyBonus,
-  useGetRecentPointHistories,
-  useGetPointStatistics,
-} from '../../../services/point';
+import { useGetPointHistories, useGetRecentPointHistories } from '../services';
+import { useUserStore } from '~/stores/user/userStore';
 import {
   PointFilter,
-  PointHistory,
-  PointHistoryViewModel,
+  type PointHistory,
+  type PointHistoryViewModel,
   createPointHistoryViewModel,
   filterPointHistories,
   getIsEarnedFromFilter,
@@ -22,29 +14,18 @@ import {
 
 /**
  * Point ViewModel
- * Swift PointViewModel을 React Hook으로 마이그레이션
  */
-export const usePointViewModel = (initialPoints: number = 0) => {
+export const usePointViewModel = (point: number = useUserStore(state => state.totalPoint)) => {
+
   // 상태 관리
   const [selectedFilter, setSelectedFilter] = useState<PointFilter>(PointFilter.ALL);
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
-  const [currentPoints, setCurrentPoints] = useState(initialPoints);
+  const [currentPoints, setCurrentPoints] = useState(point);
 
   // 하이브리드 방식을 위한 상태 (Swift와 동일)
   const [allRecentHistories, setAllRecentHistories] = useState<PointHistoryViewModel[]>([]);
   const [olderHistories, setOlderHistories] = useState<PointHistoryViewModel[]>([]);
   const [lastPointHistoryId, setLastPointHistoryId] = useState<number | undefined>();
-
-  /**
-   * 사용자 포인트 조회
-   * Swift currentPoints 대응
-   */
-  const {
-    data: userPoint,
-    error: pointError,
-    isLoading: isLoadingPoint,
-    refetch: refetchUserPoint,
-  } = useGetUserPoint();
 
   /**
    * 최근 3개월 포인트 히스토리 조회 (필터 없이)
@@ -63,6 +44,9 @@ export const usePointViewModel = (initialPoints: number = 0) => {
    * 필터링된 이전 히스토리 조회
    * Swift loadOlderHistories 메서드 대응
    */
+  // 필터에서 isEarned 값 가져오기
+  const isEarnedFilter = getIsEarnedFromFilter(selectedFilter);
+
   const {
     data: olderHistoriesData,
     error: olderError,
@@ -71,28 +55,14 @@ export const usePointViewModel = (initialPoints: number = 0) => {
     refetch: refetchOlder,
   } = useGetPointHistories(
     {
-      cursor: lastPointHistoryId,
-      isEarned: getIsEarnedFromFilter(selectedFilter),
+      ...(lastPointHistoryId !== undefined && { cursor: lastPointHistoryId }),
+      ...(isEarnedFilter !== undefined && { isEarned: isEarnedFilter }),
       size: 30,
     },
     {
       skip: !lastPointHistoryId,
     }
   );
-
-  /**
-   * 포인트 통계 조회
-   */
-  const {
-    data: pointStatistics,
-    isLoading: isLoadingStatistics,
-  } = useGetPointStatistics();
-
-  // Mutations
-  const { mutateAsync: updateUserPoint, isPending: isUpdatingPoint } = useUpdateUserPoint();
-  const { mutateAsync: earnRunningPoints, isPending: isEarningPoints } = useEarnRunningPoints();
-  const { mutateAsync: spendPointsForItem, isPending: isSpendingPoints } = useSpendPointsForItem();
-  const { mutateAsync: earnDailyBonus, isPending: isEarningBonus } = useEarnDailyBonus();
 
   /**
    * 최근 히스토리 데이터 처리
@@ -121,10 +91,10 @@ export const usePointViewModel = (initialPoints: number = 0) => {
    * 사용자 포인트 업데이트
    */
   useEffect(() => {
-    if (userPoint?.point !== undefined) {
-      setCurrentPoints(userPoint.point);
+    if (point !== undefined) {
+      setCurrentPoints(point);
     }
-  }, [userPoint]);
+  }, [point]);
 
   /**
    * 필터링된 포인트 히스토리
@@ -169,10 +139,9 @@ export const usePointViewModel = (initialPoints: number = 0) => {
     setLastPointHistoryId(undefined);
 
     await Promise.all([
-      refetchUserPoint(),
       refetchRecent(),
     ]);
-  }, [refetchUserPoint, refetchRecent]);
+  }, [refetchRecent]);
 
   /**
    * 더 많은 히스토리 로드
@@ -183,86 +152,6 @@ export const usePointViewModel = (initialPoints: number = 0) => {
       await refetchOlder();
     }
   }, [lastPointHistoryId, refetchOlder]);
-
-  /**
-   * 러닝 포인트 적립
-   * Swift earnRunningPoints 메서드 대응
-   */
-  const handleEarnRunningPoints = useCallback(async (
-    runningRecordId: number,
-    distance: number,
-    duration: number
-  ) => {
-    try {
-      const result = await earnRunningPoints({
-        runningRecordId,
-        distance,
-        duration,
-      });
-      return result;
-    } catch (error) {
-      console.error('Failed to earn running points:', error);
-      throw error;
-    }
-  }, [earnRunningPoints]);
-
-  /**
-   * 아이템 구매로 포인트 차감
-   * Swift spendPointsForItem 메서드 대응
-   */
-  const handleSpendPointsForItem = useCallback(async (
-    itemId: number,
-    itemPrice: number
-  ) => {
-    try {
-      const result = await spendPointsForItem({
-        itemId,
-        itemPrice,
-      });
-      return result;
-    } catch (error) {
-      console.error('Failed to spend points for item:', error);
-      throw error;
-    }
-  }, [spendPointsForItem]);
-
-  /**
-   * 일일 보너스 적립
-   * Swift earnDailyBonus 메서드 대응
-   */
-  const handleEarnDailyBonus = useCallback(async (consecutiveDays: number) => {
-    try {
-      const result = await earnDailyBonus({ consecutiveDays });
-      return result;
-    } catch (error) {
-      console.error('Failed to earn daily bonus:', error);
-      throw error;
-    }
-  }, [earnDailyBonus]);
-
-  /**
-   * 포인트 업데이트
-   * Swift updateUserPoint 메서드 대응
-   */
-  const handleUpdateUserPoint = useCallback(async (
-    pointTypeId: number,
-    point: number,
-    runningRecordId?: number,
-    itemId?: number
-  ) => {
-    try {
-      const result = await updateUserPoint({
-        pointTypeId,
-        point,
-        runningRecordId,
-        itemId,
-      });
-      return result;
-    } catch (error) {
-      console.error('Failed to update user point:', error);
-      throw error;
-    }
-  }, [updateUserPoint]);
 
   /**
    * 로딩 상태 디버깅
@@ -292,21 +181,14 @@ export const usePointViewModel = (initialPoints: number = 0) => {
     olderHistories,
 
     // Data
-    userPoint,
-    pointStatistics: pointStatistics || localStatistics,
+    point,
 
     // Loading states
-    isLoading: isLoadingPoint || isLoadingRecent,
+    isLoading: isLoadingRecent,
     isLoadingMore: isLoadingOlder || isFetchingOlder,
-    isLoadingStatistics,
     hasMoreData: olderHistoriesData?.hasNext || false,
-    isUpdatingPoint,
-    isEarningPoints,
-    isSpendingPoints,
-    isEarningBonus,
 
     // Error states
-    pointError,
     recentError,
     olderError,
 
@@ -315,19 +197,13 @@ export const usePointViewModel = (initialPoints: number = 0) => {
     toggleDropdown,
     refreshPointHistory,
     loadMoreHistories,
-    handleEarnRunningPoints,
-    handleSpendPointsForItem,
-    handleEarnDailyBonus,
-    handleUpdateUserPoint,
 
     // Utility functions
     debugLoadingState,
 
     // Computed values
-    hasError: !!pointError || !!recentError || !!olderError,
+    hasError: !!recentError || !!olderError,
     canLoadMore: !isLoadingOlder && (olderHistoriesData?.hasNext || false),
-    canEarnPoints: !isEarningPoints && !isUpdatingPoint,
-    canSpendPoints: !isSpendingPoints && !isUpdatingPoint,
     totalHistoryCount: filteredPointHistory.length,
   };
 };

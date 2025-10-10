@@ -79,14 +79,19 @@ export const queryKeys = {
   // Point 관련 Query Keys
   point: {
     all: ['point'] as const,
-    balance: ['point', 'balance'] as const,
+    balance: () => ['point', 'balance'] as const,
     history: (filters?: {
       cursor?: number;
       isEarned?: boolean;
       startCreatedTimestamp?: number;
       size?: number;
     }) => ['point', 'history', filters] as const,
-    statistics: ['point', 'statistics'] as const,
+    infiniteHistory: (filters?: {
+      isEarned?: boolean;
+      startCreatedTimestamp?: number;
+      size?: number;
+    }) => ['point', 'history', 'infinite', filters] as const,
+    statistics: () => ['point', 'statistics'] as const,
     recentHistory: (startDate: Date) => ['point', 'history', 'recent', startDate] as const,
   },
 

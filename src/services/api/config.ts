@@ -82,12 +82,8 @@ export const API_ENDPOINTS = {
     DETAIL: (userItemId: number) => `/user-items/${userItemId}`,
   },
   POINT: {
-    BASE: '/point',
-    HISTORIES: '/point/histories',
-    RUNNING: '/point/running',
-    SPEND: '/point/spend',
-    DAILY_BONUS: '/point/daily-bonus',
-    STATISTICS: '/point/statistics',
+    BASE: '/users/points',
+    HISTORIES: '/users/points/histories',
   },
   SHOE: {
     BASE: '/shoes',
