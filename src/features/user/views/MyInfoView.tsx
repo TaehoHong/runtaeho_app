@@ -29,14 +29,16 @@ export const MyInfoView: React.FC = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView}>
         {/* 프로필 카드 */}
-        <ProfileCard user={currentUser} />
+        <ProfileCard 
+          user={currentUser} 
+          onPointPress={() => setShowPointModal(true)}
+        />
         
         {/* 메인 메뉴 카드 */}
-        <MainMenuCard 
-          onPointPress={() => setShowPointModal(true)}
+        <MainMenuCard
           onShoesPress={() => setShowShoesModal(true)}
           onAvatarPress={() => setShowAvatarModal(true)}
         />
@@ -81,7 +83,7 @@ export const MyInfoView: React.FC = () => {
       <PointModal visible={showPointModal} onClose={() => setShowPointModal(false)} />
       <ShoesModal visible={showShoesModal} onClose={() => setShowShoesModal(false)} />
       <AvatarModal visible={showAvatarModal} onClose={() => setShowAvatarModal(false)} />
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -91,6 +93,7 @@ export const MyInfoView: React.FC = () => {
  */
 interface ProfileCardProps {
   user: any;
+  onPointPress: () => void;
 }
 
 // const ProfileCard: React.FC<ProfileCardProps> = ({ user }) => {
@@ -110,31 +113,31 @@ interface ProfileCardProps {
 //   );
 // };
 
-const ProfileCard: React.FC<ProfileCardProps> = ({ user }) => {
+const ProfileCard: React.FC<ProfileCardProps> = ({ user, onPointPress }) => {
   	
   	return (
-    		<SafeAreaView>
-      			<View style={[styles.profileCard]}>
-        				<View style={[styles.profileHeader, styles.rowCentered]}>
-          					<Image style={styles.profileImage} resizeMode="cover" />
-          					<View style={styles.usernameContainer}>
-            						<Text style={styles.username}>{user?.nickname || '사용자'}</Text>
-                        <Icon name="pencil" size={18} />
-          					</View>
-        				</View>
-        				<View style={styles.horizontalDivider} />
-        				<View style={[styles.pointRow, styles.rowCentered]}>
-          					<View style={[styles.pointLabel, styles.rowCentered]}>
-                        <Icon name="point" size={24} />
-            						<Text style={[styles.pointLabelText, styles.pointColor]}>포인트</Text>
-          					</View>
-          					<View style={[styles.pointValue, styles.rowCentered]}>
-            						<Text style={[styles.pointValueText, styles.pointColor]}>{ user?.totalPoint || 0 } P</Text>
-                        <Icon style={styles.chevronIcon} name="chevron" size={16} />
-          					</View>
-        				</View>
-      			</View>
-    		</SafeAreaView>
+        <View style={[styles.profileCard]}>
+            <View style={[styles.profileHeader, styles.rowCentered]}>
+                <Image style={styles.profileImage} resizeMode="cover" />
+                <View style={styles.usernameContainer}>
+                    <Text style={styles.username}>{user?.nickname || '사용자'}</Text>
+                    <Icon name="pencil" size={18} />
+                </View>
+            </View>
+            <View style={styles.horizontalDivider} />
+            <View style={[styles.pointRow, styles.rowCentered]}>
+                <View style={[styles.pointLabel, styles.rowCentered]}>
+                    <Icon name="point" size={24} />
+                    <Text style={[styles.pointLabelText, styles.pointColor]}>포인트</Text>
+                </View>
+                  <TouchableOpacity onPress={onPointPress}>
+                  <View style={[styles.pointValue, styles.rowCentered]}>
+                      <Text style={[styles.pointValueText, styles.pointColor]}>{ user?.totalPoint || 0 } P</Text>
+                      <Icon style={styles.chevronIcon} name="chevron" size={16} />
+                  </View>
+                </TouchableOpacity>
+            </View>
+        </View>
     );
 };
 
@@ -143,33 +146,27 @@ const ProfileCard: React.FC<ProfileCardProps> = ({ user }) => {
  * iOS MainMenuCard 대응
  */
 interface MainMenuCardProps {
-  onPointPress: () => void;
   onShoesPress: () => void;
   onAvatarPress: () => void;
 }
 
-const MainMenuCard: React.FC<MainMenuCardProps> = ({ onPointPress, onShoesPress, onAvatarPress }) => {
-  const totalPoint = 0; // TODO: Redux에서 가져오기
-  
+const MainMenuCard: React.FC<MainMenuCardProps> = ({ onShoesPress, onAvatarPress }) => {
   return (
-    <View style={styles.mainMenuCard}>
-      <TouchableOpacity style={styles.menuItem} onPress={onPointPress}>
-        <Icon name="point" size={24} />
-        <Text style={styles.menuItemValue}>{totalPoint}</Text>
+    <View style={[styles.mainMenuCard, styles.rowCentered]}>
+      <TouchableOpacity
+        style={[styles.menuItemButton, styles.rowCentered]}
+        onPress={onShoesPress}
+      >
+        <Icon name="shoes" size={24} />
+        <Text style={styles.menuItemLabel}>내 신발</Text>
       </TouchableOpacity>
-      
-      <View style={styles.verticalDivider} />
-      
-      <TouchableOpacity style={styles.menuItem} onPress={onShoesPress}>
-        <Ionicons name="footsteps-outline" size={24} color="#4d99e5" />
-        <Text style={styles.menuItemText}>내 신발</Text>
-      </TouchableOpacity>
-      
-      <View style={styles.verticalDivider} />
-      
-      <TouchableOpacity style={styles.menuItem} onPress={onAvatarPress}>
-        <Ionicons name="person-outline" size={24} color="#4d99e5" />
-        <Text style={styles.menuItemText}>아바타</Text>
+
+      <TouchableOpacity
+        style={[styles.menuItemButton, styles.rowCentered]}
+        onPress={onAvatarPress}
+      >
+        <Icon name="avatar" size={24} />
+        <Text style={styles.menuItemLabel}>아바타</Text>
       </TouchableOpacity>
     </View>
   );
@@ -295,35 +292,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   mainMenuCard: {
-    flexDirection: 'row',
-    backgroundColor: 'white',
-    marginHorizontal: 20,
+    width: '100%',
+    gap: 11,
     marginBottom: 20,
-    paddingVertical: 20,
-    paddingHorizontal: 15,
-    borderRadius: 16,
-    alignItems: 'center',
+    paddingHorizontal: 20,
   },
-  menuItem: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 5,
+  menuItemButton: {
+    width: 162,
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    paddingHorizontal: 0,
+    paddingVertical: 14,
+    gap: 8,
   },
-  menuItemValue: {
-    fontSize: 29,
-    fontWeight: 'bold',
-    color: 'black',
-  },
-  menuItemText: {
-    fontSize: 29,
-    fontWeight: 'bold',
-    color: 'black',
-  },
-  verticalDivider: {
-    width: 1,
-    backgroundColor: '#e6e6e6',
-    marginVertical: 10,
-    height: 40,
+  menuItemLabel: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '500',
+    fontFamily: 'Pretendard',
+    color: '#414141',
+    textAlign: 'left',
   },
   menuSettingsCard: {
     backgroundColor: 'white',
@@ -433,7 +422,9 @@ const styles = StyleSheet.create({
       fontFamily: "Pretendard"
   },
   profileCard: {
-    marginHorizontal: 20,    // 외부 마진
+    marginTop: 24,
+    marginBottom:14,
+    marginHorizontal:20,
     paddingHorizontal: 12,   // 내부 패딩
     paddingTop: 12,
     paddingBottom: 16,

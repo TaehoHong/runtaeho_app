@@ -7,6 +7,8 @@ export const ICONS = {
   point: require('../../../assets/images/icons/point.png'),
   pencil: require('../../../assets/images/icons/pencil-line.png'),
   chevron: require('../../../assets/images/icons/chevron-right.png'),
+  shoes: require('../../../assets/images/icons/pixel-shoes.png'),
+  avatar: require('../../../assets/images/icons/pixel-avatar.png'),
   // 추가 아이콘들은 여기에 등록
   // shoes: require('../../../assets/images/icons/shoes.png'),
   // avatar: require('../../../assets/images/icons/avatar.png'),
