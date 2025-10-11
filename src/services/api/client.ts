@@ -1,5 +1,4 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios';
-import { tokenStorage } from '../../utils/storage';
 import { useAuthStore } from '~/stores';
 import { API_CONFIG } from './config';
 import { httpRequestLogging, httpResponseLogging } from './interceptors';

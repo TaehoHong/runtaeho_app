@@ -1,27 +1,24 @@
 /**
  * Shoe 모델
- * Swift Shoe 구조체에서 마이그레이션
  */
 
 /**
  * 신발 기본 모델
- * Swift Shoe 구조체 대응
  */
 export interface Shoe {
   id: number;
   brand: string;
   model: string;
   totalDistance: number; // in meters
-  targetDistance?: number; // optional target distance in meters
+  targetDistance?: number | undefined; // optional target distance in meters
   isMain: boolean;
   isEnabled: boolean;
-  createdAt?: string;
-  updatedAt?: string;
+  createdAt?: string | undefined;
+  updatedAt?: string | undefined;
 }
 
 /**
  * 신발 추가 DTO
- * Swift AddShoeDto 구조체 대응
  */
 export interface AddShoeDto {
   brand: string;
@@ -32,37 +29,34 @@ export interface AddShoeDto {
 
 /**
  * 신발 수정 DTO
- * Swift PatchShoeDto 구조체 대응
  */
 export interface PatchShoeDto {
   id: number;
-  brand?: string;
-  model?: string;
-  targetDistance?: number;
-  isMain?: boolean;
-  isEnabled?: boolean;
-  isDeleted?: boolean;
+  brand?: string | undefined;
+  model?: string | undefined;
+  targetDistance?: number | undefined;
+  isMain?: boolean | undefined;
+  isEnabled?: boolean | undefined;
+  isDeleted?: boolean | undefined;
 }
 
 /**
  * 신발 목록 요청 파라미터
- * Swift ShoeApiService.fetchShoesCursor 파라미터 대응
  */
 export interface ShoeListRequest {
-  cursor?: number;
-  isEnabled?: boolean;
-  size?: number;
+  cursor?: number | undefined;
+  isEnabled?: boolean | undefined;
+  size?: number | undefined;
 }
 
 /**
  * 신발 뷰모델
- * Swift ShoeViewModel 구조체 대응
  */
 export interface ShoeViewModel {
   id: number;
   brand: string;
   model: string;
-  targetDistance?: number;
+  targetDistance?: number | undefined;
   totalDistance: number;
   isMain: boolean;
   isAchieved: boolean;
@@ -78,7 +72,7 @@ export interface ShoeViewModel {
  */
 export interface CursorResult<T> {
   content: T[];
-  cursor?: number;
+  cursor?: number | undefined;
   hasNext: boolean;
 }
 
@@ -91,7 +85,7 @@ export const createShoe = (
   brand: string,
   model: string,
   totalDistance: number = 0,
-  targetDistance?: number,
+  targetDistance: number | undefined = undefined,
   isMain: boolean = false,
   isEnabled: boolean = false
 ): Shoe => ({
@@ -99,7 +93,7 @@ export const createShoe = (
   brand,
   model,
   totalDistance,
-  targetDistance,
+  targetDistance: targetDistance,
   isMain,
   isEnabled,
   createdAt: new Date().toISOString(),
@@ -124,7 +118,7 @@ export const createShoeViewModel = (shoe: Shoe): ShoeViewModel => {
     remainingDistance = Math.max(shoe.targetDistance - shoe.totalDistance, 0);
   }
 
-  return {
+  const result: ShoeViewModel = {
     id: shoe.id,
     brand: shoe.brand,
     model: shoe.model,
@@ -138,6 +132,8 @@ export const createShoeViewModel = (shoe: Shoe): ShoeViewModel => {
     progressPercentage: Math.round(progressPercentage * 100) / 100,
     remainingDistance,
   };
+
+  return result;
 };
 
 /**

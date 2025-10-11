@@ -7,6 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { PointHistoryView } from '~/features/point/views';
+import { ShoesListView } from '~/features/shoes/views';
 import type { User } from '../models';
 
 /**
@@ -153,7 +154,7 @@ const MainMenuCard: React.FC<MainMenuCardProps> = ({ onShoesPress, onAvatarPress
         style={[styles.menuItemButton, styles.rowCentered]}
         onPress={onShoesPress}
       >
-        <Icon name="shoes" size={24} />
+        <Icon name="pixel_shoes" size={24} />
         <Text style={styles.menuItemLabel}>내 신발</Text>
       </TouchableOpacity>
 
@@ -259,18 +260,7 @@ const PointModal: React.FC<ModalProps> = ({ visible, onClose }) => {
 const ShoesModal: React.FC<ModalProps> = ({ visible, onClose }) => {
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={styles.modalContainer}>
-        <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>내 신발</Text>
-          <TouchableOpacity onPress={onClose}>
-            <Ionicons name="close" size={24} color="#666" />
-          </TouchableOpacity>
-        </View>
-        <View style={styles.modalContent}>
-          <Text>신발 목록</Text>
-          <Text>+ 신발 추가</Text>
-        </View>
-      </View>
+      <ShoesListView onClose={onClose} />
     </Modal>
   );
 };

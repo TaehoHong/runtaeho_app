@@ -99,14 +99,13 @@ export const queryKeys = {
   shoe: {
     all: ['shoe'] as const,
     list: (filters?: {
-      cursor?: number;
-      isEnabled?: boolean;
-      size?: number;
-    }) => ['shoe', 'list', filters] as const,
-    allShoes: (isEnabled?: boolean) => ['shoe', 'all', isEnabled] as const,
+      cursor?: number | undefined;
+      isEnabled?: boolean | undefined;
+      size?: number | undefined;
+    } | undefined) => ['shoe', 'list', filters] as const,
+    allShoes: (isEnabled?: boolean | undefined) => ['shoe', 'all', isEnabled] as const,
     detail: (id: number) => ['shoe', id] as const,
     main: ['shoe', 'main'] as const,
-    statistics: ['shoe', 'statistics'] as const,
   },
 
   // Statistics 관련 Query Keys

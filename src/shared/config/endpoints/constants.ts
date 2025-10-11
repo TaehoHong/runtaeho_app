@@ -34,18 +34,6 @@ export const SENSITIVE_CONFIG = {
   }
 } as const;
 
-// 새로운 상수들을 re-export (호환성 유지)
-export {
-  API_ENDPOINTS,
-  AUTH_ENDPOINTS,
-  USER_ENDPOINTS,
-  RUNNING_ENDPOINTS,
-  AVATAR_ENDPOINTS,
-  POINT_ENDPOINTS,
-  SHOE_ENDPOINTS,
-  STATISTICS_ENDPOINTS,
-} from './apiEndpoints';
-
 export {
   ENVIRONMENT,
   APP_INFO,

@@ -1,6 +1,5 @@
 /**
  * API Configuration
- * RTK Query의 baseApi 설정에서 마이그레이션
  */
 
 export const API_CONFIG = {
@@ -87,15 +86,10 @@ export const API_ENDPOINTS = {
   },
   SHOE: {
     BASE: '/shoes',
-    ALL: '/shoes/all',
-    MAIN: '/shoes/main',
-    DETAIL: (id: number) => `/shoes/${id}`,
-    SET_MAIN: (id: number) => `/shoes/${id}/main`,
-    DISTANCE: (id: number) => `/shoes/${id}/distance`,
-    TARGET: (id: number) => `/shoes/${id}/target`,
-    RETIRE: (id: number) => `/shoes/${id}/retire`,
-    STATISTICS: '/shoes/statistics',
+    ALL: '/shoes',
+    PATCH: (id: number) => `/shoes/${id}`,
   },
+  
   STATISTICS: {
     SUMMARY: '/statistics/summary',
     CHART: '/statistics/chart',
