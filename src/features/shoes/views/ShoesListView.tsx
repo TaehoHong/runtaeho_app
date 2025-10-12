@@ -15,6 +15,8 @@ import { Icon } from '~/shared/components/ui';
 import { useShoeViewModel } from '../viewmodels';
 import type { ShoeViewModel } from '../models';
 import { StoredShoesListView } from './StoredShoesListView';
+import { AddShoeView } from './AddShoeView';
+import { EditShoeView } from './EditShoeView';
 
 /**
  * 신발 목록 화면
@@ -41,6 +43,8 @@ export const ShoesListView: React.FC<ShoesListViewProps> = ({ onClose }) => {
   const [showStorageModal, setShowStorageModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showStoredShoesView, setShowStoredShoesView] = useState(false);
+  const [showAddShoeView, setShowAddShoeView] = useState(false);
+  const [showEditShoeView, setShowEditShoeView] = useState(false);
 
   console.log('👟 [ShoesListView] 렌더링, 신발 개수:', shoeViewModels.length);
 
@@ -100,13 +104,19 @@ export const ShoesListView: React.FC<ShoesListViewProps> = ({ onClose }) => {
     }
   };
 
+  // 신발 선택 (수정 화면)
+  const handleSelectShoe = (shoe: ShoeViewModel) => {
+    setSelectedShoe(shoe);
+    setShowEditShoeView(true);
+  };
+
   // 활성화된 신발만 필터링
   const activeShoes = shoeViewModels.filter((shoe) => !shoe.isAchieved);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* 헤더 */}
-      <Header onClose={onClose} onAddPress={() => console.log('신발 추가')} />
+      <Header onClose={onClose} onAddPress={() => setShowAddShoeView(true)} />
 
       {/* 메인 컨텐츠 */}
       {isLoading ? (
@@ -127,7 +137,7 @@ export const ShoesListView: React.FC<ShoesListViewProps> = ({ onClose }) => {
             </>
           }
           renderItem={({ item }) => (
-            <ShoeCard shoe={item} />
+            <ShoeCard shoe={item} onPress={() => handleSelectShoe(item)} />
           )}
           renderHiddenItem={({ item }) => (
             <HiddenActionButtons
@@ -180,6 +190,49 @@ export const ShoesListView: React.FC<ShoesListViewProps> = ({ onClose }) => {
           onRequestClose={() => setShowStoredShoesView(false)}
         >
           <StoredShoesListView onClose={() => setShowStoredShoesView(false)} />
+        </Modal>
+      )}
+
+      {/* 신발 추가 모달 */}
+      {showAddShoeView && (
+        <Modal
+          visible={showAddShoeView}
+          animationType="slide"
+          presentationStyle="fullScreen"
+          onRequestClose={() => setShowAddShoeView(false)}
+        >
+          <AddShoeView
+            onClose={() => setShowAddShoeView(false)}
+            onSuccess={() => {
+              refreshShoes();
+            }}
+          />
+        </Modal>
+      )}
+
+      {/* 신발 수정 모달 */}
+      {showEditShoeView && selectedShoe && (
+        <Modal
+          visible={showEditShoeView}
+          animationType="slide"
+          presentationStyle="fullScreen"
+          onRequestClose={() => setShowEditShoeView(false)}
+        >
+          <EditShoeView
+            shoe={{
+              id: selectedShoe.id,
+              brand: selectedShoe.brand,
+              model: selectedShoe.model,
+              totalDistance: selectedShoe.totalDistance,
+              targetDistance: selectedShoe.targetDistance,
+              isMain: selectedShoe.isMain,
+              isEnabled: true,
+            }}
+            onClose={() => setShowEditShoeView(false)}
+            onSuccess={() => {
+              refreshShoes();
+            }}
+          />
         </Modal>
       )}
     </SafeAreaView>
@@ -271,11 +324,12 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({ onManageStoragePress }) =
  */
 interface ShoeCardProps {
   shoe: ShoeViewModel;
+  onPress: () => void;
 }
 
-const ShoeCard: React.FC<ShoeCardProps> = ({ shoe }) => {
+const ShoeCard: React.FC<ShoeCardProps> = ({ shoe, onPress }) => {
   return (
-    <View style={styles.shoeItemContent}>
+    <TouchableOpacity style={styles.shoeItemContent} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.shoeItemImageContainer}>
         <Icon name="shoe" size={24} />
       </View>
@@ -288,7 +342,7 @@ const ShoeCard: React.FC<ShoeCardProps> = ({ shoe }) => {
           </Text>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 };
 
@@ -440,6 +494,7 @@ const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     backgroundColor: '#F5F5F5',
   },
 
