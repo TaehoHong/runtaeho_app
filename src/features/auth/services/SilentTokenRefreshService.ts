@@ -32,7 +32,7 @@ export class SilentTokenRefreshService {
         console.log(`🔄 [SilentTokenRefreshService] Refresh attempt ${retryCount + 1}/${this.MAX_RETRY_COUNT}`);
         
         // 백엔드에 refresh 요청
-        const response = await this.refreshTokensFromBackend();
+        const response = await this.refreshTokens();
         
         if (response) {
           console.log('✅ [SilentTokenRefreshService] Token refresh successful');
@@ -63,7 +63,7 @@ export class SilentTokenRefreshService {
   /**
    * 백엔드에서 토큰 갱신
    */
-  private async refreshTokensFromBackend(): Promise<TokenPair> {
+  private async refreshTokens(): Promise<TokenPair> {
     // userStateManager에서 refreshToken 가져오기
     const { userStateManager } = await import('../../../shared/services/userStateManager');
     const refreshToken = userStateManager.getRefreshToken();
@@ -78,8 +78,8 @@ export class SilentTokenRefreshService {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ refreshToken }),
+        'refresh': JSON.stringify({ refreshToken })
+      }
     });
     
     if (!response.ok) {

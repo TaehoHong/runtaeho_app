@@ -89,7 +89,7 @@ export const useShoeViewModel = () => {
    * 신발 삭제
    * Swift deleteShoe 메서드 대응
    */
-  const handleDeleteShoe = useCallback(async (shoeId: number) => {
+  const deleteShoe = useCallback(async (shoeId: number) => {
     try {
       const patchShoeDto = createPatchShoeDto(shoeId, { isDeleted: true });
       const result = await patchShoe(patchShoeDto);
@@ -115,11 +115,25 @@ export const useShoeViewModel = () => {
   }, [patchShoe]);
 
   /**
-   * 신발 활성화/비활성화
+   * 신발 활성화
    */
-  const handleToggleShoeEnabled = useCallback(async (shoeId: number, isEnabled: boolean) => {
+  const enableShoe = useCallback(async (shoeId: number) => {
     try {
-      const patchShoeDto = createPatchShoeDto(shoeId, { isEnabled: isEnabled });
+      var isMain = false
+      if(!mainShoe) isMain = true
+      const patchShoeDto = createPatchShoeDto(shoeId, { isMain: isMain, isEnabled: true });
+      return await patchShoe(patchShoeDto);
+    } catch (error) {
+      console.error('Failed to toggle shoe enabled:', error);
+      throw error;
+    }
+  }, [patchShoe]);
+
+
+
+  const disableShoe = useCallback(async (shoeId: number) => {
+    try {
+      const patchShoeDto = createPatchShoeDto(shoeId, { isMain: false, isEnabled: false });
       return await patchShoe(patchShoeDto);
     } catch (error) {
       console.error('Failed to toggle shoe enabled:', error);
@@ -145,7 +159,7 @@ export const useShoeViewModel = () => {
   /**
    * 무한 스크롤된 신발 목록 결합
    */
-  const infiniteShoes = useMemo(() => {
+  const shoes = useMemo(() => {
     if (!infiniteShoesData?.pages) return [];
     return infiniteShoesData.pages.flatMap(page => page.content);
   }, [infiniteShoesData]);
@@ -154,15 +168,15 @@ export const useShoeViewModel = () => {
    * 메인 신발 (infiniteShoes에서 찾기)
    */
   const mainShoe = useMemo(() => {
-    return infiniteShoes.find(shoe => shoe.isMain && shoe.isEnabled) || null;
-  }, [infiniteShoes]);
+    return shoes.find(shoe => shoe.isMain && shoe.isEnabled) || null;
+  }, [shoes]);
 
   /**
    * 필터링된 신발 목록
    */
   const filteredShoes = useMemo(() => {
-    return filterShoes(infiniteShoes, shoeFilters);
-  }, [infiniteShoes, shoeFilters]);
+    return filterShoes(shoes, shoeFilters);
+  }, [shoes, shoeFilters]);
 
   /**
    * 신발 뷰모델 목록
@@ -196,7 +210,7 @@ export const useShoeViewModel = () => {
 
   return {
     // Data
-    shoes: infiniteShoes,
+    shoes,
     filteredShoes,
     shoeViewModels,
     mainShoe,
@@ -219,9 +233,10 @@ export const useShoeViewModel = () => {
     // Actions
     handleAddShoe,
     handlePatchShoe,
-    handleDeleteShoe,
+    deleteShoe,
     handleSetMainShoe,
-    handleToggleShoeEnabled,
+    enableShoe,
+    disableShoe,
     updateFilters,
     loadMoreShoes,
     refreshShoes,
@@ -234,8 +249,8 @@ export const useShoeViewModel = () => {
     hasError: !!shoesError,
     canAddShoe: !isAddingShoe,
     canModifyShoes: !isPatchingShoe,
-    totalShoes: infiniteShoes.length,
-    activeShoes: infiniteShoes.filter(shoe => shoe.isEnabled).length,
-    retiredShoes: infiniteShoes.filter(shoe => !shoe.isEnabled).length,
+    totalShoes: shoes.length,
+    activeShoes: shoes.filter(shoe => shoe.isEnabled).length,
+    retiredShoes: shoes.filter(shoe => !shoe.isEnabled).length,
   };
 };
