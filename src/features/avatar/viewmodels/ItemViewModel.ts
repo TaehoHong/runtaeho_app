@@ -13,10 +13,12 @@ import {
   useGetNewItems,
   useGetRecommendedItems,
 } from '../../../services/avatar';
-import {
+import type {
   Item,
   // UserItem, // TODO: 향후 사용자 아이템 데이터 처리용
   ItemSearch,
+} from '../models';
+import {
   formatItem,
   formatUserItem,
   validateItem,

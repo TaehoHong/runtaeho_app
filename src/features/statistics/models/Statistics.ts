@@ -1,34 +1,41 @@
 /**
  * Statistics 모델
- * Swift StatisticViewModel에서 마이그레이션
  */
 
-import { RunningRecord } from '../../running/models';
+import type { RunningRecord } from '../../running/models';
 
 /**
  * 통계 기간 enum
- * Swift Period enum 대응
  */
 export enum Period {
-  WEEK = 'week',
-  MONTH = 'month',
-  YEAR = 'year',
+  WEEK = 'WEEKLY',
+  MONTH = 'MONTHLY',
+  YEAR = 'YEARLY',
 }
 
 /**
- * 통계 기본 정보
- * Swift statistics computed property 대응
+ * 통계 기본 정보 (백엔드 응답)
  */
 export interface StatisticsSummary {
-  runCount: number;
+  statisticType: Period;
+  runningCount: number;
   totalDistance: number; // in meters
-  totalDuration: number; // in seconds
+  totalDurationSec: number; // in seconds
   averageDistance: number;
-  averageDuration: number;
-  averagePace: number; // minutes per km
-  averageSpeed: number; // km/h
-  totalCalories: number;
-  averageCalories: number;
+  averagePaceSec: number; // seconds per km (백엔드는 초 단위)
+}
+
+/**
+ * 확장된 통계 정보 (로컬 계산 포함)
+ */
+export interface ExtendedStatisticsSummary extends StatisticsSummary {
+  runCount: number; // runningCount 별칭
+  totalDuration: number; // totalDurationSec 별칭 (초)
+  averageDuration: number; // 로컬 계산
+  averagePace: number; // 분/km (averagePaceSec 변환)
+  averageSpeed: number; // km/h (로컬 계산)
+  totalCalories: number; // 로컬 계산
+  averageCalories: number; // 로컬 계산
 }
 
 /**
@@ -44,104 +51,35 @@ export interface ChartDataPoint {
 }
 
 /**
- * 월별 통계
+ * 로컬 통계 계산 결과 (백엔드 형식이 아님)
  */
-export interface MonthlyStatistics {
-  year: number;
-  month: number;
+export interface LocalStatistics {
   runCount: number;
   totalDistance: number;
   totalDuration: number;
+  averageDistance: number;
+  averageDuration: number;
+  averagePace: number; // 분/km
+  averageSpeed: number; // km/h
   totalCalories: number;
-  averagePace: number;
-  bestDistance: number;
-  bestDuration: number;
-  bestPace: number;
+  averageCalories: number;
 }
 
 /**
- * 주별 통계
- */
-export interface WeeklyStatistics {
-  year: number;
-  week: number;
-  runCount: number;
-  totalDistance: number;
-  totalDuration: number;
-  totalCalories: number;
-  averagePace: number;
-  dailyAverageDistance: number;
-}
-
-/**
- * 연간 통계
- */
-export interface YearlyStatistics {
-  year: number;
-  runCount: number;
-  totalDistance: number;
-  totalDuration: number;
-  totalCalories: number;
-  averagePace: number;
-  monthlyBreakdown: MonthlyStatistics[];
-  bestMonth: MonthlyStatistics | null;
-  personalRecords: {
-    longestDistance: RunningRecord | null;
-    longestDuration: RunningRecord | null;
-    fastestPace: RunningRecord | null;
-    mostCalories: RunningRecord | null;
-  };
-}
-
-/**
- * 개인 기록
+ * 개인 기록 타입
  */
 export interface PersonalRecords {
-  longestDistance: {
-    record: RunningRecord | null;
-    value: number;
-    date: string;
-  };
-  longestDuration: {
-    record: RunningRecord | null;
-    value: number;
-    date: string;
-  };
-  fastestPace: {
-    record: RunningRecord | null;
-    value: number;
-    date: string;
-  };
-  mostCalories: {
-    record: RunningRecord | null;
-    value: number;
-    date: string;
-  };
-  mostRuns: {
-    period: string;
-    count: number;
-    date: string;
-  };
-}
-
-/**
- * 통계 필터 조건
- */
-export interface StatisticsFilter {
-  period: Period;
-  startDate: Date;
-  endDate?: Date;
-  minDistance?: number;
-  maxDistance?: number;
-  minDuration?: number;
-  maxDuration?: number;
+  longestDistance: { record: RunningRecord | null; value: number; date: string };
+  longestDuration: { record: RunningRecord | null; value: number; date: string };
+  fastestPace: { record: RunningRecord | null; value: number; date: string };
+  mostCalories: { record: RunningRecord | null; value: number; date: string };
+  mostRuns: { period: string; count: number; date: string };
 }
 
 /**
  * 통계 계산 헬퍼 함수
- * Swift RunningChartService.calculateStatistics 대응
  */
-export const calculateStatistics = (records: RunningRecord[]): StatisticsSummary => {
+export const calculateStatistics = (records: RunningRecord[]): LocalStatistics => {
   if (records.length === 0) {
     return {
       runCount: 0,
@@ -186,7 +124,6 @@ export const calculateStatistics = (records: RunningRecord[]): StatisticsSummary
 
 /**
  * 기간별 레코드 필터링
- * Swift RunningChartService.filterRecordsByPeriod 대응
  */
 export const filterRecordsByPeriod = (records: RunningRecord[], period: Period, referenceDate: Date = new Date()): RunningRecord[] => {
   const now = referenceDate;
@@ -257,7 +194,7 @@ export const groupRecordsByPeriod = (records: RunningRecord[], period: Period): 
     if (!groups[groupKey]) {
       groups[groupKey] = [];
     }
-    groups[groupKey].push(record);
+    groups[groupKey]!.push(record);
 
     return groups;
   }, {} as Record<string, RunningRecord[]>);
@@ -288,13 +225,14 @@ export const calculatePersonalRecords = (records: RunningRecord[]): PersonalReco
   );
 
   // 최고 페이스 (가장 빠른)
-  const fastestPaceRecord = records
-    .filter(record => record.distance > 0 && record.durationSec > 0)
-    .reduce((fastest, record) => {
-      const recordPace = (record.durationSec / 60) / (record.distance / 1000);
-      const fastestPace = (fastest.durationSec / 60) / (fastest.distance / 1000);
-      return recordPace < fastestPace ? record : fastest;
-    }, records[0]);
+  const validPaceRecords = records.filter(record => record.distance > 0 && record.durationSec > 0);
+  const fastestPaceRecord = validPaceRecords.length > 0
+    ? validPaceRecords.reduce((fastest, record) => {
+        const recordPace = (record.durationSec / 60) / (record.distance / 1000);
+        const fastestPace = (fastest.durationSec / 60) / (fastest.distance / 1000);
+        return recordPace < fastestPace ? record : fastest;
+      })
+    : null;
 
   // 최다 칼로리
   const mostCaloriesRecord = records.reduce((max, record) =>
@@ -325,7 +263,7 @@ export const calculatePersonalRecords = (records: RunningRecord[]): PersonalReco
       date: new Date(longestDurationRecord.startTimestamp * 1000).toISOString(),
     },
     fastestPace: {
-      record: fastestPaceRecord,
+      record: fastestPaceRecord ?? null,
       value: fastestPaceRecord ? (fastestPaceRecord.durationSec / 60) / (fastestPaceRecord.distance / 1000) : 0,
       date: fastestPaceRecord ? new Date(fastestPaceRecord.startTimestamp * 1000).toISOString() : '',
     },
@@ -369,7 +307,7 @@ export const formatDate = (date: Date, format: string): string => {
     case 'YYYY':
       return `${year}`;
     default:
-      return date.toISOString().split('T')[0];
+      return date.toISOString().split('T')[0] ?? '';
   }
 };
 

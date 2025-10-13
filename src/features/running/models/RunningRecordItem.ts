@@ -1,4 +1,4 @@
-import { Location } from './Location';
+import type { Location } from './Location';
 
 /**
  * 러닝 기록 아이템 모델

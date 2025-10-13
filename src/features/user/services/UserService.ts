@@ -7,8 +7,8 @@
  */
 
 import { AuthProviderType } from '../../auth/models';
-import { User } from '../models';
-import { UserDataDto } from '../models/UserDataDto';
+import type { User } from '../models';
+import type { UserDataDto } from '../models/UserDataDto';
 
 export class UserService {
   private static instance: UserService;

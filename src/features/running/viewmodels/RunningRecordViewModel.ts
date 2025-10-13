@@ -4,7 +4,8 @@ import {
   useLoadRunningRecords,
   useInfiniteRunningRecords,
 } from '../../../services/running';
-import { RunningRecord, formatRunningRecord } from '../models';
+import type { RunningRecord } from '../models';
+import { formatRunningRecord } from '../models';
 
 /**
  * 러닝 기록 조회 ViewModel
@@ -31,8 +32,8 @@ export const useRunningRecordViewModel = () => {
     } = useGetRunningRecords(params);
 
     return {
-      records: data?.content || [],
-      cursor: data?.cursor,
+      records: data?.contents || [],
+      cursor: data?.nextCursor,
       hasNext: data?.hasNext || false,
       error,
       isLoading,
@@ -88,7 +89,7 @@ export const useRunningRecordViewModel = () => {
     } = useInfiniteRunningRecords(params);
 
     // 모든 페이지의 기록을 평탄화
-    const allRecords = data?.pages.flatMap(page => page.content) || [];
+    const allRecords = data?.pages.flatMap(page => page.contents) || [];
 
     return {
       records: allRecords,

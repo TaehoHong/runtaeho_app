@@ -6,7 +6,8 @@
 import { useMutation, useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { runningService } from './runningService';
 import { queryKeys } from '../queryClient';
-import { type RunningRecord } from '~/features/running/models';
+import type { RunningRecord } from '~/features/running/models';
+import type { CursorResult } from '~/shared/utils/dto/CursorResult';
 
 /**
  * 러닝 시작
@@ -67,10 +68,10 @@ export const useGetRunningRecords = (
   },
   options?: { enabled?: boolean }
 ) => {
-  return useQuery({
+  return useQuery<CursorResult<RunningRecord>>({
     queryKey: [...queryKeys.running.list(params), params],
     queryFn: () => runningService.getRunningRecords(params),
-    enabled: options?.enabled,
+    enabled: options?.enabled ?? true,
   });
 };
 
@@ -85,10 +86,10 @@ export const useLoadRunningRecords = (
   },
   options?: { enabled?: boolean }
 ) => {
-  return useQuery({
+  return useQuery<RunningRecord[]>({
     queryKey: [...queryKeys.running.all, 'full', params],
     queryFn: () => runningService.loadRunningRecords(params),
-    enabled: options?.enabled,
+    enabled: options?.enabled ?? true,
   });
 };
 
@@ -105,7 +106,7 @@ export const useInfiniteRunningRecords = (
   },
   options?: { enabled?: boolean }
 ) => {
-  return useInfiniteQuery({
+  return useInfiniteQuery<CursorResult<RunningRecord>>({
     queryKey: queryKeys.running.infinite(params),
     queryFn: ({ pageParam }) =>
       runningService.loadMoreRecords({
@@ -113,8 +114,8 @@ export const useInfiniteRunningRecords = (
         size: params.size,
       }),
     initialPageParam: undefined as number | undefined,
-    getNextPageParam: (lastPage) => (lastPage.hasNext ? lastPage.cursor : undefined),
-    enabled: options?.enabled,
+    getNextPageParam: (lastPage) => (lastPage.hasNext ? lastPage.nextCursor : undefined),
+    enabled: options?.enabled ?? true,
   });
 };
 
@@ -123,10 +124,10 @@ export const useInfiniteRunningRecords = (
  * 기존: useGetRunningRecordQuery()
  */
 export const useGetRunningRecord = (id: number, options?: { enabled?: boolean }) => {
-  return useQuery({
+  return useQuery<RunningRecord>({
     queryKey: [...queryKeys.running.all, id],
     queryFn: () => runningService.getRunningRecord(id),
-    enabled: options?.enabled,
+    enabled: options?.enabled ?? true,
   });
 };
 

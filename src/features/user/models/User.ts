@@ -1,5 +1,5 @@
 import { AuthProviderType } from '../../auth/models/AuthType';
-import { UserAccount } from './UserAccount';
+import type { UserAccount } from './UserAccount';
 
 /**
  * User Model

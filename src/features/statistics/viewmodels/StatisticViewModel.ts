@@ -1,83 +1,133 @@
-import { useCallback, useEffect, useState, useMemo } from 'react';
-import {
-  useGetStatisticsSummary,
-  useGetChartData,
-  useGetPersonalRecords,
-  useGetTrends,
-  useGetGoalProgress,
-  useGetPerformanceComparison,
-  useGetConsistencyAnalysis,
-  useGetTimePatternAnalysis,
-  useGetDashboardData,
-} from '../../../services/statistics';
+import { useCallback, useMemo, useState } from 'react';
 import { useGetRunningRecords } from '../../../services/running';
+import type {
+  ChartDataPoint,
+  StatisticsSummary,
+  ExtendedStatisticsSummary,
+} from '../models';
 import {
   Period,
-  StatisticsSummary,
-  ChartDataPoint,
-  PersonalRecords,
   calculateStatistics,
   filterRecordsByPeriod,
   generateChartData,
 } from '../models';
+import {
+  useGetStatisticsSummary,
+} from '../services';
+
+/**
+ * 백엔드 응답을 확장된 형태로 변환
+ */
+const convertToExtendedSummary = (
+  summary: StatisticsSummary,
+  localCalories: { totalCalories: number; averageCalories: number }
+): ExtendedStatisticsSummary => {
+  return {
+    ...summary,
+    // 별칭
+    runCount: summary.runningCount,
+    totalDuration: summary.totalDurationSec,
+    // 변환
+    averagePace: summary.averagePaceSec / 60, // 초 → 분/km
+    // 로컬 계산
+    averageDuration: summary.runningCount > 0 ? summary.totalDurationSec / summary.runningCount : 0,
+    averageSpeed: summary.totalDurationSec > 0 ? (summary.totalDistance / 1000) / (summary.totalDurationSec / 3600) : 0,
+    totalCalories: localCalories.totalCalories,
+    averageCalories: localCalories.averageCalories,
+  };
+};
 
 /**
  * 메인 Statistics ViewModel
- * 대시보드 및 통합 통계 정보를 관리
+ * 나머지는 로컬에서 계산
  */
 export const useStatisticsViewModel = (period: Period = Period.MONTH) => {
   const [selectedPeriod, setSelectedPeriod] = useState<Period>(period);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // API 호출들
   const {
     data: summary,
     error: summaryError,
     isLoading: summaryLoading,
     refetch: refetchSummary,
-  } = useGetStatisticsSummary({ period: selectedPeriod });
+  } = useGetStatisticsSummary({ statisticType: selectedPeriod });
 
+  // 러닝 기록 조회 (로컬 계산용)
   const {
-    data: chartData,
-    error: chartError,
-    isLoading: chartLoading,
-    refetch: refetchChart,
-  } = useGetChartData({ period: selectedPeriod });
-
-  const {
-    data: dashboardData,
-    error: dashboardError,
-    isLoading: dashboardLoading,
-    refetch: refetchDashboard,
-  } = useGetDashboardData({ period: selectedPeriod });
-
-  // 로컬 계산을 위한 running records
-  const {
-    data: runningRecords,
+    data: runningRecordsResponse,
     error: recordsError,
     isLoading: recordsLoading,
+    refetch: refetchRecords,
   } = useGetRunningRecords({});
 
   // 전체 로딩 상태
-  const isLoading = summaryLoading || chartLoading || dashboardLoading || recordsLoading;
-  const hasError = !!(summaryError || chartError || dashboardError || recordsError);
+  const isLoading = summaryLoading || recordsLoading;
+  const hasError = !!(summaryError || recordsError);
+
+  // 러닝 기록 배열 추출
+  const runningRecords = useMemo(() => {
+    if (!runningRecordsResponse) return [];
+    return runningRecordsResponse.contents || [];
+  }, [runningRecordsResponse]);
+
+  // 기간별 필터링된 레코드
+  const filteredRecords = useMemo(() => {
+    return filterRecordsByPeriod(runningRecords, selectedPeriod);
+  }, [runningRecords, selectedPeriod]);
+
+  // 로컬 통계 계산 (칼로리 정보용 + fallback)
+  const localStats = useMemo(() => {
+    return calculateStatistics(filteredRecords);
+  }, [filteredRecords]);
+
+  // 최종 통계 (백엔드 우선, 실패 시 로컬)
+  const finalStats: ExtendedStatisticsSummary = useMemo(() => {
+    if (summary) {
+      // 백엔드 응답을 확장된 형태로 변환
+      return convertToExtendedSummary(summary, {
+        totalCalories: localStats.totalCalories,
+        averageCalories: localStats.averageCalories,
+      });
+    }
+    // fallback: 로컬 계산 (이미 ExtendedStatisticsSummary 형태)
+    return {
+      statisticType: selectedPeriod,
+      runningCount: localStats.runCount,
+      totalDistance: localStats.totalDistance,
+      totalDurationSec: localStats.totalDuration,
+      averageDistance: localStats.averageDistance,
+      averagePaceSec: localStats.averagePace * 60, // 분/km → 초/km
+      runCount: localStats.runCount,
+      totalDuration: localStats.totalDuration,
+      averageDuration: localStats.averageDuration,
+      averagePace: localStats.averagePace,
+      averageSpeed: localStats.averageSpeed,
+      totalCalories: localStats.totalCalories,
+      averageCalories: localStats.averageCalories,
+    };
+  }, [summary, localStats, selectedPeriod]);
+
+  // 차트 데이터 (로컬에서 생성)
+  const chartData = useMemo(() => {
+    return generateChartData(filteredRecords, selectedPeriod);
+  }, [filteredRecords, selectedPeriod]);
 
   // 통계 요약 정보 포맷팅
   const formattedSummary = useMemo(() => {
-    if (!summary) return null;
+    if (!finalStats) return null;
 
     return {
-      ...summary,
-      totalDistanceFormatted: `${(summary.totalDistance / 1000).toFixed(2)}km`,
-      totalDurationFormatted: `${Math.floor(summary.totalDuration / 3600)}시간 ${Math.floor((summary.totalDuration % 3600) / 60)}분`,
-      averagePaceFormatted: `${summary.averagePace.toFixed(2)}분/km`,
-      totalCaloriesFormatted: `${summary.totalCalories}kcal`,
+      ...finalStats,
+      totalDistanceFormatted: `${(finalStats.totalDistance / 1000).toFixed(2)}km`,
+      totalDurationFormatted: `${Math.floor(finalStats.totalDuration / 3600)}시간 ${Math.floor((finalStats.totalDuration % 3600) / 60)}분`,
+      averagePaceFormatted: `${finalStats.averagePace.toFixed(2)}분/km`,
+      totalCaloriesFormatted: `${finalStats.totalCalories}kcal`,
     };
-  }, [summary]);
+  }, [finalStats]);
 
   // 차트 데이터 포맷팅
   const formattedChartData = useMemo(() => {
-    if (!chartData) return null;
+    if (!chartData || chartData.length === 0) return null;
 
     return chartData.map((point: ChartDataPoint) => ({
       ...point,
@@ -90,16 +140,6 @@ export const useStatisticsViewModel = (period: Period = Period.MONTH) => {
     }));
   }, [chartData]);
 
-  // 로컬 통계 계산 (백업용)
-  const localStats = useMemo(() => {
-    if (!runningRecords) return null;
-
-    // CursorResult<RunningRecord> 형태의 데이터에서 content 배열 추출
-    const recordsArray = Array.isArray(runningRecords) ? runningRecords : runningRecords.content || [];
-    const filteredRecords = filterRecordsByPeriod(recordsArray, selectedPeriod);
-    return calculateStatistics(filteredRecords);
-  }, [runningRecords, selectedPeriod]);
-
   // 기간 변경 핸들러
   const handlePeriodChange = useCallback((newPeriod: Period) => {
     setSelectedPeriod(newPeriod);
@@ -111,27 +151,24 @@ export const useStatisticsViewModel = (period: Period = Period.MONTH) => {
     try {
       await Promise.all([
         refetchSummary(),
-        refetchChart(),
-        refetchDashboard(),
+        refetchRecords(),
       ]);
     } finally {
       setIsRefreshing(false);
     }
-  }, [refetchSummary, refetchChart, refetchDashboard]);
+  }, [refetchSummary, refetchRecords]);
 
   // 통계 데이터 유효성 검사
   const hasValidData = useMemo(() => {
-    const hasRecords = runningRecords && (Array.isArray(runningRecords) ? runningRecords.length > 0 : runningRecords.content?.length > 0);
-    return !!(summary || localStats) && !!(chartData || hasRecords);
-  }, [summary, localStats, chartData, runningRecords]);
+    return !!finalStats && (finalStats.runCount > 0 || chartData.length > 0);
+  }, [finalStats, chartData]);
 
   return {
     // 데이터
-    summary,
+    summary: finalStats,
     formattedSummary,
     chartData,
     formattedChartData,
-    dashboardData,
     localStats,
 
     // 상태
@@ -144,8 +181,6 @@ export const useStatisticsViewModel = (period: Period = Period.MONTH) => {
     // 에러 정보
     errors: {
       summary: summaryError,
-      chart: chartError,
-      dashboard: dashboardError,
       records: recordsError,
     },
 
@@ -153,107 +188,5 @@ export const useStatisticsViewModel = (period: Period = Period.MONTH) => {
     handlePeriodChange,
     handleRefresh,
     refetchSummary,
-    refetchChart,
-    refetchDashboard,
   };
 };
-
-/**
- * 목표 진행률 ViewModel
- */
-export const useGoalProgressViewModel = (goals?: {
-  weeklyDistance?: number;
-  monthlyDistance?: number;
-  yearlyDistance?: number;
-  weeklyRuns?: number;
-  monthlyRuns?: number;
-}) => {
-  const {
-    data: goalProgress,
-    error,
-    isLoading,
-    refetch,
-  } = useGetGoalProgress(goals || {});
-
-  const formattedProgress = useMemo(() => {
-    if (!goalProgress) return null;
-
-    return {
-      ...goalProgress,
-      weeklyDistanceFormatted: `${goalProgress.weeklyDistanceProgress.toFixed(1)}%`,
-      monthlyDistanceFormatted: `${goalProgress.monthlyDistanceProgress.toFixed(1)}%`,
-      yearlyDistanceFormatted: `${goalProgress.yearlyDistanceProgress.toFixed(1)}%`,
-      weeklyRunsFormatted: `${goalProgress.weeklyRunsProgress.toFixed(1)}%`,
-      monthlyRunsFormatted: `${goalProgress.monthlyRunsProgress.toFixed(1)}%`,
-    };
-  }, [goalProgress]);
-
-  return {
-    goalProgress,
-    formattedProgress,
-    error,
-    isLoading,
-    refetch,
-    hasGoals: !!goalProgress,
-    hasError: !!error,
-  };
-};
-
-/**
- * 성과 비교 ViewModel
- */
-export const usePerformanceComparisonViewModel = (period: Period = Period.MONTH) => {
-  const {
-    data: comparison,
-    error,
-    isLoading,
-    refetch,
-  } = useGetPerformanceComparison({ period });
-
-  const formattedComparison = useMemo(() => {
-    if (!comparison) return null;
-
-    const formatChange = (value: number) => {
-      const prefix = value >= 0 ? '+' : '';
-      const suffix = value >= 0 ? ' 향상' : ' 감소';
-      return `${prefix}${Math.abs(value).toFixed(1)}%${suffix}`;
-    };
-
-    return {
-      ...comparison,
-      distance: {
-        changePercentage: comparison.improvement.distance,
-        formattedChange: formatChange(comparison.improvement.distance),
-      },
-      pace: {
-        changePercentage: comparison.improvement.pace,
-        formattedChange: formatChange(comparison.improvement.pace),
-      },
-      duration: {
-        changePercentage: comparison.improvement.duration,
-        formattedChange: formatChange(comparison.improvement.duration),
-      },
-      calories: {
-        changePercentage: comparison.improvement.calories,
-        formattedChange: formatChange(comparison.improvement.calories),
-      },
-      runCount: {
-        changePercentage: comparison.improvement.runCount,
-        formattedChange: formatChange(comparison.improvement.runCount),
-      },
-    };
-  }, [comparison]);
-
-  return {
-    comparison,
-    formattedComparison,
-    error,
-    isLoading,
-    refetch,
-    hasComparison: !!comparison,
-    hasError: !!error,
-  };
-};
-
-// PersonalRecordsViewModel과 TrendsViewModel은
-// 별도 파일에서 더 자세하게 구현됩니다.

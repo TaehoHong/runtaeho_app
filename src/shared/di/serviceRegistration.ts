@@ -9,7 +9,8 @@ import { container, SERVICE_TOKENS, ServiceLifetime } from './ServiceContainer';
 import { AuthenticationService } from '../../features/auth/services/AuthenticationService';
 import { AvatarService } from '../../features/avatar/services/AvatarService';
 import { RunningService } from '../../features/running/services/RunningService';
-import { StatisticsService } from '../../features/statistics/services/StatisticsService';
+// Note: StatisticsService는 React Query로 마이그레이션되어 DI 컨테이너에서 제외
+// import { statisticsService } from '../../features/statistics/services/statisticsService';
 import { UserService } from '../../features/user/services/UserService';
 
 // Infrastructure Services
@@ -56,11 +57,12 @@ export const registerServices = () => {
     ServiceLifetime.SINGLETON
   );
 
-  container.registerFactory(
-    SERVICE_TOKENS.STATISTICS_SERVICE,
-    () => StatisticsService.getInstance(),
-    ServiceLifetime.SINGLETON
-  );
+  // Statistics Service는 React Query로 마이그레이션되어 DI 컨테이너에서 제외
+  // container.registerFactory(
+  //   SERVICE_TOKENS.STATISTICS_SERVICE,
+  //   () => statisticsService,
+  //   ServiceLifetime.SINGLETON
+  // );
 
   container.registerFactory(
     SERVICE_TOKENS.USER_SERVICE,
@@ -86,7 +88,8 @@ export const registerServices = () => {
 export const getRunningService = () => container.resolve<RunningService>(SERVICE_TOKENS.RUNNING_SERVICE);
 export const getAuthService = () => container.resolve<AuthenticationService>(SERVICE_TOKENS.AUTH_SERVICE);
 export const getAvatarService = () => container.resolve<AvatarService>(SERVICE_TOKENS.AVATAR_SERVICE);
-export const getStatisticsService = () => container.resolve<StatisticsService>(SERVICE_TOKENS.STATISTICS_SERVICE);
+// Statistics Service는 React Query hooks로 대체됨 (useGetStatisticsSummary 등)
+// export const getStatisticsService = () => container.resolve<StatisticsService>(SERVICE_TOKENS.STATISTICS_SERVICE);
 export const getUserService = () => container.resolve<UserService>(SERVICE_TOKENS.USER_SERVICE);
 export const getUnityService = () => container.resolve<UnityService>(SERVICE_TOKENS.UNITY_SERVICE);
 export const getStorageService = () => container.resolve<UserStateManager>(SERVICE_TOKENS.STORAGE_SERVICE);

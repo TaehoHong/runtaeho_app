@@ -1,7 +1,6 @@
 import { Tabs } from 'expo-router';
 import { useAppStore, RunningState, ViewState } from '~/stores/app/appStore';
-import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import { Icon } from '~/shared/components/ui';
 
 /**
  * 메인 탭 네비게이션 레이아웃
@@ -53,7 +52,7 @@ export default function TabLayout() {
         options={{
           title: '내정보',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
+            <Icon name = 'myinfo' size={size} tintColor={color} />
           ),
         }}
       />
@@ -62,7 +61,7 @@ export default function TabLayout() {
         options={{
           title: '러닝',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="walk-outline" size={size} color={color} />
+            <Icon name = 'shoe' size={size} tintColor={color} />
           ),
         }}
       />
@@ -71,7 +70,7 @@ export default function TabLayout() {
         options={{
           title: '통계',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="bar-chart-outline" size={size} color={color} />
+            <Icon name = 'chart' size={size} tintColor={color} />
           ),
         }}
       />

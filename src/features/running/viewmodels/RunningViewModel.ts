@@ -5,10 +5,12 @@ import {
   useUpdateRunningRecord,
   useDeleteRunningRecord,
 } from '../../../services/running';
-import {
+import type {
   RunningRecord,
   EndRunningRecord,
   Location,
+} from '../models';
+import {
   createRunningRecord,
   updateRunningRecord,
   formatRunningRecord,

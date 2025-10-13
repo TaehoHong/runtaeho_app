@@ -4,7 +4,7 @@
  */
 
 import type { UnityAvatarDto } from '../../unity/types/UnityTypes';
-import { Item } from './Item';
+import type { Item } from './Item';
 
 /**
  * 아바타 기본 모델

@@ -94,7 +94,7 @@ export const useRemoveAllAvatarItems = () => {
  * 기존: useGetAllItemsQuery()
  */
 export const useGetAllItems = (params: ItemSearch, options?: { enabled?: boolean }) => {
-  return useQuery({
+  return useQuery<import('../../features/avatar/models').ItemListResponse>({
     queryKey: queryKeys.avatar.items,
     queryFn: () => avatarService.getAllItems(params),
     enabled: options?.enabled,
@@ -207,12 +207,12 @@ export const useGetItemTypes = (options?: { enabled?: boolean }) => {
  */
 export const useSearchItems = (
   params: ItemSearch & { query: string },
-  options?: { enabled?: boolean }
+  options?: { enabled?: boolean; skip?: boolean }
 ) => {
-  return useQuery({
+  return useQuery<import('../../features/avatar/models').ItemListResponse>({
     queryKey: [...queryKeys.avatar.items, 'search', params],
     queryFn: () => avatarService.searchItems(params),
-    enabled: options?.enabled,
+    enabled: options?.enabled !== false && !options?.skip,
   });
 };
 

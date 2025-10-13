@@ -6,8 +6,8 @@ import {
   useRemoveAvatarItem,
   useRemoveAllAvatarItems,
 } from '../../../services/avatar';
+import type { Avatar } from '../models';
 import {
-  Avatar,
   formatAvatar,
   validateAvatar,
   groupItemsByType,

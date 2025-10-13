@@ -27,7 +27,7 @@ export const useInfiniteShoes = (
         size: params.size || 10,
       }),
     initialPageParam: undefined as number | undefined,
-    getNextPageParam: (lastPage: CursorResult<Shoe>) => (lastPage.hasNext ? lastPage.cursor : undefined),
+    getNextPageParam: (lastPage: CursorResult<Shoe>) => (lastPage.hasNext ? lastPage.nextCursor : undefined),
     ...(options?.enabled !== undefined && { enabled: options.enabled }),
   });
 };

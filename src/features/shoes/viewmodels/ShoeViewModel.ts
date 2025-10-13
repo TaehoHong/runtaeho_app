@@ -161,7 +161,7 @@ export const useShoeViewModel = () => {
    */
   const shoes = useMemo(() => {
     if (!infiniteShoesData?.pages) return [];
-    return infiniteShoesData.pages.flatMap(page => page.content);
+    return infiniteShoesData.pages.flatMap(page => page.contents);
   }, [infiniteShoesData]);
 
   /**

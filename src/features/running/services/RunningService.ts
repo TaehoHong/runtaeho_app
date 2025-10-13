@@ -6,7 +6,8 @@
  * 이 서비스는 복잡한 러닝 관련 비즈니스 로직이나 유틸리티 함수들을 위해 사용
  */
 
-import { RunningRecord, /* EndRunningRecord, */ Location, calculateTotalDistance } from '../models';
+import type { RunningRecord, /* EndRunningRecord, */ Location } from '../models';
+import { calculateTotalDistance } from '../models';
 
 export class RunningService {
   private static instance: RunningService;

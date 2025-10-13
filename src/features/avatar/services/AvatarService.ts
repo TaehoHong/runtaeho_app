@@ -3,11 +3,13 @@
  * Swift Avatar 비즈니스 로직을 TypeScript로 마이그레이션
  */
 
-import {
+import type {
   Avatar,
   AvatarItem,
   Item,
   // UserItem, // TODO: 향후 사용자 아바타 데이터 처리용
+} from '../models';
+import {
   validateAvatar,
   groupItemsByType,
   getEquippedItems,

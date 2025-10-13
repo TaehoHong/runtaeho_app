@@ -111,11 +111,10 @@ export const queryKeys = {
   // Statistics 관련 Query Keys
   statistics: {
     all: ['statistics'] as const,
-    summary: (filters: {
-      period: string;
-      startDate?: string;
-      endDate?: string;
-    }) => ['statistics', 'summary', filters] as const,
+    summary: (params: {
+      statisticType: string;
+      timezone?: string;
+    }) => ['statistics', 'summary', params] as const,
     chart: (filters: {
       period: string;
       startDate?: string;

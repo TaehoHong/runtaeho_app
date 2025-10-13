@@ -41,7 +41,7 @@ export const useInfinitePointHistories = (
     },
     initialPageParam: undefined as number | undefined,
     getNextPageParam: (lastPage) => {
-      return lastPage.hasNext && lastPage.cursor !== undefined ? lastPage.cursor : undefined;
+      return lastPage.hasNext && lastPage.nextCursor !== undefined ? lastPage.nextCursor : undefined;
     },
     ...options,
   });

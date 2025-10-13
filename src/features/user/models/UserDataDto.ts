@@ -1,6 +1,8 @@
 import { AuthProviderType } from '../../auth/models/AuthType';
-import { User, createUser } from './User';
-import { UserAccount, createUserAccount } from './UserAccount';
+import type { User } from './User';
+import { createUser } from './User';
+import type { UserAccount } from './UserAccount';
+import { createUserAccount } from './UserAccount';
 
 /**
  * User Data DTO

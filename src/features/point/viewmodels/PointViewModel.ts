@@ -69,10 +69,10 @@ export const usePointViewModel = (point: number = useUserStore(state => state.to
    * Swift allRecentHistories 업데이트 로직
    */
   useEffect(() => {
-    if (recentHistoriesData?.content) {
-      const viewModels = recentHistoriesData.content.map(createPointHistoryViewModel);
+    if (recentHistoriesData?.contents) {
+      const viewModels = recentHistoriesData.contents.map(createPointHistoryViewModel);
       setAllRecentHistories(viewModels);
-      setLastPointHistoryId(recentHistoriesData.cursor);
+      setLastPointHistoryId(recentHistoriesData.nextCursor);
     }
   }, [recentHistoriesData]);
 
@@ -81,8 +81,8 @@ export const usePointViewModel = (point: number = useUserStore(state => state.to
    * Swift olderHistories 업데이트 로직
    */
   useEffect(() => {
-    if (olderHistoriesData?.content) {
-      const viewModels = olderHistoriesData.content.map(createPointHistoryViewModel);
+    if (olderHistoriesData?.contents) {
+      const viewModels = olderHistoriesData.contents.map(createPointHistoryViewModel);
       setOlderHistories(prev => [...prev, ...viewModels]);
     }
   }, [olderHistoriesData]);

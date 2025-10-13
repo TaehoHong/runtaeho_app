@@ -14,9 +14,8 @@ export const ICONS = {
   treshcan: require('../../../assets/images/icons/treshcan.png'),
   shoe: require('../../../assets/images/icons/shoe.png'),
   unpack: require('../../../assets/images/icons/unpack.png'),
-  // 추가 아이콘들은 여기에 등록
-  // shoes: require('../../../assets/images/icons/shoes.png'),
-  // avatar: require('../../../assets/images/icons/avatar.png'),
+  chart: require('../../../assets/images/icons/chart-icon.png'),
+  myinfo: require('../../../assets/images/icons/myinfo-icon.png'),
 } as const;
 
 // 아이콘 이름 타입

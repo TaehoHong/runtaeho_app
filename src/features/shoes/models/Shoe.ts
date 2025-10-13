@@ -68,13 +68,10 @@ export interface ShoeViewModel {
 }
 
 /**
- * 커서 결과 모델 (재사용)
+ * 커서 결과 모델 (재export)
+ * 실제 타입 정의는 ~/shared/utils/dto/CursorResult 참조
  */
-export interface CursorResult<T> {
-  content: T[];
-  cursor?: number | undefined;
-  hasNext: boolean;
-}
+export type { CursorResult } from '~/shared/utils/dto/CursorResult';
 
 /**
  * 신발 생성 헬퍼 함수

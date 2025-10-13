@@ -57,7 +57,7 @@ export const API_ENDPOINTS = {
     START: '/running/start',
     END: (id: number) => `/running/${id}/end`,
     DETAIL: (id: number) => `/running/${id}`,
-    SEARCH: '/running/search',
+    SEARCH: '/running',
   },
   AVATAR: {
     BASE: '/avatars',
@@ -91,17 +91,6 @@ export const API_ENDPOINTS = {
   },
   
   STATISTICS: {
-    SUMMARY: '/statistics/summary',
-    CHART: '/statistics/chart',
-    MONTHLY: '/statistics/monthly',
-    WEEKLY: '/statistics/weekly',
-    YEARLY: '/statistics/yearly',
-    RECORDS: '/statistics/records',
-    TRENDS: '/statistics/trends',
-    GOALS: '/statistics/goals',
-    COMPARISON: '/statistics/comparison',
-    CONSISTENCY: '/statistics/consistency',
-    TIME_PATTERNS: '/statistics/time-patterns',
-    DASHBOARD: '/statistics/dashboard',
+    SUMMARY: '/running/statistics',
   },
 } as const;
