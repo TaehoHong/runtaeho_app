@@ -99,8 +99,8 @@ export const runningService = {
         { params: queryParams }
       );
 
-      records.push(...data.contents);
-      cursor = data.nextCursor;
+      records.push(...data.content);
+      cursor = data.cursor;
       hasNext = data.hasNext;
     }
 

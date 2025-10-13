@@ -1,19 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useGetRunningRecords } from '../../../services/running';
-import type {
-  ChartDataPoint,
-  StatisticsSummary,
-  ExtendedStatisticsSummary,
-} from '../models';
-import {
-  Period,
-  calculateStatistics,
-  filterRecordsByPeriod,
-  generateChartData,
-} from '../models';
-import {
-  useGetStatisticsSummary,
-} from '../services';
+import type { ChartDataPoint, StatisticsSummary, ExtendedStatisticsSummary } from '../models';
+import { Period, calculateStatistics, filterRecordsByPeriod, generateChartData } from '../models';
+import { useGetStatisticsSummary } from '../services';
 
 /**
  * 백엔드 응답을 확장된 형태로 변환
@@ -67,7 +56,7 @@ export const useStatisticsViewModel = (period: Period = Period.MONTH) => {
   // 러닝 기록 배열 추출
   const runningRecords = useMemo(() => {
     if (!runningRecordsResponse) return [];
-    return runningRecordsResponse.contents || [];
+    return runningRecordsResponse.content || [];
   }, [runningRecordsResponse]);
 
   // 기간별 필터링된 레코드

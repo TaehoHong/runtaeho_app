@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { useAppStore, RunningState, ViewState } from '~/stores/app/appStore';
 import { Icon } from '~/shared/components/ui';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 /**
  * 메인 탭 네비게이션 레이아웃
@@ -31,13 +32,13 @@ export default function TabLayout() {
           borderTopWidth: 1,
           borderTopColor: 'rgba(0,0,0,0.2)',
           paddingBottom: 10,
-          paddingTop: 10,
+          paddingTop: 5,
           height: 60,
           opacity: shouldShowTabBar ? 1 : 0,
           pointerEvents: shouldShowTabBar ? 'auto' : 'none',
         },
-        tabBarActiveTintColor: '#4d99e5',
-        tabBarInactiveTintColor: '#666666',
+        tabBarActiveTintColor: '#45DA31',
+        tabBarInactiveTintColor: '#B4B4B4',
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '500',

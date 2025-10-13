@@ -32,8 +32,8 @@ export const useRunningRecordViewModel = () => {
     } = useGetRunningRecords(params);
 
     return {
-      records: data?.contents || [],
-      cursor: data?.nextCursor,
+      records: data?.content || [],
+      cursor: data?.cursor,
       hasNext: data?.hasNext || false,
       error,
       isLoading,
@@ -89,7 +89,7 @@ export const useRunningRecordViewModel = () => {
     } = useInfiniteRunningRecords(params);
 
     // 모든 페이지의 기록을 평탄화
-    const allRecords = data?.pages.flatMap(page => page.contents) || [];
+    const allRecords = data?.pages.flatMap(page => page.content) || [];
 
     return {
       records: allRecords,

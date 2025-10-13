@@ -16,7 +16,6 @@ import { Period } from '../models';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStatisticsViewModel } from '../viewmodels';
 import { DateFilterTabs } from './components/DateFilterTabs';
-import { EmptyState } from './components/EmptyState';
 import { PeriodChart } from './components/PeriodChart';
 import { RunningRecordList } from './components/RunningRecordList';
 import { StatisticsSummaryCard } from './components/StatisticsSummaryCard';
@@ -103,11 +102,7 @@ export const StatisticsView = () => {
         )}
 
         {/* Empty State 또는 러닝 기록 리스트 */}
-        {isEmpty ? (
-          <EmptyState message="러닝을 시작하면 기록이 생겨요!" />
-        ) : (
-          <RunningRecordList period={selectedPeriod} />
-        )}
+        <RunningRecordList period={selectedPeriod} />
       </>
     );
   };

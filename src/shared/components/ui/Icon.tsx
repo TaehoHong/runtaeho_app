@@ -1,6 +1,6 @@
-import React from 'react';
 import { Image } from 'expo-image';
-import { StyleSheet, type ImageStyle } from 'react-native';
+import React from 'react';
+import { StyleSheet, type ImageStyle, type StyleProp } from 'react-native';
 import { ICONS, type IconName } from '~/shared/constants/images';
 
 /**
@@ -20,7 +20,7 @@ interface IconProps {
   /** 아이콘 색상 (tintColor 적용) */
   tintColor?: string;
   /** 추가 스타일 */
-  style?: ImageStyle;
+  style?: StyleProp<ImageStyle>;
   /** contentFit 모드 (기본값: contain) */
   contentFit?: 'contain' | 'cover' | 'fill' | 'none' | 'scale-down';
 }
@@ -38,7 +38,7 @@ export const Icon: React.FC<IconProps> = ({
       style={[
         styles.icon,
         { width: size, height: size },
-        tintColor && { tintColor },
+        tintColor ? ({ tintColor } as ImageStyle) : undefined,
         style,
       ]}
       contentFit={contentFit}

@@ -4,8 +4,8 @@
  * RTK Query → Axios
  */
 
-import { apiClient } from '../api/client';
-import { API_ENDPOINTS } from '../api/config';
+import { apiClient } from '~/services/api/client';
+import { API_ENDPOINTS } from '~/services/api/config';
 import { type CursorResult } from '~/shared/utils/dto/CursorResult';
 import {
   type RunningRecord,
@@ -99,8 +99,8 @@ export const runningService = {
         { params: queryParams }
       );
 
-      records.push(...data.contents);
-      cursor = data.nextCursor;
+      records.push(...data.content);
+      cursor = data.cursor;
       hasNext = data.hasNext;
     }
 
