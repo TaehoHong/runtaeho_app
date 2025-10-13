@@ -14,12 +14,13 @@ import { statisticsService } from './statisticsService';
 /**
  * 기간별 통계 요약 조회
  * 기존: useGetStatisticsSummaryQuery()
- * 백엔드 API: GET /api/v1/running/statistics?statisticType=WEEKLY
+ * 백엔드 API: GET /api/v1/running/statistics?startDateTime={start}&endDateTime={end}&statisticType={type}
  */
 export const useGetStatisticsSummary = (
   params: {
+    startDateTime: Date;
+    endDateTime: Date;
     statisticType: Period;
-    timezone?: string;
   },
   options?: { enabled?: boolean }
 ) => {

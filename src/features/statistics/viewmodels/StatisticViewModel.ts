@@ -1,8 +1,48 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useGetRunningRecords } from '../../../services/running';
-import type { ChartDataPoint, StatisticsSummary, ExtendedStatisticsSummary } from '../models';
-import { Period, calculateStatistics, filterRecordsByPeriod, generateChartData } from '../models';
+import type { ChartDataPoint, StatisticsSummary, ExtendedStatisticsSummary, RunningChartDto } from '../models';
+import { Period, calculateStatistics, filterRecordsByPeriod, getStartOfWeek, getStartOfMonth, getStartOfYear } from '../models';
 import { useGetStatisticsSummary } from '../services';
+
+/**
+ * Period에 따라 시작/종료 날짜 계산
+ */
+const calculateDateRange = (period: Period, referenceDate: Date = new Date()): { startDateTime: Date; endDateTime: Date } => {
+  const endDateTime = new Date(referenceDate);
+  endDateTime.setHours(23, 59, 59, 999);
+
+  let startDateTime: Date;
+
+  switch (period) {
+    case Period.WEEK:
+      startDateTime = getStartOfWeek(referenceDate);
+      break;
+    case Period.MONTH:
+      startDateTime = getStartOfMonth(referenceDate);
+      break;
+    case Period.YEAR:
+      startDateTime = getStartOfYear(referenceDate);
+      break;
+  }
+
+  startDateTime.setHours(0, 0, 0, 0);
+
+  return { startDateTime, endDateTime };
+};
+
+/**
+ * 백엔드 차트 데이터를 UI용 차트 데이터로 변환
+ */
+const convertChartData = (backendChartData: RunningChartDto[]): ChartDataPoint[] => {
+  return backendChartData.map(item => ({
+    datetime: item.datetime,
+    distance: item.distance,
+    durationSec: item.durationSec,
+    paceSec: item.paceSec,
+    speed: item.durationSec > 0 ? (item.distance / 1000) / (item.durationSec / 3600) : 0, // km/h
+    calories: 0, // 백엔드에서 제공하지 않으므로 0으로 설정
+  }));
+};
 
 /**
  * 백엔드 응답을 확장된 형태로 변환
@@ -16,8 +56,8 @@ const convertToExtendedSummary = (
     // 별칭
     runCount: summary.runningCount,
     totalDuration: summary.totalDurationSec,
-    // 변환
-    averagePace: summary.averagePaceSec / 60, // 초 → 분/km
+    // 변환: averagePaceSec는 초/미터 단위
+    averagePace: summary.averagePaceSec * 1000 * 60, // 초/미터 → 분/km
     // 로컬 계산
     averageDuration: summary.runningCount > 0 ? summary.totalDurationSec / summary.runningCount : 0,
     averageSpeed: summary.totalDurationSec > 0 ? (summary.totalDistance / 1000) / (summary.totalDurationSec / 3600) : 0,
@@ -28,18 +68,28 @@ const convertToExtendedSummary = (
 
 /**
  * 메인 Statistics ViewModel
- * 나머지는 로컬에서 계산
+ * 백엔드 API를 우선 사용하고, 칼로리 정보만 로컬에서 계산
  */
 export const useStatisticsViewModel = (period: Period = Period.MONTH) => {
   const [selectedPeriod, setSelectedPeriod] = useState<Period>(period);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Period에 따른 날짜 범위 계산
+  const { startDateTime, endDateTime } = useMemo(() => {
+    return calculateDateRange(selectedPeriod);
+  }, [selectedPeriod]);
+
+  // 백엔드 통계 조회
   const {
     data: summary,
     error: summaryError,
     isLoading: summaryLoading,
     refetch: refetchSummary,
-  } = useGetStatisticsSummary({ statisticType: selectedPeriod });
+  } = useGetStatisticsSummary({
+    startDateTime,
+    endDateTime,
+    statisticType: selectedPeriod,
+  });
 
   // 러닝 기록 조회 (로컬 계산용)
   const {
@@ -81,6 +131,7 @@ export const useStatisticsViewModel = (period: Period = Period.MONTH) => {
     // fallback: 로컬 계산 (이미 ExtendedStatisticsSummary 형태)
     return {
       statisticType: selectedPeriod,
+      chartData: [],  // 백엔드 실패 시 빈 배열
       runningCount: localStats.runCount,
       totalDistance: localStats.totalDistance,
       totalDurationSec: localStats.totalDuration,
@@ -96,10 +147,13 @@ export const useStatisticsViewModel = (period: Period = Period.MONTH) => {
     };
   }, [summary, localStats, selectedPeriod]);
 
-  // 차트 데이터 (로컬에서 생성)
+  // 차트 데이터 (백엔드에서 제공)
   const chartData = useMemo(() => {
-    return generateChartData(filteredRecords, selectedPeriod);
-  }, [filteredRecords, selectedPeriod]);
+    if (summary?.chartData) {
+      return convertChartData(summary.chartData);
+    }
+    return [];
+  }, [summary]);
 
   // 통계 요약 정보 포맷팅
   const formattedSummary = useMemo(() => {
@@ -120,12 +174,13 @@ export const useStatisticsViewModel = (period: Period = Period.MONTH) => {
 
     return chartData.map((point: ChartDataPoint) => ({
       ...point,
-      formattedDate: new Date(point.date).toLocaleDateString('ko-KR', {
+      formattedDate: new Date(point.datetime).toLocaleDateString('ko-KR', {
         month: 'short',
         day: 'numeric',
       }),
       formattedDistance: `${(point.distance / 1000).toFixed(1)}km`,
-      formattedDuration: `${Math.floor(point.duration / 60)}분`,
+      formattedDuration: `${Math.floor(point.durationSec / 60)}분`,
+      formattedPace: `${(point.paceSec * 1000 * 60).toFixed(2)}분/km`, // 초/미터 → 분/km
     }));
   }, [chartData]);
 

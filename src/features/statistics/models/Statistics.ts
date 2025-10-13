@@ -14,15 +14,28 @@ export enum Period {
 }
 
 /**
+ * 백엔드 차트 데이터 포인트
+ * 백엔드 API Response의 chartData 배열 항목
+ */
+export interface RunningChartDto {
+  datetime: string;      // 날짜 문자열 (예: "2024-01-01")
+  paceSec: number;       // 페이스 (초/미터)
+  distance: number;      // 거리 (미터)
+  durationSec: number;   // 시간 (초)
+}
+
+/**
  * 통계 기본 정보 (백엔드 응답)
+ * GET /api/v1/running/statistics API Response
  */
 export interface StatisticsSummary {
   statisticType: Period;
+  chartData: RunningChartDto[];  // 백엔드에서 제공하는 차트 데이터
   runningCount: number;
-  totalDistance: number; // in meters
-  totalDurationSec: number; // in seconds
-  averageDistance: number;
-  averagePaceSec: number; // seconds per km (백엔드는 초 단위)
+  totalDistance: number;         // 미터 단위
+  totalDurationSec: number;      // 초 단위
+  averageDistance: number;       // 미터 단위
+  averagePaceSec: number;        // 초/미터 단위
 }
 
 /**
@@ -39,15 +52,15 @@ export interface ExtendedStatisticsSummary extends StatisticsSummary {
 }
 
 /**
- * 차트 데이터 포인트
+ * 차트 데이터 포인트 (UI용, 백엔드 응답에 추가 필드 포함)
  */
 export interface ChartDataPoint {
-  date: string;
-  distance: number;
-  duration: number;
-  calories: number;
-  pace: number;
-  speed: number;
+  datetime: string;      // 백엔드와 일치 (date -> datetime)
+  distance: number;      // 미터 단위
+  durationSec: number;   // 백엔드와 일치 (duration -> durationSec), 초 단위
+  paceSec: number;       // 백엔드와 일치 (pace -> paceSec), 초/미터 단위
+  speed: number;         // km/h (로컬 계산)
+  calories: number;      // 칼로리 (로컬 계산)
 }
 
 /**
@@ -150,7 +163,7 @@ export const filterRecordsByPeriod = (records: RunningRecord[], period: Period, 
 };
 
 /**
- * 차트 데이터 생성
+ * 차트 데이터 생성 (로컬 계산용)
  */
 export const generateChartData = (records: RunningRecord[], period: Period): ChartDataPoint[] => {
   const groupedData = groupRecordsByPeriod(records, period);
@@ -158,14 +171,14 @@ export const generateChartData = (records: RunningRecord[], period: Period): Cha
   return Object.entries(groupedData).map(([dateKey, periodRecords]) => {
     const stats = calculateStatistics(periodRecords);
     return {
-      date: dateKey,
+      datetime: dateKey,
       distance: stats.totalDistance,
-      duration: stats.totalDuration,
+      durationSec: stats.totalDuration,
       calories: stats.totalCalories,
-      pace: stats.averagePace,
+      paceSec: stats.totalDuration > 0 ? stats.totalDuration / stats.totalDistance : 0, // 초/미터
       speed: stats.averageSpeed,
     };
-  }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }).sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
 };
 
 /**

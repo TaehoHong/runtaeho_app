@@ -10,25 +10,39 @@ import type {
 } from '../models';
 
 /**
+ * LocalDateTime 형식으로 변환
+ * 예: "2024-01-01T00:00:00"
+ */
+const formatToLocalDateTime = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+};
+
+/**
  * Statistics API Service
  */
 export const statisticsService = {
   /**
    * 기간별 통계 요약 조회
-   * 백엔드 API: GET /api/v1/running/statistics?statisticType=WEEKLY&timezone=UTC
    */
   getStatisticsSummary: async (params: {
+    startDateTime: Date;
+    endDateTime: Date;
     statisticType: Period;
-    timezone?: string;
   }): Promise<StatisticsSummary> => {
     const requestParams = {
+      startDateTime: formatToLocalDateTime(params.startDateTime),
+      endDateTime: formatToLocalDateTime(params.endDateTime),
       statisticType: params.statisticType,
-      timezone: params.timezone || 'UTC',
     };
 
     console.log('[STATISTICS_SERVICE] Request params:', requestParams);
-    console.log('[STATISTICS_SERVICE] statisticType value:', params.statisticType);
-    console.log('[STATISTICS_SERVICE] statisticType type:', typeof params.statisticType);
 
     const { data } = await apiClient.get<StatisticsSummary>(
       API_ENDPOINTS.STATISTICS.SUMMARY,
