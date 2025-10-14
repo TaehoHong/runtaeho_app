@@ -4,12 +4,8 @@
 
 import { apiClient } from '../../../services/api/client';
 import { API_ENDPOINTS } from '../../../services/api/config';
-import type {
-  CursorResult,
-  PointHistory,
-  PointHistoryRequest,
-} from '../models';
-
+import type { PointHistory, PointHistoryRequest } from '../models';
+import type { CursorResult } from '~/shared/utils/dto/CursorResult';
 /**
  * Point API Service
  */

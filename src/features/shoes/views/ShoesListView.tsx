@@ -209,32 +209,6 @@ export const ShoesListView: React.FC<ShoesListViewProps> = ({ onClose }) => {
           />
         </Modal>
       )}
-
-      {/* 신발 수정 모달 */}
-      {showEditShoeView && selectedShoe && (
-        <Modal
-          visible={showEditShoeView}
-          animationType="slide"
-          presentationStyle="fullScreen"
-          onRequestClose={() => setShowEditShoeView(false)}
-        >
-          <EditShoeView
-            shoe={{
-              id: selectedShoe.id,
-              brand: selectedShoe.brand,
-              model: selectedShoe.model,
-              totalDistance: selectedShoe.totalDistance,
-              targetDistance: selectedShoe.targetDistance,
-              isMain: selectedShoe.isMain,
-              isEnabled: true,
-            }}
-            onClose={() => setShowEditShoeView(false)}
-            onSuccess={() => {
-              refreshShoes();
-            }}
-          />
-        </Modal>
-      )}
     </SafeAreaView>
   );
 };

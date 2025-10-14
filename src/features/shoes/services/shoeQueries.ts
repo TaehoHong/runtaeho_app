@@ -4,8 +4,9 @@
 
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../../services/queryClient';
-import type { AddShoeDto, CursorResult, PatchShoeDto, Shoe, ShoeListRequest } from '../models';
+import type { AddShoeDto, PatchShoeDto, Shoe } from '../models';
 import { shoeService } from './shoeService';
+import type { CursorResult } from '~/shared/utils/dto/CursorResult';
 
 
 /**
@@ -27,7 +28,7 @@ export const useInfiniteShoes = (
         size: params.size || 10,
       }),
     initialPageParam: undefined as number | undefined,
-    getNextPageParam: (lastPage: CursorResult<Shoe>) => (lastPage.hasNext ? lastPage.nextCursor : undefined),
+    getNextPageParam: (lastPage: CursorResult<Shoe>) => (lastPage.hasNext ? lastPage.cursor : undefined),
     ...(options?.enabled !== undefined && { enabled: options.enabled }),
   });
 };

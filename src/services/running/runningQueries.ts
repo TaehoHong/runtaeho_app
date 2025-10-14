@@ -114,7 +114,7 @@ export const useInfiniteRunningRecords = (
         size: params.size,
       }),
     initialPageParam: undefined as number | undefined,
-    getNextPageParam: (lastPage) => (lastPage.hasNext ? lastPage.nextCursor : undefined),
+    getNextPageParam: (lastPage) => (lastPage.hasNext ? lastPage.cursor : undefined),
     enabled: options?.enabled ?? true,
   });
 };

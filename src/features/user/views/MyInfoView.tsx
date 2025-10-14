@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { PointHistoryView } from '~/features/point/views';
 import { ShoesListView } from '~/features/shoes/views';
+import { AvatarView } from '~/features/avatar/views';
 import type { User } from '../models';
 
 /**
@@ -268,19 +269,7 @@ const ShoesModal: React.FC<ModalProps> = ({ visible, onClose }) => {
 const AvatarModal: React.FC<ModalProps> = ({ visible, onClose }) => {
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={styles.modalContainer}>
-        <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>아바타</Text>
-          <TouchableOpacity onPress={onClose}>
-            <Ionicons name="close" size={24} color="#666" />
-          </TouchableOpacity>
-        </View>
-        <View style={styles.modalContent}>
-          <Text>Unity 캐릭터</Text>
-          <Text>아이템 목록</Text>
-          <Text>구매/착용</Text>
-        </View>
-      </View>
+      <AvatarView onClose={onClose} />
     </Modal>
   );
 };

@@ -6,7 +6,7 @@
 
 import { apiClient } from '../api/client';
 import { API_ENDPOINTS } from '../api/config';
-import { type CursorResult } from '~/shared/utils/dto/CursorResult';
+import type { CursorResult } from '~/shared/utils/dto/CursorResult';
 import {
   type RunningRecord,
   type EndRunningRecord,

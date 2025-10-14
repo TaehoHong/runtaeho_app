@@ -46,12 +46,6 @@ export interface PointHistoryRequest {
 }
 
 /**
- * 커서 결과 모델 (재export)
- * 실제 타입 정의는 ~/shared/utils/dto/CursorResult 참조
- */
-export type { CursorResult } from '~/shared/utils/dto/CursorResult';
-
-/**
  * 포인트 히스토리 뷰모델
  */
 export interface PointHistoryViewModel {

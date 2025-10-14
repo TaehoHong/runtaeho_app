@@ -13,7 +13,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { type User } from '~/features/user/models/User';
 import { type UserAccount } from '~/features/user/models/UserAccount';
-import { type AvatarItem } from '~/features/avatar/models';
+import type { AvatarItem, EquippedItemsMap, ItemType } from '~/features/avatar';
 import { type UserDataDto, userDataDtoToUser } from '~/features/user/models/UserDataDto';
 
 /**
@@ -68,7 +68,7 @@ interface UserState {
 
   // Avatar 정보
   avatarId: number;
-  equippedItems: Record<string, AvatarItem>;
+  equippedItems: EquippedItemsMap; // ItemType을 key로 하는 맵
 
   // User Preferences
   userPreferences: UserPreferences;
@@ -85,7 +85,7 @@ interface UserState {
     user: User;
     totalPoint: number;
     avatarId: number;
-    equippedItems: Record<string, AvatarItem>;
+    equippedItems: EquippedItemsMap;
   }) => void;
   logout: () => void;
   updateProfile: (params: { nickname?: string; profileImageURL?: string }) => void;
@@ -96,7 +96,9 @@ interface UserState {
   setNickname: (nickname: string) => void;
   setLevel: (level: number) => void;
   setAvatarId: (avatarId: number) => void;
-  setEquippedItems: (items: Record<string, AvatarItem>) => void;
+  setEquippedItems: (items: EquippedItemsMap) => void;
+  deductPoints: (amount: number) => void; // 포인트 차감 추가
+  updateEquippedItem: (itemType: ItemType, item: AvatarItem) => void; // 개별 아이템 업데이트
   setUserPreferences: (preferences: UserPreferences) => void;
   updateUserPreferences: (preferences: Partial<UserPreferences>) => void;
   incrementAppLaunchCount: () => void;
@@ -105,7 +107,7 @@ interface UserState {
   syncUserData: (params: {
     totalPoint?: number;
     avatarId?: number;
-    equippedItems?: Record<string, AvatarItem>;
+    equippedItems?: EquippedItemsMap;
     level?: number;
   }) => void;
   resetAppState: () => void;
@@ -315,6 +317,27 @@ export const useUserStore = create<UserState>()(
         }),
 
       /**
+       * 포인트 차감
+       * 아바타 아이템 구매 시 사용
+       */
+      deductPoints: (amount) =>
+        set((state) => ({
+          totalPoint: Math.max(0, state.totalPoint - amount),
+        })),
+
+      /**
+       * 개별 아이템 업데이트
+       * 카테고리별로 아이템 교체 시 사용
+       */
+      updateEquippedItem: (itemType, item) =>
+        set((state) => ({
+          equippedItems: {
+            ...state.equippedItems,
+            [itemType]: item,
+          },
+        })),
+
+      /**
        * 사용자 환경설정 설정
        * 기존: setUserPreferences reducer
        */
@@ -420,23 +443,20 @@ export const useUserStore = create<UserState>()(
       login: (userData) => {
         const user = userDataDtoToUser(userData);
 
-        // EquippedItemDataDto를 AvatarItem으로 변환
-        const convertEquippedItems = (equippedItems: any[]): Record<string, AvatarItem> => {
-          const result: Record<string, AvatarItem> = {};
+        // EquippedItemDataDto를 EquippedItemsMap으로 변환
+        const convertEquippedItems = (equippedItems: any[]): EquippedItemsMap => {
+          const result: any = {};
 
           equippedItems.forEach((item) => {
-            result[item.itemTypeId] = {
+            const itemType = item.itemTypeId as ItemType;
+            result[itemType] = {
               id: item.id,
-              item: {
-                id: item.id,
-                itemType: { id: item.itemTypeId, name: String(item.itemTypeId) },
-                name: item.name,
-                unityFilePath: item.unityFilePath,
-                filePath: item.filePath,
-                point: 0,
-                createdAt: new Date().toISOString(),
-              },
-              isEnabled: true,
+              name: item.name,
+              itemType: itemType,
+              filePath: item.filePath,
+              unityFilePath: item.unityFilePath,
+              status: 'EQUIPPED' as const,
+              price: undefined,
             };
           });
 

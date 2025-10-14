@@ -5,12 +5,12 @@
 import { apiClient } from '../../../services/api/client';
 import { API_ENDPOINTS } from '../../../services/api/config';
 import type {
-  AddShoeDto,
-  CursorResult,
-  PatchShoeDto,
+  AddShoeDto,  PatchShoeDto,
   Shoe,
   ShoeListRequest,
 } from '../models';
+import type { CursorResult } from '~/shared/utils/dto/CursorResult';
+
 
 export const shoeService = {
   /**
