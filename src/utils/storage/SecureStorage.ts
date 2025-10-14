@@ -61,7 +61,7 @@ class SecureStorageImpl implements ISecureStorage {
       const value = await SecureStore.getItemAsync(fullKey);
 
       if (value) {
-        console.log(`🔐 [SecureStorage] Loaded: ${key}`);
+        console.log(`🔐 [SecureStorage] Loaded: ${key} - ${value}`);
         return value;
       }
 

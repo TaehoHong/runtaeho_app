@@ -80,31 +80,6 @@ export interface BiometricCapabilities {
 export type BiometryType = 'fingerprint' | 'face' | 'iris' | 'none';
 
 /**
- * 마이그레이션 결과
- */
-export interface MigrationResult {
-  /**
-   * 마이그레이션 성공 여부
-   */
-  success: boolean;
-
-  /**
-   * 성공적으로 마이그레이션된 키 목록
-   */
-  migratedKeys: string[];
-
-  /**
-   * 실패한 키 목록
-   */
-  failedKeys: string[];
-
-  /**
-   * 이미 마이그레이션 완료되어 건너뛴 경우
-   */
-  skipped: boolean;
-}
-
-/**
  * 토큰 저장소 인터페이스
  */
 export interface ITokenStorage {

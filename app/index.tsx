@@ -59,7 +59,7 @@ export default function Index() {
           console.log('⚠️ [APP] /(tabs)/running 실패, /(tabs) 시도');
           try {
             router.replace('/(tabs)' as any);
-            console.log('✅ [APP] 네비게이션 성공: /(tabs)');
+        console.log('✅ [APP] 네비게이션 성공: /(tabs)');
           } catch (error2) {
             console.log('⚠️ [APP] /(tabs) 실패, push 시도');
             router.push('/(tabs)' as any);

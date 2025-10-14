@@ -82,12 +82,8 @@ export const useAuthSignIn = () => {
         console.log(`✅ [LOGIN] ${provider} 로그인 성공`);
 
         // 성공 시 메인 화면으로 이동
-        try {
-          router.replace('/(tabs)/running');
-          console.log('✅ [LOGIN] 라우팅 성공: /(tabs)/running');
-        } catch (error) {
-          console.error('❌ [LOGIN] 라우팅 실패:', error);
-        }
+        router.replace('/(tabs)');
+        console.log('✅ [LOGIN] 라우팅 성공: /(tabs)');
       } else {
         // 로깅: 로그인 실패
         console.log(`❌ [LOGIN] ${provider} 로그인 실패:`, result.error);

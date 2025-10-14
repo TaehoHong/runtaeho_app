@@ -4,6 +4,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { tokenStorage } from '~/utils/storage';
 
 /**
  * Authentication State
@@ -28,6 +29,11 @@ interface AuthState {
   login: () => void;
   logout: () => void;
   resetAuthState: () => void;
+
+  // Token Management
+  initializeTokens: () => Promise<void>;
+  getAccessTokenSafe: () => Promise<string | null>;
+  getRefreshTokenSafe: () => Promise<string | null>;
 }
 
 /**
@@ -35,7 +41,7 @@ interface AuthState {
  */
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       // Initial State
       isLoggedIn: false,
       accessToken: null,
@@ -114,6 +120,92 @@ export const useAuthStore = create<AuthState>()(
           isLoading: false,
           error: null,
         }),
+
+      /**
+       * SecureStorage에서 토큰 로드 및 Store 동기화
+       * 앱 시작 시 한 번 호출
+       */
+      initializeTokens: async () => {
+        try {
+          console.log('🔐 [AuthStore] Initializing tokens from SecureStorage...');
+          const { accessToken, refreshToken } = await tokenStorage.loadTokens();
+
+          set({
+            accessToken,
+            refreshToken,
+          });
+
+          if (accessToken || refreshToken) {
+            console.log('✅ [AuthStore] Tokens loaded successfully');
+          } else {
+            console.log('⚪ [AuthStore] No tokens found in SecureStorage');
+          }
+        } catch (error) {
+          console.error('❌ [AuthStore] Failed to initialize tokens:', error);
+          set({
+            accessToken: null,
+            refreshToken: null,
+          });
+        }
+      },
+
+      /**
+       * 안전한 액세스 토큰 조회
+       * 메모리에 없으면 SecureStorage에서 fallback
+       */
+      getAccessTokenSafe: async (): Promise<string | null> => {
+        const state = get();
+
+        // 메모리에 있으면 반환
+        if (state.accessToken) {
+          return state.accessToken;
+        }
+
+        // SecureStorage에서 로드 시도
+        try {
+          console.log('🔍 [AuthStore] AccessToken not in memory, loading from SecureStorage...');
+          const token = await tokenStorage.getAccessToken();
+
+          if (token) {
+            set({ accessToken: token });
+            console.log('✅ [AuthStore] AccessToken loaded from SecureStorage');
+          }
+
+          return token;
+        } catch (error) {
+          console.error('❌ [AuthStore] Failed to get access token:', error);
+          return null;
+        }
+      },
+
+      /**
+       * 안전한 리프레시 토큰 조회
+       * 메모리에 없으면 SecureStorage에서 fallback
+       */
+      getRefreshTokenSafe: async (): Promise<string | null> => {
+        const state = get();
+
+        // 메모리에 있으면 반환
+        if (state.refreshToken) {
+          return state.refreshToken;
+        }
+
+        // SecureStorage에서 로드 시도
+        try {
+          console.log('🔍 [AuthStore] RefreshToken not in memory, loading from SecureStorage...');
+          const token = await tokenStorage.getRefreshToken();
+
+          if (token) {
+            set({ refreshToken: token });
+            console.log('✅ [AuthStore] RefreshToken loaded from SecureStorage');
+          }
+
+          return token;
+        } catch (error) {
+          console.error('❌ [AuthStore] Failed to get refresh token:', error);
+          return null;
+        }
+      },
     }),
     {
       name: 'auth-storage', // AsyncStorage key

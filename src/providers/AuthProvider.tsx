@@ -20,12 +20,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   /**
    * 앱 시작 시 저장된 인증 상태 복원
    * - Zustand persist 미들웨어가 자동으로 AsyncStorage에서 상태 복원
+   * - AuthStore에 SecureStorage 토큰 동기화
    * - UserStateManager constructor에서 Keychain 토큰 로드 및 Zustand 동기화
    * - 토큰 유효성 검증만 수행
    */
   const initializeAuthState = useCallback(async () => {
     try {
       console.log('🔍 [AuthProvider] 저장된 인증 상태 확인 중...');
+
+      // 1. AuthStore에 SecureStorage 토큰 동기화
+      const initializeTokens = useAuthStore.getState().initializeTokens;
+      await initializeTokens();
 
       const userStateManager = UserStateManager.getInstance();
 
@@ -72,20 +77,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // ViewState를 Loaded로 설정하여 탭바 표시 보장
         setViewState(ViewState.Loaded);
 
-        // 네비게이션 시도 (여러 방법 시도)
-        try {
-          router.replace('/(tabs)/running');
-          console.log('✅ [AuthProvider] 네비게이션 성공: /(tabs)/running');
-        } catch (navError) {
-          console.log('⚠️ [AuthProvider] /(tabs)/running 실패, /(tabs) 시도');
-          try {
-            router.replace('/(tabs)' as any);
-            console.log('✅ [AuthProvider] 네비게이션 성공: /(tabs)');
-          } catch (navError2) {
-            console.log('⚠️ [AuthProvider] /(tabs) 실패, push 시도');
-            router.push('/(tabs)/running');
-          }
-        }
+        // 네비게이션 시도
+        router.replace('/(tabs)');
+        console.log('✅ [AuthProvider] 네비게이션 성공: /(tabs)');
 
         // iOS와 동일한 권한 요청 (로그인 완료 후 한 번만)
         if (!hasRequestedPermissions) {

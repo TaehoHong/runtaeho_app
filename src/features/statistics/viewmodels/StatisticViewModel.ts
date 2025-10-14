@@ -1,7 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
-import { useGetRunningRecords } from '../../../services/running';
-import type { ChartDataPoint, StatisticsSummary, ExtendedStatisticsSummary, RunningChartDto } from '../models';
-import { Period, calculateStatistics, filterRecordsByPeriod, getStartOfWeek, getStartOfMonth, getStartOfYear } from '../models';
+import { useCallback, useMemo } from 'react';
+import type { ChartDataPoint, ExtendedStatisticsSummary, RunningChartDto } from '../models';
+import { Period, getStartOfWeek, getStartOfMonth, getStartOfYear } from '../models';
 import { useGetStatisticsSummary } from '../services';
 
 /**
@@ -45,107 +44,52 @@ const convertChartData = (backendChartData: RunningChartDto[]): ChartDataPoint[]
 };
 
 /**
- * 백엔드 응답을 확장된 형태로 변환
- */
-const convertToExtendedSummary = (
-  summary: StatisticsSummary,
-  localCalories: { totalCalories: number; averageCalories: number }
-): ExtendedStatisticsSummary => {
-  return {
-    ...summary,
-    // 별칭
-    runCount: summary.runningCount,
-    totalDuration: summary.totalDurationSec,
-    // 변환: averagePaceSec는 초/미터 단위
-    averagePace: summary.averagePaceSec * 1000 * 60, // 초/미터 → 분/km
-    // 로컬 계산
-    averageDuration: summary.runningCount > 0 ? summary.totalDurationSec / summary.runningCount : 0,
-    averageSpeed: summary.totalDurationSec > 0 ? (summary.totalDistance / 1000) / (summary.totalDurationSec / 3600) : 0,
-    totalCalories: localCalories.totalCalories,
-    averageCalories: localCalories.averageCalories,
-  };
-};
-
-/**
  * 메인 Statistics ViewModel
- * 백엔드 API를 우선 사용하고, 칼로리 정보만 로컬에서 계산
+ * 백엔드 API 응답을 사용하여 통계 표시
+ *
+ * @param period - 필터 기간 (View에서 관리)
  */
 export const useStatisticsViewModel = (period: Period = Period.MONTH) => {
-  const [selectedPeriod, setSelectedPeriod] = useState<Period>(period);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
   // Period에 따른 날짜 범위 계산
   const { startDateTime, endDateTime } = useMemo(() => {
-    return calculateDateRange(selectedPeriod);
-  }, [selectedPeriod]);
+    return calculateDateRange(period);
+  }, [period]);
 
   // 백엔드 통계 조회
+  // period가 변경되면 자동으로 새로운 쿼리 실행
   const {
     data: summary,
-    error: summaryError,
-    isLoading: summaryLoading,
-    refetch: refetchSummary,
+    error,
+    isLoading,
+    isRefetching,
+    refetch,
   } = useGetStatisticsSummary({
     startDateTime,
     endDateTime,
-    statisticType: selectedPeriod,
+    statisticType: period,
   });
 
-  // 러닝 기록 조회 (로컬 계산용)
-  const {
-    data: runningRecordsResponse,
-    error: recordsError,
-    isLoading: recordsLoading,
-    refetch: refetchRecords,
-  } = useGetRunningRecords({});
+  const hasError = !!error;
 
-  // 전체 로딩 상태
-  const isLoading = summaryLoading || recordsLoading;
-  const hasError = !!(summaryError || recordsError);
+  // 최종 통계 (백엔드 API 응답을 UI 형태로 변환)
+  const finalStats: ExtendedStatisticsSummary | null = useMemo(() => {
+    if (!summary) return null;
 
-  // 러닝 기록 배열 추출
-  const runningRecords = useMemo(() => {
-    if (!runningRecordsResponse) return [];
-    return runningRecordsResponse.content || [];
-  }, [runningRecordsResponse]);
-
-  // 기간별 필터링된 레코드
-  const filteredRecords = useMemo(() => {
-    return filterRecordsByPeriod(runningRecords, selectedPeriod);
-  }, [runningRecords, selectedPeriod]);
-
-  // 로컬 통계 계산 (칼로리 정보용 + fallback)
-  const localStats = useMemo(() => {
-    return calculateStatistics(filteredRecords);
-  }, [filteredRecords]);
-
-  // 최종 통계 (백엔드 우선, 실패 시 로컬)
-  const finalStats: ExtendedStatisticsSummary = useMemo(() => {
-    if (summary) {
-      // 백엔드 응답을 확장된 형태로 변환
-      return convertToExtendedSummary(summary, {
-        totalCalories: localStats.totalCalories,
-        averageCalories: localStats.averageCalories,
-      });
-    }
-    // fallback: 로컬 계산 (이미 ExtendedStatisticsSummary 형태)
     return {
-      statisticType: selectedPeriod,
-      chartData: [],  // 백엔드 실패 시 빈 배열
-      runningCount: localStats.runCount,
-      totalDistance: localStats.totalDistance,
-      totalDurationSec: localStats.totalDuration,
-      averageDistance: localStats.averageDistance,
-      averagePaceSec: localStats.averagePace * 60, // 분/km → 초/km
-      runCount: localStats.runCount,
-      totalDuration: localStats.totalDuration,
-      averageDuration: localStats.averageDuration,
-      averagePace: localStats.averagePace,
-      averageSpeed: localStats.averageSpeed,
-      totalCalories: localStats.totalCalories,
-      averageCalories: localStats.averageCalories,
+      ...summary,
+      // 별칭
+      runCount: summary.runningCount,
+      totalDuration: summary.totalDurationSec,
+      // 변환: averagePaceSec는 초/미터 단위
+      averagePace: summary.averagePaceSec * 1000 * 60, // 초/미터 → 분/km
+      // 계산
+      averageDuration: summary.runningCount > 0 ? summary.totalDurationSec / summary.runningCount : 0,
+      averageSpeed: summary.totalDurationSec > 0 ? (summary.totalDistance / 1000) / (summary.totalDurationSec / 3600) : 0,
+      // 칼로리는 사용하지 않으므로 0
+      totalCalories: 0,
+      averageCalories: 0,
     };
-  }, [summary, localStats, selectedPeriod]);
+  }, [summary]);
 
   // 차트 데이터 (백엔드에서 제공)
   const chartData = useMemo(() => {
@@ -184,23 +128,10 @@ export const useStatisticsViewModel = (period: Period = Period.MONTH) => {
     }));
   }, [chartData]);
 
-  // 기간 변경 핸들러
-  const handlePeriodChange = useCallback((newPeriod: Period) => {
-    setSelectedPeriod(newPeriod);
-  }, []);
-
   // 새로고침 핸들러
   const handleRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    try {
-      await Promise.all([
-        refetchSummary(),
-        refetchRecords(),
-      ]);
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [refetchSummary, refetchRecords]);
+    await refetch();
+  }, [refetch]);
 
   // 통계 데이터 유효성 검사
   const hasValidData = useMemo(() => {
@@ -213,24 +144,17 @@ export const useStatisticsViewModel = (period: Period = Period.MONTH) => {
     formattedSummary,
     chartData,
     formattedChartData,
-    localStats,
 
     // 상태
-    selectedPeriod,
     isLoading,
-    isRefreshing,
+    isRefreshing: isRefetching,
     hasError,
     hasValidData,
 
     // 에러 정보
-    errors: {
-      summary: summaryError,
-      records: recordsError,
-    },
+    error,
 
     // 액션
-    handlePeriodChange,
     handleRefresh,
-    refetchSummary,
   };
 };

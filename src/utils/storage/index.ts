@@ -24,7 +24,6 @@ export type {
   SecureStorageOptions,
   BiometricCapabilities,
   BiometryType,
-  MigrationResult,
 } from './types';
 
 export { KeychainAccessibility } from './types';
@@ -35,14 +34,6 @@ export { SecureStorageError, SecureStorageErrorCode } from './errors';
 // ===== Core Storage Exports =====
 export { secureStorage } from './SecureStorage';
 export { biometricStorage } from './BiometricStorage';
-
-// ===== Migration Exports =====
-export {
-  migrateFromReactNativeKeychain,
-  rollbackMigration,
-  getMigrationStatus,
-  cleanupReactNativeKeychain,
-} from './migration';
 
 // ===== Token Storage Constants =====
 

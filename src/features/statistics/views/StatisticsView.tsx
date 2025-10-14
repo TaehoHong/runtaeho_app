@@ -24,28 +24,26 @@ export const StatisticsView = () => {
   const [selectedPeriod, setSelectedPeriod] = useState<Period>(Period.MONTH);
 
   const {
+    summary,
     formattedSummary,
     chartData,
     formattedChartData,
-    localStats,
     isLoading,
     isRefreshing,
     hasError,
     hasValidData,
-    errors,
-    handlePeriodChange,
+    error,
     handleRefresh,
   } = useStatisticsViewModel(selectedPeriod);
 
-  // 기간 변경 핸들러
+  // 기간 변경 핸들러 - period가 변경되면 자동으로 통계 데이터 다시 로드
   const onPeriodChange = (period: Period) => {
     setSelectedPeriod(period);
-    handlePeriodChange(period);
   };
 
   // 데이터 상태 계산
-  const isEmpty = !hasValidData || (localStats && localStats.runCount === 0);
-  const displaySummary = formattedSummary || localStats;
+  const isEmpty = !hasValidData;
+  const displaySummary = formattedSummary || summary;
 
   // 컨텐츠 렌더링 함수
   const renderContent = () => {
@@ -65,7 +63,7 @@ export const StatisticsView = () => {
         <View style={styles.centerContainer}>
           <Text style={styles.errorText}>데이터를 불러올 수 없습니다</Text>
           <Text style={styles.errorSubText}>
-            {errors.summary?.message || errors.records?.message || '네트워크를 확인해주세요'}
+            {error?.message || '네트워크를 확인해주세요'}
           </Text>
         </View>
       );
@@ -102,7 +100,7 @@ export const StatisticsView = () => {
         )}
 
         {/* Empty State 또는 러닝 기록 리스트 */}
-        <RunningRecordList period={selectedPeriod} />
+        <RunningRecordList />
       </>
     );
   };

@@ -5,17 +5,15 @@
 
 import React from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator,} from 'react-native';
-import { Period } from '../../models';
 import { EmptyState } from '../components/EmptyState';
 import type { RunningRecord } from '../../../running/models';
 import { formatDuration, calculateAveragePace } from '../../../running/models';
 import { useRunningRecordList } from '../../viewmodels/useRunningRecordList';
 
 interface RunningRecordListProps {
-  period: Period;
 }
 
-export const RunningRecordList: React.FC<RunningRecordListProps> = ({ period }) => {
+export const RunningRecordList: React.FC<RunningRecordListProps> = () => {
   // Hook에서 모든 비즈니스 로직 및 상태 관리
   const {
     records,
@@ -24,7 +22,7 @@ export const RunningRecordList: React.FC<RunningRecordListProps> = ({ period }) 
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
-  } = useRunningRecordList(period);
+  } = useRunningRecordList();
 
   // 로딩 상태
   if (isLoading) {
