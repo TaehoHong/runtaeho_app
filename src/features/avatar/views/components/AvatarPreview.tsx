@@ -7,6 +7,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import type { EquippedItemsMap } from '~/features/avatar';
 import { UNITY_PREVIEW, AVATAR_COLORS } from '~/features/avatar';
+import { UnityView } from '~/features/unity/components/UnityView';
 
 interface Props {
   equippedItems: EquippedItemsMap;
@@ -20,7 +21,7 @@ export const AvatarPreview: React.FC<Props> = ({ equippedItems }) => {
   return (
     <View style={styles.container}>
       <View style={styles.placeholder}>
-        {/* Placeholder for Unity View */}
+        <UnityView style={styles.unity} />
       </View>
     </View>
   );

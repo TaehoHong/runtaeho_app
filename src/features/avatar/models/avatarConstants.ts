@@ -21,16 +21,7 @@ export const AVATAR_API_ENDPOINTS = {
   GET_ITEMS: '/api/v1/items',
   PURCHASE_ITEMS: '/api/v1/user-items',
   GET_MAIN_AVATAR: '/api/v1/avatars/main',
-  UPDATE_EQUIPPED_ITEMS: (avatarId: number) => `/api/v1/avatars/${avatarId}`,
-} as const;
-
-/**
- * API 페이지네이션 설정
- */
-export const PAGINATION_CONFIG = {
-  DEFAULT_PAGE_SIZE: 20,
-  MIN_PAGE_SIZE: 10,
-  MAX_PAGE_SIZE: 50,
+  
 } as const;
 
 // ===================================

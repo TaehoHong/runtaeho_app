@@ -1,265 +1,223 @@
 /**
- * Unity Service for React Native
- *
- * 기존 Unity Service를 새로운 Unity Bridge와 통합
- * Unity Bridge Service를 사용하여 실제 Unity 통신 구현
+ * Unity Bridge Service for React Native
+ * Unity와 React Native 간의 통신을 담당하는 서비스
  */
 
-import { createUnityBridgeService } from '~/features/unity/bridge/UnityBridgeService';
-import type { AvatarItem, CharacterMotion } from '~/features/unity/types/UnityTypes';
-import type { UnityAnimationType, UnityAvatarDto } from '../types/UnityTypes';
-
+import { UnityBridge } from '../bridge/UnityBridge';
+import { type CharacterMotion } from '../types/UnityTypes';
+import type { AvatarItem } from '~/features/avatar';
 
 /**
- * Unity Service Implementation
- * Unity Bridge Service를 사용하여 실제 Unity 통신 구현
+ * Unity Bridge Service 클래스
+ * React Native와 Unity 간의 모든 통신을 관리하며 도메인 로직을 포함
  */
-export class UnityService {
-  private static instance: UnityService;
-  private isInitialized = false;
-  private isVisible = false;
-  private bridgeService: any;
+class UnityService {
+  
+  // 도메인 상수들
+  private static readonly UNITY_OBJECT_NAME = 'Charactor';
+  private static readonly UNITY_SPEED_METHOD = 'SetSpeed';
+  private static readonly UNITY_MOTION_METHOD = 'SetTrigger';
+  private static readonly MIN_SPEED = 0;
+  private static readonly MAX_SPEED = 10;
+  private static readonly VALID_MOTIONS: CharacterMotion[] = ['IDLE', 'MOVE', 'ATTACK', 'DAMAGED'];
+  
+  // constructor(config: Partial<UnityBridgeConfig> = {}) {
+  //   this.config = { ...DEFAULT_UNITY_BRIDGE_CONFIG, ...config };
+  //   this.initialize();
+  // }
+  
+  // ==========================================
+  // 초기화 및 설정
+  // ==========================================
 
-  private constructor() {
-    // Unity Bridge Service 초기화
-    this.bridgeService = createUnityBridgeService({
-      enableDebugLogs: __DEV__,
-      autoConnect: true,
+  // private async initialize(): Promise<void> {
+  //   if (this.isInitialized) return;
+
+  //   this.log('UnityBridgeService 초기화 중...');
+
+  //   try {
+
+  //     this.isInitialized = true;
+  //     this.log('UnityBridgeService 초기화 완료');
+  //   } catch (error) {
+  //     this.logError('Failed to initialize UnityBridgeService', error);
+  //     throw error;
+  //   }
+  // }
+  
+  
+  // ==========================================
+  // Unity 화면 제어 (UnityView 컴포넌트에서 처리)
+  // ==========================================
+
+  async showUnity(): Promise<void> {
+    this.log('Showing Unity (handled by UnityView component)');
+    // UnityView 컴포넌트가 직접 Unity를 표시/숨김 처리
+  }
+
+  async hideUnity(): Promise<void> {
+    this.log('Hiding Unity (handled by UnityView component)');
+    // UnityView 컴포넌트가 직접 Unity를 표시/숨김 처리
+  }
+  
+  // ==========================================
+  // Unity 제어 메서드들 (도메인 로직 포함)
+  // ==========================================
+  
+  async setCharacterSpeed(speed: number): Promise<void> {
+    this.log(`Setting character speed: ${speed}`);
+
+    try {
+      // 도메인 로직: 속도 범위 검증 및 변환
+      const clampedSpeed = Math.max(UnityService.MIN_SPEED, Math.min(speed, UnityService.MAX_SPEED));
+
+      if (speed !== clampedSpeed) {
+        this.log(`Speed clamped from ${speed} to ${clampedSpeed}`);
+      }
+
+      const speedString = clampedSpeed.toString();
+      await UnityBridge.sendUnityMessage(
+        UnityService.UNITY_OBJECT_NAME,
+        UnityService.UNITY_SPEED_METHOD,
+        speedString
+      );
+
+      this.log(`Character speed set to ${clampedSpeed}`);
+    } catch (error) {
+      this.logError('Failed to set character speed', error);
+      throw error;
+    }
+  }
+  
+  async stopCharacter(): Promise<void> {
+    this.log('Stopping character');
+
+    try {
+      // 도메인 로직: 캐릭터 정지는 속도를 0으로 설정하고 IDLE 상태로 변경
+      await UnityBridge.sendUnityMessage(
+        UnityService.UNITY_OBJECT_NAME,
+        UnityService.UNITY_SPEED_METHOD,
+        '0'
+      );
+
+      this.log('Character stopped');
+    } catch (error) {
+      this.logError('Failed to stop character', error);
+      throw error;
+    }
+  }
+  
+  async setCharacterMotion(motion: CharacterMotion): Promise<void> {
+    this.log(`Setting character motion: ${motion}`);
+
+    try {
+      // 도메인 로직: 모션 타입 검증
+      if (!UnityService.VALID_MOTIONS.includes(motion)) {
+        throw new Error(`Invalid motion: ${motion}. Valid motions: ${UnityService.VALID_MOTIONS.join(', ')}`);
+      }
+
+      await UnityBridge.sendUnityMessage(
+        UnityService.UNITY_OBJECT_NAME,
+        UnityService.UNITY_MOTION_METHOD,
+        motion
+      );
+
+      this.log(`Character motion set to ${motion}`);
+    } catch (error) {
+      this.logError('Failed to set character motion', error);
+      throw error;
+    }
+  }
+  
+  async changeAvatar(items: AvatarItem[]): Promise<void> {
+    this.log(`Changing avatar with ${items.length} items`);
+
+    try {
+      // 도메인 로직: 아바타 아이템 검증 및 변환
+      const validatedItems = this.validateAvatarItems(items);
+
+      if (validatedItems.length === 0) {
+        throw new Error('No valid avatar items provided');
+      }
+
+      // Unity에서 기대하는 형태로 변환 (sendUnityJSON 사용)
+      await UnityBridge.sendUnityJSON(
+        UnityService.UNITY_OBJECT_NAME,
+        'ChangeAvatar',
+        validatedItems as any[]
+      );
+
+      this.log(`Avatar changed with ${validatedItems.length} items`);
+    } catch (error) {
+      this.logError('Failed to change avatar', error);
+      throw error;
+    }
+  }
+  
+  // ==========================================
+  // 도메인 로직 헬퍼 메서드들
+  // ==========================================
+  
+  private validateAvatarItems(items: AvatarItem[]): AvatarItem[] {
+    return items.filter(item => {
+      // 필수 필드 검증
+      if (!item.name || !item.itemType || !item.filePath || !item.unityFilePath) {
+        this.log(`Invalid item: missing required fields`, item);
+        return false;
+      }
+      
+      return true;
     });
   }
-
-  static getInstance(): UnityService {
-    if (!UnityService.instance) {
-      UnityService.instance = new UnityService();
-    }
-    return UnityService.instance;
-  }
-
-  async init(): Promise<void> {
-    try {
-      console.log('[Unity] Initializing Unity Service with Bridge...');
-
-      // Unity Bridge 연결 상태 확인
-      const isConnected = await this.bridgeService.checkConnection();
-      if (!isConnected) {
-        console.warn('[Unity] Unity Bridge not connected, but continuing...');
-      }
-
-      this.isInitialized = true;
-      console.log('[Unity] Unity Service initialized successfully');
-    } catch (error) {
-      console.error('[Unity] Failed to initialize Unity Service:', error);
-      throw error;
+  
+  // ==========================================
+  // 설정 관리
+  // ==========================================
+  
+  // updateConfig(newConfig: Partial<UnityBridgeConfig>): void {
+  //   this.config = { ...this.config, ...newConfig };
+  //   this.log('Config updated:', this.config);
+  // }
+  
+  // getConfig(): UnityBridgeConfig {
+  //   return { ...this.config };
+  // }
+  
+  // ==========================================
+  // 로깅
+  // ==========================================
+  
+  private log(message: string, ...args: any[]): void {
+    if (__DEV__) {
+      console.log(`[UnityBridgeService] ${message}`, ...args);
     }
   }
-
-  async updateAvatars(avatars: [UnityAvatarDto]): Promise<void> {
-    if (!this.isInitialized) {
-      throw new Error('Unity Service not initialized');
-    }
-
-    try {
-      console.log('[Unity] Updating avatar:', avatars);
-
-      // Unity Bridge를 통해 아바타 변경
-      await this.bridgeService.changeAvatar(avatars);
-
-      console.log('[Unity] Avatar updated successfully');
-    } catch (error) {
-      console.error('[Unity] Failed to update avatar:', error);
-      throw error;
-    }
+  
+  private logError(message: string, error: any): void {
+    console.error(`[UnityBridgeService] ${message}`, error);
   }
-
-  async changeSpeed(speed: number): Promise<void> {
-    if (!this.isInitialized) {
-      throw new Error('Unity Service not initialized');
-    }
-
-    try {
-      console.log('[Unity] Updating running progress:', speed);
-
-      // 속도 업데이트
-      const unitySpeed = this.convertSpeedToUnity(speed);
-      await this.bridgeService.setCharacterSpeed(unitySpeed);
-
-      // 일시정지 상태 처리
-      if (speed <= 0) {
-        await this.bridgeService.setCharacterMotion('IDLE');
-      } else {
-        await this.bridgeService.setCharacterMotion('MOVE');
-      }
-
-      console.log('[Unity] Running progress updated successfully');
-    } catch (error) {
-      console.error('[Unity] Failed to update running progress:', error);
-      throw error;
-    }
-  }
-
-  async stopRunning(): Promise<void> {
-    if (!this.isInitialized) {
-      throw new Error('Unity Service not initialized');
-    }
-
-    try {
-      console.log('[Unity] Stopping running animation');
-
-      // 캐릭터 정지
-      await this.bridgeService.stopCharacter();
-      await this.bridgeService.setCharacterMotion('IDLE');
-
-      console.log('[Unity] Running animation stopped successfully');
-    } catch (error) {
-      console.error('[Unity] Failed to stop running:', error);
-      throw error;
-    }
-  }
-
-  async playAnimation(type: UnityAnimationType): Promise<void> {
-    if (!this.isInitialized) {
-      throw new Error('Unity Service not initialized');
-    }
-
-    try {
-      console.log(`[Unity] Playing animation: ${type}`);
-
-      // Unity 애니메이션 타입을 CharacterMotion으로 변환
-      const motion = this.convertAnimationToMotion(type);
-      await this.bridgeService.setCharacterMotion(motion);
-
-      console.log(`[Unity] Animation ${type} played successfully`);
-    } catch (error) {
-      console.error('[Unity] Failed to play animation:', error);
-      throw error;
-    }
-  }
-
-  async stopAnimation(): Promise<void> {
-    if (!this.isInitialized) {
-      throw new Error('Unity Service not initialized');
-    }
-
-    try {
-      console.log('[Unity] Stopping animation');
-
-      // IDLE 모션으로 변경하여 애니메이션 정지
-      await this.bridgeService.setCharacterMotion('IDLE');
-
-      console.log('[Unity] Animation stopped successfully');
-    } catch (error) {
-      console.error('[Unity] Failed to stop animation:', error);
-      throw error;
-    }
-  }
-
-  async show(): Promise<void> {
-    if (!this.isInitialized) {
-      throw new Error('Unity Service not initialized');
-    }
-
-    try {
-      console.log('[Unity] Showing Unity view');
-
-      // Unity 상태 확인
-      await this.bridgeService.getUnityStatus();
-      this.isVisible = true;
-
-      console.log('[Unity] Unity view shown successfully');
-    } catch (error) {
-      console.error('[Unity] Failed to show Unity view:', error);
-      throw error;
-    }
-  }
-
-  async hide(): Promise<void> {
-    if (!this.isInitialized) {
-      throw new Error('Unity Service not initialized');
-    }
-
-    try {
-      console.log('[Unity] Hiding Unity view');
-
-      // Unity 캐릭터 정지
-      await this.bridgeService.stopCharacter();
-      this.isVisible = false;
-
-      console.log('[Unity] Unity view hidden successfully');
-    } catch (error) {
-      console.error('[Unity] Failed to hide Unity view:', error);
-      throw error;
-    }
-  }
-
-  async cleanup(): Promise<void> {
-    try {
-      console.log('[Unity] Cleaning up Unity Service');
-
-      await this.hide();
-      await this.stopAnimation();
-      await this.stopRunning();
-
-      this.isInitialized = false;
-      this.isVisible = false;
-
-      console.log('[Unity] Unity Service cleaned up successfully');
-    } catch (error) {
-      console.error('[Unity] Failed to cleanup Unity Service:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * UnityAnimationType을 CharacterMotion으로 변환
-   */
-  private convertAnimationToMotion(type: UnityAnimationType): CharacterMotion {
-    switch (type) {
-      case 'IDLE':
-        return 'IDLE';
-      case 'WALK':
-      case 'RUN':
-      case 'SPRINT':
-        return 'MOVE';
-      case 'JUMP':
-      case 'CELEBRATE':
-      case 'VICTORY':
-        return 'ATTACK'; // 일단 ATTACK으로 매핑
-      case 'TIRED':
-      case 'STRETCH':
-      case 'DRINK':
-      case 'WIPE_SWEAT':
-        return 'DAMAGED'; // 일단 DAMAGED로 매핑
-      default:
-        return 'IDLE';
-    }
-  }
-
-  /**
-   * km/h 속도를 Unity 단위로 변환
-   */
-  private convertSpeedToUnity(speedKmh: number): number {
-    // km/h를 Unity에서 사용하는 단위로 변환
-    // 일반적으로 Unity에서는 0-10 범위의 값을 사용
-    const maxSpeedKmh = 20; // 최대 속도 20km/h로 가정
-    const maxUnitySpeed = 10; // Unity 최대 속도 10
-
-    const normalizedSpeed = Math.min(speedKmh / maxSpeedKmh, 1.0);
-    return normalizedSpeed * maxUnitySpeed;
-  }
-
-  // Getter methods
-  get initialized(): boolean {
-    return this.isInitialized;
-  }
-
-  get visible(): boolean {
-    return this.isVisible;
-  }
-
-  get bridgeConnected(): boolean {
-    return this.bridgeService !== null;
-  }
+  
 }
 
-// Unity Service 싱글톤 인스턴스
-export const unityService = UnityService.getInstance();
+// ==========================================
+// 싱글톤 인스턴스
+// ==========================================
+
+let unityServiceInstance: UnityService | null = null;
+
+// export const createUnityBridgeService = (config?: Partial<UnityBridgeConfig>): UnityBridgeService => {
+//   if (!unityBridgeInstance) {
+//     unityBridgeInstance = new UnityBridgeService(config);
+//   }
+//   return unityBridgeInstance;
+// };
+
+
+export const getUnityService = (): UnityService => {
+  if(!unityServiceInstance) {
+    unityServiceInstance = new UnityService()
+  }
+  return unityServiceInstance;
+};
+
+export default UnityService;

@@ -73,7 +73,7 @@ function determineItemStatus(
   equippedItems: EquippedItemsMap
 ): ItemStatus {
   // 1. 착용 중인지 확인
-  const equippedItem = equippedItems[itemType];
+  const equippedItem = equippedItems.get(itemType);
   if (equippedItem && equippedItem.id === dto.id) {
     return ItemStatusEnum.EQUIPPED;
   }
@@ -96,7 +96,7 @@ function determineItemStatus(
  */
 export function toAvatarItems(
   dtos: readonly ItemDto[],
-  equippedItems: EquippedItemsMap = {}
+  equippedItems: EquippedItemsMap = new Map<ItemType, AvatarItem>()
 ): readonly AvatarItem[] {
   return dtos.map((dto) => toAvatarItem(dto, equippedItems));
 }

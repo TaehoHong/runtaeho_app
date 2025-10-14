@@ -8,13 +8,13 @@
  * - isLoggedIn은 AuthStore로 이동
  */
 
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
+import type { AvatarItem, EquippedItemsMap, ItemType } from '~/features/avatar';
 import { type User } from '~/features/user/models/User';
 import { type UserAccount } from '~/features/user/models/UserAccount';
-import type { AvatarItem, EquippedItemsMap, ItemType } from '~/features/avatar';
-import { type UserDataDto, userDataDtoToUser } from '~/features/user/models/UserDataDto';
+import { userDataDtoToUser, type UserDataDto } from '~/features/user/models/UserDataDto';
 
 /**
  * Theme Mode
@@ -127,7 +127,7 @@ export const useUserStore = create<UserState>()(
       totalPoint: 0,
       profileImgUrl: null,
       avatarId: 0,
-      equippedItems: {},
+      equippedItems: new Map<ItemType, AvatarItem | undefined>(),
       userPreferences: defaultPreferences,
       appLaunchCount: 0,
       lastAppVersion: null,
@@ -173,7 +173,7 @@ export const useUserStore = create<UserState>()(
           currentUser: null,
           totalPoint: 0,
           avatarId: 0,
-          equippedItems: {},
+          equippedItems: new Map<ItemType, AvatarItem | undefined>(),
         }),
 
       /**
@@ -184,12 +184,17 @@ export const useUserStore = create<UserState>()(
         const currentUser = get().currentUser;
         if (!currentUser) return;
 
+        const updates: Partial<User> = {
+          ...currentUser,
+          nickname: nickname || currentUser.nickname,
+        };
+
+        if (profileImageURL !== undefined) {
+          updates.profileImageURL = profileImageURL;
+        }
+
         set({
-          currentUser: {
-            ...currentUser,
-            nickname: nickname || currentUser.nickname,
-            profileImageURL: profileImageURL !== undefined ? profileImageURL : currentUser.profileImageURL,
-          },
+          currentUser: updates as User,
         });
       },
 
@@ -210,7 +215,7 @@ export const useUserStore = create<UserState>()(
           updatedAccounts[accountIndex] = {
             ...updatedAccounts[accountIndex],
             isConnected: false,
-          };
+          } as UserAccount;
 
           set({
             currentUser: {
@@ -427,7 +432,7 @@ export const useUserStore = create<UserState>()(
           currentUser: null,
           totalPoint: 0,
           avatarId: 0,
-          equippedItems: {},
+          equippedItems: new Map<ItemType, AvatarItem | undefined>(),
           userPreferences: defaultPreferences,
           appLaunchCount: 0,
           lastAppVersion: null,

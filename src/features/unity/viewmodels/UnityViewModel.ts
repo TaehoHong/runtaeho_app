@@ -6,7 +6,7 @@
 
 import { useCallback } from 'react';
 import { useUnityStore } from '../../../stores/unity/unityStore';
-import { getUnityBridgeService } from '../bridge/UnityBridgeService';
+import { getUnityService } from '../services/UnityService';
 import type {
   AvatarItem,
   CharacterMotion,
@@ -33,7 +33,6 @@ export const useUnityViewModel = () => {
   const clearError = useUnityStore((state) => state.clearError);
   const updateCharacterState = useUnityStore((state) => state.updateCharacterState);
   const updateAvatarData = useUnityStore((state) => state.updateAvatarData);
-  const updateUnityStatus = useUnityStore((state) => state.updateUnityStatus);
   const setUnityViewVisible = useUnityStore((state) => state.setUnityViewVisible);
 
   /**
@@ -45,7 +44,7 @@ export const useUnityViewModel = () => {
     setError(null);
 
     try {
-      const bridgeService = getUnityBridgeService();
+      const bridgeService = getUnityService();
       if (!bridgeService) {
         throw new Error('Unity Bridge Service not initialized');
       }
@@ -82,7 +81,7 @@ export const useUnityViewModel = () => {
     setError(null);
 
     try {
-      const bridgeService = getUnityBridgeService();
+      const bridgeService = getUnityService();
       if (!bridgeService) {
         throw new Error('Unity Bridge Service not initialized');
       }
@@ -121,7 +120,7 @@ export const useUnityViewModel = () => {
     setError(null);
 
     try {
-      const bridgeService = getUnityBridgeService();
+      const bridgeService = getUnityService();
       if (!bridgeService) {
         throw new Error('Unity Bridge Service not initialized');
       }
@@ -159,7 +158,7 @@ export const useUnityViewModel = () => {
     setError(null);
 
     try {
-      const bridgeService = getUnityBridgeService();
+      const bridgeService = getUnityService();
       if (!bridgeService) {
         throw new Error('Unity Bridge Service not initialized');
       }
@@ -184,65 +183,6 @@ export const useUnityViewModel = () => {
     }
   }, [setLoading, setError, updateAvatarData]);
 
-  /**
-   * Unity 상태 정보 요청
-   * 기존 unityStore.getUnityStatus
-   */
-  const getUnityStatus = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const bridgeService = getUnityBridgeService();
-      if (!bridgeService) {
-        throw new Error('Unity Bridge Service not initialized');
-      }
-
-      await bridgeService.getUnityStatus();
-      // Note: 실제 status는 Unity에서 이벤트로 전달됨
-
-      setLoading(false);
-    } catch (error) {
-      setLoading(false);
-      setError({
-        type: 'GET_STATUS_ERROR',
-        message: 'Failed to get Unity status',
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-      throw error;
-    }
-  }, [setLoading, setError]);
-
-  /**
-   * Unity 연결 확인
-   * 기존 unityStore.checkUnityConnection
-   */
-  const checkUnityConnection = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const bridgeService = getUnityBridgeService();
-      if (!bridgeService) {
-        throw new Error('Unity Bridge Service not initialized');
-      }
-
-      const connected = await bridgeService.checkConnection();
-      setConnected(connected);
-
-      setLoading(false);
-      return connected;
-    } catch (error) {
-      setLoading(false);
-      setError({
-        type: 'CONNECTION_CHECK_ERROR',
-        message: 'Failed to check Unity connection',
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-      throw error;
-    }
-  }, [setLoading, setError, setConnected]);
-
   return {
     // State (read-only)
     isConnected,
@@ -258,8 +198,6 @@ export const useUnityViewModel = () => {
     stopCharacter,
     setCharacterMotion,
     changeAvatar,
-    getUnityStatus,
-    checkUnityConnection,
 
     // Utility actions
     clearError,

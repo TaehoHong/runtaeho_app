@@ -29,13 +29,14 @@ export const ItemType = {
  * - OWNED: 보유했지만 미착용
  * - NOT_OWNED: 미보유 (구매 가능)
  */
-export type ItemStatus = 'EQUIPPED' | 'OWNED' | 'NOT_OWNED';
-
 export const ItemStatus = {
-  EQUIPPED: 'EQUIPPED' as ItemStatus,
-  OWNED: 'OWNED' as ItemStatus,
-  NOT_OWNED: 'NOT_OWNED' as ItemStatus,
+  EQUIPPED: 'EQUIPPED',
+  OWNED: 'OWNED',
+  NOT_OWNED: 'NOT_OWNED',
 } as const;
+
+// 'EQUIPPED' | 'OWNED' | 'NOT_OWNED'
+export type ItemStatus = typeof ItemStatus[keyof typeof ItemStatus];
 
 /**
  * 아바타 아이템 (도메인 모델)
@@ -154,7 +155,7 @@ export interface UpdateEquippedItemsRequest {
  * 장착된 아이템 맵
  * key: ItemType, value: AvatarItem
  */
-export type EquippedItemsMap = Readonly<Record<ItemType, AvatarItem | undefined>>;
+export type EquippedItemsMap = Map<ItemType, AvatarItem | undefined>;
 
 /**
  * 카테고리별 아이템 맵

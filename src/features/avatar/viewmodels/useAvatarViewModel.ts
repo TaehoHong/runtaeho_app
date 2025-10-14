@@ -9,23 +9,31 @@
  * iOS AvatarManagementViewModel 포팅
  */
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useUserStore } from '~/stores/user/userStore';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  useAvatarItems,
-  usePurchaseItems,
-  useUpdateEquippedItems,
-  type ItemType,
-  type AvatarItem,
-  type ItemStatus,
-  ItemType as ItemTypeEnum,
-  ItemStatus as ItemStatusEnum,
   ITEM_CATEGORIES,
   toAvatarItems,
   toItemIds,
+  useAvatarItems,
+  usePurchaseItems,
+  useUpdateEquippedItems,
+  type AvatarItem,
   type EquippedItemsMap,
+  type ItemType
 } from '~/features/avatar';
-import { UnityBridge } from '~/features/unity/services/UnityBridge';
+import { getUnityService } from '~/features/unity/services/UnityService';
+import { useUserStore } from '~/stores/user/userStore';
+
+// 입력이 Map이 아니어도 안전하게 Map으로 변환
+function normalizeEquippedMap(input: unknown): EquippedItemsMap {
+  if (input instanceof Map) {
+    return new Map(input) as EquippedItemsMap;
+  }
+  const obj = (input ?? {}) as Record<string, AvatarItem | undefined>;
+  return new Map(
+    Object.entries(obj).map(([k, v]) => [Number(k), v])
+  ) as EquippedItemsMap;
+}
 
 /**
  * ViewModel 반환 타입
@@ -78,18 +86,33 @@ export function useAvatarViewModel(): AvatarViewModel {
   const setEquippedItems = useUserStore((state) => state.setEquippedItems);
   const deductPoints = useUserStore((state) => state.deductPoints);
 
+  // 전역 equippedItems를 항상 Map으로 정규화해 사용
+  const globalEquippedMap = useMemo<EquippedItemsMap>(() => normalizeEquippedMap(globalEquippedItems), [globalEquippedItems]);
+
   // ===================================
   // Local State
   // ===================================
   const [selectedCategoryIndex, setSelectedCategoryIndex] = useState(0);
-  const [pendingEquippedItems, setPendingEquippedItems] =
-    useState<EquippedItemsMap>(globalEquippedItems);
+  const [pendingEquippedItems, setPendingEquippedItems] = useState<EquippedItemsMap>(() => normalizeEquippedMap(globalEquippedItems));
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [showInsufficientPointsAlert, setShowInsufficientPointsAlert] = useState(false);
+  const [unityService] = useState(() => getUnityService());
 
   // 카테고리 정의
   const categories = ITEM_CATEGORIES;
-  const selectedCategory = categories[selectedCategoryIndex].type;
+
+  // selectedCategoryIndex가 범위를 벗어나는 것을 방지
+  const selectedCategory = useMemo(() => {
+    if (
+      Array.isArray(categories) &&
+      selectedCategoryIndex >= 0 &&
+      selectedCategoryIndex < categories.length
+    ) {
+      return categories[selectedCategoryIndex].type;
+    }
+    // fallback: 첫 번째 카테고리 타입 또는 undefined
+    return categories?.[0]?.type;
+  }, [categories, selectedCategoryIndex]);
 
   // ===================================
   // React Query
@@ -126,23 +149,22 @@ export function useAvatarViewModel(): AvatarViewModel {
 
   // 변경 여부 확인
   const hasChanges = useMemo(() => {
-    return Object.keys(pendingEquippedItems).some((typeKey) => {
-      const itemType = Number(typeKey) as ItemType;
-      return pendingEquippedItems[itemType]?.id !== globalEquippedItems[itemType]?.id;
-    });
-  }, [pendingEquippedItems, globalEquippedItems]);
+    for (const [itemType, item] of pendingEquippedItems.entries()) {
+      const globalItem = globalEquippedMap.get(itemType);
+      if (item?.id !== globalItem?.id) {
+        return true;
+      }
+    }
+    return false;
+  }, [pendingEquippedItems, globalEquippedMap]);
 
   // 구매해야 할 아이템
   const itemsToPurchase = useMemo(() => {
     const items: AvatarItem[] = [];
-    for (const typeKey of Object.keys(pendingEquippedItems)) {
-      const itemType = Number(typeKey) as ItemType;
-      const item = pendingEquippedItems[itemType];
+    for (const [, item] of pendingEquippedItems.entries()) {
       if (!item) continue;
-
-      // 원본 리스트에서 상태 확인
       const originalItem = allItems.find((i) => i.id === item.id);
-      if (originalItem && originalItem.status === ItemStatusEnum.NOT_OWNED) {
+      if (originalItem && originalItem.status === "NOT_OWNED") {
         items.push(originalItem);
       }
     }
@@ -167,7 +189,7 @@ export function useAvatarViewModel(): AvatarViewModel {
 
   // Global 상태가 변경되면 Pending 상태 동기화
   useEffect(() => {
-    setPendingEquippedItems(globalEquippedItems);
+    setPendingEquippedItems(normalizeEquippedMap(globalEquippedItems));
   }, [globalEquippedItems]);
 
   // ===================================
@@ -188,20 +210,19 @@ export function useAvatarViewModel(): AvatarViewModel {
   const selectItem = useCallback(
     (item: AvatarItem) => {
       // 같은 아이템 재선택 시 무시
-      if (pendingEquippedItems[item.itemType]?.id === item.id) {
+      if (pendingEquippedItems.get(item.itemType)?.id === item.id) {
         return;
       }
 
       // Unity 프리뷰 즉시 업데이트
-      if (UnityBridge.isAvailable()) {
-        UnityBridge.changeAvatarItem(item.itemType, item);
-      }
+      unityService.changeAvatar([item]);
 
-      // Pending 상태 업데이트
-      setPendingEquippedItems((prev) => ({
-        ...prev,
-        [item.itemType]: item,
-      }));
+      // Pending 상태 업데이트 (Map 불변 업데이트)
+      setPendingEquippedItems((prev) => {
+        const next = new Map(prev);
+        next.set(item.itemType, item);
+        return next as EquippedItemsMap;
+      });
     },
     [pendingEquippedItems]
   );
@@ -211,7 +232,7 @@ export function useAvatarViewModel(): AvatarViewModel {
    */
   const isItemSelected = useCallback(
     (itemId: number) => {
-      return Object.values(pendingEquippedItems).some((item) => item?.id === itemId);
+      return Array.from(pendingEquippedItems.values()).some((item) => item?.id === itemId);
     },
     [pendingEquippedItems]
   );
@@ -313,7 +334,7 @@ export function useAvatarViewModel(): AvatarViewModel {
    * iOS: cancelChanges()
    */
   const cancelChanges = useCallback(() => {
-    setPendingEquippedItems(globalEquippedItems);
+    setPendingEquippedItems(normalizeEquippedMap(globalEquippedItems));
   }, [globalEquippedItems]);
 
   // ===================================

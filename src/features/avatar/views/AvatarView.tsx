@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 import { AVATAR_COLORS } from '~/features/avatar';
 import { useAvatarViewModel } from '../viewmodels/useAvatarViewModel';
 import { AvatarHeader } from './components/AvatarHeader';

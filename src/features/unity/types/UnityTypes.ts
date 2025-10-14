@@ -7,17 +7,9 @@
  * UnityAvatarDto, UnityViewController 등 Swift 코드 참조
  */
 
-/**
- * Unity Avatar DTO
- * Swift UnityAvatarDto 대응
- */
-export interface UnityAvatarDto {
-  name: String;
-  part: String;
-  itemPath: String;
-}
+import type { AvatarItem } from "~/features/avatar";
 
-/**
+/* 
  * Unity Animation Type
  * Unity에서 사용할 애니메이션 타입
  */
@@ -164,23 +156,6 @@ export interface CharacterState {
 }
 
 // ==========================================
-// 아바타 시스템 타입들 (기존 타입과 통합)
-// ==========================================
-
-export interface AvatarItem {
-  name: string;
-  part: AvatarPartType;
-  itemPath: string;
-}
-
-export type AvatarPartType = 'Hair' | 'Cloth' | 'Pant' | 'Shoes' | 'Accessory';
-
-export interface AvatarData {
-  items: AvatarItem[];
-  timestamp: string;
-}
-
-// ==========================================
 // Unity 이벤트 타입들 (확장)
 // ==========================================
 
@@ -193,11 +168,6 @@ export interface UnityEvent<T = any> {
 export interface CharacterStateChangedEvent extends UnityEvent<CharacterState> {
   type: 'CHARACTER_STATE_CHANGED';
   data: CharacterState;
-}
-
-export interface AvatarChangedEvent extends UnityEvent<AvatarData> {
-  type: 'AVATAR_CHANGED';
-  data: AvatarData;
 }
 
 export interface AnimationCompleteEvent extends UnityEvent<string> {
@@ -244,12 +214,12 @@ export interface RNUnityBridgeModule {
 // Unity Bridge Configuration
 // ==========================================
 
-export interface UnityBridgeConfig {
-  enableDebugLogs?: boolean;
-  autoConnect?: boolean;
-  reconnectAttempts?: number;
-  eventBufferSize?: number;
-}
+// export interface UnityBridgeConfig {
+//   enableDebugLogs?: boolean;
+//   autoConnect?: boolean;
+//   reconnectAttempts?: number;
+//   eventBufferSize?: number;
+// }
 
 // ==========================================
 // Unity Bridge Context (React Context용)
@@ -264,9 +234,6 @@ export interface UnityBridgeContextValue {
   // Character State
   characterState: CharacterState | null;
 
-  // Avatar State
-  currentAvatar: AvatarData | null;
-
   // Unity Control Methods
   setCharacterSpeed: (speed: number) => Promise<void>;
   stopCharacter: () => Promise<void>;
@@ -279,8 +246,8 @@ export interface UnityBridgeContextValue {
 
 
   // Configuration
-  config: UnityBridgeConfig;
-  updateConfig: (config: Partial<UnityBridgeConfig>) => void;
+  // config: UnityBridgeConfig;
+  // updateConfig: (config: Partial<UnityBridgeConfig>) => void;
 }
 
 // ==========================================
@@ -292,30 +259,28 @@ export type UnityBridgeAction =
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: UnityError | null }
   | { type: 'SET_CHARACTER_STATE'; payload: CharacterState }
-  | { type: 'SET_AVATAR_DATA'; payload: AvatarData }
-  | { type: 'SET_UNITY_STATUS'; payload: UnityStatus }
-  | { type: 'UPDATE_CONFIG'; payload: Partial<UnityBridgeConfig> };
+  | { type: 'SET_UNITY_STATUS'; payload: UnityStatus };
+  // | { type: 'UPDATE_CONFIG'; payload: Partial<UnityBridgeConfig> };
 
 export interface UnityBridgeState {
   isConnected: boolean;
   isLoading: boolean;
   error: UnityError | null;
   characterState: CharacterState | null;
-  currentAvatar: AvatarData | null;
   unityStatus: UnityStatus | null;
-  config: UnityBridgeConfig;
+  // config: UnityBridgeConfig;
 }
 
 // ==========================================
 // Default Values
 // ==========================================
 
-export const DEFAULT_UNITY_BRIDGE_CONFIG: UnityBridgeConfig = {
-  enableDebugLogs: __DEV__,
-  autoConnect: true,
-  reconnectAttempts: 3,
-  eventBufferSize: 50,
-};
+// export const DEFAULT_UNITY_BRIDGE_CONFIG: UnityBridgeConfig = {
+//   enableDebugLogs: __DEV__,
+//   autoConnect: true,
+//   reconnectAttempts: 3,
+//   eventBufferSize: 50,
+// };
 
 export const DEFAULT_CHARACTER_STATE: CharacterState = {
   motion: 'IDLE',
@@ -329,7 +294,7 @@ export const DEFAULT_UNITY_BRIDGE_STATE: UnityBridgeState = {
   isLoading: false,
   error: null,
   characterState: DEFAULT_CHARACTER_STATE,
-  currentAvatar: null,
+  // currentAvatar: null,
   unityStatus: null,
-  config: DEFAULT_UNITY_BRIDGE_CONFIG,
+  // config: DEFAULT_UNITY_BRIDGE_CONFIG,
 };

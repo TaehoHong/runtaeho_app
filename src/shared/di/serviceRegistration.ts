@@ -7,7 +7,6 @@ import { container, SERVICE_TOKENS, ServiceLifetime } from './ServiceContainer';
 
 // Business Services
 import { AuthenticationService } from '../../features/auth/services/AuthenticationService';
-import { AvatarService } from '../../features/avatar/services/AvatarService';
 import { RunningService } from '../../features/running/services/RunningService';
 // Note: StatisticsService는 React Query로 마이그레이션되어 DI 컨테이너에서 제외
 // import { statisticsService } from '../../features/statistics/services/statisticsService';
@@ -18,7 +17,7 @@ import { ErrorService } from '../../shared/services/ErrorService';
 import { UserStateManager } from '../services/userStateManager';
 
 // Unity Services
-import { UnityService } from '../../features/unity/services/UnityService';
+// import { UnityService } from '../../features/unity/services/UnityService';
 
 // ==========================================
 // 서비스 등록 함수
@@ -51,11 +50,11 @@ export const registerServices = () => {
     ServiceLifetime.SINGLETON
   );
 
-  container.registerFactory(
-    SERVICE_TOKENS.AVATAR_SERVICE,
-    () => AvatarService.getInstance(),
-    ServiceLifetime.SINGLETON
-  );
+  // container.registerFactory(
+  //   SERVICE_TOKENS.AVATAR_SERVICE,
+  //   () => AvatarService.getInstance(),
+  //   ServiceLifetime.SINGLETON
+  // );
 
   // Statistics Service는 React Query로 마이그레이션되어 DI 컨테이너에서 제외
   // container.registerFactory(
@@ -71,11 +70,11 @@ export const registerServices = () => {
   );
 
   // Unity Services
-  container.registerFactory(
-    SERVICE_TOKENS.UNITY_SERVICE,
-    () => UnityService.getInstance(),
-    ServiceLifetime.SINGLETON
-  );
+  // container.registerFactory(
+  //   SERVICE_TOKENS.UNITY_SERVICE,
+  //   () => UnityService.getInstance(),
+  //   ServiceLifetime.SINGLETON
+  // );
 
   console.log('🔧 [DI Container] 모든 서비스 등록 완료');
   console.log('📊 [DI Container] 등록된 서비스:', container.getRegisteredServices());
@@ -87,11 +86,11 @@ export const registerServices = () => {
 
 export const getRunningService = () => container.resolve<RunningService>(SERVICE_TOKENS.RUNNING_SERVICE);
 export const getAuthService = () => container.resolve<AuthenticationService>(SERVICE_TOKENS.AUTH_SERVICE);
-export const getAvatarService = () => container.resolve<AvatarService>(SERVICE_TOKENS.AVATAR_SERVICE);
+// export const getAvatarService = () => container.resolve<AvatarService>(SERVICE_TOKENS.AVATAR_SERVICE);
 // Statistics Service는 React Query hooks로 대체됨 (useGetStatisticsSummary 등)
 // export const getStatisticsService = () => container.resolve<StatisticsService>(SERVICE_TOKENS.STATISTICS_SERVICE);
 export const getUserService = () => container.resolve<UserService>(SERVICE_TOKENS.USER_SERVICE);
-export const getUnityService = () => container.resolve<UnityService>(SERVICE_TOKENS.UNITY_SERVICE);
+// export const getUnityService = () => container.resolve<UnityService>(SERVICE_TOKENS.UNITY_SERVICE);
 export const getStorageService = () => container.resolve<UserStateManager>(SERVICE_TOKENS.STORAGE_SERVICE);
 
 // ==========================================

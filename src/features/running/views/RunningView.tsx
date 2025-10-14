@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet} from 'react-native';
-import { Text } from '~/shared/components/typography';import { useAuthStore, useAppStore, ViewState } from '~/stores';
-import { LoadingView } from '~/shared/components';
-import { ControlPanelView } from './ControlPanelView';
-import { createUnityBridgeService } from '~/features/unity/bridge/UnityBridgeService';
+import { StyleSheet, View } from 'react-native';
 import { UnityView } from '~/features/unity/components/UnityView';
+import { getUnityService } from '~/features/unity/services/UnityService';
+import { LoadingView } from '~/shared/components';
+import { ViewState, useAppStore, useAuthStore } from '~/stores';
+import { ControlPanelView } from './ControlPanelView';
 
 
 /**
@@ -20,7 +20,7 @@ export const RunningView: React.FC = () => {
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const [unityReady, setUnityReady] = useState(false);
   const [unityStarted, setUnityStarted] = useState(false);
-  const [unityBridge] = useState(() => createUnityBridgeService());
+  const [unityService] = useState(() => getUnityService());
 
   console.log('🏃 [RunningView] 렌더링, viewState:', viewState, 'runningState:', runningState, 'isLoggedIn:', isLoggedIn);
 
@@ -47,7 +47,7 @@ export const RunningView: React.FC = () => {
       // 컴포넌트 언마운트 시 정리 작업
       console.log('🔄 [RunningView] 컴포넌트 언마운트');
     };
-  }, [viewState, isLoggedIn, unityStarted, setViewState, unityBridge]);
+  }, [viewState, isLoggedIn, unityStarted, setViewState, unityService]);
 
   /**
    * Unity 시작
@@ -58,7 +58,7 @@ export const RunningView: React.FC = () => {
       console.log('🎮 [RunningView] Unity 시작 시도');
       
       // Unity 캐릭터 초기 설정
-      await unityBridge.setCharacterSpeed(0);
+      await unityService.setCharacterSpeed(0);
 
       setUnityReady(true);
       console.log('✅ [RunningView] Unity 시작 성공');

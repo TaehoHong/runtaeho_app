@@ -16,9 +16,11 @@
 // Types & Models
 // ===================================
 export type {
-  Avatar, AvatarDto, AvatarItem, EquippedItemsMap, GetItemsRequest, ItemCategory, ItemDto, ItemStatus, ItemType, ItemTypeDto, ItemsByCategory, PurchaseItem, PurchaseItemsRequest,
+  Avatar, AvatarDto, AvatarItem, EquippedItemsMap, GetItemsRequest, ItemCategory, ItemDto, ItemType, ItemTypeDto, ItemsByCategory, PurchaseItem, PurchaseItemsRequest,
   UpdateEquippedItemsRequest
 } from './models/avatarTypes';
+
+export { ItemStatus } from './models/avatarTypes';
 
 export {
   isItemType,
@@ -31,7 +33,7 @@ export {
 export {
   AVATAR_API_ENDPOINTS, AVATAR_COLORS,
   BUTTON_SIZE, ERROR_MESSAGES, GRID_LAYOUT,
-  ITEM_CARD_SIZE, ITEM_CATEGORIES, ITEM_OPACITY, PAGINATION_CONFIG, PRICE_DISPLAY, QUERY_KEY_PREFIX,
+  ITEM_CARD_SIZE, ITEM_CATEGORIES, ITEM_OPACITY, PRICE_DISPLAY, QUERY_KEY_PREFIX,
   QUERY_OPTIONS, SUCCESS_MESSAGES, UNITY_PREVIEW, getCategoryByType,
   getCategoryDisplayName,
   getCategoryUnityName
@@ -40,9 +42,7 @@ export {
 // ===================================
 // Services
 // ===================================
-export { createApiError, isApiError } from './services/IAvatarApiService';
-export type { ApiError, IAvatarApiService } from './services/IAvatarApiService';
-export { avatarApiService } from './services/avatarService';
+export { avatarService } from './services/avatarService';
 
 // ===================================
 // React Query Hooks

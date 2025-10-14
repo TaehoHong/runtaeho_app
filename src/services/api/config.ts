@@ -62,6 +62,7 @@ export const API_ENDPOINTS = {
   AVATAR: {
     BASE: '/avatars',
     MAIN: '/avatars/main',
+    UPDATE_EQUIPPED_ITEMS: (avatarId: number) => `/avatars/${avatarId}`,
     DETAIL: (id: number) => `/avatars/${id}`,
     ITEMS: (avatarId: number) => `/avatars/${avatarId}/items`,
     REMOVE_ITEM: (avatarId: number, itemId: number) => `/avatars/${avatarId}/items/${itemId}`,
@@ -78,7 +79,7 @@ export const API_ENDPOINTS = {
   },
   USER_ITEMS: {
     BASE: '/user-items',
-    DETAIL: (userItemId: number) => `/user-items/${userItemId}`,
+    PURCHASE_ITEMS : '/user-items'
   },
   POINT: {
     BASE: '/users/points',

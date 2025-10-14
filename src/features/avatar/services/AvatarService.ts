@@ -16,7 +16,7 @@
 import { apiClient } from '~/services/api/client';
 import type { CursorResult } from '~/shared/utils/dto/CursorResult';
 import { API_ENDPOINTS } from '../../../services/api/config';
-import { AVATAR_API_ENDPOINTS, PAGINATION_CONFIG } from '../models/avatarConstants';
+import { AVATAR_API_ENDPOINTS } from '../models/avatarConstants';
 import type {
   AvatarDto,
   GetItemsRequest,
@@ -38,12 +38,11 @@ export const avatarService = {
    * Query Params: cursor, size, itemType
    */
    getItems: async (request: GetItemsRequest): Promise<CursorResult<ItemDto>> => {
-      const { cursor, itemType, size = PAGINATION_CONFIG.DEFAULT_PAGE_SIZE } = request;
       const { data } = await apiClient.get<CursorResult<ItemDto>>(API_ENDPOINTS.ITEMS.BASE, {
         params: {
-          cursor: cursor ?? undefined, // null을 undefined로 변환 (query에서 제외)
-          itemType,
-          size,
+          cursor: request.cursor,
+          itemType: request.itemType,
+          size: request.size || 20,
         },
       });
       return data;
@@ -56,7 +55,7 @@ export const avatarService = {
    * Request Body: { itemIds: number[] }
    */
   purchaseItems: async (request: PurchaseItemsRequest): Promise<void> => {
-    await apiClient.post(AVATAR_API_ENDPOINTS.PURCHASE_ITEMS, {
+    await apiClient.post(API_ENDPOINTS.USER_ITEMS.PURCHASE_ITEMS, {
       itemIds: request.itemIds,
     });
   },
@@ -73,7 +72,7 @@ export const avatarService = {
     const { avatarId, itemIds } = request;
 
     const { data } = await apiClient.put<AvatarDto>(
-      AVATAR_API_ENDPOINTS.UPDATE_EQUIPPED_ITEMS(avatarId),
+      API_ENDPOINTS.AVATAR.UPDATE_EQUIPPED_ITEMS(avatarId),
       {
         itemIds: itemIds,
       }
