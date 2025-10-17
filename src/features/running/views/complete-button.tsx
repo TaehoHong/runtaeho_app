@@ -11,7 +11,7 @@ interface CompleteButtonProps {
 
 export const CompleteButton: React.FC<CompleteButtonProps> = ({ onPress }) => {
   // TODO: RunningFinishedViewModel에서 버튼 색상 상태 가져오기
-  const completeButtonColor = '#007AFF';
+  const completeButtonColor = '#00C851'; // 녹색 버튼
 
   return (
     <TouchableOpacity
@@ -25,23 +25,16 @@ export const CompleteButton: React.FC<CompleteButtonProps> = ({ onPress }) => {
 
 const styles = StyleSheet.create({
   button: {
-    height: 45,
+    height: 42,
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    marginHorizontal: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    marginHorizontal: 16,
+    marginBottom: 16,
   },
   text: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#000000',
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

@@ -1,9 +1,10 @@
 import React from 'react';
 import { View, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import { useAppStore, RunningState } from '~/stores/app/appStore';
-import { PointEarnCard, MainDistanceCard, DetailedStatisticsCard, ShoeSelectionArea, CompleteButton } from '~/shared/components';
+import { MainDistanceCard, DetailedStatisticsCard, ShoeSelectionArea, CompleteButton } from '~/shared/components';
+import { UnityView } from '~/features/unity/components/UnityView';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 /**
  * 러닝 완료 화면
@@ -30,14 +31,16 @@ export const RunningFinishedView: React.FC = () => {
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {/* 포인트 정보 카드 */}
-        <PointEarnCard />
+        {/* Unity 배경 영역 - Figma 디자인의 상단 캐릭터 배경 */}
+        <View style={styles.unityContainer}>
+          <UnityView style={styles.unityView} />
+        </View>
+
+        {/* 상세 통계 카드 - BPM, 페이스, 러닝 시간 */}
+        <DetailedStatisticsCard />
 
         {/* 메인 거리 카드 */}
         <MainDistanceCard />
-
-        {/* 상세 통계 카드 */}
-        <DetailedStatisticsCard />
 
         {/* 신발 선택 영역 */}
         {hasShoe && <ShoeSelectionArea />}
@@ -54,14 +57,24 @@ export const RunningFinished = RunningFinishedView;
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     width: width,
-    height: height * 0.5,
+    backgroundColor: '#FAFAFA',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 10,
-    gap: 15,
+    gap: 16,
+  },
+  unityContainer: {
+    width: '100%',
+    height: 375, // Figma 디자인의 상단 Unity 배경 높이
+    backgroundColor: '#E0E0E0',
+    overflow: 'hidden',
+  },
+  unityView: {
+    width: '100%',
+    height: '100%',
   },
 });

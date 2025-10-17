@@ -1,11 +1,11 @@
-export { CompleteButton } from './complete-button';
-export { DetailedStatisticsCard } from './detailed-statistics-card';
+export { CompleteButton } from '../../../features/running/views/complete-button';
+export { DetailedStatisticsCard } from '../../../features/running/views/detailed-statistics-card';
 export { LoadingView } from './LoadingView';
 export { MainDistanceCard } from './main-distance-card';
 export { PauseButton } from './pause-button';
 export { PlayButton } from './play-button';
 export { PointEarnCard } from './point-earn-card';
-export { ShoeSelectionArea } from './shoe-selection-area';
+export { ShoeSelectionArea } from '../../../features/running/views/shoe-selection-area';
 export { StartButton } from './start-button';
 export { StatsView } from './stats-view';
 export { StopButton } from './stop-button';

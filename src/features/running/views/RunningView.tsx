@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { UnityView } from '~/features/unity/components/UnityView';
 import { unityService } from '~/features/unity/services/UnityService';
 import { LoadingView } from '~/shared/components';
-import { ViewState, useAppStore, useAuthStore } from '~/stores';
+import { ViewState, RunningState, useAppStore, useAuthStore } from '~/stores';
 import { ControlPanelView } from './ControlPanelView';
 
 
@@ -79,24 +79,29 @@ export const RunningView: React.FC = () => {
   }
 
   console.log('✅ [RunningView] Loaded 상태 - Unity + 컴트롤 패널 표시');
-  
+
+  // Finished 상태일 때는 전체 화면 사용 (Unity 배경 포함)
+  const isFinished = runningState === RunningState.Finished;
+
   return (
     <View style={styles.container}>
-      {/* Unity 컴포넌트 - 화면 상단 50% */}
-      <View style={styles.unityContainer}>
-        <UnityView style={styles.unityView} />
-      </View>
-      
+      {/* Unity 컴포넌트 - Finished 상태가 아닐 때만 표시 */}
+      {!isFinished && (
+        <View style={styles.unityContainer}>
+          <UnityView style={styles.unityView} />
+        </View>
+      )}
+
       {/* DEBUG 뷰 (개발 모드에서만) */}
       {__DEV__ && (
         <DebugView />
       )}
-      
-      {/* 컴트롤 패널 - 화면 하단 */}
-      <View style={styles.controlPanelContainer}>
+
+      {/* 컴트롤 패널 - Finished 상태일 때는 전체 화면 사용 */}
+      <View style={isFinished ? styles.controlPanelContainerFull : styles.controlPanelContainer}>
         <ControlPanelView />
       </View>
-      
+
       {/* 알림 들 (iOS alert 대응) */}
       <RunningAlerts />
     </View>
@@ -148,6 +153,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
     borderTopWidth: 1,
     borderTopColor: '#ddd',
+  },
+  controlPanelContainerFull: {
+    flex: 1, // Finished 상태일 때 전체 화면 사용
+    backgroundColor: '#f5f5f5',
   },
   debugContainer: {
     position: 'absolute',
