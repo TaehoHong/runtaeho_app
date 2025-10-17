@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ITEM_CATEGORIES,
+  ItemStatus,
   toAvatarItems,
   toItemIds,
   useAvatarItems,
@@ -21,7 +22,7 @@ import {
   type EquippedItemsMap,
   type ItemType
 } from '~/features/avatar';
-import { getUnityService } from '~/features/unity/services/UnityService';
+import { unityService } from '~/features/unity/services/UnityService';
 import { useUserStore } from '~/stores/user/userStore';
 
 // 입력이 Map이 아니어도 안전하게 Map으로 변환
@@ -96,7 +97,6 @@ export function useAvatarViewModel(): AvatarViewModel {
   const [pendingEquippedItems, setPendingEquippedItems] = useState<EquippedItemsMap>(() => normalizeEquippedMap(globalEquippedItems));
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [showInsufficientPointsAlert, setShowInsufficientPointsAlert] = useState(false);
-  const [unityService] = useState(() => getUnityService());
 
   // 카테고리 정의
   const categories = ITEM_CATEGORIES;
@@ -164,7 +164,7 @@ export function useAvatarViewModel(): AvatarViewModel {
     for (const [, item] of pendingEquippedItems.entries()) {
       if (!item) continue;
       const originalItem = allItems.find((i) => i.id === item.id);
-      if (originalItem && originalItem.status === "NOT_OWNED") {
+        if (originalItem && originalItem.status === ItemStatus.NOT_OWNED) {
         items.push(originalItem);
       }
     }

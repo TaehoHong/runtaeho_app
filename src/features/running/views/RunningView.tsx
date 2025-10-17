@@ -9,7 +9,6 @@ import { ControlPanelView } from './ControlPanelView';
 
 /**
  * 메인 러닝 화면
- * iOS RunningView 대응
  * 로딩/로드 상태에 따라 UI 분기
  * Unity 컴포넌트 + 상태별 컴트롤 패널
  */
@@ -85,12 +84,12 @@ export const RunningView: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      {/* Unity 컴포넌트 - Finished 상태가 아닐 때만 표시 */}
-      {!isFinished && (
-        <View style={styles.unityContainer}>
-          <UnityView style={styles.unityView} />
-        </View>
-      )}
+      {/* Unity 컴포넌트 */}
+      <View style={styles.unityContainer}>
+        <UnityView style={styles.unityView} />
+      </View>
+
+      <View style={styles.verticalGuide}/>
 
       {/* DEBUG 뷰 (개발 모드에서만) */}
       {__DEV__ && (
@@ -98,7 +97,7 @@ export const RunningView: React.FC = () => {
       )}
 
       {/* 컴트롤 패널 - Finished 상태일 때는 전체 화면 사용 */}
-      <View style={isFinished ? styles.controlPanelContainerFull : styles.controlPanelContainer}>
+      <View style={styles.controlPanelContainer}>
         <ControlPanelView />
       </View>
 
@@ -154,10 +153,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#ddd',
   },
-  controlPanelContainerFull: {
-    flex: 1, // Finished 상태일 때 전체 화면 사용
-    backgroundColor: '#f5f5f5',
-  },
   debugContainer: {
     position: 'absolute',
     top: 50,
@@ -167,5 +162,15 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     borderWidth: 1,
     borderColor: '#ccc',
+  },
+  verticalGuide: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: '50%',
+    width: 1,
+    backgroundColor: 'red',
+    opacity: 0.3,
+    zIndex: 9999,
   }
 });

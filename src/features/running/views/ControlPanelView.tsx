@@ -1,5 +1,4 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
 import { useAppStore, RunningState } from '../../../stores/app/appStore';
 import { RunningProvider } from '../contexts';
 import { RunningStartView } from './running-start';
@@ -9,7 +8,6 @@ import { RunningFinishedView } from './running-finished';
 
 /**
  * 러닝 컨트롤 패널
- * iOS ControlPanelView 대응
  * 러닝 상태에 따라 다른 UI 표시
  */
 export const ControlPanelView: React.FC = () => {
@@ -48,11 +46,3 @@ export const ControlPanelView: React.FC = () => {
     </RunningProvider>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-});

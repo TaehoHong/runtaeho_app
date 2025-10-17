@@ -11,7 +11,6 @@ import { runningService } from './runningService';
 
 /**
  * 러닝 시작
- * 기존: useStartRunningMutation()
  */
 export const useStartRunning = () => {
   const queryClient = useQueryClient();

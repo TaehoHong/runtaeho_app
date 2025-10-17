@@ -1,20 +1,18 @@
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AppState } from 'react-native';
-import {
-  useStartRunning,
-  useEndRunning,
-  useUpdateRunningRecord,
-  useDeleteRunningRecord,
-} from '../services';
+import { useStartRunning, useEndRunning, useUpdateRunningRecord } from '../services';
+import { runningService } from '../services/runningService';
 import type {
   RunningRecord,
   EndRunningRecord,
   Location,
+  RunningRecordItem,
 } from '../models';
 import {
   createRunningRecord,
   updateRunningRecord,
   formatRunningRecord,
+  createRunningRecordItem,
 } from '../models';
 import { locationService, type LocationTrackingData } from '../services/LocationService';
 import { backgroundTaskService } from '../services/BackgroundTaskService';
@@ -79,11 +77,21 @@ export const useRunningViewModel = () => {
     calories: undefined,
   });
 
+  // 러닝 종료 후 최종 기록 (Finished 화면에서 사용)
+  const [lastEndedRecord, setLastEndedRecord] = useState<EndRunningRecord | null>(null);
+
+  // 세그먼트 추적 (iOS와 동일)
+  const [currentSegmentItems, setCurrentSegmentItems] = useState<RunningRecordItem[]>([]);
+  const [segmentStartTime, setSegmentStartTime] = useState<number | null>(null);
+  const [segmentDistance, setSegmentDistance] = useState<number>(0);
+  const [segmentLocations, setSegmentLocations] = useState<Location[]>([]);
+  const [segmentIdCounter, setSegmentIdCounter] = useState<number>(1);
+  const segmentDistanceThreshold = 10.0; // 10미터마다 세그먼트 생성
+
   // React Query Mutations
   const { mutateAsync: startRunningMutation, isPending: isStarting } = useStartRunning();
   const { mutateAsync: endRunningMutation, isPending: isEnding } = useEndRunning();
   const { mutateAsync: updateRecordMutation } = useUpdateRunningRecord();
-  const { mutateAsync: deleteRecordMutation } = useDeleteRunningRecord();
 
   /**
    * 실시간 통계 업데이트
@@ -135,26 +143,149 @@ export const useRunningViewModel = () => {
   }, []);
 
   /**
+   * 통계 데이터 포맷팅 유틸리티 함수들
+   * stats-view.tsx와 공유하여 일관성 있는 포맷팅 제공
+   */
+
+  // 러닝 시간 포맷팅 (MM:SS)
+  const formatElapsedTime = useCallback((seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  }, []);
+
+  // BPM 포맷팅 (2자리 패딩 또는 '--')
+  const formatBpm = useCallback((bpm: number | undefined): string => {
+    return bpm !== undefined ? String(bpm).padStart(2, '0') : '--';
+  }, []);
+
+  // 페이스 포맷팅 (MM:SS)
+  const formatPace = useCallback((minutes: number, seconds: number): string => {
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }, []);
+
+  /**
+   * 세그먼트 생성 (iOS createSegment 대응)
+   * 10미터마다 호출
+   */
+  const createSegment = useCallback((distance: number, locations: Location[], startTime: number) => {
+    const now = Date.now();
+    const segmentDuration = (now - startTime) / 1000; // seconds
+
+    setCurrentSegmentItems(prev => {
+      const segmentCalories = Math.round((stats.calories || 0) / Math.max(1, prev.length + 1));
+
+      const newSegment = createRunningRecordItem({
+        id: segmentIdCounter,
+        distance: distance,
+        cadence: stats.cadence || 0,
+        heartRate: stats.bpm || 0,
+        calories: segmentCalories,
+        orderIndex: segmentIdCounter - 1,
+        durationSec: segmentDuration,
+        startTimestamp: startTime / 1000, // Unix timestamp in seconds
+        locations: locations,
+      });
+
+      console.log(`📍 [RunningViewModel] 세그먼트 생성 완료: ${prev.length + 1}번째, ${distance}m`);
+      return [...prev, newSegment];
+    });
+
+    setSegmentIdCounter(prev => prev + 1);
+
+    // 다음 세그먼트를 위한 초기화
+    setSegmentStartTime(now);
+    setSegmentDistance(0);
+    setSegmentLocations([]);
+  }, [stats, segmentIdCounter]);
+
+  /**
+   * 최종 세그먼트 생성 (iOS finalizeCurrentSegment 대응)
+   * 러닝 종료 시 10m 미만이라도 저장
+   */
+  const finalizeCurrentSegment = useCallback(() => {
+    if (segmentDistance > 0 && segmentStartTime !== null) {
+      const now = Date.now();
+      const segmentDuration = (now - segmentStartTime) / 1000;
+      const segmentCalories = Math.round((stats.calories || 0) / Math.max(1, currentSegmentItems.length + 1));
+
+      const finalSegment = createRunningRecordItem({
+        id: segmentIdCounter,
+        distance: segmentDistance,
+        cadence: stats.cadence || 0,
+        heartRate: stats.bpm || 0,
+        calories: segmentCalories,
+        orderIndex: segmentIdCounter - 1,
+        durationSec: segmentDuration,
+        startTimestamp: segmentStartTime / 1000,
+        locations: segmentLocations,
+      });
+
+      setCurrentSegmentItems(prev => [...prev, finalSegment]);
+      console.log(`📍 [RunningViewModel] 최종 세그먼트 생성: ${segmentDistance}m`);
+    }
+  }, [segmentDistance, segmentStartTime, segmentLocations, stats, segmentIdCounter, currentSegmentItems.length]);
+
+  /**
+   * 세그먼트 추적 초기화 (iOS initializeSegmentTracking 대응)
+   */
+  const initializeSegmentTracking = useCallback(() => {
+    setSegmentStartTime(Date.now());
+    setSegmentDistance(0);
+    setSegmentLocations([]);
+    setCurrentSegmentItems([]);
+    setSegmentIdCounter(1);
+    console.log('[RunningViewModel] 세그먼트 추적 초기화');
+  }, []);
+
+  /**
    * LocationService 구독 설정
    * GPS 위치 업데이트 시 거리 및 통계 갱신
    */
   useEffect(() => {
+    let previousDistance = 0;
+    let currentSegmentDist = 0;
+    let currentSegmentLocs: Location[] = [];
+
     // 위치 업데이트 구독
     const unsubscribeLocation = locationService.subscribeToLocation((location) => {
       setLocations(prev => [...prev, location]);
+
+      // 세그먼트에 위치 추가 (러닝 중일 때만)
+      if (runningState === RunningState.RUNNING) {
+        currentSegmentLocs.push(location);
+        setSegmentLocations(prev => [...prev, location]);
+      }
     });
 
     // 추적 데이터 구독 (거리, 속도 등)
     const unsubscribeTracking = locationService.subscribeToTrackingData((data) => {
       setTrackingData(data);
       setDistance(data.totalDistance);
+
+      // 거리 변화 감지 및 세그먼트 업데이트
+      if (runningState === RunningState.RUNNING) {
+        const distanceDelta = data.totalDistance - previousDistance;
+        if (distanceDelta > 0) {
+          currentSegmentDist += distanceDelta;
+          setSegmentDistance(currentSegmentDist);
+
+          // 10m 달성 시 세그먼트 생성
+          if (currentSegmentDist >= segmentDistanceThreshold && segmentStartTime !== null) {
+            createSegment(currentSegmentDist, currentSegmentLocs, segmentStartTime);
+            currentSegmentDist = 0;
+            currentSegmentLocs = [];
+          }
+        }
+        previousDistance = data.totalDistance;
+      }
     });
 
     return () => {
       unsubscribeLocation();
       unsubscribeTracking();
     };
-  }, [locationService]);
+  }, [locationService, runningState, createSegment, segmentDistanceThreshold, segmentStartTime]);
 
   // 타이머 인터벌
   useEffect(() => {
@@ -241,7 +372,6 @@ export const useRunningViewModel = () => {
 
   /**
    * 러닝 시작
-   * Swift RunningRecordService.startRunning 메서드 대응
    * LocationService GPS 추적 + 센서 모니터링 + 백그라운드 모드 시작
    */
   const startRunning = useCallback(async () => {
@@ -297,6 +427,9 @@ export const useRunningViewModel = () => {
         calories: undefined,
       });
 
+      // 세그먼트 추적 초기화
+      initializeSegmentTracking();
+
       return record;
     } catch (error) {
       
@@ -314,7 +447,7 @@ export const useRunningViewModel = () => {
       setRunningState(RunningState.RUNNING);
       return dummyRecord;
     }
-  }, [startRunningMutation, locationService, backgroundTaskService, dataSourcePriorityService, useBackgroundMode]);
+  }, [startRunningMutation, locationService, backgroundTaskService, dataSourcePriorityService, useBackgroundMode, initializeSegmentTracking]);
 
   /**
    * 러닝 일시정지
@@ -345,6 +478,9 @@ export const useRunningViewModel = () => {
     if (!currentRecord) return null;
 
     try {
+      // 0. 마지막 세그먼트 저장 (10m 미만이라도)
+      finalizeCurrentSegment();
+
       // 1. GPS 추적 중지
       let finalDistance = 0;
       let allLocations: any[] = [];
@@ -372,6 +508,7 @@ export const useRunningViewModel = () => {
         distance: finalDistance,
         duration: elapsedTime,
         locations: allLocations.length,
+        segments: currentSegmentItems.length,
         heartRate: stats.bpm,
         cadence: stats.cadence,
         calories: stats.calories ? Math.round(stats.calories) : undefined,
@@ -386,11 +523,41 @@ export const useRunningViewModel = () => {
         durationSec: elapsedTime,
       });
 
-      // 3. 백엔드 API: 러닝 종료 (오프라인 지원)
+      // 4. 백엔드 API: 러닝 종료 (오프라인 지원)
       try {
         const endRecord = await endRunningMutation(finalRecord);
+        setLastEndedRecord(endRecord); // Finished 화면에서 사용할 최종 기록 저장
         setRunningState(RunningState.COMPLETED);
         console.log('[RunningViewModel] Running completed, data sent to server');
+
+        // 5. RunningRecordItems를 비동기로 전송 (iOS Task.detached 패턴)
+        // UI 블로킹 없이 백그라운드에서 전송
+        if (currentSegmentItems.length > 0) {
+          // 세그먼트 데이터를 서버 형식으로 변환
+          const itemsForServer = currentSegmentItems.map(segment => ({
+            distance: segment.distance,
+            durationSec: segment.durationSec,
+            cadence: segment.cadence,
+            heartRate: segment.heartRate,
+            minHeartRate: segment.heartRate, // TODO: 실제 최소값 계산
+            maxHeartRate: segment.heartRate, // TODO: 실제 최대값 계산
+            orderIndex: segment.orderIndex,
+            startTimeStamp: segment.startTimestamp,
+            endTimeStamp: segment.startTimestamp + segment.durationSec,
+          }));
+
+          // 비동기로 전송 (await 하지 않음 - UI 블로킹 방지)
+          runningService.saveRunningRecordItems({
+            runningRecordId: currentRecord.id,
+            items: itemsForServer,
+          })
+            .then(() => {
+              console.log(`📤 [RunningViewModel] ${currentSegmentItems.length}개 세그먼트 비동기 업로드 완료`);
+            })
+            .catch((error) => {
+              console.warn('⚠️ [RunningViewModel] 세그먼트 비동기 업로드 실패:', error);
+            });
+        }
 
         // 백그라운드 데이터 정리
         if (useBackgroundMode) {
@@ -427,6 +594,8 @@ export const useRunningViewModel = () => {
     offlineStorageService,
     dataSourcePriorityService,
     useBackgroundMode,
+    finalizeCurrentSegment,
+    currentSegmentItems,
   ]);
 
   /**
@@ -467,18 +636,6 @@ export const useRunningViewModel = () => {
   }, []);
 
   /**
-   * 러닝 기록 삭제
-   */
-  const deleteRecord = useCallback(async (recordId: number) => {
-    try {
-      await deleteRecordMutation(recordId);
-    } catch (error) {
-      console.error('Failed to delete running record:', error);
-      throw error;
-    }
-  }, [deleteRecordMutation]);
-
-  /**
    * 러닝 초기화
    */
   const resetRunning = useCallback(() => {
@@ -497,6 +654,13 @@ export const useRunningViewModel = () => {
       speed: 0,
       calories: undefined,
     });
+
+    // 세그먼트 데이터 초기화
+    setCurrentSegmentItems([]);
+    setSegmentStartTime(null);
+    setSegmentDistance(0);
+    setSegmentLocations([]);
+    setSegmentIdCounter(1);
   }, []);
 
   return {
@@ -507,8 +671,10 @@ export const useRunningViewModel = () => {
     distance,
     locations,
     stats,
+    lastEndedRecord, // 러닝 종료 후 최종 기록
     trackingData, // GPS 추적 데이터
     useBackgroundMode, // 백그라운드 모드 사용 여부
+    currentSegmentItems, // 현재 세그먼트 아이템들
 
     // Loading states
     isStarting,
@@ -522,9 +688,13 @@ export const useRunningViewModel = () => {
     updateCurrentRecord,
     updateDistance,
     addLocation,
-    deleteRecord,
     resetRunning,
     setUseBackgroundMode, // 백그라운드 모드 토글
+
+    // Formatting utilities
+    formatElapsedTime,
+    formatBpm,
+    formatPace,
 
     // Computed values
     isRunning: runningState === RunningState.RUNNING,

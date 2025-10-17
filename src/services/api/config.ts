@@ -58,6 +58,7 @@ export const API_ENDPOINTS = {
     END: (id: number) => `/running/${id}/end`,
     DETAIL: (id: number) => `/running/${id}`,
     SEARCH: '/running',
+    ITEMS: (id: number) => `/running/${id}/items`,
   },
   AVATAR: {
     BASE: '/avatars',

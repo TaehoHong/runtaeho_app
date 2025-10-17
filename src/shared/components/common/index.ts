@@ -7,5 +7,5 @@ export { PlayButton } from './play-button';
 export { PointEarnCard } from './point-earn-card';
 export { ShoeSelectionArea } from '../../../features/running/views/shoe-selection-area';
 export { StartButton } from './start-button';
-export { StatsView } from './stats-view';
+export { StatsView } from '../../../features/running/views/stats-view';
 export { StopButton } from './stop-button';

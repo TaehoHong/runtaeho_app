@@ -24,12 +24,12 @@ export const runningService = {
    * 기존: startRunning mutation
    * POST /api/v1/running
    * Request: { startTimestamp: number (s), timezone: string }
-   * Response: { runningRecordId: number }
+   * Response: { id: number }
    */
   startRunning: async (): Promise<RunningRecord> => {
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Seoul';
 
-    const { data } = await apiClient.post<{ runningRecordId: number }>(
+    const { data } = await apiClient.post<{ id: number }>(
       API_ENDPOINTS.RUNNING.BASE,
       {
         startTimestamp: (Date.now() / 1000), // seconds
@@ -37,7 +37,7 @@ export const runningService = {
       }
     );
 
-    return createRunningRecord(data.runningRecordId);
+    return createRunningRecord(data.id);
   },
 
   /**
@@ -159,5 +159,30 @@ export const runningService = {
    */
   deleteRunningRecord: async (id: number): Promise<void> => {
     await apiClient.delete(API_ENDPOINTS.RUNNING.DETAIL(id));
+  },
+
+  /**
+   * 러닝 기록 아이템 저장 (GPS 위치 데이터)
+   * POST /api/v1/running/{id}/items
+   * Request: { items: CreationRunningRecordItemDto[] }
+   */
+  saveRunningRecordItems: async (params: {
+    runningRecordId: number;
+    items: Array<{
+      distance: number;           // 미터
+      durationSec: number;        // 초
+      cadence: number;            // steps/min
+      heartRate: number;          // BPM
+      minHeartRate: number;       // 최소 BPM
+      maxHeartRate: number;       // 최대 BPM
+      orderIndex: number;         // 순서
+      startTimeStamp: number;     // Unix timestamp (초)
+      endTimeStamp: number;       // Unix timestamp (초)
+    }>;
+  }): Promise<void> => {
+    await apiClient.post(
+      API_ENDPOINTS.RUNNING.ITEMS(params.runningRecordId),
+      { items: params.items }
+    );
   },
 };
