@@ -3,11 +3,11 @@
  * 기존 runningApi.ts의 RTK Query hooks를 React Query로 마이그레이션
  */
 
-import { useMutation, useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
-import { runningService } from './runningService';
-import { queryKeys } from '../queryClient';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { RunningRecord } from '~/features/running/models';
 import type { CursorResult } from '~/shared/utils/dto/CursorResult';
+import { queryKeys } from '../../../services/queryClient';
+import { runningService } from './runningService';
 
 /**
  * 러닝 시작
@@ -110,14 +110,14 @@ export const useInfiniteRunningRecords = (
     queryKey: queryKeys.running.infinite(params),
     queryFn: ({ pageParam }) =>
       runningService.loadMoreRecords({
-        cursor: pageParam,
+        ...(pageParam !== undefined && { cursor: pageParam as number }),
         size: params.size,
       }),
     initialPageParam: undefined as number | undefined,
     getNextPageParam: (lastPage) => (lastPage.hasNext ? lastPage.cursor : undefined),
     enabled: options?.enabled ?? true,
   });
-};
+};;;
 
 /**
  * 특정 러닝 기록 조회

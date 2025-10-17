@@ -7,7 +7,6 @@ import { container, SERVICE_TOKENS, ServiceLifetime } from './ServiceContainer';
 
 // Business Services
 import { AuthenticationService } from '../../features/auth/services/AuthenticationService';
-import { RunningService } from '../../features/running/services/RunningService';
 // Note: StatisticsService는 React Query로 마이그레이션되어 DI 컨테이너에서 제외
 // import { statisticsService } from '../../features/statistics/services/statisticsService';
 import { UserService } from '../../features/user/services/UserService';
@@ -38,11 +37,11 @@ export const registerServices = () => {
   );
 
   // Business Services (Singleton 패턴 사용)
-  container.registerFactory(
-    SERVICE_TOKENS.RUNNING_SERVICE,
-    () => RunningService.getInstance(),
-    ServiceLifetime.SINGLETON
-  );
+  // container.registerFactory(
+  //   SERVICE_TOKENS.RUNNING_SERVICE,
+  //   () => RunningService.getInstance(),
+  //   ServiceLifetime.SINGLETON
+  // );
 
   container.registerFactory(
     SERVICE_TOKENS.AUTH_SERVICE,
@@ -84,7 +83,7 @@ export const registerServices = () => {
 // 서비스 가져오기 헬퍼 함수들
 // ==========================================
 
-export const getRunningService = () => container.resolve<RunningService>(SERVICE_TOKENS.RUNNING_SERVICE);
+// export const getRunningService = () => container.resolve<RunningService>(SERVICE_TOKENS.RUNNING_SERVICE);
 export const getAuthService = () => container.resolve<AuthenticationService>(SERVICE_TOKENS.AUTH_SERVICE);
 // export const getAvatarService = () => container.resolve<AvatarService>(SERVICE_TOKENS.AVATAR_SERVICE);
 // Statistics Service는 React Query hooks로 대체됨 (useGetStatisticsSummary 등)

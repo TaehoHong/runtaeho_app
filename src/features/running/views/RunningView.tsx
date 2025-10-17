@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { UnityView } from '~/features/unity/components/UnityView';
-import { getUnityService } from '~/features/unity/services/UnityService';
+import { unityService } from '~/features/unity/services/UnityService';
 import { LoadingView } from '~/shared/components';
 import { ViewState, useAppStore, useAuthStore } from '~/stores';
 import { ControlPanelView } from './ControlPanelView';
@@ -20,7 +20,6 @@ export const RunningView: React.FC = () => {
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const [unityReady, setUnityReady] = useState(false);
   const [unityStarted, setUnityStarted] = useState(false);
-  const [unityService] = useState(() => getUnityService());
 
   console.log('🏃 [RunningView] 렌더링, viewState:', viewState, 'runningState:', runningState, 'isLoggedIn:', isLoggedIn);
 
@@ -132,7 +131,7 @@ const RunningAlerts: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'white',
+    backgroundColor: '#f5f5f5',
   },
   unityContainer: {
     flex: 0.5, // 화면 상단 50%
@@ -146,9 +145,7 @@ const styles = StyleSheet.create({
   },
   controlPanelContainer: {
     flex: 0.5, // 화면 하단 50%
-    backgroundColor: '#ffffff',
-    justifyContent: 'center',
-    padding: 20,
+    backgroundColor: '#f5f5f5',
     borderTopWidth: 1,
     borderTopColor: '#ddd',
   },

@@ -4,38 +4,56 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Text } from '~/shared/components/typography';
+import { useRunning } from '~/features/running/contexts';
 
+/**
+ * 현재 누적 거리 카드
+ * Figma 디자인 기반: "현재 누적 거리" + "00.0 km"
+ */
 export const MainDistanceCard: React.FC = () => {
-  // TODO: RunningFinishedViewModel에서 거리 데이터 가져오기
-  const distanceText = '0.00 km';
+  const { distance } = useRunning();
+
+  // 거리를 km 단위로 변환 (distance는 미터 단위)
+  const distanceKm = (distance / 1000).toFixed(2);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.distance}>{distanceText}</Text>
+      <Text style={styles.label}>현재 누적 거리</Text>
+      <View style={styles.distanceContainer}>
+        <Text style={styles.distanceValue}>{distanceKm}</Text>
+        <Text style={styles.distanceUnit}>km</Text>
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    paddingVertical: 20,
-    paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    height: 60,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    width: '100%',
   },
-  distance: {
-    fontSize: 36,
+  label: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: '#9D9D9D',
+    marginBottom: 16,
+  },
+  distanceContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+  },
+  distanceValue: {
+    fontSize: 48,
+    fontWeight: '700',
+    color: '#000000',
+    letterSpacing: -1,
+  },
+  distanceUnit: {
+    fontSize: 48,
     fontWeight: '700',
     color: '#000000',
   },

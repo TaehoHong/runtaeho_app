@@ -11,7 +11,8 @@ import type { AvatarItem } from '~/features/avatar';
  * Unity Bridge Service 클래스
  * React Native와 Unity 간의 모든 통신을 관리하며 도메인 로직을 포함
  */
-class UnityService {
+export class UnityService {
+  private static instance: UnityService
   
   // 도메인 상수들
   private static readonly UNITY_OBJECT_NAME = 'Charactor';
@@ -21,30 +22,12 @@ class UnityService {
   private static readonly MAX_SPEED = 10;
   private static readonly VALID_MOTIONS: CharacterMotion[] = ['IDLE', 'MOVE', 'ATTACK', 'DAMAGED'];
   
-  // constructor(config: Partial<UnityBridgeConfig> = {}) {
-  //   this.config = { ...DEFAULT_UNITY_BRIDGE_CONFIG, ...config };
-  //   this.initialize();
-  // }
-  
-  // ==========================================
-  // 초기화 및 설정
-  // ==========================================
-
-  // private async initialize(): Promise<void> {
-  //   if (this.isInitialized) return;
-
-  //   this.log('UnityBridgeService 초기화 중...');
-
-  //   try {
-
-  //     this.isInitialized = true;
-  //     this.log('UnityBridgeService 초기화 완료');
-  //   } catch (error) {
-  //     this.logError('Failed to initialize UnityBridgeService', error);
-  //     throw error;
-  //   }
-  // }
-  
+  static getInstance = (): UnityService => {
+    if(!UnityService.instance) {
+      UnityService.instance = new UnityService()
+    }
+    return UnityService.instance;
+  };
   
   // ==========================================
   // Unity 화면 제어 (UnityView 컴포넌트에서 처리)
@@ -199,25 +182,4 @@ class UnityService {
   
 }
 
-// ==========================================
-// 싱글톤 인스턴스
-// ==========================================
-
-let unityServiceInstance: UnityService | null = null;
-
-// export const createUnityBridgeService = (config?: Partial<UnityBridgeConfig>): UnityBridgeService => {
-//   if (!unityBridgeInstance) {
-//     unityBridgeInstance = new UnityBridgeService(config);
-//   }
-//   return unityBridgeInstance;
-// };
-
-
-export const getUnityService = (): UnityService => {
-  if(!unityServiceInstance) {
-    unityServiceInstance = new UnityService()
-  }
-  return unityServiceInstance;
-};
-
-export default UnityService;
+export const unityService = UnityService.getInstance();

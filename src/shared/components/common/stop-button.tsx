@@ -19,10 +19,10 @@ export const StopButton: React.FC<StopButtonProps> = ({ onPress }) => {
 
 const styles = StyleSheet.create({
   button: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#FF3B30',
+    width: 65,
+    height: 65,
+    borderRadius: 32.5,
+    backgroundColor: '#747474',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -30,13 +30,13 @@ const styles = StyleSheet.create({
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.15,
     shadowRadius: 3.84,
-    elevation: 5,
+    elevation: 3,
   },
   text: {
     color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '500',
   },
 });

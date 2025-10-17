@@ -4,31 +4,44 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Text } from '~/shared/components/typography';
+import { useRunning } from '~/features/running/contexts';
 
+/**
+ * 러닝 통계 뷰 (피그마 디자인 기반)
+ * BPM, 페이스, 러닝 시간 표시
+ */
 export const StatsView: React.FC = () => {
-  // TODO: RunningViewModel에서 실시간 데이터 가져오기
-  const distance = '0.00'; // km
-  const time = '00:00:00'; // HH:MM:SS
-  const pace = '0\'00"'; // pace per km
+  const { elapsedTime, stats } = useRunning();
+
+  // 러닝 시간 포맷팅 (MM:SS)
+  const formatElapsedTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
+
+  const bpm = stats.bpm !== undefined ? String(stats.bpm).padStart(2, '0') : '00';
+  const pace = `${String(stats.pace.minutes).padStart(2, '0')}:${String(stats.pace.seconds).padStart(2, '0')}`;
+  const runningTime = formatElapsedTime(elapsedTime);
 
   return (
     <View style={styles.container}>
-      {/* Distance */}
+      {/* BPM */}
       <View style={styles.statItem}>
-        <Text style={styles.statValue}>{distance}</Text>
-        <Text style={styles.statLabel}>거리 (km)</Text>
+        <Text style={styles.statLabel}>BPM</Text>
+        <Text style={styles.statValue}>{bpm}</Text>
       </View>
 
-      {/* Time */}
+      {/* 페이스 */}
       <View style={styles.statItem}>
-        <Text style={styles.statValue}>{time}</Text>
-        <Text style={styles.statLabel}>시간</Text>
-      </View>
-
-      {/* Pace */}
-      <View style={styles.statItem}>
-        <Text style={styles.statValue}>{pace}</Text>
         <Text style={styles.statLabel}>페이스</Text>
+        <Text style={styles.statValue}>{pace}</Text>
+      </View>
+
+      {/* 러닝 시간 */}
+      <View style={styles.statItem}>
+        <Text style={styles.statLabel}>러닝 시간</Text>
+        <Text style={styles.statValue}>{runningTime}</Text>
       </View>
     </View>
   );
@@ -37,23 +50,29 @@ export const StatsView: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     alignItems: 'center',
     width: '100%',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
+    gap: 8,
   },
   statItem: {
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 0,
     flex: 1,
   },
+  statLabel: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: '#9D9D9D',
+    marginBottom: 6,
+  },
   statValue: {
-    fontSize: 24,
+    fontSize: 27,
     fontWeight: '600',
     color: '#000000',
-  },
-  statLabel: {
-    fontSize: 14,
-    color: '#666666',
-    marginTop: 4,
+    letterSpacing: -0.5,
   },
 });

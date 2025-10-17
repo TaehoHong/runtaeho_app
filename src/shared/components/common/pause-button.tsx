@@ -19,10 +19,10 @@ export const PauseButton: React.FC<PauseButtonProps> = ({ onPress }) => {
 
 const styles = StyleSheet.create({
   button: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#FF9500',
+    width: 65,
+    height: 65,
+    borderRadius: 32.5,
+    backgroundColor: '#747474',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -30,13 +30,13 @@ const styles = StyleSheet.create({
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.15,
     shadowRadius: 3.84,
-    elevation: 5,
+    elevation: 3,
   },
   text: {
     color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '500',
   },
 });

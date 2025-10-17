@@ -28,7 +28,7 @@ export const createEndRunningRecord = (data: {
   point: number;
 }): EndRunningRecord => ({
   id: data.id,
-  shoeId: data.shoeId,
+  ...(data.shoeId !== undefined && { shoeId: data.shoeId }),
   distance: data.distance,
   cadence: data.cadence,
   heartRate: data.heartRate,
@@ -53,7 +53,7 @@ export const createEndRecordFromRunning = (
   point: number
 ): EndRunningRecord => ({
   id: runningRecord.id,
-  shoeId: runningRecord.shoeId,
+  ...(runningRecord.shoeId !== undefined && { shoeId: runningRecord.shoeId }),
   distance: runningRecord.distance,
   cadence: runningRecord.cadence,
   heartRate: runningRecord.heartRate,

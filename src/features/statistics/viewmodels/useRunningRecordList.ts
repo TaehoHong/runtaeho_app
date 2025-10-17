@@ -9,7 +9,7 @@
 import { useMemo } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import type { RunningRecord } from '../../running/models';
-import { runningService } from '../../running/api/runningApiClient';
+import { runningService } from '../../running/services/runningService';
 
 /**
  * Hook 파라미터 타입

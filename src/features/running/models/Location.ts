@@ -8,6 +8,7 @@ export interface Location {
   timestamp: Date;
   speed: number;
   altitude: number;
+  accuracy?: number; // 위치 정확도 (미터)
 }
 
 /**
@@ -20,17 +21,19 @@ export const createLocation = (data: {
   timestamp: Date;
   speed: number;
   altitude: number;
+  accuracy?: number;
 }): Location => ({
   latitude: data.latitude,
   longitude: data.longitude,
   timestamp: data.timestamp,
   speed: data.speed,
   altitude: data.altitude,
+  ...(data.accuracy !== undefined && { accuracy: data.accuracy }),
 });
 
 /**
  * 지리 좌표계 기반 Location 생성
- * React Native Geolocation API의 Position 객체에서 생성
+ * Expo Location API의 LocationObject에서 생성
  */
 export const createLocationFromPosition = (position: {
   coords: {
@@ -38,6 +41,7 @@ export const createLocationFromPosition = (position: {
     longitude: number;
     speed: number | null;
     altitude: number | null;
+    accuracy: number | null;
   };
   timestamp: number;
 }): Location => ({
@@ -46,6 +50,7 @@ export const createLocationFromPosition = (position: {
   timestamp: new Date(position.timestamp),
   speed: position.coords.speed ?? 0,
   altitude: position.coords.altitude ?? 0,
+  ...(position.coords.accuracy !== null && { accuracy: position.coords.accuracy }),
 });
 
 /**
@@ -74,7 +79,11 @@ export const calculateTotalDistance = (locations: Location[]): number => {
 
   let totalDistance = 0;
   for (let i = 1; i < locations.length; i++) {
-    totalDistance += calculateDistance(locations[i - 1], locations[i]);
+    const prev = locations[i - 1];
+    const curr = locations[i];
+    if (prev && curr) {
+      totalDistance += calculateDistance(prev, curr);
+    }
   }
 
   return totalDistance;

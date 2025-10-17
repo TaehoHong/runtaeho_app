@@ -19,7 +19,6 @@ export interface RunningRecord {
  */
 export const createRunningRecord = (id: number): RunningRecord => ({
   id,
-  shoeId: undefined,
   distance: 0,
   cadence: 0,
   heartRate: 0,
@@ -43,7 +42,7 @@ export const createCompletedRunningRecord = (data: {
   startTimestamp: number;
 }): RunningRecord => ({
   id: data.id,
-  shoeId: data.shoeId,
+  ...(data.shoeId !== undefined && { shoeId: data.shoeId }),
   distance: data.distance,
   cadence: data.cadence,
   heartRate: data.heartRate,

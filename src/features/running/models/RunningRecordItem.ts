@@ -41,10 +41,9 @@ export const createRunningRecordItem = (data: {
   orderIndex: data.orderIndex,
   durationSec: data.durationSec,
   startTimestamp: data.startTimestamp,
-  endTimestamp: undefined,
-  locations: data.locations,
+  ...(data.locations !== undefined && { locations: data.locations }),
   isUploaded: false,
-});
+});;
 
 /**
  * 기본 RunningRecordItem 생성 (ID만으로)
@@ -59,10 +58,8 @@ export const createEmptyRunningRecordItem = (id: number): RunningRecordItem => (
   orderIndex: 0,
   durationSec: 0,
   startTimestamp: Date.now() / 1000, // Convert to seconds
-  endTimestamp: undefined,
-  locations: undefined,
   isUploaded: false,
-});
+});;
 
 /**
  * 업로드 완료 표시

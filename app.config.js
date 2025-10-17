@@ -18,7 +18,8 @@ export default {
       appleTeamId: "Y9XN2ZQ9G3",
       infoPlist: {
         NSLocationWhenInUseUsageDescription: "이 앱은 러닝 기록을 위해 위치 정보를 사용합니다.",
-        NSLocationAlwaysAndWhenInUseUsageDescription: "이 앱은 러닝 기록을 위해 위치 정보를 사용합니다."
+        NSLocationAlwaysAndWhenInUseUsageDescription: "백그라운드에서 러닝 거리를 정확하게 기록하기 위해 항상 위치 정보가 필요합니다.",
+        UIBackgroundModes: ["location"] // 백그라운드 위치 업데이트
       }
     },
     android: {
@@ -34,7 +35,9 @@ export default {
       permissions: [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
-        "FOREGROUND_SERVICE"
+        "ACCESS_BACKGROUND_LOCATION", // 백그라운드 위치 추적
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION" // Foreground Service (위치)
       ]
     },
     web: {
@@ -43,6 +46,17 @@ export default {
     },
     plugins: [
       "expo-router",
+      [
+        "expo-location",
+        {
+          locationAlwaysAndWhenInUsePermission: "백그라운드에서 러닝 거리를 정확하게 기록하기 위해 항상 위치 정보가 필요합니다.",
+          locationAlwaysPermission: "백그라운드에서 러닝 거리를 정확하게 기록하기 위해 항상 위치 정보가 필요합니다.",
+          locationWhenInUsePermission: "이 앱은 러닝 기록을 위해 위치 정보를 사용합니다.",
+          isIosBackgroundLocationEnabled: true,
+          isAndroidBackgroundLocationEnabled: true,
+          isAndroidForegroundServiceEnabled: true
+        }
+      ],
       [
         "expo-splash-screen",
         {
