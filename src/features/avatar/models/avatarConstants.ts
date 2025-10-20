@@ -7,7 +7,7 @@
  * - 변경 가능한 값은 환경변수로 분리 가능하도록 설계
  */
 
-import type { ItemType, ItemCategory } from './avatarTypes';
+import type { ItemType, ItemCategory } from './';
 
 // ===================================
 // API 관련 상수
