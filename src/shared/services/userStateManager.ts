@@ -1,7 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { AuthProviderType } from '../../features/auth/models/AuthType';
 import { SilentTokenRefreshService } from '../../features/auth/services/SilentTokenRefreshService';
-import type { AvatarItem } from '../../features/avatar/models';
 import type { User } from '../../features/user/models/User';
 import type { UserAccount } from '../../features/user/models/UserAccount';
 import { userDataDtoToUser, type UserDataDto } from '../../features/user/models/UserDataDto';
@@ -11,6 +10,7 @@ import { tokenStorage } from '../../utils/storage';
 import { systemInfoManager } from '../utils/SystemInfoManager';
 import { PermissionManager } from './PermissionManager';
 import { TokenStatus, tokenUtils } from '../../features/auth//utils/tokenUtils'
+import type { AvatarItem, EquippedItemsMap } from '~/features/avatar';
 
 // Storage Keys (SwiftUI UserStateManager.Keys와 동일)
 const STORAGE_KEYS = {
@@ -63,7 +63,7 @@ export class UserStateManager {
     return useUserStore.getState().avatarId;
   }
 
-  get equippedItems(): Record<string, AvatarItem> {
+  get equippedItems(): EquippedItemsMap {
     return useUserStore.getState().equippedItems;
   }
 

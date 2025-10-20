@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { useStartRunning, useEndRunning, useUpdateRunningRecord } from '../services';
 import { runningService } from '../services/runningService';
@@ -77,10 +77,15 @@ export const useRunningViewModel = () => {
     calories: undefined,
   });
 
+  // stats의 최신 값을 참조하기 위한 ref (백그라운드 폴링용)
+  const statsRef = useRef<RunningStats>(stats);
+  useEffect(() => {
+    statsRef.current = stats;
+  }, [stats]);
+
   // 러닝 종료 후 최종 기록 (Finished 화면에서 사용)
   const [lastEndedRecord, setLastEndedRecord] = useState<EndRunningRecord | null>(null);
 
-  // 세그먼트 추적 (iOS와 동일)
   const [currentSegmentItems, setCurrentSegmentItems] = useState<RunningRecordItem[]>([]);
   const [segmentStartTime, setSegmentStartTime] = useState<number | null>(null);
   const [segmentDistance, setSegmentDistance] = useState<number>(0);
@@ -307,9 +312,12 @@ export const useRunningViewModel = () => {
     };
   }, [runningState, startTime, distance, sensorHeartRate, sensorCadence, updateStats]);
 
-  // 백그라운드 모드: 앱이 포그라운드일 때만 AsyncStorage에서 거리 폴링
+  // 백그라운드 모드: 앱이 포그라운드일 때만 AsyncStorage에서 거리 폴링 + 세그먼트 생성
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
+    let previousDistance = 0;
+    let currentSegmentDist = 0;
+    let lastProcessedLocationCount = 0; // 마지막으로 처리한 위치 개수
 
     const startPolling = () => {
       if (interval) return; // 이미 실행 중이면 중복 방지
@@ -317,15 +325,104 @@ export const useRunningViewModel = () => {
       interval = setInterval(async () => {
         try {
           const totalDistance = await backgroundTaskService.getTotalDistance();
-          if (totalDistance !== distance) {
-            setDistance(totalDistance);
-            console.log(`[RunningViewModel] Distance updated from background storage: ${totalDistance.toFixed(2)}m`);
+          const allLocations = await backgroundTaskService.getBackgroundLocations();
+
+          // 거리 업데이트
+          setDistance(totalDistance);
+
+          // 거리 변화 감지 및 세그먼트 업데이트
+          const distanceDelta = totalDistance - previousDistance;
+          if (distanceDelta > 0) {
+            currentSegmentDist += distanceDelta;
+            setSegmentDistance(currentSegmentDist);
+
+            // 10m 달성 시 세그먼트 생성
+            if (currentSegmentDist >= segmentDistanceThreshold) {
+              // 현재 거리를 상수에 저장 (초기화 전에 값 보존)
+              const segmentDistanceValue = currentSegmentDist;
+
+              // segmentStartTime을 현재 시점에서 가져오기 (ref가 아닌 state 직접 참조)
+              setSegmentStartTime((currentSegmentStartTime) => {
+                if (currentSegmentStartTime === null) return currentSegmentStartTime;
+
+                const now = Date.now();
+                const segmentDuration = (now - currentSegmentStartTime) / 1000; // seconds
+
+                // 새로 추가된 위치들만 추출 (이전에 처리한 위치 이후부터)
+                const newLocations = allLocations.slice(lastProcessedLocationCount);
+
+                // Location 형식으로 변환
+                const segmentLocs: Location[] = newLocations.map(loc => ({
+                  latitude: loc.latitude,
+                  longitude: loc.longitude,
+                  altitude: loc.altitude,
+                  accuracy: loc.accuracy,
+                  speed: loc.speed,
+                  timestamp: new Date(loc.timestamp),
+                }));
+
+                // 세그먼트 생성 (statsRef.current 사용하여 최신 stats 참조)
+                // 먼저 현재 segmentIdCounter를 가져오기 위해 함수형 업데이트 사용
+                let createdSegmentId = 0;
+                setSegmentIdCounter(currentId => {
+                  createdSegmentId = currentId;
+                  return currentId + 1; // segmentIdCounter 증가
+                });
+
+                // 가져온 ID로 세그먼트 생성
+                const currentStats = statsRef.current; // 최신 stats 가져오기
+                setCurrentSegmentItems(prev => {
+                  const segmentCalories = Math.round((currentStats.calories || 0) / Math.max(1, prev.length + 1));
+
+                  const newSegment = createRunningRecordItem({
+                    id: createdSegmentId,
+                    distance: segmentDistanceValue,  // 👈 저장된 값 사용
+                    cadence: currentStats.cadence || 0,
+                    heartRate: currentStats.bpm || 0,
+                    calories: segmentCalories,
+                    orderIndex: createdSegmentId - 1,
+                    durationSec: segmentDuration,
+                    startTimestamp: currentSegmentStartTime / 1000,
+                    locations: segmentLocs,
+                  });
+
+                  console.log(`📍 [RunningViewModel] 세그먼트 생성 완료 (백그라운드): ${prev.length + 1}번째, ${segmentDistanceValue.toFixed(2)}m`);
+
+                  return [...prev, newSegment];
+                });
+
+                return now; // segmentStartTime 업데이트
+              });
+
+              // 다음 세그먼트를 위한 초기화 (setSegmentStartTime 외부에서 실행)
+              currentSegmentDist = 0;
+              setSegmentDistance(0);
+              setSegmentLocations([]);
+              lastProcessedLocationCount = allLocations.length; // 현재까지 처리한 위치 개수 기록
+            } else {
+              // 10m 미만이면 위치만 업데이트
+              const newLocations = allLocations.slice(lastProcessedLocationCount);
+              if (newLocations.length > 0) {
+                const segmentLocs: Location[] = newLocations.map(loc => ({
+                  latitude: loc.latitude,
+                  longitude: loc.longitude,
+                  altitude: loc.altitude,
+                  accuracy: loc.accuracy,
+                  speed: loc.speed,
+                  timestamp: new Date(loc.timestamp),
+                }));
+                setSegmentLocations(prev => [...prev, ...segmentLocs]);
+                lastProcessedLocationCount = allLocations.length;
+              }
+            }
+
+            previousDistance = totalDistance;
           }
         } catch (error) {
           console.error('[RunningViewModel] Failed to poll background distance:', error);
         }
       }, 1000);
-      console.log('[RunningViewModel] Started background distance polling');
+      console.log('[RunningViewModel] Started background distance polling with segment tracking');
     };
 
     const stopPolling = () => {
@@ -358,7 +455,7 @@ export const useRunningViewModel = () => {
       stopPolling();
       subscription.remove();
     };
-  }, [runningState, useBackgroundMode, distance, backgroundTaskService]);
+  }, [runningState, useBackgroundMode, backgroundTaskService]);
 
   /**
    * 

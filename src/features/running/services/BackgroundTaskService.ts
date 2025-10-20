@@ -91,7 +91,7 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
       // 현재 세션 정보 가져오기
       const sessionData = await AsyncStorage.getItem(STORAGE_KEYS.RUNNING_SESSION);
       if (!sessionData) {
-        console.log('[BackgroundTask] No active session');
+        // console.log('[BackgroundTask] No active session');
         return;
       }
 
@@ -162,11 +162,11 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
         [STORAGE_KEYS.TOTAL_DISTANCE, updatedSession.totalDistance.toString()],
       ]);
 
-      console.log(
-        `[BackgroundTask] Processed ${newLocations.length} locations, ` +
-        `distance added: ${totalDistanceAdded.toFixed(2)}m, ` +
-        `total: ${updatedSession.totalDistance.toFixed(2)}m`
-      );
+      // console.log(
+      //   `[BackgroundTask] Processed ${newLocations.length} locations, ` +
+      //   `distance added: ${totalDistanceAdded.toFixed(2)}m, ` +
+      //   `total: ${updatedSession.totalDistance.toFixed(2)}m`
+      // );
     } catch (err) {
       console.error('[BackgroundTask] Error processing locations:', err);
     }
