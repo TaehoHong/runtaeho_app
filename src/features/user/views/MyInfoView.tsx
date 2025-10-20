@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Modal } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert } from 'react-native';
 import { Text } from '~/shared/components/typography';
 import { Icon } from '~/shared/components/ui';
-import { useUserStore } from '~/stores/user/userStore';
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -10,6 +9,8 @@ import { PointHistoryView } from '~/features/point/views';
 import { ShoesListView } from '~/features/shoes/views';
 import { AvatarView } from '~/features/avatar/views';
 import type { User } from '../models';
+import { useAuth } from '~/features/auth/hooks/useAuth';
+import { useRouter } from 'expo-router';
 
 /**
  * 내정보 화면
@@ -17,20 +18,50 @@ import type { User } from '../models';
  * 프로필 카드 + 메인 메뉴 + 설정 메뉴 + 로그아웃
  */
 export const MyInfoView: React.FC = () => {
-  const currentUser = useUserStore((state) => state.currentUser);
-  const totalPoint = useUserStore((state) => state.totalPoint);
-  const logout = useUserStore((state) => state.logout);
+  // useAuth Hook 사용 (현업 표준 패턴)
+  const { user: currentUser, totalPoint, logout } = useAuth();
+  const router = useRouter();
   const [showLogoutAlert, setShowLogoutAlert] = useState(false);
   const [showPointModal, setShowPointModal] = useState(false);
   const [showShoesModal, setShowShoesModal] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   console.log('👤 [MyInfoView] 내정보 화면 렌더링');
 
-  const handleLogout = () => {
-    console.log('🚪 [MyInfoView] 로그아웃 실행');
-    logout();
-    setShowLogoutAlert(false);
+  /**
+   * 로그아웃 핸들러
+   *
+   * useAuth hook의 logout 사용 (performCompleteLogout 대체)
+   */
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+
+    try {
+      setIsLoggingOut(true);
+      console.log('🚪 [MyInfoView] 로그아웃 시작...');
+
+      // useAuth의 logout 호출 (모든 데이터 제거)
+      await logout();
+
+      console.log('✅ [MyInfoView] 로그아웃 완료');
+      setShowLogoutAlert(false);
+
+      // 로그인 화면으로 리다이렉트
+      router.replace('/auth/login');
+    } catch (error) {
+      console.error('❌ [MyInfoView] 로그아웃 실패:', error);
+      setShowLogoutAlert(false);
+
+      // 에러 알림 표시
+      Alert.alert(
+        '로그아웃 실패',
+        '로그아웃 중 오류가 발생했습니다. 다시 시도해주세요.',
+        [{ text: '확인', style: 'default' }]
+      );
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   return (
@@ -74,11 +105,14 @@ export const MyInfoView: React.FC = () => {
               >
                 <Text style={styles.cancelButtonText}>취소</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.alertButton, styles.logoutButton]} 
+              <TouchableOpacity
+                style={[styles.alertButton, styles.logoutButton]}
                 onPress={handleLogout}
+                disabled={isLoggingOut}
               >
-                <Text style={styles.logoutButtonText}>로그아웃</Text>
+                <Text style={styles.logoutButtonText}>
+                  {isLoggingOut ? '로그아웃 중...' : '로그아웃'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>

@@ -15,17 +15,7 @@
 // ===================================
 // Types & Models
 // ===================================
-export type {
-  Avatar, AvatarDto, AvatarItem, EquippedItemsMap, GetItemsRequest, ItemCategory, ItemDto, ItemType, ItemTypeDto, ItemsByCategory, PurchaseItem, PurchaseItemsRequest,
-  UpdateEquippedItemsRequest
-} from './models/avatarTypes';
-
-export { ItemStatus } from './models/avatarTypes';
-
-export {
-  isItemType,
-  isValidAvatarItem
-} from './models/avatarTypes';
+export type { AvatarItem, isItemType, EquippedItemsMap, ItemType, PurchaseItemsRequest } from './models';
 
 // ===================================
 // Constants
@@ -52,14 +42,4 @@ export {
   useMainAvatar, usePurchaseAndEquipItems, usePurchaseItems,
   useUpdateEquippedItems
 } from './services/avatarQueries';
-
-// ===================================
-// Utils
-// ===================================
-export {
-  groupItemsByCategory, toAvatar, toAvatarItem,
-  toAvatarItems, toEquippedItemsMap,
-  toItemIds, updateItemStatus,
-  updateItemStatusInArray
-} from './utils/avatarDtoMapper';
 

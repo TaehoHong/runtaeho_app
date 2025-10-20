@@ -104,10 +104,14 @@ export const useAuthStore = create<AuthState>()(
 
       /**
        * 로그아웃 (상태만 변경)
+       * 모든 인증 상태를 초기화
        */
       logout: () =>
         set({
           isLoggedIn: false,
+          accessToken: null,
+          refreshToken: null,
+          isLoading: false,
           error: null,
         }),
 

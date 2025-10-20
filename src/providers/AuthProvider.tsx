@@ -1,8 +1,8 @@
 import { router } from 'expo-router';
 import React, { type ReactNode, useCallback, useEffect, useState } from 'react';
-import { UserStateManager } from '../shared/services/userStateManager';
 import { useAppStore, ViewState } from '../stores/app/appStore';
 import { useAuthStore } from '../features/auth/stores/authStore';
+import { useAuth } from '../features/auth/hooks/useAuth';
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -10,19 +10,26 @@ interface AuthProviderProps {
 
 /**
  * 인증 상태를 관리하고 로그인 상태에 따라 네비게이션을 제어하는 Provider
+ *
+ * 현업 표준 패턴:
+ * - UserStateManager 제거
+ * - useAuth hook으로 통합 인증 관리
+ * - Zustand persist 자동 복원
  */
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const setViewState = useAppStore((state) => state.setViewState);
-  const isLoggedIn = useAuthStore((state) => state.isLoggedIn); // ✅ AuthStore로 변경
+  const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
+  const { verifyAndRefreshToken } = useAuth();
   const [hasRequestedPermissions, setHasRequestedPermissions] = useState(false);
   const [isNavigationReady, setIsNavigationReady] = useState(false);
 
   /**
    * 앱 시작 시 저장된 인증 상태 복원
-   * - Zustand persist 미들웨어가 자동으로 AsyncStorage에서 상태 복원
-   * - AuthStore에 SecureStorage 토큰 동기화
-   * - UserStateManager constructor에서 Keychain 토큰 로드 및 Zustand 동기화
-   * - 토큰 유효성 검증만 수행
+   *
+   * 단순화된 로직:
+   * 1. Zustand persist가 자동으로 AsyncStorage 복원
+   * 2. SecureStorage 토큰 동기화
+   * 3. 토큰 검증 (useAuth hook 사용)
    */
   const initializeAuthState = useCallback(async () => {
     try {
@@ -32,22 +39,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const initializeTokens = useAuthStore.getState().initializeTokens;
       await initializeTokens();
 
-      const userStateManager = UserStateManager.getInstance();
-
-      // 1. Zustand persist가 이미 AsyncStorage에서 상태 복원 완료
-      // 2. UserStateManager.loadUserState()가 constructor에서 호출되어
-      //    - Keychain에서 토큰 로드
-      //    - AsyncStorage에서 사용자 정보 로드
-      //    - Zustand store에 setLoginData() 호출 완료
-
-      // 3. 토큰 검증 및 갱신만 수행
-      await userStateManager.verifyTokens();
+      // 2. 토큰 검증 및 자동 갱신 (useAuth hook)
+      await verifyAndRefreshToken();
 
       console.log('✅ [AuthProvider] 인증 상태 복원 완료');
     } catch (error) {
       console.error('⚠️ [AuthProvider] 인증 상태 초기화 실패:', error);
     }
-  }, []);
+  }, [verifyAndRefreshToken]);
 
   useEffect(() => {
     console.log('🔐 [AuthProvider] 인증 상태 초기화 시작');
@@ -78,7 +77,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setViewState(ViewState.Loaded);
 
         // 네비게이션 시도
-        router.replace('/(tabs)');
+        router.replace('/(tabs)/running');
         console.log('✅ [AuthProvider] 네비게이션 성공: /(tabs)');
 
         // iOS와 동일한 권한 요청 (로그인 완료 후 한 번만)

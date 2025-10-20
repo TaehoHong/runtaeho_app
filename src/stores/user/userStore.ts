@@ -12,6 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import type { AvatarItem, EquippedItemsMap, ItemType } from '~/features/avatar';
+import { ItemStatus } from '~/features/avatar/models';
 import { type User } from '~/features/user/models/User';
 import { type UserAccount } from '~/features/user/models/UserAccount';
 import { userDataDtoToUser, type UserDataDto } from '~/features/user/models/UserDataDto';
@@ -127,7 +128,7 @@ export const useUserStore = create<UserState>()(
       totalPoint: 0,
       profileImgUrl: null,
       avatarId: 0,
-      equippedItems: new Map<ItemType, AvatarItem | undefined>(),
+      equippedItems: {} as EquippedItemsMap,
       userPreferences: defaultPreferences,
       appLaunchCount: 0,
       lastAppVersion: null,
@@ -167,13 +168,19 @@ export const useUserStore = create<UserState>()(
        * 기존: logout reducer
        *
        * ⚠️ 토큰 관련 state 제거됨
+       * ⚠️ 모든 사용자 데이터를 초기 상태로 복원
        */
       logout: () =>
         set({
           currentUser: null,
           totalPoint: 0,
+          profileImgUrl: null,
           avatarId: 0,
-          equippedItems: new Map<ItemType, AvatarItem | undefined>(),
+          equippedItems: {} as EquippedItemsMap,
+          userPreferences: defaultPreferences,
+          appLaunchCount: 0,
+          lastAppVersion: null,
+          backgroundEnterTime: null,
         }),
 
       /**
@@ -432,7 +439,7 @@ export const useUserStore = create<UserState>()(
           currentUser: null,
           totalPoint: 0,
           avatarId: 0,
-          equippedItems: new Map<ItemType, AvatarItem | undefined>(),
+          equippedItems: {} as EquippedItemsMap,
           userPreferences: defaultPreferences,
           appLaunchCount: 0,
           lastAppVersion: null,
@@ -447,6 +454,9 @@ export const useUserStore = create<UserState>()(
        */
       login: (userData) => {
         const user = userDataDtoToUser(userData);
+        
+        // DEBUG: API 응답 구조 확인
+        console.log('[UserStore] Login - userData.equippedItems:', JSON.stringify(userData.equippedItems, null, 2));
 
         // EquippedItemDataDto를 EquippedItemsMap으로 변환
         const convertEquippedItems = (equippedItems: any[]): EquippedItemsMap => {
@@ -460,11 +470,11 @@ export const useUserStore = create<UserState>()(
               itemType: itemType,
               filePath: item.filePath,
               unityFilePath: item.unityFilePath,
-              status: 'EQUIPPED' as const,
-              price: undefined,
+              status: ItemStatus.EQUIPPED
             };
           });
 
+          console.log('[UserStore] Login - converted equippedItems:', JSON.stringify(result, null, 2));
           return result;
         };
 

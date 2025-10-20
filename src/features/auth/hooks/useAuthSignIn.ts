@@ -1,21 +1,26 @@
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Alert } from 'react-native';
 import { AuthProviderType } from '../models/AuthType';
-import { AuthViewModel } from '../viewmodels/AuthViewModel';
 import { AuthMessages } from '../constants/AuthMessages';
 import { AuthError, AuthErrorType } from '../models/AuthError';
+import { useAuth } from './useAuth';
+import { AuthStrategyFactory } from '../strategies/AuthStrategyFactory';
+import { AuthenticationService } from '../services/AuthenticationService';
+import { userService } from '~/services/user/userService';
 
 /**
  * 로그인 처리를 위한 커스텀 Hook
+ *
+ * 현업 표준 패턴:
+ * - AuthViewModel 대신 useAuth hook 사용
+ * - Service Layer 직접 호출
+ * - React Hook 기반 상태 관리
  */
 export const useAuthSignIn = () => {
   const [isLoading, setIsLoading] = useState(false);
-
-  const authViewModel = useMemo(() => {
-    console.log('🏗️ [LOGIN] AuthViewModel 생성');
-    return new AuthViewModel();
-  }, []);
+  const { login } = useAuth();
+  const authService = AuthenticationService.shared;
 
   /**
    * AuthError 타입별 처리 함수
@@ -63,46 +68,54 @@ export const useAuthSignIn = () => {
 
   /**
    * 공통 로그인 처리 함수
+   *
+   * Service Layer 직접 호출 → useAuth hook으로 상태 저장
    */
-  const handleSignIn = async (
-    provider: AuthProviderType,
-    signInMethod: () => Promise<{ success: boolean; error?: AuthError }>
-  ): Promise<void> => {
+  const handleSignIn = async (provider: AuthProviderType): Promise<void> => {
     if (isLoading) return;
 
-    console.log(`[LOGIN] ${provider} 로그인 시도`);
-
+    console.log(`🔐 [LOGIN] ${provider} 로그인 시도`);
     setIsLoading(true);
 
     try {
-      const result = await signInMethod();
+      // 1. Strategy 패턴으로 OAuth 인증 코드 획득
+      const strategy = AuthStrategyFactory.getStrategy(provider);
 
-      if (result.success) {
-        // 로깅: 로그인 성공
-        console.log(`✅ [LOGIN] ${provider} 로그인 성공`);
-
-        // 성공 시 메인 화면으로 이동
-        router.replace('/(tabs)');
-        console.log('✅ [LOGIN] 라우팅 성공: /(tabs)');
-      } else {
-        // 로깅: 로그인 실패
-        console.log(`❌ [LOGIN] ${provider} 로그인 실패:`, result.error);
-
-        // AuthError 타입별 처리
-        if (result.error) {
-          handleAuthError(provider, result.error);
-        } else {
-          Alert.alert(AuthMessages.LOGIN_FAILED, AuthMessages.UNKNOWN_ERROR);
-        }
+      if (!strategy.isAvailable()) {
+        throw AuthError.unavailable(`${provider} Sign-In not available`);
       }
-    } catch (error: any) {
-      // 로깅: 로그인 예외
-      console.error(`❌ [LOGIN] ${provider} 로그인 예외:`, error);
 
-      Alert.alert(
-        AuthMessages.LOGIN_FAILED,
-        AuthMessages.LOGIN_ERROR
+      const authCodeResult = await strategy.getAuthorizationCode();
+
+      // 2. 백엔드 API로 JWT 토큰 획득
+      const tokenDto = await authService.getToken(
+        provider,
+        authCodeResult.authorizationCode
       );
+
+      // 3. 사용자 전체 데이터 조회
+      const userData = await userService.getUserData();
+
+      if (!userData) {
+        throw AuthError.networkError('Failed to fetch user data');
+      }
+
+      // 4. useAuth hook으로 로그인 처리 (Store + TokenStorage)
+      await login(userData, tokenDto.accessToken, tokenDto.refreshToken);
+
+      // 5. 성공 시 메인 화면으로 이동
+      console.log(`✅ [LOGIN] ${provider} 로그인 성공`);
+      router.replace('/(tabs)');
+
+    } catch (error: any) {
+      console.error(`❌ [LOGIN] ${provider} 로그인 실패:`, error);
+
+      // AuthError 타입별 처리
+      if (error instanceof AuthError) {
+        handleAuthError(provider, error);
+      } else {
+        Alert.alert(AuthMessages.LOGIN_FAILED, error.message || AuthMessages.UNKNOWN_ERROR);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -112,20 +125,14 @@ export const useAuthSignIn = () => {
    * Google 로그인 핸들러
    */
   const signInWithGoogle = async () => {
-    await handleSignIn(
-      AuthProviderType.GOOGLE,
-      () => authViewModel.signInWithGoogle()
-    );
+    await handleSignIn(AuthProviderType.GOOGLE);
   };
 
   /**
    * Apple 로그인 핸들러
    */
   const signInWithApple = async () => {
-    await handleSignIn(
-      AuthProviderType.APPLE,
-      () => authViewModel.signInWithApple()
-    );
+    await handleSignIn(AuthProviderType.APPLE);
   };
 
   return {

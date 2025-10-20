@@ -62,12 +62,14 @@ export class SilentTokenRefreshService {
   
   /**
    * 백엔드에서 토큰 갱신
+   *
+   * React 표준 패턴: tokenStorage 직접 사용
    */
   private async refreshTokens(): Promise<TokenPair> {
-    // userStateManager에서 refreshToken 가져오기
-    const { userStateManager } = await import('../../../shared/services/userStateManager');
-    const refreshToken = userStateManager.getRefreshToken();
-    
+    // tokenStorage에서 refreshToken 가져오기 (userStateManager 제거)
+    const { tokenStorage } = await import('~/utils/storage');
+    const refreshToken = await tokenStorage.getRefreshToken();
+
     if (!refreshToken) {
       throw new Error('RefreshTokenNotFound');
     }

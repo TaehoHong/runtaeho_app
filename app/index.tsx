@@ -47,34 +47,21 @@ export default function Index() {
 
   useEffect(() => {
     // 초기화가 완료된 후 로그인 상태에 따라 네비게이션
-    if (isInitialized && viewState === ViewState.Loaded) {
+    if (isInitialized && viewState === ViewState.Loaded && fontsLoaded) {
       console.log('🔄 [APP] 로그인 상태 확인:', isLoggedIn);
 
       if (isLoggedIn) {
-        console.log('✅ [APP] 로그인 상태 - 메인 탭으로 이동');
-        // 여러 경로 시도
-        try {
-          router.replace('/(tabs)/running');
-          console.log('✅ [APP] 네비게이션 성공: /(tabs)/running');
-        } catch (error) {
-          console.log('⚠️ [APP] /(tabs)/running 실패, /(tabs) 시도');
-          try {
-            router.replace('/(tabs)' as any);
-        console.log('✅ [APP] 네비게이션 성공: /(tabs)');
-          } catch (error2) {
-            console.log('⚠️ [APP] /(tabs) 실패, push 시도');
-            router.push('/(tabs)' as any);
-          }
-        }
+        console.log('✅ [APP] 로그인 상태 - 메인 탭(러닝 화면)으로 이동');
+        router.replace('/(tabs)/running');
       } else {
         console.log('❌ [APP] 로그아웃 상태 - 로그인 화면으로 이동');
         router.replace('/auth/login');
       }
     }
-  }, [isInitialized, isLoggedIn, viewState]);
+  }, [isInitialized, isLoggedIn, viewState, fontsLoaded]);
 
   // iOS RootView와 동일한 로딩 화면
-  if (!isInitialized || viewState === ViewState.Loading) {
+  if (!isInitialized || viewState === ViewState.Loading || !fontsLoaded) {
     console.log('⏳ [APP] 초기화 로딩 화면 표시');
     return (
       <View style={styles.loadingContainer}>

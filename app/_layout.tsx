@@ -4,7 +4,6 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '~/services/queryClient';
 import { AuthProvider } from '~/providers/AuthProvider';
 import { AppStateProvider } from '~/providers/AppStateProvider';
-import { registerServices } from '~/shared/di';
 import { PermissionManager } from '~/features/running/services/PermissionManager';
 
 // 🔧 개발 환경 전용: API 로깅 인터셉터 등록
@@ -14,15 +13,6 @@ if (__DEV__) {
 }
 
 export default function RootLayout() {
-  console.log('🏠 RootLayout 렌더링 시작 (Redux + Unity Bridge + Auth 포함)');
-
-  // DI 컨테이너 초기화 및 아키텍처 분석
-  try {
-    registerServices();
-
-  } catch (error) {
-    console.error('❌ DI 컨테이너 초기화 실패:', error);
-  }
 
   // 앱 시작 시 모든 권한 요청
   useEffect(() => {

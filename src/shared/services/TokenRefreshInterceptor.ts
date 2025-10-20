@@ -6,10 +6,10 @@
 
 import { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { SilentTokenRefreshService } from '../../features/auth/services/SilentTokenRefreshService';
-import { tokenUtils } from '~/features'; 
+import { tokenUtils } from '~/features';
 import { apiClient } from '../../services/api/client';
 import { tokenStorage } from '../../utils/storage';
-import { UserStateManager } from './userStateManager';
+import { useAuthStore } from '~/features/auth/stores/authStore';
 
 export interface TokenRefreshResult {
   success: boolean;
@@ -32,11 +32,9 @@ export class TokenRefreshInterceptor {
   private isRefreshing = false;
   private failedQueue: PendingRequest[] = [];
   private silentTokenRefreshService: SilentTokenRefreshService;
-  private userStateManager: UserStateManager;
 
   private constructor() {
     this.silentTokenRefreshService = SilentTokenRefreshService.getInstance();
-    this.userStateManager = UserStateManager.getInstance();
     this.setupInterceptors();
   }
 
@@ -104,10 +102,12 @@ export class TokenRefreshInterceptor {
   /**
    * 토큰 사전 검증 및 필요 시 갱신
    * API 호출 전에 토큰 만료 여부를 미리 확인하고 갱신
+   *
+   * React 표준 패턴: tokenStorage 직접 사용
    */
   private async validateAndRefreshIfNeeded(): Promise<void> {
     try {
-      const accessToken = await this.userStateManager.getAccessToken();
+      const accessToken = await tokenStorage.getAccessToken();
 
       if (!accessToken) {
         return; // 로그인하지 않은 상태
@@ -133,7 +133,8 @@ export class TokenRefreshInterceptor {
 
   /**
    * 토큰 갱신 수행
-   * UserStateManager와 SilentTokenRefreshService를 통해 통합 관리
+   *
+   * React 표준 패턴: tokenStorage + Zustand Store 직접 사용
    */
   private async refreshTokens(): Promise<TokenRefreshResult> {
     if (this.isRefreshing) {
@@ -146,7 +147,7 @@ export class TokenRefreshInterceptor {
     try {
       console.log('🔄 [TokenInterceptor] 토큰 갱신 시작');
 
-      const currentRefreshToken = await this.userStateManager.getRefreshToken();
+      const currentRefreshToken = await tokenStorage.getRefreshToken();
 
       if (!currentRefreshToken) {
         console.log('❌ [TokenInterceptor] Refresh token이 없음');
@@ -157,8 +158,12 @@ export class TokenRefreshInterceptor {
       const tokenPair = await this.silentTokenRefreshService.performSilentRefresh();
 
       if (tokenPair) {
-        // UserStateManager에 새 토큰 저장
-        await this.userStateManager.setTokens(tokenPair.accessToken, tokenPair.refreshToken);
+        // tokenStorage에 새 토큰 저장
+        await tokenStorage.saveTokens(tokenPair.accessToken, tokenPair.refreshToken);
+
+        // Zustand Store 동기화
+        useAuthStore.getState().setAccessToken(tokenPair.accessToken);
+        useAuthStore.getState().setRefreshToken(tokenPair.refreshToken);
 
         console.log('✅ [TokenInterceptor] 토큰 갱신 및 저장 성공');
 
@@ -257,12 +262,16 @@ export class TokenRefreshInterceptor {
 
   /**
    * 인증 실패 처리 (로그아웃)
+   *
+   * React 표준 패턴: Zustand Store 직접 사용
    */
   private async handleAuthFailure(): Promise<void> {
     try {
       console.log('🚪 [TokenInterceptor] 인증 실패, 로그아웃 처리');
 
-      await this.userStateManager.logout();
+      // tokenStorage 및 Zustand Store 초기화
+      await tokenStorage.clearTokens();
+      useAuthStore.getState().logout();
 
       // 추가적인 로그아웃 후 처리가 필요하면 여기에 추가
       // 예: 로그인 화면으로 리다이렉트, 알림 표시 등

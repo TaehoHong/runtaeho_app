@@ -1,2 +1,2 @@
 export * from './ErrorService';
-export * from './userStateManager';
+// userStateManager removed - use useAuth hook instead (@see src/features/auth/hooks/useAuth.ts)

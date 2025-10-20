@@ -18,7 +18,9 @@ import { locationService, type LocationTrackingData } from '../services/Location
 import { backgroundTaskService } from '../services/BackgroundTaskService';
 import { offlineStorageService } from '../services/OfflineStorageService';
 import { dataSourcePriorityService } from '../services/sensors/DataSourcePriorityService';
-import { UnityService } from '../../unity/services/UnityService'
+import { unityService } from '../../unity/services/UnityService'
+import { useUserStore } from '../../../stores/user/userStore'
+import type { AvatarItem } from '~/features/avatar'
 
 /**
  * 실시간 러닝 통계
@@ -53,6 +55,8 @@ export enum RunningState {
  * LocationService와 통합하여 실제 GPS 추적 구현
  */
 export const useRunningViewModel = () => {
+  // userStore에서 장착한 아바타 아이템 가져오기
+  const equippedItems = useUserStore((state) => state.equippedItems);
 
   // 현재 러닝 상태
   const [runningState, setRunningState] = useState<RunningState>(RunningState.IDLE);
@@ -458,11 +462,27 @@ export const useRunningViewModel = () => {
   }, [runningState, useBackgroundMode, backgroundTaskService]);
 
   /**
-   * 
+   * Unity 로드 시 현재 장착한 아바타 전송
+   * Note: equippedItems는 Map 또는 객체일 수 있음 (persist 이슈)
    */
   useEffect(() => {
-    if(runningState == RunningState.RUNNING && AppState.currentState === 'active') {
-      
+    // equippedItems가 유효한지 확인
+    if (!equippedItems) return;
+
+    // Map인 경우 values() 사용, 객체인 경우 Object.values() 사용
+    let items = Object.values(equippedItems).filter((item): item is AvatarItem => !!item);
+
+    if (items.length > 0) {
+      console.log('[RunningViewModel] Avatar changed in Unity:', items);
+      unityService.changeAvatar(items);
+    }
+  }, [equippedItems])
+
+  useEffect(() => {
+    if(runningState == RunningState.RUNNING) {
+      unityService.setCharacterSpeed(stats.speed)
+    } else {
+      unityService.stopCharacter()
     }
   })
 
@@ -523,7 +543,6 @@ export const useRunningViewModel = () => {
         speed: 0,
         calories: undefined,
       });
-
       // 세그먼트 추적 초기화
       initializeSegmentTracking();
 

@@ -1,11 +1,9 @@
 import { Tabs } from 'expo-router';
 import { useAppStore, RunningState, ViewState } from '~/stores/app/appStore';
 import { Icon } from '~/shared/components/ui';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 /**
  * 메인 탭 네비게이션 레이아웃
- * iOS MainTabView 대응
  * 러닝 상태에 따라 탭바 표시/숨김 제어
  */
 export default function TabLayout() {

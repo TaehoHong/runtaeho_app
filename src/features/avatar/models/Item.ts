@@ -1,14 +1,40 @@
 /**
  * Item 모델
- * Swift Item 구조체에서 마이그레이션
  */
+
+/**
+ * 아이템 카테고리
+ * OCP: 새로운 타입 추가 시 타입만 확장하면 됨
+ */
+export type ItemType = 1 | 2 | 3;
+
+export const ItemType = {
+  HAIR: 1 as ItemType,
+  CLOTH: 2 as ItemType,
+  PANTS: 3 as ItemType,
+} as const;
+
+/**
+ * 아이템 상태
+ * - EQUIPPED: 현재 착용 중
+ * - OWNED: 보유했지만 미착용
+ * - NOT_OWNED: 미보유 (구매 가능)
+ */
+export const ItemStatus = {
+  EQUIPPED: 'EQUIPPED',
+  OWNED: 'OWNED',
+  NOT_OWNED: 'NOT_OWNED',
+} as const;
+
+// 'EQUIPPED' | 'OWNED' | 'NOT_OWNED'
+export type ItemStatus = typeof ItemStatus[keyof typeof ItemStatus];
 
 /**
  * 아이템 기본 모델
  */
 export interface Item {
   id: number;
-  itemType: ItemType;
+  itemType: ItemTypeModel;
   name: string;
   unityFilePath: string;
   filePath: string;
@@ -16,7 +42,7 @@ export interface Item {
   createdAt: string;
 }
 
-export interface ItemType {
+export interface ItemTypeModel {
   id: number;
   name: String;
 }
@@ -32,6 +58,13 @@ export interface UserItem {
   isExpired: boolean;
   expireDateTime?: string;
   createdAt: string;
+}
+
+/**
+ * 아이템 구매 요청
+ */
+export interface PurchaseItemsRequest {
+  readonly itemIds: readonly number[];
 }
 
 /**
@@ -63,7 +96,7 @@ export interface ItemListResponse {
  */
 export const createItem = (
   id: number,
-  itemType: ItemType,
+  itemType: ItemTypeModel,
   name: string,
   unityFilePath: string,
   filePath: string,
@@ -77,27 +110,6 @@ export const createItem = (
   point,
   createdAt: new Date().toISOString(),
 });
-
-/**
- * 사용자 아이템 생성 헬퍼 함수
- */
-export const createUserItem = (
-  id: number,
-  userId: number,
-  item: Item,
-  isEnabled: boolean = true,
-  isExpired: boolean = false,
-  expireDateTime?: string
-): UserItem => ({
-  id,
-  userId,
-  item,
-  isEnabled,
-  isExpired,
-  expireDateTime,
-  createdAt: new Date().toISOString(),
-});
-
 /**
  * 아이템 포맷팅 헬퍼 함수
  */
@@ -143,32 +155,7 @@ export const filterItemsByType = (items: Item[], itemTypeId: number): Item[] => 
   return items.filter(item => item.itemType.id === itemTypeId);
 };
 
-/**
- * 가격 범위별 필터링
- */
-export const filterItemsByPrice = (items: Item[], minPoint: number, maxPoint: number): Item[] => {
-  return items.filter(item => item.point >= minPoint && item.point <= maxPoint);
-};
 
-/**
- * 아이템 정렬
- */
-export const sortItems = (items: Item[], sortBy: 'name' | 'point' | 'createdAt' = 'name', order: 'asc' | 'desc' = 'asc'): Item[] => {
-  return [...items].sort((a, b) => {
-    let comparison = 0;
-
-    switch (sortBy) {
-      case 'name':
-        comparison = a.name.localeCompare(b.name);
-        break;
-      case 'point':
-        comparison = a.point - b.point;
-        break;
-      case 'createdAt':
-        comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-        break;
-    }
-
-    return order === 'asc' ? comparison : -comparison;
-  });
-};
+export function isItemType(value: unknown): value is ItemType {
+  return value === 1 || value === 2 || value === 3;
+}

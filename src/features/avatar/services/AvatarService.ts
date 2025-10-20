@@ -18,12 +18,12 @@ import type { CursorResult } from '~/shared/utils/dto/CursorResult';
 import { API_ENDPOINTS } from '../../../services/api/config';
 import { AVATAR_API_ENDPOINTS } from '../models/avatarConstants';
 import type {
-  AvatarDto,
+  Avatar,
   GetItemsRequest,
-  ItemDto,
+  Item,
   PurchaseItemsRequest,
   UpdateEquippedItemsRequest,
-} from '../models/avatarTypes';
+} from '../models/';
 
 
 
@@ -37,8 +37,8 @@ export const avatarService = {
    * 백엔드 API: GET /api/v1/items
    * Query Params: cursor, size, itemType
    */
-   getItems: async (request: GetItemsRequest): Promise<CursorResult<ItemDto>> => {
-      const { data } = await apiClient.get<CursorResult<ItemDto>>(API_ENDPOINTS.ITEMS.BASE, {
+   getItems: async (request: GetItemsRequest): Promise<CursorResult<Item>> => {
+      const { data } = await apiClient.get<CursorResult<Item>>(API_ENDPOINTS.ITEMS.BASE, {
         params: {
           cursor: request.cursor,
           itemType: request.itemType,
@@ -68,10 +68,10 @@ export const avatarService = {
    *
    * 주의: PUT이므로 전체 착용 아이템 목록을 전송해야 함
    */
-  updateEquippedItems: async (request: UpdateEquippedItemsRequest): Promise<AvatarDto> => {
+  updateEquippedItems: async (request: UpdateEquippedItemsRequest): Promise<Avatar> => {
     const { avatarId, itemIds } = request;
 
-    const { data } = await apiClient.put<AvatarDto>(
+    const { data } = await apiClient.put<Avatar>(
       API_ENDPOINTS.AVATAR.UPDATE_EQUIPPED_ITEMS(avatarId),
       {
         itemIds: itemIds,
@@ -86,8 +86,8 @@ export const avatarService = {
    *
    * 백엔드 API: GET /api/v1/avatars/main
    */
-  getMainAvatar: async (): Promise<AvatarDto> => {
-    const { data } = await apiClient.get<AvatarDto>(AVATAR_API_ENDPOINTS.GET_MAIN_AVATAR);
+  getMainAvatar: async (): Promise<Avatar> => {
+    const { data } = await apiClient.get<Avatar>(AVATAR_API_ENDPOINTS.GET_MAIN_AVATAR);
 
     return data;
   }

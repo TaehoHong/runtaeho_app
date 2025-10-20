@@ -18,8 +18,8 @@ export class UnityService {
   private static readonly UNITY_OBJECT_NAME = 'Charactor';
   private static readonly UNITY_SPEED_METHOD = 'SetSpeed';
   private static readonly UNITY_MOTION_METHOD = 'SetTrigger';
-  private static readonly MIN_SPEED = 0;
-  private static readonly MAX_SPEED = 10;
+  private static readonly MIN_SPEED = 3.0;
+  private static readonly MAX_SPEED = 7.0;
   private static readonly VALID_MOTIONS: CharacterMotion[] = ['IDLE', 'MOVE', 'ATTACK', 'DAMAGED'];
   
   static getInstance = (): UnityService => {
@@ -52,10 +52,13 @@ export class UnityService {
 
     try {
       // 도메인 로직: 속도 범위 검증 및 변환
-      const clampedSpeed = Math.max(UnityService.MIN_SPEED, Math.min(speed, UnityService.MAX_SPEED));
-
-      if (speed !== clampedSpeed) {
-        this.log(`Speed clamped from ${speed} to ${clampedSpeed}`);
+      let clampedSpeed
+      if (speed >= UnityService.MAX_SPEED) {
+        clampedSpeed = UnityService.MAX_SPEED
+      } else if (speed <= UnityService.MIN_SPEED) {
+        clampedSpeed = UnityService.MIN_SPEED
+      } else {
+        clampedSpeed = UnityService.MIN_SPEED + (speed - UnityService.MAX_SPEED) * 0.4
       }
 
       const speedString = clampedSpeed.toString();
@@ -145,7 +148,7 @@ export class UnityService {
     return items.filter(item => {
       // 필수 필드 검증
       if (!item.name || !item.itemType || !item.filePath || !item.unityFilePath) {
-        this.log(`Invalid item: missing required fields`, item);
+        this.log(`Invalid item: missing required fields name: ${item.name}, itemType: ${item.itemType}, filePath: ${item.filePath}, unityFilePath: ${item.unityFilePath}`);
         return false;
       }
       
