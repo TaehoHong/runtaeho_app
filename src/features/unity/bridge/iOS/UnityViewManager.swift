@@ -63,4 +63,16 @@ class UnityViewManager: RCTViewManager {
             unityView.resumeUnity()
         }
     }
+
+    // Unity View 재연결
+    @objc func reattachUnityView(_ node: NSNumber) {
+        DispatchQueue.main.async {
+            guard let unityView = self.bridge.uiManager.view(forReactTag: node) as? UnityView else {
+                print("[UnityViewManager] Could not find UnityView for tag: \(node)")
+                return
+            }
+
+            unityView.reattachUnityView()
+        }
+    }
 }

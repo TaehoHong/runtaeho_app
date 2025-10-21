@@ -6,13 +6,9 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Image } from 'react-native';
 import type { Item } from '~/features/avatar';
-import {
-  ItemStatus,
-  AVATAR_COLORS,
-  ITEM_OPACITY,
-  GRID_LAYOUT,
-} from '~/features/avatar';
+import { ItemStatus, AVATAR_COLORS, ITEM_OPACITY, GRID_LAYOUT } from '~/features/avatar';
 import { ITEM_IMAGE, type ItemImage } from '~/shared/constants/images';
+import { Icon } from '~/shared/components/ui';
 
 interface Props {
   item: Item;
@@ -71,9 +67,10 @@ export const AvatarItemCard: React.FC<Props> = ({ item, isSelected, onPress }) =
         <Image source={getItemImage()} style={styles.image} />
 
         {/* 가격 배지 (선택된 미보유 아이템만) */}
-        {isSelected && item.status === ItemStatus.NOT_OWNED && item.point && (
+        {isSelected && !item.isOwned && item.point && (
           <View style={styles.priceBadge}>
-            <View style={styles.priceIcon} />
+            <Icon name='point' size={14}/>
+            {/* <View style={styles.priceIcon} /> */}
             <Text style={styles.priceText}>{item.point}</Text>
           </View>
         )}
@@ -100,24 +97,22 @@ const styles = StyleSheet.create({
   },
   priceBadge: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    // width:43,
+    height:20,
+    top: 6,
+    right: 5,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
-    gap: 4,
-  },
-  priceIcon: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: AVATAR_COLORS.POINT_ICON,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 24,
+    borderColor: '#92F579',
+    borderWidth: 1,
+    gap: 2,
   },
   priceText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     color: AVATAR_COLORS.PRIMARY_TEXT,
   },

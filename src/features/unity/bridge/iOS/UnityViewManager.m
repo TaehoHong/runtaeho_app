@@ -20,5 +20,6 @@ RCT_EXPORT_VIEW_PROPERTY(onCharacterStateChanged, RCTDirectEventBlock)
 RCT_EXTERN_METHOD(sendMessageToUnity:(nonnull NSNumber *)node objectName:(NSString *)objectName methodName:(NSString *)methodName parameter:(NSString *)parameter)
 RCT_EXTERN_METHOD(pauseUnity:(nonnull NSNumber *)node)
 RCT_EXTERN_METHOD(resumeUnity:(nonnull NSNumber *)node)
+RCT_EXTERN_METHOD(reattachUnityView:(nonnull NSNumber *)node)
 
 @end

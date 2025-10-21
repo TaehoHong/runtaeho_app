@@ -45,11 +45,6 @@ function normalizeEquippedMap(input: unknown): EquippedItemsMap {
   return input as EquippedItemsMap;
 }
 
-/**
- * 각 아이템의 장착 상태를 pendingEquippedItems 기준으로 설정
- */
-type ItemWithPrice = Item & { price?: number };
-
 function toItems(
   items: any[],
   equippedMap: EquippedItemsMap
@@ -61,6 +56,16 @@ function toItems(
       (equippedItem) => equippedItem?.id === item.id
     );
 
+    // 상태 결정 로직
+    let status: ItemStatus;
+    if (isEquipped) {
+      status = ItemStatus.EQUIPPED;      // 착용 중
+    } else if (item.isOwned === true) {
+      status = ItemStatus.OWNED;         // 보유했지만 미착용
+    } else {
+      status = ItemStatus.NOT_OWNED;     // 미보유
+    }
+
     return {
       id: item.id,
       name: item.name,
@@ -69,7 +74,8 @@ function toItems(
       unityFilePath: item.unityFilePath,
       point: item.point,
       createdAt: item.createdAt,
-      status: isEquipped ? ItemStatus.EQUIPPED : ItemStatus.NOT_OWNED,
+      isOwned: item.isOwned,             // 백엔드 값 유지
+      status,                             // 계산된 상태
     };
   });
 }
@@ -95,12 +101,12 @@ export interface AvatarViewModel {
   readonly categories: typeof ITEM_CATEGORIES;
   readonly selectedCategoryIndex: number;
   readonly selectedCategory: number;
-  readonly currentCategoryItems: readonly ItemWithPrice[];
+  readonly currentCategoryItems: readonly Item[];
   readonly previewItems: EquippedItemsMap;
   readonly totalPoint: number;
   readonly hasChanges: boolean;
   readonly shouldShowPurchaseButton: boolean;
-  readonly itemsToPurchase: readonly ItemWithPrice[];
+  readonly itemsToPurchase: readonly Item[];
   readonly totalPurchasePrice: number;
   readonly remainingPoints: number;
   readonly showPurchaseModal: boolean;
@@ -211,7 +217,7 @@ export function useAvatarViewModel(): AvatarViewModel {
 
   // 구매해야 할 아이템
   const itemsToPurchase = useMemo(() => {
-    const items: ItemWithPrice[] = [];
+    const items: Item[] = [];
     for (const item of Object.values(pendingEquippedItems)) {
       if (!item) continue;
       const originalItem = allItems.find((i) => i.id === item.id);
@@ -256,7 +262,6 @@ export function useAvatarViewModel(): AvatarViewModel {
 
   /**
    * 아이템 선택
-   * iOS: selectItem(_ itemViewModel: AvatarItemViewModel)
    */
   const selectItem = useCallback(
     (item: Item) => {

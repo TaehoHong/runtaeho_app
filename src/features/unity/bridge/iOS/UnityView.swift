@@ -49,6 +49,9 @@ class UnityView: UIView {
                 // Unity View 가져오기
                 if let unityView = Unity.shared.view {
                     self.unityView = unityView
+                    // unityView.contentMode = .scaleAspectFill
+                    unityView.layer.contentsGravity = .resizeAspectFill
+
                     self.addSubview(unityView)
 
                     // 제약 조건 설정
@@ -89,13 +92,52 @@ class UnityView: UIView {
     // Unity View 크기 조정
     override func layoutSubviews() {
         super.layoutSubviews()
-        unityView?.frame = bounds
+    }
+
+    // Unity View 재연결 (다른 화면에서 사용 후 돌아올 때)
+    func reattachUnityView() {
+        guard isUnityLoaded else {
+            print("[UnityView] Unity not loaded, cannot reattach")
+            return
+        }
+
+        // Unity View가 이미 다른 곳에 추가되어 있을 수 있으므로 제거 후 재추가
+        if let unityView = Unity.shared.view {
+            // 다른 superview에서 제거
+            unityView.removeFromSuperview()
+
+            // 현재 view에 추가
+            self.addSubview(unityView)
+
+            // 제약 조건 재설정
+            unityView.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                unityView.topAnchor.constraint(equalTo: self.topAnchor),
+                unityView.leftAnchor.constraint(equalTo: self.leftAnchor),
+                unityView.rightAnchor.constraint(equalTo: self.rightAnchor),
+                unityView.bottomAnchor.constraint(equalTo: self.bottomAnchor)
+            ])
+
+            print("[UnityView] Unity view reattached successfully")
+        }
+    }
+
+    // 화면에 나타날 때
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+
+        // 화면에 추가될 때 Unity View 재연결
+        if window != nil && isUnityLoaded {
+            print("[UnityView] View added to window, reattaching Unity view")
+            reattachUnityView()
+        }
     }
 
     // Unity 정리
     deinit {
         print("[UnityView] Cleaning up Unity view")
-        unityView?.removeFromSuperview()
+        // Unity View는 제거하지 않음 - 다른 화면에서 사용할 수 있음
+        // unityView?.removeFromSuperview()
     }
 
     // MARK: - Unity 제어 메서드들

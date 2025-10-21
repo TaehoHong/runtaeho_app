@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
 import { AVATAR_COLORS } from '~/features/avatar';
 import { useAvatarViewModel } from '../viewmodels/useAvatarViewModel';
 import { AvatarHeader } from './components/AvatarHeader';
@@ -13,7 +13,7 @@ import { CategoryTabs } from './components/CategoryTabs';
 import { InsufficientPointsAlert } from './components/InsufficientPointsAlert';
 import { ItemsGrid } from './components/ItemsGrid';
 import { PurchaseModal } from './components/PurchaseModal';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 /**
  * 아바타 메인 화면
@@ -25,9 +25,16 @@ interface AvatarViewProps {
 
 export const AvatarView: React.FC<AvatarViewProps> = ({ onClose }) => {
   const viewModel = useAvatarViewModel();
+  const insets = useSafeAreaInsets();
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[
+      styles.container,
+      {
+        paddingTop: insets.top,
+        paddingBottom: insets.bottom,
+      }
+    ]}>
       {/* Header */}
       <AvatarHeader onClose={onClose} points={viewModel.totalPoint} />
       {/* Unity Character Preview */}
@@ -86,7 +93,7 @@ export const AvatarView: React.FC<AvatarViewProps> = ({ onClose }) => {
           onClose={() => viewModel.setShowInsufficientPointsAlert(false)}
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 };
 

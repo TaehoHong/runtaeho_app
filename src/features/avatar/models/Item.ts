@@ -47,6 +47,7 @@ export interface Item {
   filePath: string;
   point: number;                // 가격
   createdAt: string;
+  isOwned?: boolean;            // 백엔드 제공: 사용자 보유 여부
 
   // 프론트엔드 전용 (optional)
   status?: ItemStatus;          // 착용 상태 (계산된 값)

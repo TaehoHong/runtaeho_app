@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
     gap: 11,
     paddingHorizontal: 20,
     paddingTop: 12,
-    paddingBottom: 6,
+    // paddingBottom: 6,
     backgroundColor: AVATAR_COLORS.CARD_BACKGROUND,
   },
   button: {
