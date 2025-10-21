@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { StyleSheet, View, TouchableOpacity, Text } from 'react-native';
 import { UnityView } from '~/features/unity/components/UnityView';
 import { unityService } from '~/features/unity/services/UnityService';
 import { LoadingView } from '~/shared/components';
 import { ViewState, useAppStore, useAuthStore } from '~/stores';
+import { useUserStore } from '~/stores/user/userStore';
+import type { Item } from '~/features/avatar';
 import { ControlPanelView } from './ControlPanelView';
 import { RunningProvider } from '../contexts/RunningContext';
 import { RunningDebugView } from './RunningDebugView';
@@ -19,28 +21,27 @@ export const RunningView: React.FC = () => {
   const runningState = useAppStore((state) => state.runningState);
   const setViewState = useAppStore((state) => state.setViewState);
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
+  const equippedItems = useUserStore((state) => state.equippedItems);
   const [unityStarted, setUnityStarted] = useState(false);
+  const [isUnityReady, setIsUnityReady] = useState(false);
   const [isDebugVisible, setIsDebugVisible] = useState(false);
 
-  console.log('🏃 [RunningView] 렌더링, viewState:', viewState, 'runningState:', runningState, 'isLoggedIn:', isLoggedIn);
+  console.log('🏃 [RunningView] 렌더링, viewState:', viewState, 'runningState:', runningState, 'isLoggedIn:', isLoggedIn, 'isUnityReady:', isUnityReady);
 
   useEffect(() => {
     console.log('🔄 [RunningView] 컴포넌트 마운트');
 
-    // 로그인 완료 후에만 Unity 시작
+    // 로그인 완료 후에만 Loaded 상태로 전환
     if (isLoggedIn && !unityStarted) {
-      console.log('🎮 [RunningView] 로그인 완료 - Unity 시작 및 Loaded 상태로 전환');
+      console.log('🎮 [RunningView] 로그인 완료 - Loaded 상태로 전환');
       setUnityStarted(true);
-
-      // Unity 시작 로직 (iOS unity.start() 대응)
-      startUnity();
 
       // 다음 프레임에서 Loaded 상태로 전환 (메인 스레드 위반 방지)
       setTimeout(() => {
         setViewState(ViewState.Loaded);
       }, 0);
     } else if (viewState === ViewState.Loading && !isLoggedIn) {
-      console.log('🔄 [RunningView] 로그인 대기 중 - Unity 시작 보류');
+      console.log('🔄 [RunningView] 로그인 대기 중');
     }
 
     return () => {
@@ -50,21 +51,28 @@ export const RunningView: React.FC = () => {
   }, [viewState, isLoggedIn, unityStarted, setViewState]);
 
   /**
-   * Unity 시작
-   * iOS unity.start() 대응
+   * Unity 준비 완료 이벤트 핸들러
    */
-  const startUnity = async () => {
-    try {
-      console.log('🎮 [RunningView] Unity 시작 시도');
+  const handleUnityReady = useCallback(async (event: any) => {
+    console.log('[RunningView] Unity Ready:', event.nativeEvent);
 
-      // Unity 캐릭터 초기 설정
+    try {
+      // 현재 착용된 아바타 아이템 전송
+      const items = Object.values(equippedItems).filter((item): item is Item => !!item);
+      if (items.length > 0) {
+        console.log('[RunningView] Sending initial avatar items:', items.length);
+        await unityService.changeAvatar(items);
+      }
+
+      // Unity 캐릭터 초기 속도 설정
       await unityService.setCharacterSpeed(0);
 
-      console.log('✅ [RunningView] Unity 시작 성공');
+      setIsUnityReady(true);
+      console.log('✅ [RunningView] Unity 초기화 성공');
     } catch (error) {
-      console.error('❌ [RunningView] Unity 시작 실패:', error);
+      console.error('❌ [RunningView] Unity 초기화 실패:', error);
     }
-  };
+  }, [equippedItems]);
 
   if (viewState === ViewState.Loading) {
     console.log('⏳ [RunningView] 로딩 화면 표시');
@@ -80,11 +88,14 @@ export const RunningView: React.FC = () => {
   console.log('✅ [RunningView] Loaded 상태 - Unity + 컴트롤 패널 표시');
 
   return (
-    <RunningProvider>
+    <RunningProvider isUnityReady={isUnityReady}>
       <View style={styles.container}>
         {/* Unity 컴포넌트 */}
         <View style={styles.unityContainer}>
-          <UnityView style={styles.unityView} />
+          <UnityView
+            style={styles.unityView}
+            onUnityReady={handleUnityReady}
+          />
         </View>
 
         <View style={styles.verticalGuide}/>

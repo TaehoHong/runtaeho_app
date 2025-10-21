@@ -221,7 +221,7 @@ export function useAvatarViewModel(): AvatarViewModel {
     for (const item of Object.values(pendingEquippedItems)) {
       if (!item) continue;
       const originalItem = allItems.find((i) => i.id === item.id);
-        if (originalItem && originalItem.status === ItemStatus.NOT_OWNED) {
+      if (originalItem && !originalItem.isOwned) {
         items.push(originalItem);
       }
     }
@@ -350,7 +350,6 @@ export function useAvatarViewModel(): AvatarViewModel {
 
   /**
    * 변경사항 확인
-   * iOS: confirmChanges()
    */
   const confirmChanges = useCallback(async () => {
     if (shouldShowPurchaseButton) {
@@ -386,10 +385,13 @@ export function useAvatarViewModel(): AvatarViewModel {
 
   /**
    * 취소
-   * iOS: cancelChanges()
    */
   const cancelChanges = useCallback(() => {
     setPendingEquippedItems(normalizeEquippedMap(globalEquippedItems));
+    
+    let items = Object.values(pendingEquippedItems).filter((item): item is Item => !!item);
+    unityService.changeAvatar(items);
+
   }, [globalEquippedItems]);
 
   // ===================================

@@ -126,6 +126,26 @@ export interface UnityAvatarUpdateOptions {
 }
 
 // ==========================================
+// Unity Avatar DTO (Swift UnityAvatarDto 구조와 동일)
+// ==========================================
+
+/**
+ * Unity에서 기대하는 개별 아바타 아이템 구조
+ */
+export interface UnityAvatarDto {
+  name: string;      // 아이템 이름 (예: "New_Armor_01.png")
+  part: string;      // Unity 파트명 (예: "Hair", "Cloth", "Pant")
+  itemPath: string;  // 전체 경로 (예: "Sprites/Hair/New_Armor_01.png")
+}
+
+/**
+ * Unity에서 기대하는 리스트 래퍼 구조
+ */
+export interface UnityAvatarDtoList {
+  list: UnityAvatarDto[];
+}
+
+// ==========================================
 // Unity Bridge 메인 인터페이스
 // ==========================================
 

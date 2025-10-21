@@ -19,7 +19,7 @@ import { tokenStorage } from '~/utils/storage';
 import { userService } from '~/services/user/userService';
 import { userDataDtoToUser, type UserDataDto } from '~/features/user/models/UserDataDto';
 import type { EquippedItemsMap } from '~/features/avatar';
-import { ItemStatus } from '~/features/avatar/models';
+import { ItemStatus, getItemTypeById } from '~/features/avatar/models';
 
 /**
  * 통합 인증 Hook
@@ -53,20 +53,23 @@ export const useAuth = () => {
    * EquippedItemDataDto를 EquippedItemsMap으로 변환
    */
   const convertEquippedItems = useCallback((equippedItems: any[]): EquippedItemsMap => {
-    const result: any = {};
+    const result: EquippedItemsMap = {};
     equippedItems.forEach((item) => {
-      const itemType = item.itemTypeId;
-      result[itemType] = {
+      const itemTypeId = item.itemTypeId;
+      result[itemTypeId] = {
         id: item.id,
         name: item.name,
-        itemType: itemType,
+        itemType: getItemTypeById(itemTypeId),
         filePath: item.filePath,
         unityFilePath: item.unityFilePath,
+        point: 0,
+        createdAt: new Date().toISOString(),
         status: ItemStatus.EQUIPPED,
+        isOwned: true,
       };
     });
     return result;
-  }, []);
+  }, []);;
 
   /**
    * 로그인 처리

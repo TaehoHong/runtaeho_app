@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { requireNativeComponent, type ViewProps, UIManager, findNodeHandle, Platform } from 'react-native';
 
 interface UnityViewProps extends ViewProps {
@@ -35,7 +35,25 @@ export const UnityView: React.FC<UnityViewProps> = (props) => {
     }
   }, []);
 
-  return <NativeUnityView ref={viewRef} {...props} />;
+  // 디버깅용 이벤트 핸들러
+  const handleUnityReady = useCallback((event: any) => {
+    console.log('[UnityView] onUnityReady event received:', event.nativeEvent);
+    props.onUnityReady?.(event);
+  }, [props]);
+
+  const handleUnityError = useCallback((event: any) => {
+    console.error('[UnityView] onUnityError event received:', event.nativeEvent);
+    props.onUnityError?.(event);
+  }, [props]);
+
+  return (
+    <NativeUnityView
+      ref={viewRef}
+      {...props}
+      onUnityReady={handleUnityReady}
+      onUnityError={handleUnityError}
+    />
+  );
 };
 
 export default UnityView;

@@ -19,8 +19,6 @@ import { backgroundTaskService } from '../services/BackgroundTaskService';
 import { offlineStorageService } from '../services/OfflineStorageService';
 import { dataSourcePriorityService } from '../services/sensors/DataSourcePriorityService';
 import { unityService } from '../../unity/services/UnityService'
-import { useUserStore } from '../../../stores/user/userStore'
-import type { Item } from '~/features/avatar'
 
 /**
  * 실시간 러닝 통계
@@ -54,10 +52,7 @@ export enum RunningState {
  * Swift StatsManager와 Running 관련 로직들을 React Hook으로 마이그레이션
  * LocationService와 통합하여 실제 GPS 추적 구현
  */
-export const useRunningViewModel = () => {
-  // userStore에서 장착한 아바타 아이템 가져오기
-  const equippedItems = useUserStore((state) => state.equippedItems);
-
+export const useRunningViewModel = (isUnityReady: boolean = false) => {
   // 현재 러닝 상태
   const [runningState, setRunningState] = useState<RunningState>(RunningState.IDLE);
   const [currentRecord, setCurrentRecord] = useState<RunningRecord | null>(null);
@@ -462,29 +457,18 @@ export const useRunningViewModel = () => {
   }, [runningState, useBackgroundMode, backgroundTaskService]);
 
   /**
-   * Unity 로드 시 현재 장착한 아바타 전송
-   * Note: equippedItems는 Map 또는 객체일 수 있음 (persist 이슈)
+   * 러닝 상태에 따라 Unity 캐릭터 속도 제어
    */
   useEffect(() => {
-    // equippedItems가 유효한지 확인
-    if (!equippedItems) return;
+    // Unity가 준비되지 않았으면 대기
+    if (!isUnityReady) return;
 
-    // Map인 경우 values() 사용, 객체인 경우 Object.values() 사용
-    let items = Object.values(equippedItems).filter((item): item is Item => !!item);
-
-    if (items.length > 0) {
-      console.log('[RunningViewModel] Avatar changed in Unity:', items);
-      unityService.changeAvatar(items);
-    }
-  }, [equippedItems])
-
-  useEffect(() => {
     if(runningState == RunningState.RUNNING) {
       unityService.setCharacterSpeed(stats.speed)
     } else {
       unityService.stopCharacter()
     }
-  })
+  }, [isUnityReady, runningState, stats.speed])
 
 
   /**

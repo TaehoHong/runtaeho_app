@@ -19,14 +19,15 @@ const RunningContext = createContext<RunningViewModelType | undefined>(undefined
 
 interface RunningProviderProps {
   children: ReactNode;
+  isUnityReady: boolean;
 }
 
 /**
  * RunningProvider
  * RunningViewModel을 한 번만 생성하여 하위 컴포넌트들과 공유
  */
-export const RunningProvider: React.FC<RunningProviderProps> = ({ children }) => {
-  const viewModel = useRunningViewModel();
+export const RunningProvider: React.FC<RunningProviderProps> = ({ children, isUnityReady }) => {
+  const viewModel = useRunningViewModel(isUnityReady);
 
   return (
     <RunningContext.Provider value={viewModel}>

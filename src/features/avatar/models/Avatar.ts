@@ -27,7 +27,7 @@ export interface UpdateEquippedItemsRequest {
  * 장착된 아이템 맵
  * key: itemType.id (1, 2, 3), value: Item
  */
-export type EquippedItemsMap = Record<number, Item | undefined>;
+export type EquippedItemsMap = Record<number, Item>;
 
 /**
  * 아이템 목록 조회 요청

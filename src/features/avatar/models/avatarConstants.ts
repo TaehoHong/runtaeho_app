@@ -61,6 +61,32 @@ export function getCategoryUnityName(typeId: number): string {
   return getCategoryByType(typeId)?.unityName ?? '';
 }
 
+/**
+ * ItemType ID → Unity 파트명 매핑 (Swift ItemType.unityName과 동일)
+ * getUnityPartName 함수를 통해 접근 권장
+ */
+export const ITEM_TYPE_TO_UNITY_PART: Record<number, string> = {
+  1: 'Hair',   // HAIR
+  2: 'Cloth',  // CLOTH
+  3: 'Pant',   // PANTS (주의: Pant!)
+} as const;
+
+/**
+ * ItemType ID를 Unity 파트명으로 변환
+ * Swift의 ItemType.unityName과 동일한 동작
+ *
+ * @param itemTypeId - 아이템 타입 ID (1: Hair, 2: Cloth, 3: Pant)
+ * @returns Unity 파트명
+ * @throws Error - 알 수 없는 아이템 타입 ID인 경우
+ */
+export function getUnityPartName(itemTypeId: number): string {
+  const partName = ITEM_TYPE_TO_UNITY_PART[itemTypeId];
+  if (!partName) {
+    throw new Error(`Unknown item type ID: ${itemTypeId}. Valid IDs: 1 (Hair), 2 (Cloth), 3 (Pant)`);
+  }
+  return partName;
+}
+
 // ===================================
 // UI 관련 상수
 // ===================================
@@ -100,7 +126,7 @@ export const UNITY_PREVIEW = {
 export const AVATAR_COLORS = {
   // Background
   SCREEN_BACKGROUND: '#f5f5f5', // Grey/Grey100
-  CARD_BACKGROUND: '#FFFFFF',
+  CARD_BACKGROUND: '#f5f5f5',
   ITEM_BACKGROUND: '#FFFFFF',
   SELECTED_ITEM_BACKGROUND: '#eefee9', // Primary/Primary50
 

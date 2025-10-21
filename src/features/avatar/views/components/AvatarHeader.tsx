@@ -7,6 +7,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { AVATAR_COLORS } from '~/features/avatar';
 import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '~/shared/components/ui';
 
 interface Props {
   onClose: (() => void)
@@ -26,7 +27,7 @@ export const AvatarHeader: React.FC<Props> = ({ onClose, points }) => {
 
       {/* Points */}
       <View style={styles.pointsContainer}>
-        <View style={styles.pointIcon} />
+        <Icon name = "point" size={20} />
         <Text style={styles.pointsText}>{points.toLocaleString()}</Text>
       </View>
     </View>
@@ -61,12 +62,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-  },
-  pointIcon: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: AVATAR_COLORS.POINT_ICON,
   },
   pointsText: {
     fontSize: 14,

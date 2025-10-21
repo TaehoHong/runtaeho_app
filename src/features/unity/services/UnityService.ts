@@ -4,8 +4,9 @@
  */
 
 import { UnityBridge } from '../bridge/UnityBridge';
-import { type CharacterMotion } from '../types/UnityTypes';
+import { type CharacterMotion, type UnityAvatarDto, type UnityAvatarDtoList } from '../types/UnityTypes';
 import type { Item } from '~/features/avatar';
+import { getUnityPartName } from '~/features/avatar/models/avatarConstants';
 
 /**
  * Unity Bridge Service 클래스
@@ -18,6 +19,7 @@ export class UnityService {
   private static readonly UNITY_OBJECT_NAME = 'Charactor';
   private static readonly UNITY_SPEED_METHOD = 'SetSpeed';
   private static readonly UNITY_MOTION_METHOD = 'SetTrigger';
+  private static readonly CHANGE_AVATAR = 'SetSprites';
   private static readonly MIN_SPEED = 3.0;
   private static readonly MAX_SPEED = 7.0;
   private static readonly VALID_MOTIONS: CharacterMotion[] = ['IDLE', 'MOVE', 'ATTACK', 'DAMAGED'];
@@ -117,20 +119,29 @@ export class UnityService {
   
   async changeAvatar(items: Item[]): Promise<void> {
     this.log(`Changing avatar with ${items.length} items`);
+    this.log(`Changing avatar items:  ${items}`);
 
     try {
-      // 도메인 로직: 아바타 아이템 검증 및 변환
+      // 1. 도메인 로직: 아바타 아이템 검증
       const validatedItems = this.validateAvatarItems(items);
 
       if (validatedItems.length === 0) {
         throw new Error('No valid avatar items provided');
       }
 
-      // Unity에서 기대하는 형태로 변환 (sendUnityJSON 사용)
-      await UnityBridge.sendUnityJSON(
-        UnityService.UNITY_OBJECT_NAME,
-        'ChangeAvatar',
-        validatedItems as any[]
+      // 2. Unity 형식으로 변환
+      const unityData = this.convertToUnityAvatarDtoList(validatedItems);
+
+      // 3. JSON 문자열로 변환 (Swift와 동일)
+      const jsonString = JSON.stringify(unityData);
+
+      this.log('Unity Avatar Data:', jsonString);
+
+      // 4. Unity로 전송 (Swift와 동일하게 sendUnityMessage 사용)
+      await UnityBridge.sendUnityMessage(
+        UnityService.UNITY_OBJECT_NAME,  // "Charactor"
+        UnityService.CHANGE_AVATAR,       // "SetSprites"
+        jsonString                         // {"list":[...]}
       );
 
       this.log(`Avatar changed with ${validatedItems.length} items`);
@@ -143,7 +154,35 @@ export class UnityService {
   // ==========================================
   // 도메인 로직 헬퍼 메서드들
   // ==========================================
-  
+
+  /**
+   * Item 배열을 Unity가 기대하는 UnityAvatarDtoList로 변환
+   * Swift UnityService.changeAvatar의 변환 로직과 동일
+   *
+   * @param items - 변환할 아이템 배열
+   * @returns Unity가 기대하는 {"list": [...]} 구조
+   */
+  private convertToUnityAvatarDtoList(items: Item[]): UnityAvatarDtoList {
+    const unityAvatarDtos: UnityAvatarDto[] = items.map(item => {
+      // Swift: itemType.unityName
+      const part = getUnityPartName(item.itemType.id);
+
+      // Swift: avatarItem.unityFilePath + avatarItem.name
+      const itemPath = item.unityFilePath + item.name;
+
+      return {
+        name: item.name,           // 예: "New_Armor_01.png"
+        part,                       // 예: "Hair", "Cloth", "Pant"
+        itemPath,                   // 예: "Sprites/Hair/New_Armor_01.png"
+      };
+    });
+
+    // Swift: UnityAvatarDtoList(list: unityAvatarDtos)
+    return {
+      list: unityAvatarDtos,
+    };
+  }
+
   private validateAvatarItems(items: Item[]): Item[] {
     return items.filter(item => {
       // 필수 필드 검증

@@ -163,6 +163,21 @@ export const filterItemsByType = (items: Item[], itemTypeId: number): Item[] => 
 };
 
 
+/**
+ * itemTypeId를 ItemType 객체로 변환
+ * @param itemTypeId - 아이템 타입 ID (1: 머리, 2: 의상, 3: 바지)
+ * @returns ItemType 객체
+ */
+export const getItemTypeById = (itemTypeId: number): ItemType => {
+  const typeMap: Record<number, ItemType> = {
+    1: { id: 1, name: '머리' },
+    2: { id: 2, name: '의상' },
+    3: { id: 3, name: '바지' },
+  };
+  return typeMap[itemTypeId] || { id: itemTypeId, name: '알 수 없음' };
+};
+
+
 export function isItemType(value: unknown): value is ItemType {
   if (typeof value !== 'object' || value === null) return false;
   const obj = value as any;

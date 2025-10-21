@@ -119,6 +119,12 @@ class UnityView: UIView {
             ])
 
             print("[UnityView] Unity view reattached successfully")
+
+            // React Native에 재연결 완료 알림
+            self.onUnityReady?([
+                "message": "Unity reattached successfully",
+                "timestamp": ISO8601DateFormatter().string(from: Date())
+            ])
         }
     }
 

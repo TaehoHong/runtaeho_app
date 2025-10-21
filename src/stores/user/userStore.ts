@@ -12,7 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import type { Item, EquippedItemsMap } from '~/features/avatar';
-import { ItemStatus } from '~/features/avatar/models';
+import { ItemStatus, getItemTypeById } from '~/features/avatar/models';
 import { type User } from '~/features/user/models/User';
 import { type UserAccount } from '~/features/user/models/UserAccount';
 import { userDataDtoToUser, type UserDataDto } from '~/features/user/models/UserDataDto';
@@ -449,8 +449,6 @@ export const useUserStore = create<UserState>()(
       /**
        * 로그인 헬퍼 메서드
        * UserStateManager.login()을 위한 래퍼
-       *
-       * ⚠️ 토큰은 파라미터에서 제거됨 (Keychain에서만 관리)
        */
       login: (userData) => {
         const user = userDataDtoToUser(userData);
@@ -460,25 +458,26 @@ export const useUserStore = create<UserState>()(
 
         // EquippedItemDataDto를 EquippedItemsMap으로 변환
         const convertEquippedItems = (equippedItems: any[]): EquippedItemsMap => {
-          const result: any = {};
+          const result: EquippedItemsMap = {};
 
           equippedItems.forEach((item) => {
             const itemTypeId = item.itemTypeId;
             result[itemTypeId] = {
               id: item.id,
               name: item.name,
-              itemType: item.itemType,
+              itemType: getItemTypeById(itemTypeId),
               filePath: item.filePath,
               unityFilePath: item.unityFilePath,
-              point: item.point,
-              createdAt: item.createdAt,
-              status: ItemStatus.EQUIPPED
+              point: 0,
+              createdAt: new Date().toISOString(),
+              status: ItemStatus.EQUIPPED,
+              isOwned: true,
             };
           });
 
           console.log('[UserStore] Login - converted equippedItems:', JSON.stringify(result, null, 2));
           return result;
-        };
+        };;
 
         get().setLoginData({
           user,
