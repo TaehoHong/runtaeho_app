@@ -23,13 +23,7 @@ import {
 } from '@tanstack/react-query';
 
 import { QUERY_KEY_PREFIX, QUERY_OPTIONS } from '../models/avatarConstants';
-import type {
-  AvatarDto,
-  ItemDto,
-  ItemType,
-  PurchaseItemsRequest,
-  UpdateEquippedItemsRequest,
-} from '../models/avatarTypes';
+import type { Item, Avatar, ItemType, PurchaseItemsRequest, UpdateEquippedItemsRequest } from '../models/';
 import { avatarService } from './avatarService';
 import type { CursorResult } from '~/shared/utils/dto/CursorResult';
 
@@ -50,8 +44,8 @@ export const avatarQueryKeys = {
 
   // 아이템 관련
   items: () => [...avatarQueryKeys.all, QUERY_KEY_PREFIX.ITEMS] as const,
-  itemsByType: (itemType: ItemType) =>
-    [...avatarQueryKeys.items(), itemType] as const,
+  itemsByType: (itemTypeId: number) =>
+    [...avatarQueryKeys.items(), itemTypeId] as const,
 
   // 아바타 관련
   avatars: () => [...avatarQueryKeys.all, 'avatars'] as const,
@@ -74,14 +68,14 @@ export const avatarQueryKeys = {
  * ```
  */
 export function useAvatarItems(
-  itemType: ItemType
-): UseInfiniteQueryResult<InfiniteData<CursorResult<ItemDto>>, Error> {
+  itemTypeId: number
+): UseInfiniteQueryResult<InfiniteData<CursorResult<Item>>, Error> {
   return useInfiniteQuery({
-    queryKey: avatarQueryKeys.itemsByType(itemType),
+    queryKey: avatarQueryKeys.itemsByType(itemTypeId),
     queryFn: ({ pageParam }) =>
       avatarService.getItems({
         cursor: pageParam,
-        itemType,
+        itemTypeId,
       }),
     initialPageParam: null as number | null,
     getNextPageParam: (lastPage) => {
@@ -102,7 +96,7 @@ export function useAvatarItems(
  * const { data: avatar, isLoading } = useMainAvatar();
  * ```
  */
-export function useMainAvatar(): UseQueryResult<AvatarDto, Error> {
+export function useMainAvatar(): UseQueryResult<Avatar, Error> {
   return useQuery({
     queryKey: avatarQueryKeys.mainAvatar(),
     queryFn: () => avatarService.getMainAvatar(),
@@ -175,7 +169,7 @@ export function usePurchaseItems(): UseMutationResult<
  * ```
  */
 export function useUpdateEquippedItems(): UseMutationResult<
-  AvatarDto,
+  Avatar,
   Error,
   UpdateEquippedItemsRequest,
   unknown
@@ -224,7 +218,7 @@ export function useUpdateEquippedItems(): UseMutationResult<
  * ```
  */
 export function usePurchaseAndEquipItems(): UseMutationResult<
-  AvatarDto,
+  Avatar,
   Error,
   {
     itemIds: readonly number[];
@@ -270,10 +264,10 @@ export function usePurchaseAndEquipItems(): UseMutationResult<
  */
 export function invalidateItemsByType(
   queryClient: ReturnType<typeof useQueryClient>,
-  itemType: ItemType
+  itemTypeId: number
 ): Promise<void> {
   return queryClient.invalidateQueries({
-    queryKey: avatarQueryKeys.itemsByType(itemType),
+    queryKey: avatarQueryKeys.itemsByType(itemTypeId),
   });
 }
 
@@ -301,16 +295,19 @@ export function invalidateAllAvatarCache(
  */
 export async function prefetchItems(
   queryClient: ReturnType<typeof useQueryClient>,
-  itemType: ItemType
+  itemTypeId: number
 ): Promise<void> {
   await queryClient.prefetchInfiniteQuery({
-    queryKey: avatarQueryKeys.itemsByType(itemType),
+    queryKey: avatarQueryKeys.itemsByType(itemTypeId),
     queryFn: ({ pageParam }) =>
-      avatarApiService.getItems({
+      avatarService.getItems({
         cursor: pageParam,
-        itemType,
+        itemTypeId,
       }),
     initialPageParam: null as number | null,
+    getNextPageParam: (lastPage) => {
+      return lastPage.hasNext ? lastPage.cursor : undefined;
+    },
     pages: 1, // 첫 페이지만 프리페치
   });
 }

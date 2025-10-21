@@ -4,53 +4,48 @@
  */
 
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
-import type { AvatarItem } from '~/features/avatar';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Image } from 'react-native';
+import type { Item } from '~/features/avatar';
 import {
   ItemStatus,
-  ITEM_CARD_SIZE,
   AVATAR_COLORS,
   ITEM_OPACITY,
   GRID_LAYOUT,
 } from '~/features/avatar';
+import { ITEM_IMAGE, type ItemImage } from '~/shared/constants/images';
 
 interface Props {
-  item: AvatarItem;
+  item: Item;
   isSelected: boolean;
   onPress: () => void;
 }
 
 const screenWidth = Dimensions.get('window').width;
-const cardWidth =
-  (screenWidth - GRID_LAYOUT.HORIZONTAL_PADDING * 2 - GRID_LAYOUT.ITEM_SPACING * 2) /
-  GRID_LAYOUT.NUM_COLUMNS;
+const cardWidth = (screenWidth - GRID_LAYOUT.HORIZONTAL_PADDING * 2 - GRID_LAYOUT.ITEM_SPACING * 2) / GRID_LAYOUT.NUM_COLUMNS;
 
 export const AvatarItemCard: React.FC<Props> = ({ item, isSelected, onPress }) => {
+  // 아이템 이미지 가져오기
+  const getItemImage = () => {
+    // item.name에서 파일명 추출 (예: "New_Armor_01.png")
+    const fileName = item.name as ItemImage;
+
+    // ITEM_IMAGE에서 해당 이미지 찾기
+    if (fileName in ITEM_IMAGE) {
+      return ITEM_IMAGE[fileName];
+    }
+  };
+
   // 테두리 색상 결정
-  const borderColor = (() => {
-    if (isSelected) {
-      return AVATAR_COLORS.EQUIPPED_BORDER;
-    }
-    switch (item.status) {
-      case ItemStatus.EQUIPPED:
-        return AVATAR_COLORS.EQUIPPED_BORDER;
-      case ItemStatus.OWNED:
-        return AVATAR_COLORS.OWNED_BORDER;
-      case ItemStatus.NOT_OWNED:
-        return AVATAR_COLORS.NOT_OWNED_BORDER;
-      default:
-        return AVATAR_COLORS.OWNED_BORDER;
-    }
-  })();
+  const borderColor = isSelected
+    ? AVATAR_COLORS.EQUIPPED_BORDER
+    : AVATAR_COLORS.OWNED_BORDER;
 
   // 투명도 결정
   const opacity = item.status === ItemStatus.NOT_OWNED
     ? ITEM_OPACITY.NOT_OWNED
     : ITEM_OPACITY.OWNED;
 
-  const borderWidth = isSelected
-    ? ITEM_CARD_SIZE.SELECTED_BORDER_WIDTH
-    : ITEM_CARD_SIZE.BORDER_WIDTH;
+  const borderWidth = isSelected ? 2 : 1;
 
   const backgroundColor = isSelected
     ? AVATAR_COLORS.SELECTED_ITEM_BACKGROUND
@@ -73,14 +68,13 @@ export const AvatarItemCard: React.FC<Props> = ({ item, isSelected, onPress }) =
           },
         ]}
       >
-        {/* TODO: 아이템 이미지 표시 */}
-        {/* <Image source={{ uri: item.filePath }} style={styles.image} /> */}
+        <Image source={getItemImage()} style={styles.image} />
 
         {/* 가격 배지 (선택된 미보유 아이템만) */}
-        {isSelected && item.status === ItemStatus.NOT_OWNED && item.price && (
+        {isSelected && item.status === ItemStatus.NOT_OWNED && item.point && (
           <View style={styles.priceBadge}>
             <View style={styles.priceIcon} />
-            <Text style={styles.priceText}>{item.price}</Text>
+            <Text style={styles.priceText}>{item.point}</Text>
           </View>
         )}
       </View>
@@ -94,14 +88,14 @@ const styles = StyleSheet.create({
   },
   card: {
     aspectRatio: 1,
-    borderRadius: ITEM_CARD_SIZE.BORDER_RADIUS,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
   },
   image: {
-    width: '80%',
-    height: '80%',
+    width: '60%',
+    height: '60%',
     resizeMode: 'contain',
   },
   priceBadge: {

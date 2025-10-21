@@ -5,7 +5,6 @@
 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
 import { AVATAR_COLORS } from '~/features/avatar';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -15,12 +14,11 @@ interface Props {
 }
 
 export const AvatarHeader: React.FC<Props> = ({ onClose, points }) => {
-  const router = useRouter();
 
   return (
     <View style={styles.container}>
       <TouchableOpacity onPress={onClose} style={styles.backButton}>
-        <Ionicons name="chevron-back" size={24} color="#2B2B2B" />
+        <Ionicons name="chevron-back" size={24} color="#202020" />
       </TouchableOpacity>
 
       {/* Title */}
@@ -41,7 +39,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     backgroundColor: AVATAR_COLORS.CARD_BACKGROUND,
   },
   backButton: {
@@ -50,19 +48,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  backIcon: {
-    fontSize: 24,
-    color: AVATAR_COLORS.PRIMARY_TEXT,
-  },
   title: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '500',
     color: AVATAR_COLORS.PRIMARY_TEXT,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
   },
   pointsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
   pointIcon: {
     width: 20,
@@ -71,7 +69,7 @@ const styles = StyleSheet.create({
     backgroundColor: AVATAR_COLORS.POINT_ICON,
   },
   pointsText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: AVATAR_COLORS.PRIMARY_TEXT,
   },

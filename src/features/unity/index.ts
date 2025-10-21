@@ -8,7 +8,7 @@
 
 // Unity Bridge Integration (Zustand + Service Pattern)
 // Note: UnityBridgeContext는 사용하지 않고 Zustand + UnityBridgeService 패턴 사용
-export { getUnityService } from '~/features/unity/services/UnityService';
+export { unityService } from '~/features/unity/services/UnityService';
 
 // Unity Store (Zustand)
 export { useUnityStore } from '~/stores/unity/unityStore';
@@ -18,7 +18,7 @@ export { useUnityViewModel } from '~/features/unity/viewmodels/UnityViewModel';
 
 // Unity Types and DTOs
 export type {
-  UnityAnimationType, UnityAvatarDto, UnityAvatarUpdateOptions, UnityBridgeMessage, UnityConfiguration, UnityEvent,
+  UnityAnimationType, UnityAvatarUpdateOptions, UnityBridgeMessage, UnityConfiguration, UnityEvent,
   UnityEventType, UnityStatus
 } from './types/UnityTypes';
 

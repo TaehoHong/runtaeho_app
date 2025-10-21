@@ -5,7 +5,7 @@
 
 import { UnityBridge } from '../bridge/UnityBridge';
 import { type CharacterMotion } from '../types/UnityTypes';
-import type { AvatarItem } from '~/features/avatar';
+import type { Item } from '~/features/avatar';
 
 /**
  * Unity Bridge Service 클래스
@@ -115,7 +115,7 @@ export class UnityService {
     }
   }
   
-  async changeAvatar(items: AvatarItem[]): Promise<void> {
+  async changeAvatar(items: Item[]): Promise<void> {
     this.log(`Changing avatar with ${items.length} items`);
 
     try {
@@ -144,14 +144,14 @@ export class UnityService {
   // 도메인 로직 헬퍼 메서드들
   // ==========================================
   
-  private validateAvatarItems(items: AvatarItem[]): AvatarItem[] {
+  private validateAvatarItems(items: Item[]): Item[] {
     return items.filter(item => {
       // 필수 필드 검증
       if (!item.name || !item.itemType || !item.filePath || !item.unityFilePath) {
-        this.log(`Invalid item: missing required fields name: ${item.name}, itemType: ${item.itemType}, filePath: ${item.filePath}, unityFilePath: ${item.unityFilePath}`);
+        this.log(`Invalid item: missing required fields name: ${item.name}, itemType: ${item.itemType.id}, filePath: ${item.filePath}, unityFilePath: ${item.unityFilePath}`);
         return false;
       }
-      
+
       return true;
     });
   }

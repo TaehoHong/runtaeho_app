@@ -64,19 +64,10 @@ export const API_ENDPOINTS = {
     BASE: '/avatars',
     MAIN: '/avatars/main',
     UPDATE_EQUIPPED_ITEMS: (avatarId: number) => `/avatars/${avatarId}`,
-    DETAIL: (id: number) => `/avatars/${id}`,
-    ITEMS: (avatarId: number) => `/avatars/${avatarId}/items`,
-    REMOVE_ITEM: (avatarId: number, itemId: number) => `/avatars/${avatarId}/items/${itemId}`,
+    PURCHASE_AND_EQUIPE_ITEMS: (avatarId: number) => `/avatars/${avatarId}/items`,
   },
   ITEMS: {
-    BASE: '/items',
-    TYPES: '/items/types',
-    BY_TYPE: (typeId: number) => `/items/type/${typeId}`,
-    DETAIL: (itemId: number) => `/items/${itemId}`,
-    SEARCH: '/items/search',
-    POPULAR: '/items/popular',
-    NEW: '/items/new',
-    RECOMMENDED: '/items/recommended',
+    BASE: '/items'
   },
   USER_ITEMS: {
     BASE: '/user-items',

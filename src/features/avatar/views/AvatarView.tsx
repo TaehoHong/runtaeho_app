@@ -32,8 +32,9 @@ export const AvatarView: React.FC<AvatarViewProps> = ({ onClose }) => {
       <AvatarHeader onClose={onClose} points={viewModel.totalPoint} />
       {/* Unity Character Preview */}
       <AvatarPreview equippedItems={viewModel.previewItems} />
-      
+
       <ScrollView
+        style={styles.scrollView}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
@@ -94,7 +95,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: AVATAR_COLORS.SCREEN_BACKGROUND,
   },
+  scrollView: {
+    flex: 1,
+  },
   content: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
 });

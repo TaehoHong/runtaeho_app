@@ -7,23 +7,6 @@
  * - 변경 가능한 값은 환경변수로 분리 가능하도록 설계
  */
 
-import type { ItemType, ItemCategory } from './';
-
-// ===================================
-// API 관련 상수
-// ===================================
-
-/**
- * API 엔드포인트
- * SRP: API 경로만 관리
- */
-export const AVATAR_API_ENDPOINTS = {
-  GET_ITEMS: '/api/v1/items',
-  PURCHASE_ITEMS: '/api/v1/user-items',
-  GET_MAIN_AVATAR: '/api/v1/avatars/main',
-  
-} as const;
-
 // ===================================
 // 카테고리 관련 상수
 // ===================================
@@ -33,43 +16,49 @@ export const AVATAR_API_ENDPOINTS = {
  * SRP: 카테고리 메타데이터만 관리
  * OCP: 배열로 관리하여 새 카테고리 추가 용이
  */
-export const ITEM_CATEGORIES: readonly ItemCategory[] = [
+export const ITEM_CATEGORIES = [
   {
-    type: 1 as ItemType,
+    type: 1,
     displayName: '머리',
     unityName: 'Hair',
   },
   {
-    type: 2 as ItemType,
+    type: 2,
     displayName: '의상',
     unityName: 'Cloth',
   },
   {
-    type: 3 as ItemType,
+    type: 3,
     displayName: '바지',
     unityName: 'Pant',
   },
 ] as const;
 
 /**
- * 카테고리 타입으로 카테고리 정보 찾기
+ * ItemCategory 타입 자동 추론
+ * typeof를 사용하여 ITEM_CATEGORIES에서 타입 추출
  */
-export function getCategoryByType(type: ItemType): ItemCategory | undefined {
-  return ITEM_CATEGORIES.find((category) => category.type === type);
+export type ItemCategory = typeof ITEM_CATEGORIES[number];
+
+/**
+ * 카테고리 타입 ID로 카테고리 정보 찾기
+ */
+export function getCategoryByType(typeId: number): ItemCategory | undefined {
+  return ITEM_CATEGORIES.find((category) => category.type === typeId);
 }
 
 /**
  * 카테고리 표시 이름 가져오기
  */
-export function getCategoryDisplayName(type: ItemType): string {
-  return getCategoryByType(type)?.displayName ?? '알 수 없음';
+export function getCategoryDisplayName(typeId: number): string {
+  return getCategoryByType(typeId)?.displayName ?? '알 수 없음';
 }
 
 /**
  * Unity 카테고리 이름 가져오기
  */
-export function getCategoryUnityName(type: ItemType): string {
-  return getCategoryByType(type)?.unityName ?? '';
+export function getCategoryUnityName(typeId: number): string {
+  return getCategoryByType(typeId)?.unityName ?? '';
 }
 
 // ===================================
@@ -81,7 +70,7 @@ export function getCategoryUnityName(type: ItemType): string {
  */
 export const GRID_LAYOUT = {
   NUM_COLUMNS: 3,
-  ITEM_SPACING: 15,
+  ITEM_SPACING: 10,
   HORIZONTAL_PADDING: 20,
 } as const;
 
@@ -100,7 +89,7 @@ export const ITEM_CARD_SIZE = {
  * Unity 프리뷰 설정
  */
 export const UNITY_PREVIEW = {
-  HEIGHT: 335,
+  HEIGHT: 300,
   BORDER_RADIUS: 12,
 } as const;
 
@@ -110,36 +99,36 @@ export const UNITY_PREVIEW = {
  */
 export const AVATAR_COLORS = {
   // Background
-  SCREEN_BACKGROUND: '#FAFAFA',
+  SCREEN_BACKGROUND: '#f5f5f5', // Grey/Grey100
   CARD_BACKGROUND: '#FFFFFF',
-  ITEM_BACKGROUND: '#F2F2F2',
-  SELECTED_ITEM_BACKGROUND: '#E8F5E8',
+  ITEM_BACKGROUND: '#FFFFFF',
+  SELECTED_ITEM_BACKGROUND: '#eefee9', // Primary/Primary50
 
   // Borders
-  EQUIPPED_BORDER: '#7AE87A',
-  OWNED_BORDER: '#000000',
-  NOT_OWNED_BORDER: '#888888',
+  EQUIPPED_BORDER: '#59ec3a', // Primary/Primary500
+  OWNED_BORDER: '#c9c9c9', // Text/grey04
+  NOT_OWNED_BORDER: '#c9c9c9',
 
   // Buttons
-  CANCEL_BUTTON: '#D9D9D9',
-  CONFIRM_BUTTON: '#7AE87A',
-  PURCHASE_BUTTON: '#71DCF9',
+  CANCEL_BUTTON: '#dfdfdf', // Grey/Grey300
+  CONFIRM_BUTTON: '#45da31', // Primary/Primary600
+  PURCHASE_BUTTON: '#71DCF9', // Cyan for purchase
   ALERT_BUTTON: '#FF7B7B',
 
   // Text
-  PRIMARY_TEXT: '#000000',
-  SECONDARY_TEXT: '#666666',
-  DISABLED_TEXT: '#999999',
+  PRIMARY_TEXT: '#202020', // Grey/Grey900
+  SECONDARY_TEXT: '#9d9d9d', // Grey/Grey500
+  DISABLED_TEXT: '#9d9d9d',
 
   // Category Tab
-  SELECTED_TAB: '#7AE87A',
-  UNSELECTED_TAB: '#F2F2F2',
+  SELECTED_TAB: '#59ec3a', // Primary/Primary500
+  UNSELECTED_TAB: '#FFFFFF',
 
   // Point
-  POINT_ICON: '#7BE87B',
+  POINT_ICON: '#59ec3a',
   POINT_DECREASE: '#FF0000',
-  POINT_INCREASE: '#7AE87A',
-} as const;
+  POINT_INCREASE: '#59ec3a',
+} as const;;
 
 /**
  * 버튼 크기

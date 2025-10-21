@@ -15,8 +15,7 @@
 
 import { apiClient } from '~/services/api/client';
 import type { CursorResult } from '~/shared/utils/dto/CursorResult';
-import { API_ENDPOINTS } from '../../../services/api/config';
-import { AVATAR_API_ENDPOINTS } from '../models/avatarConstants';
+import { API_ENDPOINTS } from '~/services/api/config';
 import type {
   Avatar,
   GetItemsRequest,
@@ -41,7 +40,7 @@ export const avatarService = {
       const { data } = await apiClient.get<CursorResult<Item>>(API_ENDPOINTS.ITEMS.BASE, {
         params: {
           cursor: request.cursor,
-          itemType: request.itemType,
+          itemType: request.itemTypeId,
           size: request.size || 20,
         },
       });
@@ -87,7 +86,7 @@ export const avatarService = {
    * 백엔드 API: GET /api/v1/avatars/main
    */
   getMainAvatar: async (): Promise<Avatar> => {
-    const { data } = await apiClient.get<Avatar>(AVATAR_API_ENDPOINTS.GET_MAIN_AVATAR);
+    const { data } = await apiClient.get<Avatar>(API_ENDPOINTS.AVATAR.MAIN);
 
     return data;
   }

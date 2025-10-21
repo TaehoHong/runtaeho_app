@@ -3,8 +3,7 @@
  * Swift Avatar 구조체에서 마이그레이션
  */
 
-import type { Item } from './Item';
-import type { ItemType, ItemStatus } from './Item'
+import type { Item } from './Item'
 
 /**
  * 아바타 (사용자 아바타 정보)
@@ -13,19 +12,7 @@ export interface Avatar {
   readonly id: number;
   readonly userId: number;
   readonly isMain: boolean;
-  readonly items: readonly AvatarItem[];
-}
-
-/**
- * 아바타 아이템 모델
- */
-export interface AvatarItem {
-  readonly id: number;
-  readonly name: string;
-  readonly itemType: ItemType;
-  readonly filePath: string;
-  readonly unityFilePath: string;
-  readonly status: ItemStatus;
+  readonly items: readonly Item[];
 }
 
 /**
@@ -36,20 +23,18 @@ export interface UpdateEquippedItemsRequest {
   readonly itemIds: readonly number[];
 }
 
-
 /**
  * 장착된 아이템 맵
- * key: ItemType, value: AvatarItem
+ * key: itemType.id (1, 2, 3), value: Item
  */
-export type EquippedItemsMap = Record<ItemType, AvatarItem | undefined>;
-
+export type EquippedItemsMap = Record<number, Item | undefined>;
 
 /**
  * 아이템 목록 조회 요청
  */
 export interface GetItemsRequest {
   readonly cursor?: number | null;
-  readonly itemType: ItemType;
+  readonly itemTypeId: number;
   readonly size?: number;
 }
 

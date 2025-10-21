@@ -11,7 +11,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import type { AvatarItem, EquippedItemsMap, ItemType } from '~/features/avatar';
+import type { Item, EquippedItemsMap } from '~/features/avatar';
 import { ItemStatus } from '~/features/avatar/models';
 import { type User } from '~/features/user/models/User';
 import { type UserAccount } from '~/features/user/models/UserAccount';
@@ -99,7 +99,7 @@ interface UserState {
   setAvatarId: (avatarId: number) => void;
   setEquippedItems: (items: EquippedItemsMap) => void;
   deductPoints: (amount: number) => void; // 포인트 차감 추가
-  updateEquippedItem: (itemType: ItemType, item: AvatarItem) => void; // 개별 아이템 업데이트
+  updateEquippedItem: (itemTypeId: number, item: Item) => void; // 개별 아이템 업데이트
   setUserPreferences: (preferences: UserPreferences) => void;
   updateUserPreferences: (preferences: Partial<UserPreferences>) => void;
   incrementAppLaunchCount: () => void;
@@ -463,13 +463,15 @@ export const useUserStore = create<UserState>()(
           const result: any = {};
 
           equippedItems.forEach((item) => {
-            const itemType = item.itemTypeId as ItemType;
-            result[itemType] = {
+            const itemTypeId = item.itemTypeId;
+            result[itemTypeId] = {
               id: item.id,
               name: item.name,
-              itemType: itemType,
+              itemType: item.itemType,
               filePath: item.filePath,
               unityFilePath: item.unityFilePath,
+              point: item.point,
+              createdAt: item.createdAt,
               status: ItemStatus.EQUIPPED
             };
           });

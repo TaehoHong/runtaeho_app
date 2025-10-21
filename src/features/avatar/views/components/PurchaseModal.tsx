@@ -12,11 +12,11 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
-import type { AvatarItem } from '~/features/avatar';
-import { AVATAR_COLORS, BUTTON_SIZE } from '~/features/avatar';
+import type { Item } from '~/features/avatar';
+import { AVATAR_COLORS } from '~/features/avatar';
 
 interface Props {
-  items: readonly AvatarItem[];
+  items: readonly Item[];
   totalPrice: number;
   currentPoints: number;
   remainingPoints: number;
@@ -64,7 +64,7 @@ export const PurchaseModal: React.FC<Props> = ({
                   <View style={styles.itemPlaceholder} />
                   <View style={styles.itemPriceContainer}>
                     <View style={styles.priceIcon} />
-                    <Text style={styles.itemPrice}>{item.price}</Text>
+                    <Text style={styles.itemPrice}>{item.point}</Text>
                   </View>
                 </View>
               ))}
@@ -142,35 +142,45 @@ const styles = StyleSheet.create({
     width: 335,
     backgroundColor: AVATAR_COLORS.CARD_BACKGROUND,
     borderRadius: 16,
-    padding: 24,
+    paddingHorizontal: 0,
+    paddingTop: 24,
+    paddingBottom: 0,
   },
   title: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '700',
     color: AVATAR_COLORS.PRIMARY_TEXT,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
+    paddingHorizontal: 24,
   },
   subtitle: {
     fontSize: 16,
-    color: AVATAR_COLORS.SECONDARY_TEXT,
+    fontWeight: '400',
+    color: AVATAR_COLORS.PRIMARY_TEXT,
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 32,
+    paddingHorizontal: 24,
   },
   itemsContainer: {
     marginBottom: 24,
+    paddingHorizontal: 50,
+    alignItems: 'center',
   },
   itemRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    width: '100%',
     marginBottom: 12,
   },
   itemPlaceholder: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
+    width: 105,
+    height: 105,
+    borderRadius: 14,
     backgroundColor: AVATAR_COLORS.ITEM_BACKGROUND,
+    borderWidth: 1,
+    borderColor: AVATAR_COLORS.OWNED_BORDER,
   },
   itemPriceContainer: {
     flexDirection: 'row',
@@ -178,41 +188,43 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   priceIcon: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: AVATAR_COLORS.POINT_ICON,
   },
   itemPrice: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: AVATAR_COLORS.PRIMARY_TEXT,
   },
   calculationContainer: {
     marginBottom: 24,
+    paddingHorizontal: 26,
   },
   divider: {
     height: 1,
-    backgroundColor: AVATAR_COLORS.ITEM_BACKGROUND,
-    marginVertical: 12,
+    backgroundColor: '#E0E0E0',
+    marginVertical: 0,
   },
   pointRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginVertical: 8,
+    paddingVertical: 12,
   },
   pointLabel: {
-    fontSize: 16,
-    color: AVATAR_COLORS.SECONDARY_TEXT,
+    fontSize: 14,
+    fontWeight: '400',
+    color: AVATAR_COLORS.PRIMARY_TEXT,
   },
   pointLabelBold: {
-    fontWeight: '600',
+    fontWeight: '400',
     color: AVATAR_COLORS.PRIMARY_TEXT,
   },
   pointValue: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '400',
     color: AVATAR_COLORS.PRIMARY_TEXT,
   },
   pointDecrease: {
@@ -224,10 +236,13 @@ const styles = StyleSheet.create({
   buttonsContainer: {
     flexDirection: 'row',
     gap: 12,
+    paddingHorizontal: 27,
+    paddingTop: 16,
+    paddingBottom: 16,
   },
   button: {
     flex: 1,
-    height: BUTTON_SIZE.MODAL_BUTTON_HEIGHT,
+    height: 52,
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',

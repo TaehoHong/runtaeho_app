@@ -14,31 +14,23 @@ interface Props {
 }
 
 export const AvatarPreview: React.FC<Props> = ({ equippedItems }) => {
-  // TODO: Unity View 연동
-  // import { UnityView } from '~/features/unity/components/UnityView';
-  // return <UnityView equippedItems={equippedItems} style={styles.unity} />;
-
   return (
     <View style={styles.container}>
-      <View style={styles.placeholder}>
-        <UnityView style={styles.unity} />
-      </View>
+      <UnityView style={styles.unity} />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
+    marginHorizontal: 20,
     height: UNITY_PREVIEW.HEIGHT,
-    borderRadius: UNITY_PREVIEW.BORDER_RADIUS,
-    backgroundColor: AVATAR_COLORS.CARD_BACKGROUND,
+    borderRadius: 16,
+    backgroundColor: AVATAR_COLORS.ITEM_BACKGROUND,
     overflow: 'hidden',
   },
-  placeholder: {
-    flex: 1,
-    backgroundColor: AVATAR_COLORS.ITEM_BACKGROUND,
-  },
   unity: {
-    flex: 1,
+    width: '100%',
+    height: '100%',
   },
 });

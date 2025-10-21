@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import { AVATAR_COLORS, BUTTON_SIZE } from '~/features/avatar';
+import { AVATAR_COLORS } from '~/features/avatar';
 
 interface Props {
   hasChanges: boolean;
@@ -77,14 +77,15 @@ export const BottomButtons: React.FC<Props> = ({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    gap: 20,
+    gap: 11,
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingTop: 12,
+    paddingBottom: 6,
     backgroundColor: AVATAR_COLORS.CARD_BACKGROUND,
   },
   button: {
     flex: 1,
-    height: BUTTON_SIZE.BOTTOM_BUTTON_HEIGHT,
+    height: 56,
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
@@ -102,8 +103,8 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   buttonText: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
     color: AVATAR_COLORS.PRIMARY_TEXT,
   },
   buttonTextWhite: {

@@ -6,11 +6,9 @@
 
 import { useCallback } from 'react';
 import { useUnityStore } from '../../../stores/unity/unityStore';
-import { getUnityService } from '../services/UnityService';
-import type {
-  AvatarItem,
-  CharacterMotion,
-} from '../types/UnityTypes';
+import { unityService } from '../services/UnityService';
+import type { CharacterMotion } from '../types/UnityTypes';
+import type { Item } from '~/features/avatar';
 
 /**
  * Unity ViewModel Hook
@@ -44,12 +42,7 @@ export const useUnityViewModel = () => {
     setError(null);
 
     try {
-      const bridgeService = getUnityService();
-      if (!bridgeService) {
-        throw new Error('Unity Bridge Service not initialized');
-      }
-
-      await bridgeService.setCharacterSpeed(speed);
+      await unityService.setCharacterSpeed(speed);
 
       const timestamp = new Date().toISOString();
       if (characterState) {
@@ -81,12 +74,7 @@ export const useUnityViewModel = () => {
     setError(null);
 
     try {
-      const bridgeService = getUnityService();
-      if (!bridgeService) {
-        throw new Error('Unity Bridge Service not initialized');
-      }
-
-      await bridgeService.stopCharacter();
+      await unityService.stopCharacter();
 
       const timestamp = new Date().toISOString();
       if (characterState) {
@@ -120,12 +108,7 @@ export const useUnityViewModel = () => {
     setError(null);
 
     try {
-      const bridgeService = getUnityService();
-      if (!bridgeService) {
-        throw new Error('Unity Bridge Service not initialized');
-      }
-
-      await bridgeService.setCharacterMotion(motion);
+      await unityService.setCharacterMotion(motion);
 
       const timestamp = new Date().toISOString();
       if (characterState) {
@@ -153,17 +136,12 @@ export const useUnityViewModel = () => {
    * 아바타 변경
    * 기존 unityStore.changeAvatar
    */
-  const changeAvatar = useCallback(async (items: AvatarItem[]) => {
+  const changeAvatar = useCallback(async (items: Item[]) => {
     setLoading(true);
     setError(null);
 
     try {
-      const bridgeService = getUnityService();
-      if (!bridgeService) {
-        throw new Error('Unity Bridge Service not initialized');
-      }
-
-      await bridgeService.changeAvatar(items);
+      await unityService.changeAvatar(items);
 
       const timestamp = new Date().toISOString();
       updateAvatarData({

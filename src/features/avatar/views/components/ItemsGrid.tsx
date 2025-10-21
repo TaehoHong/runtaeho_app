@@ -4,14 +4,14 @@
  */
 
 import React from 'react';
-import { FlatList, StyleSheet, View } from 'react-native';
-import type { AvatarItem } from '~/features/avatar';
+import { FlatList, StyleSheet } from 'react-native';
+import type { Item } from '~/features/avatar';
 import { GRID_LAYOUT } from '~/features/avatar';
-import { AvatarItemCard } from './AvatarItemCard';
+import { AvatarItemCard } from './ItemCard';
 
 interface Props {
-  items: readonly AvatarItem[];
-  onSelectItem: (item: AvatarItem) => void;
+  items: readonly Item[];
+  onSelectItem: (item: Item) => void;
   isItemSelected: (itemId: number) => boolean;
   onEndReached: () => void;
 }
@@ -46,10 +46,10 @@ export const ItemsGrid: React.FC<Props> = ({
 
 const styles = StyleSheet.create({
   grid: {
-    marginTop: 20,
+    marginTop: 18,
   },
   content: {
-    paddingBottom: 20,
+    paddingBottom: 10,
   },
   row: {
     justifyContent: 'space-between',

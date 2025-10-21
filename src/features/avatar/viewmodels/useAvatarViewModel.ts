@@ -13,27 +13,78 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ITEM_CATEGORIES,
   ItemStatus,
-  toAvatarItems,
-  toItemIds,
   useAvatarItems,
   usePurchaseItems,
   useUpdateEquippedItems,
-  type AvatarItem,
+  type Item,
   type EquippedItemsMap,
-  type ItemType
 } from '~/features/avatar';
 import { unityService } from '~/features/unity/services/UnityService';
 import { useUserStore } from '~/stores/user/userStore';
 
-// 입력이 Map이 아니어도 안전하게 Map으로 변환
+// ===================================
+// Helper Functions (로컬 유틸리티)
+// ===================================
+
+/**
+ * 입력을 EquippedItemsMap (Record)로 정규화
+ */
 function normalizeEquippedMap(input: unknown): EquippedItemsMap {
+  if (!input) return {} as EquippedItemsMap;
+
+  // Map 객체인 경우 Record로 변환
   if (input instanceof Map) {
-    return new Map(input) as EquippedItemsMap;
+    const record: Record<number, Item | undefined> = {};
+    for (const [key, value] of input.entries()) {
+      record[key as number] = value;
+    }
+    return record as EquippedItemsMap;
   }
-  const obj = (input ?? {}) as Record<string, AvatarItem | undefined>;
-  return new Map(
-    Object.entries(obj).map(([k, v]) => [Number(k), v])
-  ) as EquippedItemsMap;
+
+  // 이미 Record인 경우
+  return input as EquippedItemsMap;
+}
+
+/**
+ * 각 아이템의 장착 상태를 pendingEquippedItems 기준으로 설정
+ */
+type ItemWithPrice = Item & { price?: number };
+
+function toItems(
+  items: any[],
+  equippedMap: EquippedItemsMap
+): Item[] {
+  return items.map((item) => {
+    // equippedMap에 해당 itemType.id의 아이템이 있고, 그 ID가 현재 item.id와 같으면 EQUIPPED
+    const equippedValues = Object.values(equippedMap);
+    const isEquipped = equippedValues.some(
+      (equippedItem) => equippedItem?.id === item.id
+    );
+
+    return {
+      id: item.id,
+      name: item.name,
+      itemType: item.itemType, // 백엔드 구조 그대로 사용 {id, name}
+      filePath: item.filePath,
+      unityFilePath: item.unityFilePath,
+      point: item.point,
+      createdAt: item.createdAt,
+      status: isEquipped ? ItemStatus.EQUIPPED : ItemStatus.NOT_OWNED,
+    };
+  });
+}
+
+/**
+ * EquippedItemsMap에서 아이템 ID 배열만 추출
+ */
+function toItemIds(equippedMap: EquippedItemsMap): readonly number[] {
+  const ids: number[] = [];
+  for (const item of Object.values(equippedMap)) {
+    if (item?.id) {
+      ids.push(item.id);
+    }
+  }
+  return ids;
 }
 
 /**
@@ -43,13 +94,13 @@ export interface AvatarViewModel {
   // State
   readonly categories: typeof ITEM_CATEGORIES;
   readonly selectedCategoryIndex: number;
-  readonly selectedCategory: ItemType;
-  readonly currentCategoryItems: readonly AvatarItem[];
+  readonly selectedCategory: number;
+  readonly currentCategoryItems: readonly ItemWithPrice[];
   readonly previewItems: EquippedItemsMap;
   readonly totalPoint: number;
   readonly hasChanges: boolean;
   readonly shouldShowPurchaseButton: boolean;
-  readonly itemsToPurchase: readonly AvatarItem[];
+  readonly itemsToPurchase: readonly ItemWithPrice[];
   readonly totalPurchasePrice: number;
   readonly remainingPoints: number;
   readonly showPurchaseModal: boolean;
@@ -58,7 +109,7 @@ export interface AvatarViewModel {
 
   // Actions
   selectCategory: (index: number) => void;
-  selectItem: (item: AvatarItem) => void;
+  selectItem: (item: Item) => void;
   isItemSelected: (itemId: number) => boolean;
   attemptPurchase: () => void;
   confirmPurchase: () => Promise<void>;
@@ -135,13 +186,13 @@ export function useAvatarViewModel(): AvatarViewModel {
   const allItems = useMemo(() => {
     if (!itemsData) return [];
     return itemsData.pages.flatMap((page) =>
-      toAvatarItems(page.content, pendingEquippedItems)
+      toItems(page.content, pendingEquippedItems)
     );
   }, [itemsData, pendingEquippedItems]);
 
   // 현재 카테고리 아이템만
   const currentCategoryItems = useMemo(() => {
-    return allItems.filter((item) => item.itemType === selectedCategory);
+    return allItems.filter((item) => item.itemType.id === selectedCategory);
   }, [allItems, selectedCategory]);
 
   // Unity 프리뷰용 아이템
@@ -149,8 +200,8 @@ export function useAvatarViewModel(): AvatarViewModel {
 
   // 변경 여부 확인
   const hasChanges = useMemo(() => {
-    for (const [itemType, item] of pendingEquippedItems.entries()) {
-      const globalItem = globalEquippedMap.get(itemType);
+    for (const [itemTypeId, item] of Object.entries(pendingEquippedItems)) {
+      const globalItem = globalEquippedMap[itemTypeId as unknown as number];
       if (item?.id !== globalItem?.id) {
         return true;
       }
@@ -160,8 +211,8 @@ export function useAvatarViewModel(): AvatarViewModel {
 
   // 구매해야 할 아이템
   const itemsToPurchase = useMemo(() => {
-    const items: AvatarItem[] = [];
-    for (const [, item] of pendingEquippedItems.entries()) {
+    const items: ItemWithPrice[] = [];
+    for (const item of Object.values(pendingEquippedItems)) {
       if (!item) continue;
       const originalItem = allItems.find((i) => i.id === item.id);
         if (originalItem && originalItem.status === ItemStatus.NOT_OWNED) {
@@ -175,7 +226,7 @@ export function useAvatarViewModel(): AvatarViewModel {
 
   // 총 구매 가격
   const totalPurchasePrice = useMemo(() => {
-    return itemsToPurchase.reduce((sum, item) => sum + (item.price || 0), 0);
+    return itemsToPurchase.reduce((sum, item) => sum + (item.point || 0), 0);
   }, [itemsToPurchase]);
 
   // 잔여 포인트
@@ -208,21 +259,20 @@ export function useAvatarViewModel(): AvatarViewModel {
    * iOS: selectItem(_ itemViewModel: AvatarItemViewModel)
    */
   const selectItem = useCallback(
-    (item: AvatarItem) => {
+    (item: Item) => {
       // 같은 아이템 재선택 시 무시
-      if (pendingEquippedItems.get(item.itemType)?.id === item.id) {
+      if (pendingEquippedItems[item.itemType.id]?.id === item.id) {
         return;
       }
 
       // Unity 프리뷰 즉시 업데이트
       unityService.changeAvatar([item]);
 
-      // Pending 상태 업데이트 (Map 불변 업데이트)
-      setPendingEquippedItems((prev) => {
-        const next = new Map(prev);
-        next.set(item.itemType, item);
-        return next as EquippedItemsMap;
-      });
+      // Pending 상태 업데이트 (Record 불변 업데이트)
+      setPendingEquippedItems((prev) => ({
+        ...prev,
+        [item.itemType.id]: item,
+      }));
     },
     [pendingEquippedItems]
   );
@@ -232,7 +282,7 @@ export function useAvatarViewModel(): AvatarViewModel {
    */
   const isItemSelected = useCallback(
     (itemId: number) => {
-      return Array.from(pendingEquippedItems.values()).some((item) => item?.id === itemId);
+      return Object.values(pendingEquippedItems).some((item) => item?.id === itemId);
     },
     [pendingEquippedItems]
   );

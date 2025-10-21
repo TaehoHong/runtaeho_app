@@ -1,21 +1,29 @@
 /**
  * Item 모델
+ * 백엔드 API 구조와 동일하게 유지
  */
 
 /**
- * 아이템 카테고리
- * OCP: 새로운 타입 추가 시 타입만 확장하면 됨
+ * 아이템 카테고리 타입 (상수)
  */
-export type ItemType = 1 | 2 | 3;
-
-export const ItemType = {
-  HAIR: 1 as ItemType,
-  CLOTH: 2 as ItemType,
-  PANTS: 3 as ItemType,
+export const ItemTypeId = {
+  HAIR: 1,
+  CLOTH: 2,
+  PANTS: 3,
 } as const;
 
+export type ItemTypeId = typeof ItemTypeId[keyof typeof ItemTypeId];
+
 /**
- * 아이템 상태
+ * 아이템 카테고리 모델 (백엔드 ItemType 엔티티)
+ */
+export interface ItemType {
+  id: number;        // 1, 2, 3
+  name: string;      // "머리", "의상", "바지"
+}
+
+/**
+ * 아이템 상태 (프론트엔드에서 계산)
  * - EQUIPPED: 현재 착용 중
  * - OWNED: 보유했지만 미착용
  * - NOT_OWNED: 미보유 (구매 가능)
@@ -26,25 +34,22 @@ export const ItemStatus = {
   NOT_OWNED: 'NOT_OWNED',
 } as const;
 
-// 'EQUIPPED' | 'OWNED' | 'NOT_OWNED'
 export type ItemStatus = typeof ItemStatus[keyof typeof ItemStatus];
 
 /**
- * 아이템 기본 모델
+ * 아이템 모델 (백엔드 Item 엔티티와 동일)
  */
 export interface Item {
   id: number;
-  itemType: ItemTypeModel;
+  itemType: ItemType;           // ⭐ 객체 (id + name)
   name: string;
   unityFilePath: string;
   filePath: string;
-  point: number;
+  point: number;                // 가격
   createdAt: string;
-}
 
-export interface ItemTypeModel {
-  id: number;
-  name: String;
+  // 프론트엔드 전용 (optional)
+  status?: ItemStatus;          // 착용 상태 (계산된 값)
 }
 
 /**
@@ -96,7 +101,7 @@ export interface ItemListResponse {
  */
 export const createItem = (
   id: number,
-  itemType: ItemTypeModel,
+  itemType: ItemType,
   name: string,
   unityFilePath: string,
   filePath: string,
@@ -110,6 +115,7 @@ export const createItem = (
   point,
   createdAt: new Date().toISOString(),
 });
+
 /**
  * 아이템 포맷팅 헬퍼 함수
  */
@@ -157,5 +163,11 @@ export const filterItemsByType = (items: Item[], itemTypeId: number): Item[] => 
 
 
 export function isItemType(value: unknown): value is ItemType {
-  return value === 1 || value === 2 || value === 3;
+  if (typeof value !== 'object' || value === null) return false;
+  const obj = value as any;
+  return (
+    typeof obj.id === 'number' &&
+    (obj.id === 1 || obj.id === 2 || obj.id === 3) &&
+    typeof obj.name === 'string'
+  );
 }

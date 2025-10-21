@@ -7,7 +7,7 @@
  * UnityAvatarDto, UnityViewController 등 Swift 코드 참조
  */
 
-import type { AvatarItem } from "~/features/avatar";
+import type { Item } from "~/features/avatar";
 
 /* 
  * Unity Animation Type
@@ -136,7 +136,7 @@ export interface UnityBridge {
   setCharacterMotion(motion: CharacterMotion): void;
 
   // Avatar System
-  changeAvatar(items: AvatarItem[]): void;
+  changeAvatar(items: Item[]): void;
 
   // Unity Status
   getUnityStatus(): void;
@@ -238,7 +238,7 @@ export interface UnityBridgeContextValue {
   setCharacterSpeed: (speed: number) => Promise<void>;
   stopCharacter: () => Promise<void>;
   setCharacterMotion: (motion: CharacterMotion) => Promise<void>;
-  changeAvatar: (items: AvatarItem[]) => Promise<void>;
+  changeAvatar: (items: Item[]) => Promise<void>;
 
   // Unity Status
   getUnityStatus: () => Promise<void>;

@@ -20,7 +20,7 @@ import { offlineStorageService } from '../services/OfflineStorageService';
 import { dataSourcePriorityService } from '../services/sensors/DataSourcePriorityService';
 import { unityService } from '../../unity/services/UnityService'
 import { useUserStore } from '../../../stores/user/userStore'
-import type { AvatarItem } from '~/features/avatar'
+import type { Item } from '~/features/avatar'
 
 /**
  * 실시간 러닝 통계
@@ -470,7 +470,7 @@ export const useRunningViewModel = () => {
     if (!equippedItems) return;
 
     // Map인 경우 values() 사용, 객체인 경우 Object.values() 사용
-    let items = Object.values(equippedItems).filter((item): item is AvatarItem => !!item);
+    let items = Object.values(equippedItems).filter((item): item is Item => !!item);
 
     if (items.length > 0) {
       console.log('[RunningViewModel] Avatar changed in Unity:', items);
