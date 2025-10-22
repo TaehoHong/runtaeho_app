@@ -1,9 +1,6 @@
 import React from 'react';
-import {
-  TouchableOpacity,
-  StyleSheet,
-} from 'react-native';
-import { Text } from '~/shared/components/typography';
+import { TouchableOpacity, View, StyleSheet } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 interface StopButtonProps {
   onPress: () => void;
@@ -11,8 +8,16 @@ interface StopButtonProps {
 
 export const StopButton: React.FC<StopButtonProps> = ({ onPress }) => {
   return (
-    <TouchableOpacity style={styles.button} onPress={onPress}>
-      <Text style={styles.text}>정지</Text>
+    <TouchableOpacity style={styles.button} onPress={onPress} activeOpacity={0.8}>
+      <LinearGradient
+        colors={['#606060', '#ABABAB']}
+        locations={[0, 1]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.7, y: 1 }}
+        style={styles.gradient}
+      >
+      <View style={styles.stopIcon} />
+      </LinearGradient>
     </TouchableOpacity>
   );
 };
@@ -34,9 +39,17 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 3,
   },
-  text: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '500',
+  gradient: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 32.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stopIcon: {
+    width: 20,
+    height: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 2,
   },
 });
