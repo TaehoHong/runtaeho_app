@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, Dimensions, Alert } from 'react-native';
 import { useAppStore, RunningState } from '~/stores/app/appStore';
 import { MainDistanceCard, DetailedStatisticsCard, ShoeSelectionArea, CompleteButton } from '~/shared/components';
+import { PointInfoBar } from './components/point-info-bar';
 import { useRunning } from '../contexts';
 import { runningService } from '../services/runningService';
 import { updateRunningRecord } from '../models';
+import { useGetUserPoint } from '~/features/point/services/pointQueries';
 
 const { width, height } = Dimensions.get('window');
 
@@ -21,8 +23,19 @@ export const RunningFinishedView: React.FC = () => {
   const [selectedShoeId, setSelectedShoeId] = useState<number | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
 
+  // 사용자 포인트 조회
+  const { data: userPointData } = useGetUserPoint();
+
   // TODO: RunningFinishedViewModel 데이터 연결
   const hasShoe = true; // 임시 데이터
+
+  // 획득 포인트 계산 (100m당 1포인트)
+  const earnedPoints = currentRecord
+    ? Math.floor((currentRecord.distance || 0) / 100)
+    : 0;
+
+  // 보유 포인트
+  const totalPoints = userPointData?.point || 0;
 
   const handleComplete = async () => {
     console.log('🏁 [RunningFinishedView] 러닝 완료 확인 버튼 눌러짐');
@@ -66,6 +79,11 @@ export const RunningFinishedView: React.FC = () => {
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        {/* 포인트 정보 바 - 획득/보유 포인트 */}
+        <PointInfoBar
+          earnedPoints={earnedPoints}
+          totalPoints={totalPoints}
+        />
 
         {/* 상세 통계 카드 - BPM, 페이스, 러닝 시간 */}
         <DetailedStatisticsCard />
@@ -99,17 +117,18 @@ export const RunningFinished = RunningFinishedView;
 const styles = StyleSheet.create({
   container: {
     width: width,
-    height: height * 0.5,
+    flex: 1,
     justifyContent: 'flex-start',
-    alignItems: 'center',
-    paddingTop: 16,
-    paddingHorizontal: 16,
+    alignItems: 'center'
   },
-
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     gap: 16,
+    paddingHorizontal: 16,
   },
+  pointInfo: {
+    
+  }
 });

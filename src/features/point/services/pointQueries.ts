@@ -41,7 +41,7 @@ export const useInfinitePointHistories = (
     },
     initialPageParam: undefined as number | undefined,
     getNextPageParam: (lastPage) => {
-      return lastPage.hasNext && lastPage.nextCursor !== undefined ? lastPage.nextCursor : undefined;
+      return lastPage.hasNext && lastPage.cursor !== undefined ? lastPage.cursor : undefined;
     },
     ...options,
   });
@@ -62,6 +62,17 @@ export const useGetRecentPointHistories = (
         startCreatedTimestamp: Math.floor(params.startDate.getTime() / 1000),
         size: 100,
       }),
+    ...options,
+  });
+};
+
+/**
+ * 사용자 포인트 잔액 조회
+ */
+export const useGetUserPoint = (options?: { enabled?: boolean }) => {
+  return useQuery({
+    queryKey: queryKeys.point.balance(),
+    queryFn: () => pointService.getUserPoint(),
     ...options,
   });
 };

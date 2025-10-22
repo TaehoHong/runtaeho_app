@@ -4,7 +4,8 @@ import type { Item } from '~/features/avatar';
 import { UnityView } from '~/features/unity/components/UnityView';
 import { unityService } from '~/features/unity/services/UnityService';
 import { LoadingView } from '~/shared/components';
-import { ViewState, useAppStore, useAuthStore } from '~/stores';
+import { ViewState, useAppStore } from '~/stores';
+import { useAuthStore } from '~/features';
 import { useUserStore } from '~/stores/user/userStore';
 import { RunningProvider } from '../contexts/RunningContext';
 import { RunningDebugView } from './RunningDebugView';
@@ -153,8 +154,6 @@ const styles = StyleSheet.create({
   unityContainer: {
     flex: 0.5, // 화면 상단 50%
     backgroundColor: '#f0f0f0',
-    borderBottomWidth: 2,
-    borderBottomColor: '#ddd',
   },
   unityView: {
     flex: 1,
@@ -163,7 +162,6 @@ const styles = StyleSheet.create({
   controlPanelContainer: {
     flex: 0.5, // 화면 하단 50%
     backgroundColor: '#f5f5f5',
-    borderTopWidth: 1,
     borderTopColor: '#ddd',
   },
   debugToggleButton: {

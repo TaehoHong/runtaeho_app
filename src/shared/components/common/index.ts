@@ -7,5 +7,4 @@ export { DetailedStatisticsCard } from '../../../features/running/views/detailed
 export { ShoeSelectionArea } from '../../../features/running/views/shoe-selection-area';
 export { StatsView } from '../../../features/running/views/stats-view';
 export { LoadingView } from './LoadingView';
-export { MainDistanceCard } from './main-distance-card';
-export { PointEarnCard } from './point-earn-card';
+export { MainDistanceCard } from '../../../features/running/views/components/main-distance-card';
