@@ -66,6 +66,7 @@ interface UserState {
   currentUser: User | null;
   totalPoint: number;
   profileImgUrl: string | null;
+  haveRunningRecord: boolean,
 
   // Avatar 정보
   avatarId: number;
@@ -86,6 +87,7 @@ interface UserState {
     user: User;
     totalPoint: number;
     avatarId: number;
+    haveRunningRecord: boolean;
     equippedItems: EquippedItemsMap;
   }) => void;
   logout: () => void;
@@ -128,6 +130,7 @@ export const useUserStore = create<UserState>()(
       totalPoint: 0,
       profileImgUrl: null,
       avatarId: 0,
+      haveRunningRecord: false,
       equippedItems: {} as EquippedItemsMap,
       userPreferences: defaultPreferences,
       appLaunchCount: 0,
@@ -136,13 +139,13 @@ export const useUserStore = create<UserState>()(
 
       // Actions
 
+      
       /**
        * 로그인 데이터 설정
        * 기존: setLoginData reducer
        *
-       * ⚠️ 토큰은 파라미터에서 제거됨 (Keychain에서만 관리)
        */
-      setLoginData: ({ user, totalPoint, avatarId, equippedItems }) => {
+      setLoginData: ({ user, totalPoint, avatarId, haveRunningRecord, equippedItems }) => {
         // Update last login
         user.lastLoginAt = new Date();
 
@@ -150,6 +153,7 @@ export const useUserStore = create<UserState>()(
           currentUser: user,
           totalPoint,
           avatarId,
+          haveRunningRecord,
           equippedItems,
         });
 
@@ -479,10 +483,13 @@ export const useUserStore = create<UserState>()(
           return result;
         };;
 
+        console.log("userData.haveRunningRecord: ", userData.haveRunningRecord)
+      
         get().setLoginData({
           user,
           totalPoint: userData.totalPoint,
           avatarId: userData.avatarId,
+          haveRunningRecord: userData.haveRunningRecord,
           equippedItems: convertEquippedItems(userData.equippedItems || []),
         });
       },

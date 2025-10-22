@@ -34,6 +34,9 @@ class UnityView: UIView {
     private func setupUnityView() {
         backgroundColor = .black
 
+        // Container 밖으로 나가는 부분 잘라내기 (Aspect Fill)
+        clipsToBounds = true
+
         // Unity 초기화
         initializeUnity()
     }
@@ -49,19 +52,14 @@ class UnityView: UIView {
                 // Unity View 가져오기
                 if let unityView = Unity.shared.view {
                     self.unityView = unityView
-                    // unityView.contentMode = .scaleAspectFill
-                    unityView.layer.contentsGravity = .resizeAspectFill
+
+                    // Frame 기반으로 배치 (Aspect Fill을 위해 Auto Layout 사용 안 함)
+                    unityView.translatesAutoresizingMaskIntoConstraints = true
 
                     self.addSubview(unityView)
 
-                    // 제약 조건 설정
-                    unityView.translatesAutoresizingMaskIntoConstraints = false
-                    NSLayoutConstraint.activate([
-                        unityView.topAnchor.constraint(equalTo: self.topAnchor),
-                        unityView.leftAnchor.constraint(equalTo: self.leftAnchor),
-                        unityView.rightAnchor.constraint(equalTo: self.rightAnchor),
-                        unityView.bottomAnchor.constraint(equalTo: self.bottomAnchor)
-                    ])
+                    // layoutSubviews에서 Aspect Fill 적용
+                    self.setNeedsLayout()
 
                     self.isUnityLoaded = true
 
@@ -89,9 +87,46 @@ class UnityView: UIView {
         }
     }
 
-    // Unity View 크기 조정
+    // Unity View 크기 조정 - Aspect Fill 적용
     override func layoutSubviews() {
         super.layoutSubviews()
+
+        guard let unityView = self.unityView else { return }
+
+        // Container 크기
+        let containerSize = bounds.size
+        guard containerSize.width > 0 && containerSize.height > 0 else { return }
+
+        // Unity의 고유 렌더링 크기 (Canvas 기준)
+        // CanvasScaler: ReferenceResolution 800x600, MatchWidthOrHeight 0 (width 기준)
+        // Unity가 실제로 렌더링하는 크기를 추정
+        let unityRenderSize = CGSize(width: 600, height: 600)
+
+        // Aspect Fill 계산: 더 큰 scale을 사용하여 container를 채움
+        let widthScale = containerSize.width / unityRenderSize.width
+        let heightScale = containerSize.height / unityRenderSize.height
+        // let fillScale = max(widthScale, heightScale) // Aspect Fill: 큰 쪽 사용 (기존)
+
+        // Container의 긴 쪽 dimension 기준으로 scale 선택
+        let fillScale: CGFloat
+        if containerSize.width >= containerSize.height {
+            fillScale = widthScale  // width가 더 길면 width 기준
+        } else {
+            fillScale = heightScale  // height가 더 길면 height 기준
+        }
+
+        // Unity View 크기 (확대됨)
+        let scaledWidth = unityRenderSize.width * fillScale
+        let scaledHeight = unityRenderSize.height * fillScale
+
+        // 정렬: 좌우 중앙, 아래쪽에 붙임
+        let x = (containerSize.width - scaledWidth) / 2
+        let y = containerSize.height - scaledHeight
+
+        // Frame 설정 (clipsToBounds로 넘치는 부분 자름)
+        unityView.frame = CGRect(x: x, y: y, width: scaledWidth, height: scaledHeight)
+
+        print("[UnityView] Aspect Fill: container=\(containerSize), unity=\(CGSize(width: scaledWidth, height: scaledHeight)), scale=\(fillScale)")
     }
 
     // Unity View 재연결 (다른 화면에서 사용 후 돌아올 때)
@@ -109,14 +144,9 @@ class UnityView: UIView {
             // 현재 view에 추가
             self.addSubview(unityView)
 
-            // 제약 조건 재설정
-            unityView.translatesAutoresizingMaskIntoConstraints = false
-            NSLayoutConstraint.activate([
-                unityView.topAnchor.constraint(equalTo: self.topAnchor),
-                unityView.leftAnchor.constraint(equalTo: self.leftAnchor),
-                unityView.rightAnchor.constraint(equalTo: self.rightAnchor),
-                unityView.bottomAnchor.constraint(equalTo: self.bottomAnchor)
-            ])
+            // Frame 기반으로 배치 (layoutSubviews에서 Aspect Fill 적용)
+            unityView.translatesAutoresizingMaskIntoConstraints = true
+            self.setNeedsLayout()
 
             print("[UnityView] Unity view reattached successfully")
 

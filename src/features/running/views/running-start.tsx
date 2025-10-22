@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useAppStore, RunningState } from '~/stores/app/appStore';
+import { useUserStore, useAppStore, RunningState } from '~/stores';
 import { StartButton } from '~/shared/components';
 import { useRunning } from '../contexts';
 
@@ -9,6 +9,9 @@ import { useRunning } from '../contexts';
  */
 export const RunningStartView: React.FC = () => {
   const setRunningState = useAppStore((state) => state.setRunningState);
+  const haveRunningRecord = useUserStore((state) => state.haveRunningRecord)
+  console.log('[RunningStartView] haveRunningRecord: ', haveRunningRecord)
+
   const { startRunning } = useRunning();
 
   const handleStartRunning = async () => {
@@ -30,7 +33,10 @@ export const RunningStartView: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <StartButton onPress={handleStartRunning} />
+      <StartButton 
+        onPress={handleStartRunning} 
+        haveRunningRecord={haveRunningRecord}
+      />
     </View>
   );
 };

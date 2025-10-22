@@ -1,9 +1,9 @@
 import React from 'react';
-import { useAppStore, RunningState } from '../../../stores/app/appStore';
-import { RunningStartView } from './running-start';
-import { RunningActiveView } from './running-active';
-import { RunningPausedView } from './running-paused';
-import { RunningFinishedView } from './running-finished';
+import { RunningState, useAppStore } from '../../../../stores/app/appStore';
+import { RunningActiveView } from '../running-active';
+import { RunningFinishedView } from '../running-finished';
+import { RunningPausedView } from '../running-paused';
+import { RunningStartView } from '../running-start';
 
 /**
  * 러닝 컨트롤 패널

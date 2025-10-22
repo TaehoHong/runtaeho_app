@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useAppStore, ViewState } from '~/stores/app/appStore';
 import { router } from 'expo-router';
 import '~/config/apiSetup';
-import { useAuthStore } from '~/stores';
+import { useAuthStore } from '~/features/auth/stores/authStore';
 import * as Font from 'expo-font'
 
 /**

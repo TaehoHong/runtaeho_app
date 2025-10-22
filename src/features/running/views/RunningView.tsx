@@ -1,14 +1,14 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { StyleSheet, View, TouchableOpacity, Text } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import type { Item } from '~/features/avatar';
 import { UnityView } from '~/features/unity/components/UnityView';
 import { unityService } from '~/features/unity/services/UnityService';
 import { LoadingView } from '~/shared/components';
 import { ViewState, useAppStore, useAuthStore } from '~/stores';
 import { useUserStore } from '~/stores/user/userStore';
-import type { Item } from '~/features/avatar';
-import { ControlPanelView } from './ControlPanelView';
 import { RunningProvider } from '../contexts/RunningContext';
 import { RunningDebugView } from './RunningDebugView';
+import { ControlPanelView } from './components/ControlPanelView';
 
 
 /**
@@ -65,7 +65,7 @@ export const RunningView: React.FC = () => {
       }
 
       // Unity 캐릭터 초기 속도 설정
-      await unityService.setCharacterSpeed(0);
+      await unityService.stopCharacter();
 
       setIsUnityReady(true);
       console.log('✅ [RunningView] Unity 초기화 성공');

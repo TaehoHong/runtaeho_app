@@ -195,23 +195,6 @@ export class UnityService {
     });
   }
   
-  // ==========================================
-  // 설정 관리
-  // ==========================================
-  
-  // updateConfig(newConfig: Partial<UnityBridgeConfig>): void {
-  //   this.config = { ...this.config, ...newConfig };
-  //   this.log('Config updated:', this.config);
-  // }
-  
-  // getConfig(): UnityBridgeConfig {
-  //   return { ...this.config };
-  // }
-  
-  // ==========================================
-  // 로깅
-  // ==========================================
-  
   private log(message: string, ...args: any[]): void {
     if (__DEV__) {
       console.log(`[UnityBridgeService] ${message}`, ...args);

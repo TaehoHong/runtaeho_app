@@ -41,20 +41,15 @@ class Unity: ObservableObject  {
         let loadingGroup = DispatchGroup()
         loadingGroup.wait()
 
-        /* Unity finishes starting - runEmbedded() returns - before completing
-           its first render. If the view is displayed immediately it often shows the
-           content leftover from the previous run until Unity renders again and overwrites it.
-           Clearing Unity's layer with transparent color before restart hides this brief artifact. */
+        /* Unity 6에서는 CAMetalDisplayLink를 사용하므로 nextDrawable()을 직접 호출하면 안됨
+           아래 Metal layer clear 코드는 Unity 6에서 crash를 발생시키므로 주석처리 */
+        /*
         if let layer = framework.appController()?.rootView?.layer as? CAMetalLayer, let drawable = layer.nextDrawable(), let buffer = MTLCreateSystemDefaultDevice()?.makeCommandQueue()?.makeCommandBuffer() {
             let descriptor = MTLRenderPassDescriptor()
             descriptor.colorAttachments[0].loadAction = .clear
             descriptor.colorAttachments[0].storeAction = .store
             descriptor.colorAttachments[0].texture = drawable.texture
             descriptor.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
-            /* Unity does not render an alpha value by default; transparent is written
-               as opaque. To fix this we have enabled "Render Over Native UI" in the Unity
-               project player settings. This is an alias for the preserveFramebufferAlpha scripting
-               property: docs.unity3d.com/ScriptReference/PlayerSettings-preserveFramebufferAlpha.html */
 
             if let encoder = buffer.makeRenderCommandEncoder(descriptor: descriptor) {
                 encoder.label = "Unity Prestart Clear"
@@ -64,6 +59,7 @@ class Unity: ObservableObject  {
                 buffer.waitUntilCompleted()
             }
         }
+        */
 
         // Start Unity
         framework.runEmbedded(withArgc: CommandLine.argc, argv: CommandLine.unsafeArgv, appLaunchOpts: nil)

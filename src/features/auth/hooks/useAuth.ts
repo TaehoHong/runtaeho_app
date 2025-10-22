@@ -94,6 +94,7 @@ export const useAuth = () => {
         user,
         totalPoint: userData.totalPoint,
         avatarId: userData.avatarId,
+        haveRunningRecord: userData.haveRunningRecord,
         equippedItems: convertEquippedItems(userData.equippedItems || []),
       });
 
@@ -175,6 +176,7 @@ export const useAuth = () => {
           user,
           totalPoint: userData.totalPoint,
           avatarId: userData.avatarId,
+          haveRunningRecord: userData.haveRunningRecord,
           equippedItems: convertEquippedItems(userData.equippedItems || []),
         });
       }

@@ -1,9 +1,6 @@
 import React, { createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
 import { useRunningViewModel } from '../viewmodels/RunningViewModel';
-import { RunningState } from '../models/running-types';
-import type { Location } from '../models/Location';
-import type { RunningRecord } from '../models/RunningRecord';
 
 /**
  * RunningViewModel의 반환 타입

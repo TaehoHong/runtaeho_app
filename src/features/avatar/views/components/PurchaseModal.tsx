@@ -7,6 +7,7 @@ import React from 'react';
 import {
   View,
   Text,
+  Image,
   Modal,
   TouchableOpacity,
   StyleSheet,
@@ -14,6 +15,8 @@ import {
 } from 'react-native';
 import type { Item } from '~/features/avatar';
 import { AVATAR_COLORS } from '~/features/avatar';
+import { Icon } from '~/shared/components/ui';
+import { ITEM_IMAGE, type ItemImage } from '~/shared/constants/images';
 
 interface Props {
   items: readonly Item[];
@@ -34,6 +37,18 @@ export const PurchaseModal: React.FC<Props> = ({
   onCancel,
   isLoading,
 }) => {
+
+  function getItemImage(item: Item): any | undefined {
+    // item.name에서 파일명 추출 (예: "New_Armor_01.png")
+    const fileName = item.name as ItemImage;
+
+    // ITEM_IMAGE에서 해당 이미지 찾기
+    if (fileName in ITEM_IMAGE) {
+      return ITEM_IMAGE[fileName];
+    }
+    return undefined
+  };
+
   return (
     <Modal
       visible
@@ -61,9 +76,11 @@ export const PurchaseModal: React.FC<Props> = ({
             <View style={styles.itemsContainer}>
               {items.map((item) => (
                 <View key={item.id} style={styles.itemRow}>
-                  <View style={styles.itemPlaceholder} />
+                  <View style={styles.itemImageContainer} >
+                    <Image source={getItemImage(item)} style={styles.itemImage}/> 
+                  </View>
                   <View style={styles.itemPriceContainer}>
-                    <View style={styles.priceIcon} />
+                    <Icon name='point' size={24}/>
                     <Text style={styles.itemPrice}>{item.point}</Text>
                   </View>
                 </View>
@@ -174,13 +191,21 @@ const styles = StyleSheet.create({
     width: '100%',
     marginBottom: 12,
   },
-  itemPlaceholder: {
+  itemImageContainer: {
     width: 105,
     height: 105,
     borderRadius: 14,
     backgroundColor: AVATAR_COLORS.ITEM_BACKGROUND,
     borderWidth: 1,
     borderColor: AVATAR_COLORS.OWNED_BORDER,
+    paddingHorizontal: 20,
+    paddingVertical: 26,
+    overflow: 'hidden',
+  },
+  itemImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain'
   },
   itemPriceContainer: {
     flexDirection: 'row',
