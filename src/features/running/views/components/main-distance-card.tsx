@@ -1,4 +1,5 @@
 import React from 'react';
+import { GREY } from '~/shared/styles';
 import {
   View,
   StyleSheet,
@@ -38,7 +39,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     fontWeight: '400',
-    color: '#9D9D9D',
+    color: GREY[500],
     marginBottom: 16,
   },
   distanceContainer: {

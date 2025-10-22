@@ -1,19 +1,20 @@
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
-  View,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
   ActivityIndicator,
+  FlatList,
   RefreshControl,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { Text } from '~/shared/components/typography';
 import { Icon } from '~/shared/components/ui';
-import { usePointViewModel } from '../viewmodels';
-import { PointFilter, PointFilterConfig, type PointHistoryViewModel } from '../models';
+import { GREY, PRIMARY, RED } from '~/shared/styles';
 import { useUserStore } from '~/stores/user/userStore';
+import { PointFilter, PointFilterConfig, type PointHistoryViewModel } from '../models';
+import { usePointViewModel } from '../viewmodels';
 
 
 interface PointHistoryViewProps {
@@ -110,7 +111,7 @@ const Header: React.FC<HeaderProps> = ({ onClose }) => {
   return (
     <View style={styles.header}>
       <TouchableOpacity onPress={onClose} style={styles.backButton}>
-        <Ionicons name="chevron-back" size={24} color="#2B2B2B" />
+        <Ionicons name="chevron-back" size={24} color=GREY[900] />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>포인트</Text>
       <View style={styles.headerSpacer} />
@@ -212,7 +213,7 @@ const EmptyState: React.FC = () => {
 const LoadingState: React.FC = () => {
   return (
     <View style={styles.loadingState}>
-      <ActivityIndicator size="large" color="#414141" />
+      <ActivityIndicator size="large" color=GREY[800] />
     </View>
   );
 };
@@ -222,7 +223,7 @@ const LoadingState: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: GREY[50],
   },
 
   // ===== 헤더 =====
@@ -232,9 +233,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: GREY.WHITE,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: GREY[100],
   },
   backButton: {
     width: 40,
@@ -245,7 +246,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#2B2B2B',
+    color: GREY[900],
     fontFamily: 'Pretendard',
   },
   headerSpacer: {
@@ -257,13 +258,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 24,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: GREY.WHITE,
     marginBottom: 8,
   },
   pointCardLabel: {
     fontSize: 13,
     fontWeight: '400',
-    color: '#9D9D9D',
+    color: GREY[500],
     fontFamily: 'Pretendard',
     marginBottom: 8,
   },
@@ -275,14 +276,14 @@ const styles = StyleSheet.create({
   pointCardText: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#2B2B2B',
+    color: GREY[900],
     fontFamily: 'Pretendard',
   },
 
   // ===== 포인트 내역 섹션 =====
   historySection: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: GREY.WHITE,
     paddingHorizontal: 20,
     paddingTop: 20,
   },
@@ -292,7 +293,7 @@ const styles = StyleSheet.create({
   historyTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#2B2B2B',
+    color: GREY[900],
     fontFamily: 'Pretendard',
     marginBottom: 12,
   },
@@ -306,19 +307,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 13,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: GREY[50],
   },
   filterTabSelected: {
-    backgroundColor: '#2B2B2B',
+    backgroundColor: GREY[900],
   },
   filterTabText: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#414141',
+    color: GREY[800],
     fontFamily: 'Pretendard',
   },
   filterTabTextSelected: {
-    color: '#FFFFFF',
+    color: GREY.WHITE,
   },
 
   // ===== 내역 리스트 =====
@@ -334,7 +335,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
+    borderBottomColor: GREY[50],
   },
   historyItemLeft: {
     flex: 1,
@@ -343,13 +344,13 @@ const styles = StyleSheet.create({
   historyItemTitle: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#414141',
+    color: GREY[800],
     fontFamily: 'Pretendard',
   },
   historyItemDate: {
     fontSize: 12,
     fontWeight: '400',
-    color: '#9D9D9D',
+    color: GREY[500],
     fontFamily: 'Pretendard',
   },
   historyItemPoint: {
@@ -359,10 +360,10 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   pointPositive: {
-    color: '#00C853', // 녹색 (적립)
+    color: PRIMARY[700], // 녹색 (적립)
   },
   pointNegative: {
-    color: '#FF6B6B', // 빨간색 (사용)
+    color: RED[400], // 빨간색 (사용)
   },
 
   // ===== 빈 상태 =====
@@ -375,7 +376,7 @@ const styles = StyleSheet.create({
   emptyStateText: {
     fontSize: 14,
     fontWeight: '400',
-    color: '#9D9D9D',
+    color: GREY[500],
     fontFamily: 'Pretendard',
   },
 

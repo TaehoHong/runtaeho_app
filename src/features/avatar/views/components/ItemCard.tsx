@@ -4,11 +4,12 @@
  */
 
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Image } from 'react-native';
+import { Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { Item } from '~/features/avatar';
-import { ItemStatus, AVATAR_COLORS, ITEM_OPACITY, GRID_LAYOUT } from '~/features/avatar';
-import { ITEM_IMAGE, type ItemImage } from '~/shared/constants/images';
+import { GRID_LAYOUT, ITEM_OPACITY, ItemStatus } from '~/features/avatar';
 import { Icon } from '~/shared/components/ui';
+import { ITEM_IMAGE, type ItemImage } from '~/shared/constants/images';
+import { GREY, PRIMARY } from '~/shared/styles';
 
 interface Props {
   item: Item;
@@ -32,9 +33,7 @@ export const AvatarItemCard: React.FC<Props> = ({ item, isSelected, onPress }) =
   };
 
   // 테두리 색상 결정
-  const borderColor = isSelected
-    ? AVATAR_COLORS.EQUIPPED_BORDER
-    : AVATAR_COLORS.OWNED_BORDER;
+  const borderColor = isSelected? PRIMARY[500] : GREY[250];
 
   // 투명도 결정
   const opacity = item.status === ItemStatus.NOT_OWNED
@@ -43,9 +42,7 @@ export const AvatarItemCard: React.FC<Props> = ({ item, isSelected, onPress }) =
 
   const borderWidth = isSelected ? 2 : 1;
 
-  const backgroundColor = isSelected
-    ? AVATAR_COLORS.SELECTED_ITEM_BACKGROUND
-    : AVATAR_COLORS.ITEM_BACKGROUND;
+  const backgroundColor = isSelected ? PRIMARY[50] : GREY.WHITE;
 
   return (
     <TouchableOpacity
@@ -107,13 +104,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     paddingVertical: 1,
     borderRadius: 24,
-    borderColor: '#92F579',
+    borderColor: PRIMARY[300],
     borderWidth: 1,
     gap: 2,
   },
   priceText: {
     fontSize: 12,
     fontWeight: '600',
-    color: AVATAR_COLORS.PRIMARY_TEXT,
+    color: GREY[900],
   },
 });

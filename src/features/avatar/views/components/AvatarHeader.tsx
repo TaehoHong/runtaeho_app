@@ -3,11 +3,11 @@
  * SRP: 헤더 UI만 담당
  */
 
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { AVATAR_COLORS } from '~/features/avatar';
 import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Icon } from '~/shared/components/ui';
+import { GREY } from '~/shared/styles';
 
 interface Props {
   onClose: (() => void)
@@ -19,7 +19,7 @@ export const AvatarHeader: React.FC<Props> = ({ onClose, points }) => {
   return (
     <View style={styles.container}>
       <TouchableOpacity onPress={onClose} style={styles.backButton}>
-        <Ionicons name="chevron-back" size={24} color="#202020" />
+        <Ionicons name="chevron-back" size={24} color={GREY[900]} />
       </TouchableOpacity>
 
       {/* Title */}
@@ -41,7 +41,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    backgroundColor: AVATAR_COLORS.CARD_BACKGROUND,
+    backgroundColor: GREY[50],
   },
   backButton: {
     width: 40,
@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: '500',
-    color: AVATAR_COLORS.PRIMARY_TEXT,
+    color: GREY[900],
     position: 'absolute',
     left: 0,
     right: 0,
@@ -66,6 +66,6 @@ const styles = StyleSheet.create({
   pointsText: {
     fontSize: 14,
     fontWeight: '600',
-    color: AVATAR_COLORS.PRIMARY_TEXT,
+    color: GREY[900],
   },
 });

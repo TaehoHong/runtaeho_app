@@ -4,7 +4,6 @@
 
 import React from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
-import { AVATAR_COLORS } from '~/features/avatar';
 import { useAvatarViewModel } from '../viewmodels/useAvatarViewModel';
 import { AvatarHeader } from './components/AvatarHeader';
 import { AvatarPreview } from './components/AvatarPreview';
@@ -14,6 +13,7 @@ import { InsufficientPointsAlert } from './components/InsufficientPointsAlert';
 import { ItemsGrid } from './components/ItemsGrid';
 import { PurchaseModal } from './components/PurchaseModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { GREY } from '~/shared/styles';
 
 /**
  * 아바타 메인 화면
@@ -100,7 +100,7 @@ export const AvatarView: React.FC<AvatarViewProps> = ({ onClose }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: AVATAR_COLORS.SCREEN_BACKGROUND,
+    backgroundColor: GREY[50],
   },
   scrollView: {
     flex: 1,

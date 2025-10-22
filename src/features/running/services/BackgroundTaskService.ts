@@ -5,10 +5,11 @@
  * iOS: Background Location Updates
  */
 
-import * as TaskManager from 'expo-task-manager';
-import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Location from 'expo-location';
+import * as TaskManager from 'expo-task-manager';
 import { Platform } from 'react-native';
+import { RED } from '~/shared/styles';
 
 /**
  * Task 이름 상수
@@ -238,7 +239,7 @@ export class BackgroundTaskService {
           foregroundService: {
             notificationTitle: 'RunTaeho 러닝 추적 중',
             notificationBody: '러닝 기록이 진행 중입니다.',
-            notificationColor: '#FF6B6B',
+            notificationColor: RED[400],
           }
         }),
       });

@@ -6,7 +6,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import type { ItemCategory } from '~/features/avatar';
-import { AVATAR_COLORS } from '~/features/avatar';
+import { GREY, PRIMARY } from '~/shared/styles';
 
 interface Props {
   categories: readonly ItemCategory[];
@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginTop: 16,
     marginHorizontal:68,
-    backgroundColor: AVATAR_COLORS.CARD_BACKGROUND,
+    backgroundColor: GREY[50],
     borderRadius: 34,
     padding: 0,
     shadowColor: '#000',
@@ -74,16 +74,16 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   tabSelected: {
-    backgroundColor: AVATAR_COLORS.SELECTED_TAB,
+    backgroundColor: PRIMARY[500],
     borderRadius: 24,
   },
   tabText: {
     fontSize: 14,
     fontWeight: '500',
-    color: AVATAR_COLORS.SECONDARY_TEXT,
+    color: GREY[500],
   },
   tabTextSelected: {
-    color: AVATAR_COLORS.CARD_BACKGROUND,
+    color: GREY[50],
     fontWeight: '600',
   },
 });

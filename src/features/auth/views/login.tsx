@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import React from 'react';
+import { GREY } from '~/shared/styles';
 import {
   Alert,
   Dimensions,
@@ -12,7 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Text } from '~/shared/components/typography';
 import { useAuthSignIn } from '../hooks/useAuthSignIn';
 import { useUserStore } from '~/stores/user/userStore';
-import { useAuthStore } from '~/stores/auth/';
+import { useAuthStore } from '..';
 import { useAppStore } from '~/stores/app/appStore';
 
 const { width, height } = Dimensions.get('window');
@@ -107,7 +108,7 @@ export const Login: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: GREY.WHITE,
   },
   buttonContainer: {
     position: 'absolute',

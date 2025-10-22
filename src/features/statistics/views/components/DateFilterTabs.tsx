@@ -9,6 +9,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Period } from '../../models';
+import { PRIMARY, GREY } from '~/shared/styles';
 
 interface DateFilterTabsProps {
   selected: Period;
@@ -62,7 +63,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderRadius: 21,
     overflow: 'hidden',
-    backgroundColor: '#FAFAFA',
+    backgroundColor: GREY[50],
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -83,7 +84,7 @@ const styles = StyleSheet.create({
     // 스타일 제거
   },
   tabSelected: {
-    backgroundColor: '#45DA31',
+    backgroundColor: PRIMARY[600],
     borderRadius: 24,
     marginVertical: 4,
     marginHorizontal: 4,
@@ -91,10 +92,10 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#9D9D9D',
+    color: GREY[500],
   },
   tabTextSelected: {
-    color: '#FFFFFF',
+    color: GREY.WHITE,
     fontWeight: '600',
   },
 });

@@ -1,5 +1,6 @@
 // UnityScreen.tsx - React Native 사용 예시
 import React, { useEffect, useState } from 'react';
+import { GREY } from '~/shared/styles';
 import { Alert, Button, NativeModules, StyleSheet, View } from 'react-native';
 import { Text } from '~/shared/components/typography';import { UnityBridge } from './bridge/UnityBridge';
 import { UnityView } from './components/UnityView';
@@ -77,7 +78,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: GREY[50],
   },
   title: {
     fontSize: 24,

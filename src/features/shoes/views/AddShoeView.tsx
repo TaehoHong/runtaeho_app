@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '~/shared/components/typography';
+import { GREY, PRIMARY, RED } from '~/shared/styles';
 import { createAddShoeDto } from '../models';
 import { shoeService } from '../services';
 
@@ -155,7 +156,7 @@ const Header: React.FC<HeaderProps> = ({ onClose }) => {
   return (
     <View style={styles.header}>
       <TouchableOpacity onPress={onClose} style={styles.backButton}>
-        <Ionicons name="chevron-back" size={24} color="#2B2B2B" />
+        <Ionicons name="chevron-back" size={24} color=GREY[900] />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>신발 추가</Text>
       <View style={styles.headerRight} />
@@ -192,7 +193,7 @@ const InputField: React.FC<InputFieldProps> = ({
           error && styles.inputError,
         ]}
         placeholder={placeholder}
-        placeholderTextColor="#BCBCBC"
+        placeholderTextColor=GREY[300]
         value={value}
         onChangeText={onChangeText}
         keyboardType={keyboardType}
@@ -209,7 +210,7 @@ const InputField: React.FC<InputFieldProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: GREY[50],
   },
   keyboardAvoid: {
     flex: 1,
@@ -223,7 +224,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     height: 56,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: GREY[50],
   },
   backButton: {
     width: 24,
@@ -234,7 +235,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#202020',
+    color: GREY[900],
     fontFamily: 'Pretendard',
     lineHeight: 24,
   },
@@ -256,31 +257,31 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#202020',
+    color: GREY[900],
     fontFamily: 'Pretendard',
     lineHeight: 16,
     marginBottom: 4,
   },
   input: {
     height: 48,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: GREY.WHITE,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E5E5E5',
+    borderColor: GREY[200],
     paddingHorizontal: 16,
     fontSize: 14,
     fontWeight: '400',
-    color: '#202020',
+    color: GREY[900],
     fontFamily: 'Pretendard',
     lineHeight: 20,
   },
   inputError: {
-    borderColor: '#F76F71',
+    borderColor: RED[400],
   },
   errorText: {
     fontSize: 12,
     fontWeight: '400',
-    color: '#F76F71',
+    color: RED[400],
     fontFamily: 'Pretendard',
     lineHeight: 16,
     marginTop: 4,
@@ -289,19 +290,19 @@ const styles = StyleSheet.create({
   // ===== 저장 버튼 =====
   submitButton: {
     height: 56,
-    backgroundColor: '#45DA31',
+    backgroundColor: PRIMARY[600],
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 12,
   },
   submitButtonDisabled: {
-    backgroundColor: '#E0E0E0',
+    backgroundColor: GREY[200],
   },
   submitButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: GREY.WHITE,
     fontFamily: 'Pretendard',
     lineHeight: 24,
   },

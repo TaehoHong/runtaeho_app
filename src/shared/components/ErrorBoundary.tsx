@@ -1,4 +1,5 @@
 import React, { Component, ReactNode } from 'react';
+import { GREY } from '~/shared/styles';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from '~/shared/components/typography';import { ErrorService } from '../services/ErrorService';
 
@@ -126,13 +127,13 @@ export function withErrorBoundary<P extends object>(
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: GREY[50],
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   errorContainer: {
-    backgroundColor: '#ffffff',
+    backgroundColor: GREY.WHITE,
     borderRadius: 12,
     padding: 24,
     maxWidth: 320,
@@ -155,7 +156,7 @@ const styles = StyleSheet.create({
   },
   message: {
     fontSize: 14,
-    color: '#666666',
+    color: GREY[700],
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 24,
@@ -174,7 +175,7 @@ const styles = StyleSheet.create({
   },
   debugText: {
     fontSize: 10,
-    color: '#666666',
+    color: GREY[700],
     fontFamily: 'monospace',
   },
   retryButton: {
@@ -185,7 +186,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   retryButtonText: {
-    color: '#ffffff',
+    color: GREY.WHITE,
     fontSize: 16,
     fontWeight: '600',
   },

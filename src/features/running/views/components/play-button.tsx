@@ -1,4 +1,5 @@
 import React from 'react';
+import { GREY, PRIMARY } from '~/shared/styles';
 import {
   TouchableOpacity,
   StyleSheet,
@@ -22,7 +23,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#34C759',
+    backgroundColor: PRIMARY[600],
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -35,7 +36,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   text: {
-    color: '#FFFFFF',
+    color: GREY.WHITE,
     fontSize: 14,
     fontWeight: '600',
   },

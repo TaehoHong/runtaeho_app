@@ -4,6 +4,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Text } from '~/shared/components/typography';
+import { PRIMARY, GREY } from '~/shared/styles';
 
 interface CompleteButtonProps {
   onPress: () => void;
@@ -12,7 +13,7 @@ interface CompleteButtonProps {
 
 export const CompleteButton: React.FC<CompleteButtonProps> = ({ onPress, disabled = false }) => {
   // TODO: RunningFinishedViewModel에서 버튼 색상 상태 가져오기
-  const completeButtonColor = disabled ? '#CCCCCC' : '#45DA31'; // 비활성화 시 회색, 활성화 시 녹색
+  const completeButtonColor = disabled ? GREY[300] : PRIMARY[600]; // 비활성화 시 회색, 활성화 시 녹색
 
   return (
     <TouchableOpacity
@@ -40,9 +41,9 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: GREY.WHITE,
   },
   textDisabled: {
-    color: '#999999',
+    color: GREY[400],
   },
 });

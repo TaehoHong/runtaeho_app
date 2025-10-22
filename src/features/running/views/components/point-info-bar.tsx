@@ -1,4 +1,5 @@
 import React from 'react';
+import { PRIMARY, GREY } from '~/shared/styles';
 import { View, StyleSheet, Text } from 'react-native';
 import { Icon } from '~/shared/components/ui';
 
@@ -47,7 +48,7 @@ export const PointInfoBar: React.FC<PointInfoBarProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#9D9D9D',
+    backgroundColor: GREY[500],
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -68,7 +69,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     lineHeight: 16,
-    color: '#FFFFFF',
+    color: GREY.WHITE,
   },
   pointContainer: {
     flexDirection: 'row',
@@ -79,14 +80,14 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: '#59EC3A',
+    backgroundColor: PRIMARY[500],
     alignItems: 'center',
     justifyContent: 'center',
   },
   iconText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: GREY.WHITE,
   },
   earnedPointsWrapper: {
     flexDirection: 'row',
@@ -97,7 +98,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     lineHeight: 14,
-    color: '#59EC3A',
+    color: PRIMARY[500],
     letterSpacing: -0.3,
   },
   earnedPointsValue: {
@@ -105,7 +106,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     lineHeight: 14,
-    color: '#59EC3A',
+    color: PRIMARY[500],
     letterSpacing: -0.3,
   },
   totalPointsValue: {
@@ -113,7 +114,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     lineHeight: 14,
-    color: '#59EC3A',
+    color: PRIMARY[500],
     letterSpacing: -0.3,
   },
 });

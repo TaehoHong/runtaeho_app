@@ -19,6 +19,7 @@ import { DateFilterTabs } from './components/DateFilterTabs';
 import { PeriodChart } from './components/PeriodChart';
 import { RunningRecordList } from './components/RunningRecordList';
 import { StatisticsSummaryCard } from './components/StatisticsSummaryCard';
+import { PRIMARY, GREY } from '~/shared/styles';
 
 export const StatisticsView = () => {
   const [selectedPeriod, setSelectedPeriod] = useState<Period>(Period.MONTH);
@@ -51,7 +52,7 @@ export const StatisticsView = () => {
     if (isLoading && !hasValidData) {
       return (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#45DA31" />
+          <ActivityIndicator size="large" color={PRIMARY[600]} />
           <Text style={styles.loadingText}>통계를 불러오는 중...</Text>
         </View>
       );
@@ -123,11 +124,11 @@ export const StatisticsView = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: GREY[50],
   },
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: GREY[50],
   },
   scrollContent: {
     flexGrow: 1,
@@ -136,7 +137,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: GREY[50],
     padding: 20,
     minHeight: 400,
   },
@@ -144,19 +145,19 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     fontWeight: '500',
-    color: '#9D9D9D',
+    color: GREY[500],
   },
   errorText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#202020',
+    color: GREY[900],
     marginBottom: 8,
     textAlign: 'center',
   },
   errorSubText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#9D9D9D',
+    color: GREY[500],
     textAlign: 'center',
   },
 });

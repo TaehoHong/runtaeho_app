@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { GREY } from '~/shared/styles';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { Item } from '~/features/avatar';
 import { UnityView } from '~/features/unity/components/UnityView';
@@ -149,11 +150,11 @@ const RunningAlerts: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: GREY[50],
   },
   unityContainer: {
     flex: 0.5, // 화면 상단 50%
-    backgroundColor: '#f0f0f0',
+    backgroundColor: GREY[100],
   },
   unityView: {
     flex: 1,
@@ -161,7 +162,7 @@ const styles = StyleSheet.create({
   },
   controlPanelContainer: {
     flex: 0.5, // 화면 하단 50%
-    backgroundColor: '#f5f5f5',
+    backgroundColor: GREY[50],
     borderTopColor: '#ddd',
   },
   debugToggleButton: {

@@ -1,16 +1,17 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert } from 'react-native';
-import { Text } from '~/shared/components/typography';
-import { Icon } from '~/shared/components/ui';
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { Alert, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuth } from '~/features/auth/hooks/useAuth';
+import { AvatarView } from '~/features/avatar/views';
 import { PointHistoryView } from '~/features/point/views';
 import { ShoesListView } from '~/features/shoes/views';
-import { AvatarView } from '~/features/avatar/views';
+import { Text } from '~/shared/components/typography';
+import { Icon } from '~/shared/components/ui';
+import { GREY, RED } from '~/shared/styles';
 import type { User } from '../models';
-import { useAuth } from '~/features/auth/hooks/useAuth';
-import { useRouter } from 'expo-router';
 
 /**
  * 내정보 화면
@@ -269,7 +270,7 @@ interface LogoutButtonProps {
 const LogoutButton: React.FC<LogoutButtonProps> = ({ onPress }) => {
   return (
     <TouchableOpacity style={styles.logoutButtonContainer} onPress={onPress}>
-      <Ionicons name="log-out-outline" size={18} color="#FF6B6B" />
+      <Ionicons name="log-out-outline" size={18} color={RED[400]} />
       <Text style={styles.logoutButtonText}>로그아웃</Text>
     </TouchableOpacity>
   );
@@ -311,7 +312,7 @@ const AvatarModal: React.FC<ModalProps> = ({ visible, onClose }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: GREY[50],
   },
   scrollView: {
     flex: 1,
@@ -336,7 +337,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: '500',
     fontFamily: 'Pretendard',
-    color: '#414141',
+    color: GREY[800],
     textAlign: 'left',
   },
   menuSettingsSection: {
@@ -350,7 +351,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontWeight: '600',
-    color: '#202020',
+    color: GREY[900],
     fontSize: 14,
     lineHeight: 18,
     fontFamily: 'Pretendard',
@@ -367,7 +368,7 @@ const styles = StyleSheet.create({
   },
   menuItemText: {
     fontWeight: '500',
-    color: '#414141',
+    color: GREY[800],
     flex: 1,
     fontSize: 14,
     lineHeight: 18,
@@ -386,7 +387,7 @@ const styles = StyleSheet.create({
   },
   logoutButtonText: {
     fontSize: 24,
-    color: '#FF6B6B',
+    color: RED[400],
     marginLeft: 8,
   },
   alertOverlay: {
@@ -424,14 +425,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: GREY[100],
   },
   cancelButtonText: {
     color: '#666',
     fontSize: 16,
   },
   logoutButton: {
-    backgroundColor: '#FF6B6B',
+    backgroundColor: RED[400],
   },
   modalContainer: {
     flex: 1,
@@ -443,7 +444,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: GREY[100],
   },
   modalTitle: {
     fontSize: 18,
@@ -460,7 +461,7 @@ const styles = StyleSheet.create({
       flexDirection: "row"
   },
   pointColor: {
-      color: "#414141",
+      color: GREY[800],
       lineHeight: 18,
       fontFamily: "Pretendard"
   },
@@ -493,7 +494,7 @@ const styles = StyleSheet.create({
       fontSize: 16,
       letterSpacing: 0.5,
       lineHeight: 24,
-      color: "#2b2b2b",
+      color: GREY[900],
       textAlign: "left",
       fontFamily: "Pretendard",
       fontWeight: "600"
@@ -506,7 +507,7 @@ const styles = StyleSheet.create({
   },
   horizontalDivider: {
       borderStyle: "solid",
-      borderColor: "#f5f5f5",
+      borderColor: GREY[50],
       borderTopWidth: 0.8,
       height: 1,
       alignSelf: "stretch"
@@ -540,7 +541,7 @@ const styles = StyleSheet.create({
   chevronIcon: {
       width: 16,
       height: 16,
-      color: "#9d9d9d"
+      color: GREY[500]
   }
 });
 

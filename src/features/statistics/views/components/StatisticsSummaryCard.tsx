@@ -10,6 +10,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { GREY } from '~/shared/styles';
 
 interface StatisticsSummaryCardProps {
   runCount: number;
@@ -80,7 +81,7 @@ const styles = StyleSheet.create({
     width: 105,
     height: 70,
     padding: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: GREY.WHITE,
     borderRadius: 6,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
@@ -96,18 +97,18 @@ const styles = StyleSheet.create({
   cardLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#BCBCBC',
+    color: GREY[300],
     marginBottom: 6,
   },
   cardLabelUnit: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#DFDFDF',
+    color: GREY[200],
     marginLeft: 2,
   },
   cardValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#202020',
+    color: GREY[900],
   },
 });

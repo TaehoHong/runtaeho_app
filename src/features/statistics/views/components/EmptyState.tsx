@@ -8,6 +8,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { GREY } from '~/shared/styles';
 
 interface EmptyStateProps {
   message?: string;
@@ -32,7 +33,7 @@ const styles = StyleSheet.create({
   },
   message: {
     fontSize: 16,
-    color: '#999999',
+    color: GREY[400],
     textAlign: 'center',
   },
 });

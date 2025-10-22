@@ -1,3 +1,4 @@
+import { GREY, PRIMARY } from '~/shared/styles';
 /**
  * 앱 전체에서 사용하는 상수들을 중앙 관리
  */
@@ -100,30 +101,6 @@ export const UI_CONSTANTS = {
   CARD_BORDER_RADIUS: 12,
   BUTTON_HEIGHT: 48,
   INPUT_HEIGHT: 44,
-
-  // 색상 (기본값, 테마에서 오버라이드 가능)
-  COLORS: {
-    PRIMARY: '#007AFF',
-    SECONDARY: '#5856D6',
-    SUCCESS: '#34C759',
-    WARNING: '#FF9500',
-    ERROR: '#FF3B30',
-    INFO: '#5AC8FA',
-
-    // 그레이스케일
-    BLACK: '#000000',
-    WHITE: '#FFFFFF',
-    GRAY_50: '#F9FAFB',
-    GRAY_100: '#F3F4F6',
-    GRAY_200: '#E5E7EB',
-    GRAY_300: '#D1D5DB',
-    GRAY_400: '#9CA3AF',
-    GRAY_500: '#6B7280',
-    GRAY_600: '#4B5563',
-    GRAY_700: '#374151',
-    GRAY_800: '#1F2937',
-    GRAY_900: '#111827',
-  },
 
   // 폰트 크기
   FONT_SIZES: {

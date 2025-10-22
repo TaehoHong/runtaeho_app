@@ -1,19 +1,20 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-  View,
+  ActivityIndicator,
+  Modal,
+  RefreshControl,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
-  RefreshControl,
-  Modal,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { SwipeListView } from 'react-native-swipe-list-view';
 import { Text } from '~/shared/components/typography';
 import { Icon } from '~/shared/components/ui';
-import { useShoeViewModel } from '../viewmodels';
+import { GREY, PRIMARY, RED } from '~/shared/styles';
 import type { ShoeViewModel } from '../models';
+import { useShoeViewModel } from '../viewmodels';
 
 /**
  * 신발 보관함 화면
@@ -152,7 +153,7 @@ const Header: React.FC<HeaderProps> = ({ onClose }) => {
     <View style={styles.header}>
       {onClose ? (
         <TouchableOpacity onPress={onClose} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color="#2B2B2B" />
+          <Ionicons name="chevron-back" size={24} color={GREY[900]} />
         </TouchableOpacity>
       ) : (
         <View style={styles.backButton} />
@@ -234,7 +235,7 @@ const EmptyState: React.FC = () => {
 const LoadingState: React.FC = () => {
   return (
     <View style={styles.loadingState}>
-      <ActivityIndicator size="large" color="#414141" />
+      <ActivityIndicator size="large" color={GREY[800]} />
     </View>
   );
 };
@@ -340,7 +341,7 @@ const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: GREY[50],
   },
 
   // ===== 헤더 =====
@@ -361,7 +362,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#202020',
+    color: GREY[900],
     fontFamily: 'Pretendard',
     lineHeight: 24,
   },
@@ -376,7 +377,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
     gap: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: GREY.WHITE,
     height: 76,
     marginBottom: 8,
     marginHorizontal: 20,
@@ -394,7 +395,7 @@ const styles = StyleSheet.create({
   shoeItemImageContainer: {
     width: 52,
     height: 52,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: GREY[50],
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
@@ -407,7 +408,7 @@ const styles = StyleSheet.create({
   shoeItemName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#202020',
+    color: GREY[900],
     fontFamily: 'Pretendard',
     lineHeight: 18,
   },
@@ -419,7 +420,7 @@ const styles = StyleSheet.create({
   shoeItemDistanceLabel: {
     fontSize: 10,
     fontWeight: '500',
-    color: '#BCBCBC',
+    color: GREY[300],
     fontFamily: 'Pretendard',
     lineHeight: 14,
     letterSpacing: 0.4,
@@ -427,7 +428,7 @@ const styles = StyleSheet.create({
   shoeItemDistanceValue: {
     fontSize: 10,
     fontWeight: '500',
-    color: '#BCBCBC',
+    color: GREY[300],
     fontFamily: 'Pretendard',
     lineHeight: 14,
     letterSpacing: 0.4,
@@ -437,7 +438,7 @@ const styles = StyleSheet.create({
   actionButtonDelete: {
     width: 57,
     height: 76,
-    backgroundColor: '#F76F71',
+    backgroundColor: RED[400],
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
@@ -445,7 +446,7 @@ const styles = StyleSheet.create({
   actionButtonTakeOut: {
     width: 57,
     height: 76,
-    backgroundColor: '#747474',
+    backgroundColor: GREY[600],
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
@@ -471,7 +472,7 @@ const styles = StyleSheet.create({
   emptyStateText: {
     fontSize: 14,
     fontWeight: '400',
-    color: '#BCBCBC',
+    color: GREY[300],
     fontFamily: 'Pretendard',
     textAlign: 'center',
     lineHeight: 24,
@@ -492,7 +493,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: GREY.WHITE,
     borderRadius: 16,
     padding: 20,
     marginHorizontal: 26,
@@ -502,7 +503,7 @@ const styles = StyleSheet.create({
   modalMessage: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#202020',
+    color: GREY[900],
     fontFamily: 'Pretendard',
     textAlign: 'center',
     lineHeight: 24,
@@ -520,24 +521,24 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   modalButtonCancel: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: GREY[50],
   },
   modalButtonConfirm: {
-    backgroundColor: '#45DA31',
+    backgroundColor: PRIMARY[600],
   },
   modalButtonDelete: {
-    backgroundColor: '#F76F71',
+    backgroundColor: RED[400],
   },
   modalButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: GREY.WHITE,
     fontFamily: 'Pretendard',
   },
   modalButtonCancelText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#414141',
+    color: GREY[800],
     fontFamily: 'Pretendard',
   },
 });

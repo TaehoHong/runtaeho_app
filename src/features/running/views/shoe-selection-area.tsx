@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { PRIMARY, GREY } from '~/shared/styles';
 import {
   View,
   StyleSheet,
@@ -83,7 +84,7 @@ export const ShoeSelectionArea: React.FC<ShoeSelectionAreaProps> = ({ onShoeSele
     return (
       <View style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color="#414141" />
+          <ActivityIndicator size="small" color={GREY[800]} />
         </View>
       </View>
     );
@@ -184,19 +185,19 @@ const styles = StyleSheet.create({
   },
   shoeCard: {
     width: CARD_WIDTH,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: GREY.WHITE,
     borderRadius: 8,
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: 'transparent',
   },
   shoeCardActive: {
-    borderColor: '#00C851',
+    borderColor: PRIMARY[700],
   },
   shoeImageContainer: {
     height: 113,
     margin:12,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: GREY[50],
     borderRadius: 6,
     justifyContent: 'center',
     alignItems: 'center',
@@ -204,7 +205,7 @@ const styles = StyleSheet.create({
   },
   shoeImageText: {
     fontSize: 13,
-    color: '#606060',
+    color: GREY[700],
     fontWeight: '400',
     fontFamily: 'Cafe24Proup'
   },
@@ -221,29 +222,29 @@ const styles = StyleSheet.create({
   },
   shoeBrand: {
     fontSize: 10,
-    color: '#9D9D9D',
+    color: GREY[500],
     fontWeight: '600',
   },
   badge: {
-    backgroundColor: '#EEFEE9',
+    backgroundColor: PRIMARY[50],
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 24,
   },
   badgeText: {
     fontSize: 8,
-    color: '#00AF1F',
+    color: PRIMARY[800],
     fontWeight: '500',
   },
   shoeModel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#202020',
+    color: GREY[900],
     marginBottom: 4,
   },
   shoeDistance: {
     fontSize: 10,
-    color: '#BCBCBC',
+    color: GREY[300],
     fontWeight: '500',
   },
   verticalGuide: {

@@ -9,6 +9,7 @@ import { EmptyState } from '../components/EmptyState';
 import type { RunningRecord } from '../../../running/models';
 import { formatDuration, calculateAveragePace } from '../../../running/models';
 import { useRunningRecordList } from '../../viewmodels/useRunningRecordList';
+import { PRIMARY, GREY } from '~/shared/styles';
 
 interface RunningRecordListProps {
 }
@@ -28,7 +29,7 @@ export const RunningRecordList: React.FC<RunningRecordListProps> = () => {
   if (isLoading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="small" color="#45DA31" />
+        <ActivityIndicator size="small" color={PRIMARY[600]} />
       </View>
     );
   }
@@ -64,7 +65,7 @@ export const RunningRecordList: React.FC<RunningRecordListProps> = () => {
         ListFooterComponent={
           isFetchingNextPage ? (
             <View style={styles.footerLoader}>
-              <ActivityIndicator size="small" color="#45DA31" />
+              <ActivityIndicator size="small" color={PRIMARY[600]} />
             </View>
           ) : null
         }
@@ -136,7 +137,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 14,
-    color: '#9D9D9D',
+    color: GREY[500],
   },
   footerLoader: {
     paddingVertical: 20,
@@ -147,7 +148,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 10,
     paddingHorizontal: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: GREY.WHITE,
     borderRadius: 8,
   },
   cardHeader: {
@@ -158,7 +159,7 @@ const styles = StyleSheet.create({
   cardDate: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#9D9D9D',
+    color: GREY[500],
   },
   cardStats: {
     flexDirection: 'row',
@@ -173,13 +174,13 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#202020',
+    color: GREY[900],
     lineHeight: 24,
   },
   statLabel: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#9D9D9D',
+    color: GREY[500],
     lineHeight: 16,
   },
 });

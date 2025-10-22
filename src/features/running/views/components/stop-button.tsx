@@ -1,6 +1,7 @@
 import React from 'react';
 import { TouchableOpacity, View, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { GREY } from '~/shared/styles';
 
 interface StopButtonProps {
   onPress: () => void;
@@ -10,7 +11,7 @@ export const StopButton: React.FC<StopButtonProps> = ({ onPress }) => {
   return (
     <TouchableOpacity style={styles.button} onPress={onPress} activeOpacity={0.8}>
       <LinearGradient
-        colors={['#606060', '#ABABAB']}
+        colors={[GREY[700], '#ABABAB']}
         locations={[0, 1]}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.7, y: 1 }}
@@ -27,7 +28,7 @@ const styles = StyleSheet.create({
     width: 65,
     height: 65,
     borderRadius: 32.5,
-    backgroundColor: '#747474',
+    backgroundColor: GREY[600],
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -49,7 +50,7 @@ const styles = StyleSheet.create({
   stopIcon: {
     width: 20,
     height: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: GREY.WHITE,
     borderRadius: 2,
   },
 });

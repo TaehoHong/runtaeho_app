@@ -5,18 +5,18 @@
 
 import React from 'react';
 import {
-  View,
-  Text,
+  ActivityIndicator,
   Image,
   Modal,
-  TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import type { Item } from '~/features/avatar';
-import { AVATAR_COLORS } from '~/features/avatar';
 import { Icon } from '~/shared/components/ui';
 import { ITEM_IMAGE, type ItemImage } from '~/shared/constants/images';
+import { BLUE, GREY, PRIMARY, RED } from '~/shared/styles';
 
 interface Props {
   items: readonly Item[];
@@ -135,7 +135,7 @@ export const PurchaseModal: React.FC<Props> = ({
                 activeOpacity={0.7}
               >
                 {isLoading ? (
-                  <ActivityIndicator color="#FFFFFF" />
+                  <ActivityIndicator color={GREY.WHITE} />
                 ) : (
                   <Text style={styles.confirmButtonText}>즉시 구매</Text>
                 )}
@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
   },
   modal: {
     width: 335,
-    backgroundColor: AVATAR_COLORS.CARD_BACKGROUND,
+    backgroundColor: GREY[50],
     borderRadius: 16,
     paddingHorizontal: 0,
     paddingTop: 24,
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: '700',
-    color: AVATAR_COLORS.PRIMARY_TEXT,
+    color: GREY[900],
     textAlign: 'center',
     marginBottom: 12,
     paddingHorizontal: 24,
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     fontWeight: '400',
-    color: AVATAR_COLORS.PRIMARY_TEXT,
+    color: GREY[900],
     textAlign: 'center',
     marginBottom: 32,
     paddingHorizontal: 24,
@@ -195,9 +195,9 @@ const styles = StyleSheet.create({
     width: 105,
     height: 105,
     borderRadius: 14,
-    backgroundColor: AVATAR_COLORS.ITEM_BACKGROUND,
+    backgroundColor: GREY.WHITE,
     borderWidth: 1,
-    borderColor: AVATAR_COLORS.OWNED_BORDER,
+    borderColor: GREY[250],
     paddingHorizontal: 20,
     paddingVertical: 26,
     overflow: 'hidden',
@@ -216,12 +216,12 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: AVATAR_COLORS.POINT_ICON,
+    backgroundColor: PRIMARY[500],
   },
   itemPrice: {
     fontSize: 16,
     fontWeight: '600',
-    color: AVATAR_COLORS.PRIMARY_TEXT,
+    color: GREY[900],
   },
   calculationContainer: {
     marginBottom: 24,
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: GREY[200],
     marginVertical: 0,
   },
   pointRow: {
@@ -241,22 +241,22 @@ const styles = StyleSheet.create({
   pointLabel: {
     fontSize: 14,
     fontWeight: '400',
-    color: AVATAR_COLORS.PRIMARY_TEXT,
+    color: GREY[900],
   },
   pointLabelBold: {
     fontWeight: '400',
-    color: AVATAR_COLORS.PRIMARY_TEXT,
+    color: GREY[900],
   },
   pointValue: {
     fontSize: 14,
     fontWeight: '400',
-    color: AVATAR_COLORS.PRIMARY_TEXT,
+    color: GREY[900],
   },
   pointDecrease: {
-    color: AVATAR_COLORS.POINT_DECREASE,
+    color: RED[300],
   },
   pointIncrease: {
-    color: AVATAR_COLORS.POINT_INCREASE,
+    color: PRIMARY[500],
   },
   buttonsContainer: {
     flexDirection: 'row',
@@ -273,19 +273,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: AVATAR_COLORS.CANCEL_BUTTON,
+    backgroundColor: GREY[200],
   },
   confirmButton: {
-    backgroundColor: AVATAR_COLORS.PURCHASE_BUTTON,
+    backgroundColor: BLUE.SECONDARY,
   },
   cancelButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: AVATAR_COLORS.PRIMARY_TEXT,
+    color: GREY[900],
   },
   confirmButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: GREY.WHITE,
   },
 });

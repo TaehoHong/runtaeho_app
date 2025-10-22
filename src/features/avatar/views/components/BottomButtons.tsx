@@ -4,8 +4,8 @@
  */
 
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import { AVATAR_COLORS } from '~/features/avatar';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BLUE, GREY, PRIMARY } from '~/shared/styles';
 
 interface Props {
   hasChanges: boolean;
@@ -57,7 +57,7 @@ export const BottomButtons: React.FC<Props> = ({
         activeOpacity={0.7}
       >
         {isLoading ? (
-          <ActivityIndicator color="#FFFFFF" />
+          <ActivityIndicator color={GREY.WHITE} />
         ) : (
           <Text
             style={[
@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 12,
     // paddingBottom: 6,
-    backgroundColor: AVATAR_COLORS.CARD_BACKGROUND,
+    backgroundColor: GREY[50],
   },
   button: {
     flex: 1,
@@ -91,13 +91,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: AVATAR_COLORS.CANCEL_BUTTON,
+    backgroundColor: GREY[200],
   },
   confirmButton: {
-    backgroundColor: AVATAR_COLORS.CONFIRM_BUTTON,
+    backgroundColor: PRIMARY[600],
   },
   purchaseButton: {
-    backgroundColor: AVATAR_COLORS.PURCHASE_BUTTON,
+    backgroundColor: BLUE.SECONDARY,
   },
   buttonDisabled: {
     opacity: 0.6,
@@ -105,12 +105,12 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: AVATAR_COLORS.PRIMARY_TEXT,
+    color: GREY[900],
   },
   buttonTextWhite: {
-    color: '#FFFFFF',
+    color: GREY.WHITE,
   },
   buttonTextDisabled: {
-    color: AVATAR_COLORS.DISABLED_TEXT,
+    color: GREY[500],
   },
 });

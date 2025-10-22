@@ -2,10 +2,10 @@ import React from 'react';
 import {
   TouchableOpacity,
   StyleSheet,
-  View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Text } from '~/shared/components/typography';
+import { PRIMARY } from '~/shared/styles';
 
 interface StartButtonProps {
   onPress: () => void;
@@ -21,7 +21,7 @@ export const StartButton: React.FC<StartButtonProps> = ({
 
   return (
     <LinearGradient
-      colors={['#45DA31', '#77FFAD', '#C4FF84']}
+      colors={[PRIMARY[600], '#77FFAD', '#C4FF84']}
       locations={[0, 0.52, 1]}
       start={{ x: 0, y: 0.5 }}
       end={{ x: 1, y: 0.5 }}
@@ -46,7 +46,7 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
-    backgroundColor: '#eefee9',
+    backgroundColor: PRIMARY[50],
     borderRadius: 6,
     justifyContent: 'center',
     alignItems: 'center',
@@ -57,14 +57,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     lineHeight: 16,
-    color: '#45da31',
+    color: PRIMARY[600],
     textAlign: 'center',
   },
   mainText: {
     fontFamily: 'Cafe24PROUP',
     fontSize: 36,
     fontWeight: '400',
-    color: '#45da31',
+    color: PRIMARY[600],
     textAlign: 'center',
     letterSpacing: -0.3,
   },

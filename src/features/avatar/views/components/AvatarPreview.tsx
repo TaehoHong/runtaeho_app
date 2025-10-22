@@ -6,9 +6,10 @@
 import React, { useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import type { EquippedItemsMap } from '~/features/avatar';
-import { UNITY_PREVIEW, AVATAR_COLORS } from '~/features/avatar';
+import { UNITY_PREVIEW } from '~/features/avatar';
 import { UnityView } from '~/features/unity/components/UnityView';
 import { unityService } from '~/features/unity/services/UnityService';
+import { GREY } from '~/shared/styles';
 
 interface Props {
   equippedItems: EquippedItemsMap;
@@ -42,7 +43,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     height: UNITY_PREVIEW.HEIGHT,
     borderRadius: 16,
-    backgroundColor: AVATAR_COLORS.ITEM_BACKGROUND,
+    backgroundColor: GREY.WHITE,
     overflow: 'hidden',
   },
   unity: {

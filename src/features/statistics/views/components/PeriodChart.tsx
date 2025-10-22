@@ -12,6 +12,7 @@ import { StyleSheet, View } from 'react-native';
 import Svg, { Line, Path, Text as SvgText } from 'react-native-svg';
 import type { ChartDataPoint } from '../../models';
 import { Period } from '../../models';
+import { PRIMARY, GREY } from '~/shared/styles';
 
 interface PeriodChartProps {
   data: ChartDataPoint[];
@@ -195,7 +196,7 @@ export const PeriodChart: React.FC<PeriodChartProps> = ({
           y={32}
           fontSize={18}
           fontWeight="600"
-          fill="#000000"
+          fill={GREY[900]}
         >
           {periodLabel.split('\n')[0]}
         </SvgText>
@@ -204,7 +205,7 @@ export const PeriodChart: React.FC<PeriodChartProps> = ({
             x={16}
             y={48}
             fontSize={14}
-            fill="#666666"
+            fill={GREY[700]}
           >
             {periodLabel.split('\n')[1]}
           </SvgText>
@@ -218,7 +219,7 @@ export const PeriodChart: React.FC<PeriodChartProps> = ({
             y={getYPosition(label) + 4}
             fontSize={10}
             fontWeight="500"
-            fill="#BCBCBC"
+            fill={GREY[300]}
           >
             {label.toFixed(1)}
           </SvgText>
@@ -232,7 +233,7 @@ export const PeriodChart: React.FC<PeriodChartProps> = ({
             y1={getYPosition(label)}
             x2={CHART_WIDTH - CHART_PADDING.right}
             y2={getYPosition(label)}
-            stroke="#EDEDED"
+            stroke={GREY[100]}
             strokeWidth={1}
           />
         ))}
@@ -251,7 +252,7 @@ export const PeriodChart: React.FC<PeriodChartProps> = ({
               <Path
                 key={`bar-${index}`}
                 d={pathData}
-                fill="#45DA31"
+                fill={PRIMARY[600]}
               />
             );
           })}
@@ -271,7 +272,7 @@ export const PeriodChart: React.FC<PeriodChartProps> = ({
               y={CHART_HEIGHT - CHART_PADDING.bottom + 20}
               fontSize={10}
               fontWeight="500"
-              fill="#BCBCBC"
+              fill={GREY[300]}
               textAnchor="middle"
             >
               {label}
@@ -288,7 +289,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginTop: 16,
     marginBottom: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: GREY.WHITE,
     borderRadius: 8,
     overflow: 'hidden',
   },

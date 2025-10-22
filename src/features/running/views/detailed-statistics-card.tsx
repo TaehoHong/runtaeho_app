@@ -1,4 +1,5 @@
 import React from 'react';
+import { GREY } from '~/shared/styles';
 import {
   View,
   StyleSheet,
@@ -91,7 +92,7 @@ const styles = StyleSheet.create({
   statSubtitle: {
     fontSize: 16,
     fontWeight: '400',
-    color: '#666666',
+    color: GREY[700],
   },
   statTitle: {
     fontSize: 27,

@@ -4,8 +4,9 @@
  */
 
 import React from 'react';
-import { View, Text, Modal, TouchableOpacity, StyleSheet } from 'react-native';
-import { AVATAR_COLORS, ERROR_MESSAGES } from '~/features/avatar';
+import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ERROR_MESSAGES } from '~/features/avatar';
+import { GREY, RED } from '~/shared/styles';
 
 interface Props {
   onClose: () => void;
@@ -60,7 +61,7 @@ const styles = StyleSheet.create({
   },
   alert: {
     width: 324,
-    backgroundColor: AVATAR_COLORS.CARD_BACKGROUND,
+    backgroundColor: GREY[50],
     borderRadius: 16,
     paddingHorizontal: 32,
     paddingTop: 32,
@@ -70,7 +71,7 @@ const styles = StyleSheet.create({
   message: {
     fontSize: 14,
     fontWeight: '400',
-    color: AVATAR_COLORS.PRIMARY_TEXT,
+    color: GREY[900],
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 16,
@@ -78,7 +79,7 @@ const styles = StyleSheet.create({
   button: {
     width: 292,
     height: 48,
-    backgroundColor: AVATAR_COLORS.ALERT_BUTTON,
+    backgroundColor: RED[300],
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
@@ -86,6 +87,6 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: GREY.WHITE,
   },
 });

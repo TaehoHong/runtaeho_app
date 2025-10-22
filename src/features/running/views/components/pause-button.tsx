@@ -1,4 +1,5 @@
 import React from 'react';
+import { GREY } from '~/shared/styles';
 import { TouchableOpacity, View, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -10,7 +11,7 @@ export const PauseButton: React.FC<PauseButtonProps> = ({ onPress }) => {
   return (
     <TouchableOpacity style={styles.button} onPress={onPress} activeOpacity={0.8}>
       <LinearGradient
-        colors={['#606060', '#ABABAB']}
+        colors={[GREY[700], '#ABABAB']}
         locations={[0, 1]}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.7, y: 1 }}
@@ -54,7 +55,7 @@ const styles = StyleSheet.create({
   pauseBar: {
     width: 4,
     height: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: GREY.WHITE,
     borderRadius: 2,
   },
 });

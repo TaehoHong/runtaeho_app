@@ -7,6 +7,7 @@
  * - 변경 가능한 값은 환경변수로 분리 가능하도록 설계
  */
 
+
 // ===================================
 // 카테고리 관련 상수
 // ===================================
@@ -118,43 +119,6 @@ export const UNITY_PREVIEW = {
   HEIGHT: 300,
   BORDER_RADIUS: 12,
 } as const;
-
-/**
- * 컬러 팔레트
- * SRP: UI 색상만 관리
- */
-export const AVATAR_COLORS = {
-  // Background
-  SCREEN_BACKGROUND: '#f5f5f5', // Grey/Grey100
-  CARD_BACKGROUND: '#f5f5f5',
-  ITEM_BACKGROUND: '#FFFFFF',
-  SELECTED_ITEM_BACKGROUND: '#eefee9', // Primary/Primary50
-
-  // Borders
-  EQUIPPED_BORDER: '#59ec3a', // Primary/Primary500
-  OWNED_BORDER: '#c9c9c9', // Text/grey04
-  NOT_OWNED_BORDER: '#c9c9c9',
-
-  // Buttons
-  CANCEL_BUTTON: '#dfdfdf', // Grey/Grey300
-  CONFIRM_BUTTON: '#45da31', // Primary/Primary600
-  PURCHASE_BUTTON: '#71DCF9', // Cyan for purchase
-  ALERT_BUTTON: '#FF7B7B',
-
-  // Text
-  PRIMARY_TEXT: '#202020', // Grey/Grey900
-  SECONDARY_TEXT: '#9d9d9d', // Grey/Grey500
-  DISABLED_TEXT: '#9d9d9d',
-
-  // Category Tab
-  SELECTED_TAB: '#59ec3a', // Primary/Primary500
-  UNSELECTED_TAB: '#FFFFFF',
-
-  // Point
-  POINT_ICON: '#59ec3a',
-  POINT_DECREASE: '#FF0000',
-  POINT_INCREASE: '#59ec3a',
-} as const;;
 
 /**
  * 버튼 크기
