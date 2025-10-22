@@ -15,8 +15,11 @@ import { useShoeViewModel } from '~/features/shoes/viewmodels';
 import type { Shoe } from '~/features/shoes/models';
 
 const { width: screenWidth } = Dimensions.get('window');
-const CARD_WIDTH = 208; // 204 (content) + 4 (borderWidth 2px * 2)
+const CARD_WIDTH = 204; // 204 (content) + 4 (borderWidth 2px * 2)
 const CARD_GAP = 20;
+const INTERVAL = CARD_WIDTH + CARD_GAP;
+const BUCKET = INTERVAL; // each item occupies a fixed bucket
+const bucketSidePadding = Math.round((screenWidth - BUCKET) / 2);
 
 interface ShoeSelectionAreaProps {
   onShoeSelect?: (shoeId: number) => void;
@@ -35,8 +38,6 @@ export const ShoeSelectionArea: React.FC<ShoeSelectionAreaProps> = ({ onShoeSele
     return shoes.filter(shoe => shoe.isEnabled);
   }, [shoes]);
 
-  // 양쪽 패딩 계산 (첫번째와 마지막 카드를 중앙에 배치)
-  const sidePadding = (screenWidth - CARD_WIDTH) / 2;
 
   // 메인 신발을 기본 선택으로 설정
   useEffect(() => {
@@ -46,7 +47,7 @@ export const ShoeSelectionArea: React.FC<ShoeSelectionAreaProps> = ({ onShoeSele
       const mainShoeIndex = availableShoes.findIndex(shoe => shoe.id === mainShoe.id);
       if (mainShoeIndex !== -1) {
         scrollViewRef.current?.scrollTo({
-          x: mainShoeIndex * (CARD_WIDTH + CARD_GAP),
+          x: mainShoeIndex * BUCKET,
           animated: false,
         });
       }
@@ -56,7 +57,7 @@ export const ShoeSelectionArea: React.FC<ShoeSelectionAreaProps> = ({ onShoeSele
   // 스크롤 이벤트 핸들러
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const scrollX = event.nativeEvent.contentOffset.x;
-    const index = Math.round(scrollX / (CARD_WIDTH + CARD_GAP));
+    const index = Math.round(scrollX / BUCKET);
     if (index >= 0 && index < availableShoes.length) {
       const shoeId = availableShoes[index]?.id;
       if (shoeId !== undefined && shoeId !== selectedShoeId) {
@@ -71,7 +72,7 @@ export const ShoeSelectionArea: React.FC<ShoeSelectionAreaProps> = ({ onShoeSele
     const shoe = availableShoes[index];
     setSelectedShoeId(shoe!.id);
     scrollViewRef.current?.scrollTo({
-      x: index * (CARD_WIDTH + CARD_GAP),
+      x: index * BUCKET,
       animated: true,
     });
     onShoeSelect?.(shoe!.id);
@@ -100,22 +101,22 @@ export const ShoeSelectionArea: React.FC<ShoeSelectionAreaProps> = ({ onShoeSele
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={[
-          styles.scrollContent,
-          { paddingHorizontal: sidePadding },
+          { paddingHorizontal: bucketSidePadding },
         ]}
-        snapToInterval={CARD_WIDTH + CARD_GAP}
+        snapToInterval={INTERVAL}
         decelerationRate="fast"
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
         {availableShoes.map((shoe, index) => (
-          <ShoeCard
-            key={shoe.id}
-            shoe={shoe}
-            isActive={shoe.id === selectedShoeId}
-            isMain={shoe.id === mainShoe?.id}
-            onPress={() => handleCardPress(index)}
-          />
+          <View key={shoe.id} style={styles.itemContainer}>
+            <ShoeCard
+              shoe={shoe}
+              isActive={shoe.id === selectedShoeId}
+              isMain={shoe.id === mainShoe?.id}
+              onPress={() => handleCardPress(index)}
+            />
+          </View>
         ))}
       </ScrollView>
     </View>
@@ -132,12 +133,12 @@ interface ShoeCardProps {
 const ShoeCard: React.FC<ShoeCardProps> = ({ shoe, isActive, isMain, onPress }) => {
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
-      <View style={[
-        styles.shoeCard,
-        isActive && styles.shoeCardActive,
-      ]}>
+      
+      <View style={[styles.shoeCard, isActive && styles.shoeCardActive]}
+        onLayout={e => console.log('shoeCard width:', e.nativeEvent.layout.width)}
+      >
         {/* 신발 이미지 */}
-        <View style={styles.verticalGuide}/>
+        {/* <View style={styles.verticalGuide}/> */}
         <View style={styles.shoeImageContainer}>
           <Icon name="shoe" size={64}/>
           <Text style={styles.shoeImageText}>Image Coming Soon</Text>
@@ -177,11 +178,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  scrollContent: {
-    gap: 20,
+  itemContainer: {
+    width: INTERVAL,
+    alignItems: 'center',
   },
   shoeCard: {
-    width: 204,
+    width: CARD_WIDTH,
     backgroundColor: '#FFFFFF',
     borderRadius: 8,
     overflow: 'hidden',

@@ -99,7 +99,7 @@ export const RunningView: React.FC = () => {
           />
         </View>
 
-        <View style={styles.verticalGuide}/>
+        {/* <View style={styles.verticalGuide}/> */}
 
         {/* DEBUG 토글 버튼 및 오버레이 (개발 모드에서만) */}
         {__DEV__ && (

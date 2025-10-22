@@ -26,8 +26,7 @@ export const RunningFinishedView: React.FC = () => {
   // 사용자 포인트 조회
   const { data: userPointData } = useGetUserPoint();
 
-  // TODO: RunningFinishedViewModel 데이터 연결
-  const hasShoe = true; // 임시 데이터
+  const hasShoe = true; 
 
   // 획득 포인트 계산 (100m당 1포인트)
   const earnedPoints = currentRecord
@@ -126,7 +125,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     gap: 16,
-    paddingHorizontal: 16,
   },
   pointInfo: {
     
