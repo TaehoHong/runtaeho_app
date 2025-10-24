@@ -272,7 +272,7 @@ interface LogoutButtonProps {
 const LogoutButton: React.FC<LogoutButtonProps> = ({ onPress }) => {
   return (
     <TouchableOpacity style={styles.logoutButtonContainer} onPress={onPress}>
-      <Ionicons name="log-out-outline" size={12} color={RED[400]} />
+      <Ionicons name="log-out-outline" size={12} color={GREY[400]} />
       <Text style={styles.logoutButtonText}>로그아웃</Text>
     </TouchableOpacity>
   );
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 20,
     marginHorizontal: 20,
-    marginBottom: 20,
+    marginBottom: 10,
     backgroundColor: '#fff',
     borderRadius: 8,
   },
@@ -381,15 +381,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: GREY[50],
-    marginHorizontal: 20,
     marginBottom: 20,
     paddingHorizontal: 20,
-    paddingVertical: 15,
     borderRadius: 16,
   },
   logoutButtonText: {
-    fontSize: 24,
-    color: RED[400],
+    fontSize: 12,
+    color: GREY[400],
     marginLeft: 8,
   },
   alertOverlay: {

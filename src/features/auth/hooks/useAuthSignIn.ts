@@ -1,13 +1,13 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert } from 'react-native';
-import { AuthProviderType } from '../models/AuthType';
+import { userService } from '~/features/user/services/userService';
 import { AuthMessages } from '../constants/AuthMessages';
 import { AuthError, AuthErrorType } from '../models/AuthError';
-import { useAuth } from './useAuth';
-import { AuthStrategyFactory } from '../strategies/AuthStrategyFactory';
+import { AuthProviderType } from '../models/AuthType';
 import { AuthenticationService } from '../services/AuthenticationService';
-import { userService } from '~/services/user/userService';
+import { AuthStrategyFactory } from '../strategies/AuthStrategyFactory';
+import { useAuth } from './useAuth';
 
 /**
  * 로그인 처리를 위한 커스텀 Hook

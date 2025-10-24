@@ -11,14 +11,14 @@
  * - 사용자 데이터 자동 갱신
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import { useCallback, useMemo, useState } from 'react';
 import { Alert } from 'react-native';
 import { useAuth } from '~/features/auth/hooks/useAuth';
 import { AuthProviderType, getAuthProviderInfo } from '~/features/auth/models';
-import { userService } from '~/services/user/userService';
+import { userService } from '~/features/user/services/userService';
 import type { UserAccount } from '../models';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import * as AppleAuthentication from 'expo-apple-authentication';
 
 /**
  * 계정 연결 Hook

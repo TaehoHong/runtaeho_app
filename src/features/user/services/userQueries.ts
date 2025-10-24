@@ -4,8 +4,8 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../../../services/queryClient';
 import { userService } from './userService';
-import { queryKeys } from '../queryClient';
 
 /**
  * 사용자 ID로 사용자 정보 조회
@@ -15,7 +15,7 @@ export const useGetUserById = (userId: number, options?: { enabled?: boolean }) 
   return useQuery({
     queryKey: [...queryKeys.user.all, userId],
     queryFn: () => userService.getUserById(userId),
-    enabled: options?.enabled,
+    enabled: options?.enabled ?? true,
   });
 };
 
@@ -27,7 +27,7 @@ export const useGetUserData = (options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: queryKeys.user.current,
     queryFn: () => userService.getUserData(),
-    enabled: options?.enabled,
+    enabled: options?.enabled ?? true,
     staleTime: 5 * 60 * 1000, // 5분
     gcTime: 10 * 60 * 1000, // 10분
   });
@@ -41,7 +41,7 @@ export const useGetCurrentUser = (options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: [...queryKeys.user.current, 'transformed'],
     queryFn: () => userService.getCurrentUser(),
-    enabled: options?.enabled,
+    enabled: options?.enabled ?? true,
     staleTime: 5 * 60 * 1000, // 5분
     gcTime: 10 * 60 * 1000, // 10분
   });
@@ -50,19 +50,20 @@ export const useGetCurrentUser = (options?: { enabled?: boolean }) => {
 /**
  * 사용자 프로필 업데이트
  * 기존: useUpdateUserProfileMutation()
+ * TODO: userService에 updateUserProfile 메서드 구현 필요
  */
-export const useUpdateUserProfile = () => {
-  const queryClient = useQueryClient();
+// export const useUpdateUserProfile = () => {
+//   const queryClient = useQueryClient();
 
-  return useMutation({
-    mutationFn: (updates: { nickname?: string; profileImageURL?: string }) =>
-      userService.updateUserProfile(updates),
-    onSuccess: () => {
-      // User 쿼리 캐시 무효화
-      queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
-    },
-  });
-};
+//   return useMutation({
+//     mutationFn: (updates: { nickname?: string; profileImageURL?: string }) =>
+//       userService.updateUserProfile(updates),
+//     onSuccess: () => {
+//       // User 쿼리 캐시 무효화
+//       queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
+//     },
+//   });
+// };
 
 /**
  * 사용자 계정 연결
@@ -72,8 +73,8 @@ export const useConnectAccount = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ provider, token }: { provider: string; token: string }) =>
-      userService.connectAccount(provider, token),
+    mutationFn: ({ userId, provider, code }: { userId: number; provider: string; code: string }) =>
+      userService.connectAccount(userId, provider, code),
     onSuccess: () => {
       // User 쿼리 캐시 무효화
       queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
@@ -89,7 +90,8 @@ export const useDisconnectAccount = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (provider: string) => userService.disconnectAccount(provider),
+    mutationFn: ({ userId, accountId }: { userId: number; accountId: number }) =>
+      userService.disconnectAccount(userId, accountId),
     onSuccess: () => {
       // User 쿼리 캐시 무효화
       queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
