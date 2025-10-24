@@ -111,7 +111,7 @@ const Header: React.FC<HeaderProps> = ({ onClose }) => {
   return (
     <View style={styles.header}>
       <TouchableOpacity onPress={onClose} style={styles.backButton}>
-        <Ionicons name="chevron-back" size={24} color=GREY[900] />
+        <Ionicons name="chevron-back" size={24} color={GREY[900]} />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>포인트</Text>
       <View style={styles.headerSpacer} />
@@ -213,7 +213,7 @@ const EmptyState: React.FC = () => {
 const LoadingState: React.FC = () => {
   return (
     <View style={styles.loadingState}>
-      <ActivityIndicator size="large" color=GREY[800] />
+      <ActivityIndicator size="large" color={GREY[800]} />
     </View>
   );
 };

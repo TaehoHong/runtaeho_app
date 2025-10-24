@@ -16,6 +16,13 @@ export const ICONS = {
   unpack: require('../../../assets/images/icons/unpack.png'),
   chart: require('../../../assets/images/icons/chart-icon.png'),
   myinfo: require('../../../assets/images/icons/myinfo-icon.png'),
+  google: require('../../../assets/images/icons/google.png'),
+  apple: require('../../../assets/images/icons/apple.png'),
+  character_1: require('../../../assets/images/icons/character_1.png'),
+  character_2: require('../../../assets/images/icons/character_2.png'),
+  character_3: require('../../../assets/images/icons/character_3.png'),
+  title_run: require('../../../assets/images/title_run.png'),
+  title_taeho: require('../../../assets/images/title_taeho.png'),
 } as const;
 
 export const ITEM_IMAGE = {

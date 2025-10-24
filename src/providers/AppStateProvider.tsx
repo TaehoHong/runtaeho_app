@@ -1,6 +1,7 @@
 import React, { useEffect, type ReactNode, useCallback, useRef } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
-import { useAuthStore, useAppStore, ViewState } from '~/stores';
+import { useAppStore, ViewState } from '~/stores';
+import { useAuthStore } from '~/features';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface AppStateProviderProps {

@@ -1,6 +1,5 @@
 /**
  * User Service
- * Swift UserService.swift에서 마이그레이션
  *
  * React Native에서는 주로 RTK Query를 통해 API 호출을 하므로
  * 이 서비스는 복잡한 비즈니스 로직이나 유틸리티 함수들을 위해 사용

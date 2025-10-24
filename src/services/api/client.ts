@@ -1,5 +1,5 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios';
-import { useAuthStore } from '~/stores';
+import { useAuthStore } from '~/features';
 import { API_CONFIG } from './config';
 import { httpRequestLogging, httpResponseLogging } from './interceptors';
 

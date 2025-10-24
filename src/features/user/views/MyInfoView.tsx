@@ -240,8 +240,10 @@ interface MenuSettingsCardProps {
  * iOS MenuSettingsCard 대응
  */
 const MenuSettingsCard: React.FC<MenuSettingsCardProps> = ({ items }) => {
+  const router = useRouter();
+
   const defaultMenuItems: MenuItemProps[] = [
-    { title: '연결 계정 관리', onPress: () => console.log('연결 계정 관리') },
+    { title: '연결 계정 관리', onPress: () => router.push('/user/account-connection') },
     { title: '공지사항', onPress: () => console.log('공지사항') },
   ];
 
@@ -270,7 +272,7 @@ interface LogoutButtonProps {
 const LogoutButton: React.FC<LogoutButtonProps> = ({ onPress }) => {
   return (
     <TouchableOpacity style={styles.logoutButtonContainer} onPress={onPress}>
-      <Ionicons name="log-out-outline" size={18} color={RED[400]} />
+      <Ionicons name="log-out-outline" size={12} color={RED[400]} />
       <Text style={styles.logoutButtonText}>로그아웃</Text>
     </TouchableOpacity>
   );
@@ -378,7 +380,7 @@ const styles = StyleSheet.create({
   logoutButtonContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
+    backgroundColor: GREY[50],
     marginHorizontal: 20,
     marginBottom: 20,
     paddingHorizontal: 20,

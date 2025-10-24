@@ -102,7 +102,7 @@ export class AuthenticationService {
 
     try {
       // authService를 사용하여 토큰 갱신
-      const result = await authService.refreshToken();
+      const result = await authApiService.refreshToken();
 
       const duration = Date.now() - startTime;
 

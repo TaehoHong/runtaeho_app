@@ -49,8 +49,8 @@ export const API_ENDPOINTS = {
   USER: {
     BASE: '/users',
     ME: '/users/me',
-    ACCOUNT_CONNECT: (provider: string) => `/user/account/connect/${provider}`,
-    ACCOUNT_DISCONNECT: (provider: string) => `/user/account/disconnect/${provider}`,
+    ACCOUNTS: (userId: number) => `/users/${userId}/accounts`,
+    ACCOUNT_DISCONNECT: (userId: number, accountId: number) => `/users/${userId}/accounts/${accountId}`,
   },
   RUNNING: {
     BASE: '/running',

@@ -156,7 +156,7 @@ const Header: React.FC<HeaderProps> = ({ onClose }) => {
   return (
     <View style={styles.header}>
       <TouchableOpacity onPress={onClose} style={styles.backButton}>
-        <Ionicons name="chevron-back" size={24} color=GREY[900] />
+        <Ionicons name="chevron-back" size={24} color={GREY[900]} />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>신발 추가</Text>
       <View style={styles.headerRight} />
@@ -193,7 +193,7 @@ const InputField: React.FC<InputFieldProps> = ({
           error && styles.inputError,
         ]}
         placeholder={placeholder}
-        placeholderTextColor=GREY[300]
+        placeholderTextColor={GREY[300]}
         value={value}
         onChangeText={onChangeText}
         keyboardType={keyboardType}

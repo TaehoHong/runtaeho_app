@@ -9,7 +9,6 @@
  * - UnityStore: Unity 연동 상태 (비동기 로직은 ViewModel로 분리)
  */
 
-export * from './auth';
 export * from './user';
 export * from './app';
 export * from './unity';

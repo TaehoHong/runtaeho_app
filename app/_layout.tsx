@@ -64,6 +64,12 @@ export default function RootLayout() {
                   presentation: 'modal'
                 }}
               />
+              <Stack.Screen
+                name="user"
+                options={{
+                  headerShown: false
+                }}
+              />
             </Stack>
         </AppStateProvider>
       </AuthProvider>
