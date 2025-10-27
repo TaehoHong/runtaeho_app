@@ -90,8 +90,8 @@ export const useDisconnectAccount = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ userId, accountId }: { userId: number; accountId: number }) =>
-      userService.disconnectAccount(userId, accountId),
+    mutationFn: ({ accountId }: { accountId: number }) =>
+      userService.disconnectAccount(accountId),
     onSuccess: () => {
       // User 쿼리 캐시 무효화
       queryClient.invalidateQueries({ queryKey: queryKeys.user.all });

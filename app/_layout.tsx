@@ -14,31 +14,7 @@ if (__DEV__) {
 
 export default function RootLayout() {
 
-  // 앱 시작 시 모든 권한 요청
-  useEffect(() => {
-    const requestPermissions = async () => {
-      try {
-        const permissionManager = PermissionManager.getInstance();
-        const result = await permissionManager.requestAllPermissions();
-
-        if (result.allGranted) {
-          console.log('✅ 모든 권한 승인됨');
-        } else {
-          console.warn('⚠️ 일부 권한이 거부됨:', result.missingPermissions);
-          // 필수 권한 체크
-          const hasRequired = await permissionManager.hasRequiredPermissions();
-          if (!hasRequired) {
-            console.error('❌ 필수 권한(위치)이 없습니다.');
-            // TODO: 권한 요청 실패 시 사용자에게 안내 화면 표시
-          }
-        }
-      } catch (error) {
-        console.error('❌ 권한 요청 실패:', error);
-      }
-    };
-
-    requestPermissions();
-  }, []);
+  // 권한 요청은 AuthProvider에서 로그인 후 한 번만 실행 (중복 제거)
 
   return (
     <QueryClientProvider client={queryClient}>

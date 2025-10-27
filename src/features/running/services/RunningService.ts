@@ -171,10 +171,10 @@ export const runningService = {
     items: Array<{
       distance: number;           // 미터
       durationSec: number;        // 초
-      cadence: number;            // steps/min
-      heartRate: number;          // BPM
-      minHeartRate: number;       // 최소 BPM
-      maxHeartRate: number;       // 최대 BPM
+      cadence: number | null;            // steps/min
+      heartRate: number | null;          // BPM
+      minHeartRate: number | null;       // 최소 BPM
+      maxHeartRate: number | null;       // 최대 BPM
       orderIndex: number;         // 순서
       startTimeStamp: number;     // Unix timestamp (초)
       endTimeStamp: number;       // Unix timestamp (초)

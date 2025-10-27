@@ -47,13 +47,14 @@ export class PermissionManager {
         shouldShowAlert: true,
         shouldPlaySound: true,
         shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
       }),
     });
   }
   
   /**
    * 위치 권한 상태 확인
-   * SwiftUI PermissionManager.locationPermissionStatus와 동일
    */
   async checkLocationPermission(): Promise<LocationPermissionStatus> {
     try {
@@ -87,7 +88,6 @@ export class PermissionManager {
   
   /**
    * 위치 권한 요청
-   * SwiftUI에서 requestLocation과 동일
    */
   async requestLocationPermission(): Promise<LocationPermissionStatus> {
     try {
@@ -136,7 +136,6 @@ export class PermissionManager {
   
   /**
    * 알림 권한 상태 확인
-   * SwiftUI에서 UNUserNotificationCenter 사용하는 부분과 동일
    */
   async checkNotificationPermission(): Promise<NotificationPermissionStatus> {
     try {
@@ -171,7 +170,6 @@ export class PermissionManager {
           allowAlert: true,
           allowBadge: true,
           allowSound: true,
-          allowAnnouncements: true,
           allowCriticalAlerts: false,
           provideAppNotificationSettings: true,
           allowProvisional: false,

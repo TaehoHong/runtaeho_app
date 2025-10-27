@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useRunningDebug } from '../hooks/useRunningDebug';
+import { RunningState } from '~/stores/app/appStore';
 
 /**
  * 러닝 디버그 뷰
@@ -75,8 +76,8 @@ export const RunningDebugView: React.FC = () => {
         <Text style={styles.sectionTitle}>💓 센서 데이터</Text>
         <DebugRow
           label="심박수 (BPM)"
-          value={stats.bpm !== undefined ? `${stats.bpm}` : '센서 없음'}
-          highlight={stats.bpm !== undefined}
+          value={stats.bpm !== undefined && stats.bpm !== null ? `${stats.bpm}` : '--'}
+          highlight={stats.bpm !== undefined && stats.bpm !== null}
         />
         <DebugRow
           label="심박수 소스"
@@ -84,8 +85,8 @@ export const RunningDebugView: React.FC = () => {
         />
         <DebugRow
           label="케이던스 (SPM)"
-          value={stats.cadence !== undefined ? `${stats.cadence}` : '센서 없음'}
-          highlight={stats.cadence !== undefined}
+          value={stats.cadence !== undefined && stats.cadence !== null ? `${stats.cadence}` : '--'}
+          highlight={stats.cadence !== undefined && stats.cadence !== null}
         />
         <DebugRow
           label="케이던스 소스"
@@ -99,7 +100,7 @@ export const RunningDebugView: React.FC = () => {
         <DebugRow
           label="상태"
           value={runningState.toUpperCase()}
-          highlight={runningState === 'running'}
+          highlight={runningState === RunningState.Running}
         />
         <DebugRow label="경과 시간" value={`${elapsedTime} 초`} />
         <DebugRow label="거리" value={`${formatNumber(distance, 1)} m`} />

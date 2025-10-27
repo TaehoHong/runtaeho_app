@@ -64,6 +64,7 @@ export class SilentTokenRefreshService {
    * 백엔드에서 토큰 갱신
    *
    * React 표준 패턴: tokenStorage 직접 사용
+   * Backend expects: Header 'Refresh: Bearer {refreshToken}'
    */
   private async refreshTokens(): Promise<TokenPair> {
     // tokenStorage에서 refreshToken 가져오기 (userStateManager 제거)
@@ -73,14 +74,14 @@ export class SilentTokenRefreshService {
     if (!refreshToken) {
       throw new Error('RefreshTokenNotFound');
     }
-    
-    // API 호출
+
+    // API 호출 - Backend AuthController 스펙: 'Refresh' 헤더에 Bearer 토큰
     const apiUrl = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:8080/api/v1';
     const response = await fetch(`${apiUrl}/auth/refresh`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'refresh': JSON.stringify({ refreshToken })
+        'Refresh': `Bearer ${refreshToken}`
       }
     });
     

@@ -10,6 +10,8 @@ import { useRunning } from '~/features/running/contexts';
 /**
  * 러닝 통계 뷰 (피그마 디자인 기반)
  * BPM, 페이스, 러닝 시간 표시
+ *
+ * 정책: 센서 데이터 없으면 "--" 표시
  */
 export const StatsView: React.FC = () => {
   const { elapsedTime, stats } = useRunning();
@@ -21,7 +23,10 @@ export const StatsView: React.FC = () => {
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
-  const bpm = stats.bpm !== undefined ? String(stats.bpm).padStart(2, '0') : '00';
+  // 정책: undefined 또는 null이면 "--" 표시
+  const bpm = stats.bpm !== undefined && stats.bpm !== null
+    ? String(stats.bpm).padStart(2, '0')
+    : '--';
   const pace = `${String(stats.pace.minutes).padStart(2, '0')}:${String(stats.pace.seconds).padStart(2, '0')}`;
   const runningTime = formatElapsedTime(elapsedTime);
 

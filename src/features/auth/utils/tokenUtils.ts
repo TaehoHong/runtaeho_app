@@ -71,8 +71,8 @@ function parseToken(token: string): any {
 }
 
 function isTokenExpiringSoon(token: string, thresholdSeconds: number = 300): boolean {
-  let expiringTime = getTokenRemainingTime(token) - Date.now() / 1000 
-  return expiringTime <= thresholdSeconds;
+  const remainingTime = getTokenRemainingTime(token);
+  return remainingTime > 0 && remainingTime <= thresholdSeconds;
 }
 
 /**

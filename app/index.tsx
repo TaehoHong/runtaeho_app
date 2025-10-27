@@ -45,22 +45,9 @@ export default function Index() {
     initializeApp();
   }, []);
 
-  useEffect(() => {
-    // 초기화가 완료된 후 로그인 상태에 따라 네비게이션
-    if (isInitialized && viewState === ViewState.Loaded && fontsLoaded) {
-      console.log('🔄 [APP] 로그인 상태 확인:', isLoggedIn);
+  // Navigation은 AuthProvider에서 처리 (이중 navigation 방지)
 
-      if (isLoggedIn) {
-        console.log('✅ [APP] 로그인 상태 - 메인 탭(러닝 화면)으로 이동');
-        router.replace('/(tabs)/running');
-      } else {
-        console.log('❌ [APP] 로그아웃 상태 - 로그인 화면으로 이동');
-        router.replace('/auth/login');
-      }
-    }
-  }, [isInitialized, isLoggedIn, viewState, fontsLoaded]);
-
-  // iOS RootView와 동일한 로딩 화면
+  // 폰트와 앱 초기화 완료까지만 로딩 표시
   if (!isInitialized || viewState === ViewState.Loading || !fontsLoaded) {
     console.log('⏳ [APP] 초기화 로딩 화면 표시');
     return (
@@ -71,14 +58,9 @@ export default function Index() {
     );
   }
 
-  // 초기화 완료 후 대기 화면
-  // AuthProvider에서 자동으로 로그인/메인 화면으로 리다이렉트
-  return (
-    <View style={styles.loadingContainer}>
-      <ActivityIndicator size="large" color="#4d99e5" />
-      <Text style={styles.loadingText}>네비게이션 준비 중...</Text>
-    </View>
-  );
+  // 초기화 완료 - AuthProvider가 navigation 처리
+  console.log('✅ [APP] 초기화 완료, AuthProvider에게 navigation 위임');
+  return null;
 }
 
 const styles = StyleSheet.create({

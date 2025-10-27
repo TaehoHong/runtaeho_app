@@ -13,10 +13,13 @@ export class GoogleAuthStrategy implements AuthProviderStrategy {
                              '620303212609-581f7f3bgj104gtaermbtjqqf8u6khb8.apps.googleusercontent.com';
     const googleServerClientId = Constants.expoConfig?.extra?.googleServerClientId ||
                                  '620303212609-tqerha7lmhgr719hd8qsd09kualf72l9.apps.googleusercontent.com';
+    const googleAndroidClientId = Constants.expoConfig?.extra?.googleAndroidClientId ||
+                                  '620303212609-u26pmkbaiftnpjkfcls380c32n1ubruf.apps.googleusercontent.com';
 
     console.log('🔧 [DEBUG] Google 클라이언트 ID 설정:');
     console.log('  - iOS Client ID:', googleIosClientId);
     console.log('  - Server Client ID:', googleServerClientId);
+    console.log('  - Android Client ID:', googleAndroidClientId);
     console.log('  - Constants.expoConfig?.extra:', Constants.expoConfig?.extra);
 
     GoogleSignin.configure({

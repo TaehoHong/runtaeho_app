@@ -104,8 +104,9 @@ export class TokenRefreshInterceptor {
    * API 호출 전에 토큰 만료 여부를 미리 확인하고 갱신
    *
    * React 표준 패턴: tokenStorage 직접 사용
+   * Public method: Request interceptor에서 호출
    */
-  private async validateAndRefreshIfNeeded(): Promise<void> {
+  async validateAndRefreshIfNeeded(): Promise<void> {
     try {
       const accessToken = await tokenStorage.getAccessToken();
 

@@ -1,6 +1,13 @@
 /**
  * Google Fit Service (Android)
  * Android Google Fit을 통한 심박수, 케이던스, 칼로리 데이터 수집
+ *
+ * 정책: Priority 3 - Phone fallback (Android)
+ * - 1초 간격 실시간 폴링
+ * - 데이터 없으면 undefined 반환 (UI: "--")
+ *
+ * TODO: react-native-google-fit 라이브러리 설치
+ * npm install react-native-google-fit
  */
 
 import { Platform } from 'react-native';
@@ -15,6 +22,11 @@ import type {
 /**
  * Google Fit Service
  * Android 전용 헬스 데이터 수집 서비스
+ *
+ * TODO: Google Fit API 초기화
+ * - OAuth 2.0 인증
+ * - Fitness API 권한 획득
+ * - Recording API 등록 (백그라운드 데이터 수집)
  */
 export class GoogleFitService implements ISensorService {
   private static instance: GoogleFitService;
@@ -22,8 +34,46 @@ export class GoogleFitService implements ISensorService {
   private cadenceCallback: ((data: CadenceData | undefined) => void) | null = null;
   private heartRateInterval: ReturnType<typeof setInterval> | null = null;
   private cadenceInterval: ReturnType<typeof setInterval> | null = null;
+  private isInitialized = false;
 
-  private constructor() {}
+  private constructor() {
+    this.initializeGoogleFit();
+  }
+
+  /**
+   * Google Fit 초기화
+   *
+   * TODO: Google Fit API 초기화
+   * - OAuth 2.0 인증
+   * - Fitness.RECORDING_API 등록 (백그라운드 수집)
+   * - 데이터 타입 구독 (HEART_RATE, STEP_COUNT, CALORIES)
+   */
+  private async initializeGoogleFit(): Promise<void> {
+    if (Platform.OS !== 'android') {
+      return;
+    }
+
+    try {
+      // TODO: Google Fit 초기화
+      // const GoogleFit = require('react-native-google-fit');
+      // const options = {
+      //   scopes: [
+      //     Scopes.FITNESS_ACTIVITY_READ,
+      //     Scopes.FITNESS_BODY_READ,
+      //     Scopes.FITNESS_LOCATION_READ,
+      //   ],
+      // };
+      //
+      // await GoogleFit.authorize(options);
+      // this.isInitialized = true;
+      // console.log('[GoogleFit] Initialized successfully');
+
+      console.log('[GoogleFit] Initialization skipped (TODO)');
+    } catch (error) {
+      console.error('[GoogleFit] Initialization failed:', error);
+      this.isInitialized = false;
+    }
+  }
 
   static getInstance(): GoogleFitService {
     if (!GoogleFitService.instance) {

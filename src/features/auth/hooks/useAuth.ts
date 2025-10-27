@@ -152,15 +152,48 @@ export const useAuth = () => {
         return false;
       }
 
-      // TODO: 토큰 만료 체크 및 자동 갱신 로직 추가
-      // tokenUtils.getTokenStatus() 사용
+      // 토큰 상태 확인
+      const { tokenUtils, TokenStatus } = await import('../utils/tokenUtils');
+      const tokenStatus = tokenUtils.verifyToken(accessToken);
+
+      if (tokenStatus === TokenStatus.EXPIRED) {
+        console.log('🔄 [useAuth] Access token expired, attempting refresh...');
+
+        // 만료된 경우 갱신 시도
+        try {
+          const { silentTokenRefreshService } = await import('../services/SilentTokenRefreshService');
+          const newTokens = await silentTokenRefreshService.performSilentRefresh();
+
+          // 새 토큰 저장
+          await tokenStorage.saveTokens(newTokens.accessToken, newTokens.refreshToken);
+          setAccessToken(newTokens.accessToken);
+          setRefreshToken(newTokens.refreshToken);
+
+          console.log('✅ [useAuth] Token refresh successful');
+          return true;
+        } catch (refreshError: any) {
+          console.error('❌ [useAuth] Token refresh failed:', refreshError);
+
+          // 갱신 실패 시 로그아웃
+          if (refreshError.message === 'RefreshTokenExpired' || refreshError.message === 'MaxRetryExceeded') {
+            console.log('🚪 [useAuth] Refresh token expired, logging out...');
+            await logout();
+          }
+
+          return false;
+        }
+      }
+
+      if (tokenStatus === TokenStatus.SOON_EXPIRING) {
+        console.log('⏰ [useAuth] Token expiring soon, will be refreshed by interceptor');
+      }
 
       return true;
     } catch (error) {
       console.error('❌ [useAuth] Token verification failed:', error);
       return false;
     }
-  }, []);
+  }, [setAccessToken, setRefreshToken, logout]);
 
   /**
    * 사용자 데이터 새로고침

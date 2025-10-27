@@ -1,12 +1,23 @@
 /**
  * Data Source Priority Service
  * 데이터 소스 우선순위 관리 서비스
- * 우선순위: 웨어러블 (WatchOS/WearOS/Garmin) → 핸드폰 센서 → undefined
+ *
+ * 정책: Priority Fallback (실시간 데이터 수집)
+ * 1. Garmin (최우선)
+ * 2. WatchOS/WearOS - 전용 앱 설치된 경우만
+ * 3. Phone (HealthKit / Google Fit)
+ * 4. null (모든 디바이스에서 수집 실패)
+ *
+ * - 각 우선순위에서 실시간 데이터 수집 시도
+ * - 실시간 수집 불가 시 다음 우선순위로 자동 fallback
+ * - 모든 소스에서 실패 시 undefined 반환 (UI: "--")
  */
 
 import { Platform } from 'react-native';
 import { HealthKitService } from './HealthKitService';
 import { GoogleFitService } from './GoogleFitService';
+import { GarminService } from './GarminService';
+import { WatchService } from './WatchService';
 import type {
   HeartRateData,
   CadenceData,
@@ -30,21 +41,56 @@ export interface SensorDataResult<T> {
 export class DataSourcePriorityService {
   private static instance: DataSourcePriorityService;
 
-  // 핸드폰 센서 서비스
-  private healthKitService: ISensorService;
-  private googleFitService: ISensorService;
+  // 센서 서비스들 (Priority 순서)
+  private garminService: ISensorService;        // Priority 1
+  private watchService: ISensorService;          // Priority 2
+  private healthKitService: ISensorService;      // Priority 3 (iOS)
+  private googleFitService: ISensorService;      // Priority 3 (Android)
 
-  // 웨어러블 연결 상태
-  private wearableConnected = false;
-  private wearableType: 'watch_os' | 'wear_os' | 'garmin' | null = null;
+  // 디바이스 사용 가능 여부
+  private garminAvailable = false;
+  private watchAvailable = false;
+  private phoneAvailable = false;
 
   // 현재 활성 센서 소스
   private activeHeartRateSource: DataSource | null = null;
   private activeCadenceSource: DataSource | null = null;
 
+  // 웨어러블 연결 상태
+  private wearableConnected = false;
+
   private constructor() {
+    this.garminService = GarminService.getInstance();
+    this.watchService = WatchService.getInstance();
     this.healthKitService = HealthKitService.getInstance();
     this.googleFitService = GoogleFitService.getInstance();
+
+    this.checkAvailableDevices();
+  }
+
+  /**
+   * 사용 가능한 디바이스 확인
+   * 정책: Priority 순서대로 체크
+   */
+  private async checkAvailableDevices(): Promise<void> {
+    try {
+      // Priority 1: Garmin
+      this.garminAvailable = await this.garminService.isAvailable();
+      console.log(`[DataSourcePriority] Garmin available: ${this.garminAvailable}`);
+
+      // Priority 2: Watch (with app)
+      this.watchAvailable = await this.watchService.isAvailable();
+      console.log(`[DataSourcePriority] Watch available: ${this.watchAvailable}`);
+
+      // Priority 3: Phone
+      const phoneSensor = this.getPhoneSensorService();
+      if (phoneSensor) {
+        this.phoneAvailable = await phoneSensor.isAvailable();
+        console.log(`[DataSourcePriority] Phone sensor available: ${this.phoneAvailable}`);
+      }
+    } catch (error) {
+      console.error('[DataSourcePriority] Check available devices failed:', error);
+    }
   }
 
   static getInstance(): DataSourcePriorityService {
@@ -55,22 +101,11 @@ export class DataSourcePriorityService {
   }
 
   /**
-   * 웨어러블 연결 상태 설정
+   * 디바이스 사용 가능 여부 재확인
+   * 주기적으로 호출하여 디바이스 연결 상태 업데이트
    */
-  setWearableConnection(
-    connected: boolean,
-    type?: 'watch_os' | 'wear_os' | 'garmin'
-  ): void {
-    this.wearableConnected = connected;
-    this.wearableType = connected && type ? type : null;
-    console.log(`[DataSourcePriority] Wearable connection: ${connected}, type: ${type}`);
-  }
-
-  /**
-   * 웨어러블 연결 여부 확인
-   */
-  isWearableConnected(): boolean {
-    return this.wearableConnected;
+  async refreshAvailability(): Promise<void> {
+    await this.checkAvailableDevices();
   }
 
   /**
@@ -87,54 +122,104 @@ export class DataSourcePriorityService {
 
   /**
    * 심박수 모니터링 시작
-   * 우선순위에 따라 데이터 소스 선택
+   * 정책: Priority Fallback (Garmin → Watch → Phone → null)
+   * - 각 우선순위에서 실시간 데이터 수집 시도
+   * - undefined 반환 시 다음 우선순위로 자동 fallback
    */
   async startHeartRateMonitoring(
     callback: (data: SensorDataResult<number>) => void
   ): Promise<void> {
-    // 1순위: 웨어러블
-    if (this.wearableConnected) {
-      // TODO: 웨어러블에서 심박수 가져오기
-      // await this.startWearableHeartRate(callback);
-      console.log('[DataSourcePriority] Wearable heart rate monitoring (TODO)');
+    let dataReceived = false;
+
+    // Priority 1: Garmin
+    if (this.garminAvailable) {
+      console.log('[DataSourcePriority] Trying Garmin heart rate (Priority 1)');
+      await this.garminService.startHeartRateMonitoring((data) => {
+        if (data && data.bpm !== undefined) {
+          // 실시간 데이터 수집 성공
+          dataReceived = true;
+          this.activeHeartRateSource = data.source;
+          callback({ value: data.bpm, source: data.source });
+        } else if (!dataReceived) {
+          // Garmin에서 데이터 없음 → fallback to Priority 2
+          console.log('[DataSourcePriority] Garmin no data, fallback to Watch');
+          this.tryWatchHeartRate(callback);
+        }
+      });
+      return;
+    }
+
+    // Priority 2: Watch (with app)
+    if (this.watchAvailable) {
+      console.log('[DataSourcePriority] Trying Watch heart rate (Priority 2)');
+      await this.tryWatchHeartRate(callback);
+      return;
+    }
+
+    // Priority 3: Phone sensor
+    if (this.phoneAvailable) {
+      console.log('[DataSourcePriority] Trying Phone sensor heart rate (Priority 3)');
+      await this.tryPhoneHeartRate(callback);
+      return;
+    }
+
+    // Priority 4: No data available
+    console.log('[DataSourcePriority] No heart rate source available');
+    callback({ value: undefined, source: 'none' });
+  }
+
+  /**
+   * Watch 심박수 시도
+   */
+  private async tryWatchHeartRate(
+    callback: (data: SensorDataResult<number>) => void
+  ): Promise<void> {
+    let dataReceived = false;
+
+    await this.watchService.startHeartRateMonitoring((data) => {
+      if (data && data.bpm !== undefined) {
+        dataReceived = true;
+        this.activeHeartRateSource = data.source;
+        callback({ value: data.bpm, source: data.source });
+      } else if (!dataReceived) {
+        // Watch에서 데이터 없음 → fallback to Priority 3
+        console.log('[DataSourcePriority] Watch no data, fallback to Phone');
+        this.tryPhoneHeartRate(callback);
+      }
+    });
+  }
+
+  /**
+   * Phone 센서 심박수 시도
+   */
+  private async tryPhoneHeartRate(
+    callback: (data: SensorDataResult<number>) => void
+  ): Promise<void> {
+    const phoneSensor = this.getPhoneSensorService();
+    if (!phoneSensor) {
       callback({ value: undefined, source: 'none' });
       return;
     }
 
-    // 2순위: 핸드폰 센서 (HealthKit/Google Fit)
-    const phoneSensor = this.getPhoneSensorService();
-    if (phoneSensor) {
-      const isAvailable = await phoneSensor.isAvailable();
-      if (isAvailable) {
-        await phoneSensor.startHeartRateMonitoring((data) => {
-          if (data) {
-            this.activeHeartRateSource = data.source;
-            callback({ value: data.bpm, source: data.source });
-          } else {
-            callback({ value: undefined, source: 'none' });
-          }
-        });
-        console.log('[DataSourcePriority] Phone sensor heart rate monitoring started');
-        return;
+    await phoneSensor.startHeartRateMonitoring((data) => {
+      if (data && data.bpm !== undefined) {
+        this.activeHeartRateSource = data.source;
+        callback({ value: data.bpm, source: data.source });
+      } else {
+        // 모든 소스에서 데이터 없음 (정책: null)
+        callback({ value: undefined, source: 'none' });
       }
-    }
-
-    // 3순위: 데이터 없음 (undefined)
-    console.log('[DataSourcePriority] No heart rate source available');
-    callback({ value: undefined, source: 'none' });
+    });
   }
 
   /**
    * 심박수 모니터링 중지
    */
   async stopHeartRateMonitoring(): Promise<void> {
-    // 웨어러블 중지
-    if (this.wearableConnected) {
-      // TODO: 웨어러블 심박수 모니터링 중지
-      console.log('[DataSourcePriority] Stopping wearable heart rate (TODO)');
-    }
+    // 모든 센서 중지
+    await this.garminService.stopHeartRateMonitoring();
+    await this.watchService.stopHeartRateMonitoring();
 
-    // 핸드폰 센서 중지
     const phoneSensor = this.getPhoneSensorService();
     if (phoneSensor) {
       await phoneSensor.stopHeartRateMonitoring();
@@ -146,53 +231,99 @@ export class DataSourcePriorityService {
 
   /**
    * 케이던스 모니터링 시작
-   * 우선순위에 따라 데이터 소스 선택
+   * 정책: Priority Fallback (Garmin → Watch → Phone → null)
    */
   async startCadenceMonitoring(
     callback: (data: SensorDataResult<number>) => void
   ): Promise<void> {
-    // 1순위: 웨어러블
-    if (this.wearableConnected) {
-      // TODO: 웨어러블에서 케이던스 가져오기
-      console.log('[DataSourcePriority] Wearable cadence monitoring (TODO)');
+    let dataReceived = false;
+
+    // Priority 1: Garmin
+    if (this.garminAvailable) {
+      console.log('[DataSourcePriority] Trying Garmin cadence (Priority 1)');
+      await this.garminService.startCadenceMonitoring((data) => {
+        if (data && data.stepsPerMinute !== undefined) {
+          dataReceived = true;
+          this.activeCadenceSource = data.source;
+          callback({ value: data.stepsPerMinute, source: data.source });
+        } else if (!dataReceived) {
+          console.log('[DataSourcePriority] Garmin no data, fallback to Watch');
+          this.tryWatchCadence(callback);
+        }
+      });
+      return;
+    }
+
+    // Priority 2: Watch (with app)
+    if (this.watchAvailable) {
+      console.log('[DataSourcePriority] Trying Watch cadence (Priority 2)');
+      await this.tryWatchCadence(callback);
+      return;
+    }
+
+    // Priority 3: Phone sensor
+    if (this.phoneAvailable) {
+      console.log('[DataSourcePriority] Trying Phone sensor cadence (Priority 3)');
+      await this.tryPhoneCadence(callback);
+      return;
+    }
+
+    // Priority 4: No data available
+    console.log('[DataSourcePriority] No cadence source available');
+    callback({ value: undefined, source: 'none' });
+  }
+
+  /**
+   * Watch 케이던스 시도
+   */
+  private async tryWatchCadence(
+    callback: (data: SensorDataResult<number>) => void
+  ): Promise<void> {
+    let dataReceived = false;
+
+    await this.watchService.startCadenceMonitoring((data) => {
+      if (data && data.stepsPerMinute !== undefined) {
+        dataReceived = true;
+        this.activeCadenceSource = data.source;
+        callback({ value: data.stepsPerMinute, source: data.source });
+      } else if (!dataReceived) {
+        console.log('[DataSourcePriority] Watch no data, fallback to Phone');
+        this.tryPhoneCadence(callback);
+      }
+    });
+  }
+
+  /**
+   * Phone 센서 케이던스 시도
+   */
+  private async tryPhoneCadence(
+    callback: (data: SensorDataResult<number>) => void
+  ): Promise<void> {
+    const phoneSensor = this.getPhoneSensorService();
+    if (!phoneSensor) {
       callback({ value: undefined, source: 'none' });
       return;
     }
 
-    // 2순위: 핸드폰 센서 (HealthKit/Google Fit/가속도계)
-    const phoneSensor = this.getPhoneSensorService();
-    if (phoneSensor) {
-      const isAvailable = await phoneSensor.isAvailable();
-      if (isAvailable) {
-        await phoneSensor.startCadenceMonitoring((data) => {
-          if (data) {
-            this.activeCadenceSource = data.source;
-            callback({ value: data.stepsPerMinute, source: data.source });
-          } else {
-            callback({ value: undefined, source: 'none' });
-          }
-        });
-        console.log('[DataSourcePriority] Phone sensor cadence monitoring started');
-        return;
+    await phoneSensor.startCadenceMonitoring((data) => {
+      if (data && data.stepsPerMinute !== undefined) {
+        this.activeCadenceSource = data.source;
+        callback({ value: data.stepsPerMinute, source: data.source });
+      } else {
+        // 모든 소스에서 데이터 없음 (정책: null)
+        callback({ value: undefined, source: 'none' });
       }
-    }
-
-    // 3순위: 데이터 없음 (undefined)
-    console.log('[DataSourcePriority] No cadence source available');
-    callback({ value: undefined, source: 'none' });
+    });
   }
 
   /**
    * 케이던스 모니터링 중지
    */
   async stopCadenceMonitoring(): Promise<void> {
-    // 웨어러블 중지
-    if (this.wearableConnected) {
-      // TODO: 웨어러블 케이던스 모니터링 중지
-      console.log('[DataSourcePriority] Stopping wearable cadence (TODO)');
-    }
+    // 모든 센서 중지
+    await this.garminService.stopCadenceMonitoring();
+    await this.watchService.stopCadenceMonitoring();
 
-    // 핸드폰 센서 중지
     const phoneSensor = this.getPhoneSensorService();
     if (phoneSensor) {
       await phoneSensor.stopCadenceMonitoring();

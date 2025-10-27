@@ -8,7 +8,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   View,
-  Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Text } from '~/shared/components/typography';
@@ -19,13 +18,6 @@ import { useAppStore } from '~/stores/app/appStore';
 import { Icon } from '~/shared/components/ui';
 
 const { width, height } = Dimensions.get('window');
-
-// iOS 전용 Apple Sign-In 모듈: 웹/안드로이드에선 로드하지 않음
-let AppleButton: any = null;
-if (Platform.OS === 'ios') {
-  const mod = require('@invertase/react-native-apple-authentication');
-  AppleButton = mod.AppleButton;
-}
 
 export const Login: React.FC = () => {
   console.log('🔐 [LOGIN] 로그인 화면 렌더링');
@@ -123,19 +115,19 @@ export const Login: React.FC = () => {
           </Text>
         </TouchableOpacity>
 
-        {/* Apple 로그인 버튼 */}
-        {Platform.OS === 'ios' && AppleButton ? (
+        {/* Apple 로그인 버튼 - iOS 전용 */}
+        {Platform.OS === 'ios' && (
           <TouchableOpacity
             style={styles.appleButton}
             onPress={signInWithApple}
             disabled={isLoading}
           >
-            <Icon name="apple"style={styles.buttonIcon}/>
+            <Icon name="apple" style={styles.buttonIcon}/>
             <Text style={styles.appleButtonText}>
               Apple로 시작하기
             </Text>
           </TouchableOpacity>
-        ) : null}
+        )}
 
         {/* 디버그 버튼: 모든 persist 데이터 삭제 */}
         {__DEV__ && (

@@ -93,6 +93,7 @@ export default {
       apiBaseUrl: process.env.API_BASE_URL,
       googleIosClientId: process.env.GOOGLE_IOS_CLIENT_ID,
       googleServerClientId: process.env.GOOGLE_SERVER_CLIENT_ID,
+      googleAndroidClientId: process.env.GOOGLE_ANDROID_CLIENT_ID,
       // 민감하지 않은 설정만 여기에
     }
   }

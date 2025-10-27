@@ -12,9 +12,15 @@
  */
 
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import * as AppleAuthentication from 'expo-apple-authentication';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
+
+let appleAuth: any = null;
+if (Platform.OS === 'ios') {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const mod = require('@invertase/react-native-apple-authentication');
+  appleAuth = mod.appleAuth;
+}
 import { useAuth } from '~/features/auth/hooks/useAuth';
 import { AuthProviderType, getAuthProviderInfo } from '~/features/auth/models';
 import { userService } from '~/features/user/services/userService';
@@ -111,11 +117,16 @@ export const useAccountConnection = () => {
   }, [user, isProviderConnected, refreshUserData]);
 
   /**
-   * Apple 계정 연결
+   * Apple 계정 연결 (iOS 전용)
    */
   const connectAppleAccount = useCallback(async (): Promise<void> => {
     if (!user) {
       Alert.alert('오류', '사용자 정보를 찾을 수 없습니다.');
+      return;
+    }
+
+    if (Platform.OS !== 'ios') {
+      Alert.alert('오류', 'Apple 계정 연결은 iOS에서만 지원됩니다.');
       return;
     }
 
@@ -128,12 +139,9 @@ export const useAccountConnection = () => {
       setIsConnecting(true);
       console.log('🔗 [useAccountConnection] Apple 계정 연결 시작');
 
-      // Apple Sign-In
-      const credential = await AppleAuthentication.signInAsync({
-        requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.EMAIL,
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-        ],
+      const credential = await appleAuth.performRequest({
+        requestedOperation: appleAuth.Operation.LOGIN,
+        requestedScopes: [appleAuth.Scope.EMAIL, appleAuth.Scope.FULL_NAME],
       });
 
       if (!credential.authorizationCode) {
@@ -151,7 +159,7 @@ export const useAccountConnection = () => {
     } catch (error: any) {
       console.error('❌ [useAccountConnection] Apple 계정 연결 실패:', error);
 
-      if (error.code === 'ERR_CANCELED') {
+      if (error.code === 'ERR_CANCELED' || error.code === appleAuth?.Error?.CANCELED) {
         // 사용자가 취소한 경우 - 아무것도 안 함
         return;
       }
@@ -220,7 +228,7 @@ export const useAccountConnection = () => {
               console.log(`🔓 [useAccountConnection] ${providerInfo.displayName} 계정 연결 해제 시작`);
 
               // 계정 연결 해제 API 호출
-              await userService.disconnectAccount(user.id, account.id);
+              await userService.disconnectAccount(account.id);
 
               // 사용자 데이터 갱신
               await refreshUserData();

@@ -5,12 +5,14 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { RunningRecord } from '../models/RunningRecord';
+import type { RunningRecordItem } from '../models/RunningRecordItem';
 
 /**
  * AsyncStorage 키
  */
 const STORAGE_KEYS = {
   PENDING_UPLOADS: '@pending_running_uploads',
+  PENDING_SEGMENT_UPLOADS: '@pending_segment_uploads', // 세그먼트 업로드 대기열
   FAILED_UPLOADS: '@failed_running_uploads',
   OFFLINE_MODE: '@offline_mode',
 } as const;
@@ -22,6 +24,18 @@ interface PendingUpload {
   id: string; // UUID
   runningRecordId: number;
   data: RunningRecord;
+  timestamp: number;
+  retryCount: number;
+  lastError?: string;
+}
+
+/**
+ * 대기 중인 세그먼트 업로드 데이터
+ */
+interface PendingSegmentUpload {
+  id: string; // UUID
+  runningRecordId: number;
+  segments: RunningRecordItem[];
   timestamp: number;
   retryCount: number;
   lastError?: string;
@@ -291,6 +305,7 @@ export class OfflineStorageService {
     try {
       await AsyncStorage.multiRemove([
         STORAGE_KEYS.PENDING_UPLOADS,
+        STORAGE_KEYS.PENDING_SEGMENT_UPLOADS,
         STORAGE_KEYS.FAILED_UPLOADS,
         STORAGE_KEYS.OFFLINE_MODE,
       ]);
@@ -298,6 +313,113 @@ export class OfflineStorageService {
     } catch (error) {
       console.error('[OfflineStorage] Failed to clear offline data:', error);
     }
+  }
+
+  /**
+   * ========================================
+   * 세그먼트 업로드 관련 메서드
+   * ========================================
+   */
+
+  /**
+   * 세그먼트 업로드 대기열에 추가
+   */
+  async addPendingSegmentUpload(
+    runningRecordId: number,
+    segments: RunningRecordItem[]
+  ): Promise<void> {
+    try {
+      const pending = await this.getPendingSegmentUploads();
+
+      const newUpload: PendingSegmentUpload = {
+        id: this.generateId(),
+        runningRecordId,
+        segments,
+        timestamp: Date.now(),
+        retryCount: 0,
+      };
+
+      pending.push(newUpload);
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.PENDING_SEGMENT_UPLOADS,
+        JSON.stringify(pending)
+      );
+
+      console.log(`[OfflineStorage] Added pending segment upload: ${newUpload.id}, ${segments.length} segments`);
+    } catch (error) {
+      console.error('[OfflineStorage] Failed to add pending segment upload:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 대기 중인 세그먼트 업로드 목록 조회
+   */
+  async getPendingSegmentUploads(): Promise<PendingSegmentUpload[]> {
+    try {
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.PENDING_SEGMENT_UPLOADS);
+      return data ? JSON.parse(data) : [];
+    } catch (error) {
+      console.error('[OfflineStorage] Failed to get pending segment uploads:', error);
+      return [];
+    }
+  }
+
+  /**
+   * 세그먼트 업로드 제거
+   */
+  async removePendingSegmentUpload(uploadId: string): Promise<void> {
+    try {
+      const pending = await this.getPendingSegmentUploads();
+      const filtered = pending.filter(item => item.id !== uploadId);
+
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.PENDING_SEGMENT_UPLOADS,
+        JSON.stringify(filtered)
+      );
+
+      console.log(`[OfflineStorage] Removed pending segment upload: ${uploadId}`);
+    } catch (error) {
+      console.error('[OfflineStorage] Failed to remove pending segment upload:', error);
+    }
+  }
+
+  /**
+   * 모든 대기 중인 세그먼트 업로드 재시도
+   */
+  async retryAllPendingSegmentUploads(
+    uploadFn: (runningRecordId: number, segments: RunningRecordItem[]) => Promise<void>
+  ): Promise<{ success: number; failed: number }> {
+    const pending = await this.getPendingSegmentUploads();
+    let successCount = 0;
+    let failedCount = 0;
+
+    for (const upload of pending) {
+      try {
+        await uploadFn(upload.runningRecordId, upload.segments);
+        await this.removePendingSegmentUpload(upload.id);
+        successCount++;
+        console.log(`[OfflineStorage] Segment upload succeeded: ${upload.id}`);
+      } catch (error: any) {
+        failedCount++;
+        console.error(`[OfflineStorage] Segment upload failed: ${upload.id}`, error);
+        // TODO: 재시도 카운트 관리 (필요 시 추가)
+      }
+    }
+
+    console.log(
+      `[OfflineStorage] Segment retry all completed: ${successCount} success, ${failedCount} failed`
+    );
+
+    return { success: successCount, failed: failedCount };
+  }
+
+  /**
+   * 대기 중인 세그먼트 업로드 개수
+   */
+  async getPendingSegmentCount(): Promise<number> {
+    const pending = await this.getPendingSegmentUploads();
+    return pending.length;
   }
 }
 

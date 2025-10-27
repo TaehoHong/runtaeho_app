@@ -32,8 +32,8 @@ export class AppleAuthStrategy implements AuthProviderStrategy {
         return {
           authorizationCode: appleAuthRequestResponse.authorizationCode,
           userInfo: {
-            name: appleAuthRequestResponse.fullName?.givenName,
-            email: appleAuthRequestResponse.email,
+            name: appleAuthRequestResponse.fullName?.givenName ?? null,
+            email: appleAuthRequestResponse.email ?? null,
           }
         };
       }

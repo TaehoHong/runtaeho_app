@@ -42,7 +42,7 @@ export const userService = {
 
   /**
    * 사용자 계정 연결
-   * POST /api/v1/users/{userId}/accounts
+   * POST /api/v1/users/accounts
    */
   connectAccount: async (userId: number, provider: string, code: string): Promise<void> => {
     await apiClient.post(API_ENDPOINTS.USER.ACCOUNTS(userId), {
@@ -53,10 +53,10 @@ export const userService = {
 
   /**
    * 사용자 계정 연결 해제
-   * DELETE /api/v1/users/{userId}/accounts/{accountId}
+   * DELETE /api/v1/users/accounts/{accountId}
    */
-  disconnectAccount: async (userId: number, accountId: number): Promise<void> => {
-    await apiClient.delete(API_ENDPOINTS.USER.ACCOUNT_DISCONNECT(userId, accountId));
+  disconnectAccount: async (accountId: number): Promise<void> => {
+    await apiClient.delete(API_ENDPOINTS.USER.ACCOUNT_DISCONNECT(accountId));
   },
 
   /**

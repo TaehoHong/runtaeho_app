@@ -3,12 +3,16 @@ import type { Location } from './Location';
 /**
  * 러닝 기록 아이템 모델
  * Swift RunningRecordItem.swift에서 마이그레이션
+ *
+ * 정책: 센서 데이터(cadence, heartRate)는 수집 불가 시 null
+ * - Priority: 1. Garmin, 2. Watch(with app), 3. Phone
+ * - 모든 디바이스에서 수집 실패 시 null (UI: "--")
  */
 export interface RunningRecordItem {
   id: number;
   distance: number;
-  cadence: number;
-  heartRate: number; // Swift에서 hartRate -> heartRate로 수정
+  cadence: number | null; // null 허용 (센서 데이터 없을 때)
+  heartRate: number | null; // null 허용 (센서 데이터 없을 때)
   calories: number;
   orderIndex: number;
   durationSec: number; // TimeInterval (seconds)
@@ -25,8 +29,8 @@ export interface RunningRecordItem {
 export const createRunningRecordItem = (data: {
   id: number;
   distance: number;
-  cadence: number;
-  heartRate: number;
+  cadence: number | null; // null 허용
+  heartRate: number | null; // null 허용
   calories: number;
   orderIndex: number;
   durationSec: number;
@@ -48,12 +52,13 @@ export const createRunningRecordItem = (data: {
 /**
  * 기본 RunningRecordItem 생성 (ID만으로)
  * Swift convenience init(id:) 생성자와 동일
+ * 정책: 센서 데이터 없으면 null
  */
 export const createEmptyRunningRecordItem = (id: number): RunningRecordItem => ({
   id,
   distance: 0,
-  cadence: 0,
-  heartRate: 0,
+  cadence: null, // 센서 데이터 없음
+  heartRate: null, // 센서 데이터 없음
   calories: 0,
   orderIndex: 0,
   durationSec: 0,
@@ -117,14 +122,15 @@ export const calculateItemStats = (item: RunningRecordItem) => {
 
 /**
  * 아이템별 포맷팅
+ * 정책: null인 센서 데이터는 "--"로 표시
  */
 export const formatRunningRecordItem = (item: RunningRecordItem) => ({
   orderIndex: `#${item.orderIndex}`,
   distance: `${(item.distance / 1000).toFixed(2)} km`,
   duration: formatItemDuration(item.durationSec),
   calories: `${item.calories} kcal`,
-  cadence: `${item.cadence} spm`,
-  heartRate: `${item.heartRate} bpm`,
+  cadence: item.cadence !== null ? `${item.cadence} spm` : '--',
+  heartRate: item.heartRate !== null ? `${item.heartRate} bpm` : '--',
   uploadStatus: item.isUploaded ? 'Uploaded' : 'Pending',
 });
 

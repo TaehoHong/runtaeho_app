@@ -24,12 +24,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isNavigationReady, setIsNavigationReady] = useState(false);
 
   /**
-   * 앱 시작 시 저장된 인증 상태 복원
+   * 앱 시작 시 저장된 인증 상태 복원 및 오프라인 데이터 동기화
    *
    * 단순화된 로직:
    * 1. Zustand persist가 자동으로 AsyncStorage 복원
    * 2. SecureStorage 토큰 동기화
    * 3. 토큰 검증 (useAuth hook 사용)
+   * 4. 오프라인 러닝 데이터 자동 동기화
    */
   const initializeAuthState = useCallback(async () => {
     try {
@@ -40,13 +41,93 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await initializeTokens();
 
       // 2. 토큰 검증 및 자동 갱신 (useAuth hook)
-      await verifyAndRefreshToken();
+      const isTokenValid = await verifyAndRefreshToken();
+
+      // 3. 로그인 상태이고 토큰이 유효하면 오프라인 데이터 동기화
+      if (isTokenValid && useAuthStore.getState().isLoggedIn) {
+        await syncOfflineRunningData();
+      }
 
       console.log('✅ [AuthProvider] 인증 상태 복원 완료');
     } catch (error) {
       console.error('⚠️ [AuthProvider] 인증 상태 초기화 실패:', error);
     }
   }, [verifyAndRefreshToken]);
+
+  /**
+   * 오프라인 러닝 데이터 동기화
+   *
+   * 현재: 앱 시작 시 자동 동기화 (Option 1)
+   * TODO: 네트워크 상태 감지 후 즉시 동기화로 업그레이드 (Option 2)
+   * - @react-native-community/netinfo 설치
+   * - NetInfo.addEventListener('connectionChange', syncOfflineRunningData)
+   * - 실시간 네트워크 복구 감지 및 자동 업로드
+   */
+  const syncOfflineRunningData = async () => {
+    try {
+      const { offlineStorageService } = await import('../features/running/services/OfflineStorageService');
+      const { runningService } = await import('../features/running/services/runningService');
+
+      const pendingCount = await offlineStorageService.getPendingCount();
+      const pendingSegmentCount = await offlineStorageService.getPendingSegmentCount();
+
+      if (pendingCount === 0 && pendingSegmentCount === 0) {
+        console.log('⚪ [AuthProvider] 동기화할 오프라인 데이터 없음');
+        return;
+      }
+
+      // 1. 러닝 메인 기록 동기화
+      if (pendingCount > 0) {
+        console.log(`🔄 [AuthProvider] ${pendingCount}개의 오프라인 러닝 데이터 동기화 시작...`);
+
+        const result = await offlineStorageService.retryAllPendingUploads(
+          async (record) => {
+            await runningService.endRunning(record);
+          }
+        );
+
+        console.log(`✅ [AuthProvider] 오프라인 동기화 완료: 성공 ${result.success}, 실패 ${result.failed}`);
+
+        if (result.failed > 0) {
+          console.warn(`⚠️ [AuthProvider] ${result.failed}개의 데이터 동기화 실패 (재시도 대기 중)`);
+        }
+      }
+
+      // 2. 세그먼트 동기화
+      if (pendingSegmentCount > 0) {
+        console.log(`🔄 [AuthProvider] ${pendingSegmentCount}개의 오프라인 세그먼트 동기화 시작...`);
+
+        const segmentResult = await offlineStorageService.retryAllPendingSegmentUploads(
+          async (runningRecordId, segments) => {
+            const itemsForServer = segments.map(segment => ({
+              distance: segment.distance,
+              durationSec: segment.durationSec,
+              cadence: segment.cadence,
+              heartRate: segment.heartRate,
+              minHeartRate: segment.heartRate,
+              maxHeartRate: segment.heartRate,
+              orderIndex: segment.orderIndex,
+              startTimeStamp: segment.startTimestamp,
+              endTimeStamp: segment.startTimestamp + segment.durationSec,
+            }));
+
+            await runningService.saveRunningRecordItems({
+              runningRecordId,
+              items: itemsForServer,
+            });
+          }
+        );
+
+        console.log(`✅ [AuthProvider] 세그먼트 동기화 완료: 성공 ${segmentResult.success}, 실패 ${segmentResult.failed}`);
+
+        if (segmentResult.failed > 0) {
+          console.warn(`⚠️ [AuthProvider] ${segmentResult.failed}개의 세그먼트 동기화 실패 (재시도 대기 중)`);
+        }
+      }
+    } catch (error) {
+      console.error('❌ [AuthProvider] 오프라인 데이터 동기화 실패:', error);
+    }
+  };
 
   useEffect(() => {
     console.log('🔐 [AuthProvider] 인증 상태 초기화 시작');
@@ -81,6 +162,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log('✅ [AuthProvider] 네비게이션 성공: /(tabs)');
 
         // iOS와 동일한 권한 요청 (로그인 완료 후 한 번만)
+        // hasRequestedPermissions는 의존성 배열에서 제외하여 무한 루프 방지
         if (!hasRequestedPermissions) {
           requestPermissionsOnFirstLogin();
           setHasRequestedPermissions(true);
@@ -97,7 +179,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setTimeout(() => setIsNavigationReady(true), 200);
       }, 500);
     }
-  }, [isLoggedIn, hasRequestedPermissions, isNavigationReady]);
+  }, [isLoggedIn, isNavigationReady, setViewState]);
 
   /**
    * 로그인 완료 후 권한 요청

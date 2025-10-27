@@ -18,7 +18,8 @@ import { locationService, type LocationTrackingData } from '../services/Location
 import { backgroundTaskService } from '../services/BackgroundTaskService';
 import { offlineStorageService } from '../services/OfflineStorageService';
 import { dataSourcePriorityService } from '../services/sensors/DataSourcePriorityService';
-import { unityService } from '../../unity/services/UnityService'
+import { unityService } from '../../unity/services/UnityService';
+import { useAppStore, RunningState } from '~/stores/app/appStore';
 
 /**
  * 실시간 러닝 통계
@@ -38,26 +39,21 @@ interface RunningStats {
 }
 
 /**
- * 러닝 상태
- */
-export enum RunningState {
-  IDLE = 'idle',
-  RUNNING = 'running',
-  PAUSED = 'paused',
-  COMPLETED = 'completed',
-}
-
-/**
  * Running ViewModel
  * Swift StatsManager와 Running 관련 로직들을 React Hook으로 마이그레이션
  * LocationService와 통합하여 실제 GPS 추적 구현
+ *
+ * NOTE: RunningState는 appStore에서 전역 관리 (탭바 숨김 로직과 동기화)
  */
 export const useRunningViewModel = (isUnityReady: boolean = false) => {
-  // 현재 러닝 상태
-  const [runningState, setRunningState] = useState<RunningState>(RunningState.IDLE);
+  // 현재 러닝 상태 - appStore 사용 (탭바 숨김과 동기화)
+  const runningState = useAppStore((state) => state.runningState);
+  const setRunningState = useAppStore((state) => state.setRunningState);
   const [currentRecord, setCurrentRecord] = useState<RunningRecord | null>(null);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [elapsedTime, setElapsedTime] = useState<number>(0);
+  const [pausedDuration, setPausedDuration] = useState<number>(0); // 일시정지 누적 시간 (초)
+  const [pauseStartTime, setPauseStartTime] = useState<number | null>(null); // 일시정지 시작 시간
   const [distance, setDistance] = useState<number>(0);
   const [locations, setLocations] = useState<Location[]>([]);
   const [trackingData, setTrackingData] = useState<LocationTrackingData | null>(null);
@@ -118,18 +114,30 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     const speedKmh = distanceMeters > 0 ? (distanceMeters / elapsedSeconds) * 3.6 : 0;
 
     // 칼로리 계산 (센서 우선, 없으면 MET 공식)
+    // 정책: 심박수 있으면 Keytel 공식, 없으면 MET 공식
     let calories: number | undefined = undefined;
     if (heartRate && distanceMeters > 0) {
-      // 심박수 기반 칼로리 계산 (더 정확)
-      const weight = 70.0;
-      const hours = elapsedSeconds / 3600.0;
-      // Harris-Benedict equation 변형
-      calories = ((heartRate * 0.6309) + (weight * 0.1988) + (30 * 0.2017) - 55.0969) * hours;
+      // Keytel 공식 (운동 칼로리 계산 - 심박수 기반)
+      const weight = 70.0; // TODO: 사용자 실제 체중 사용
+      const age = 30; // TODO: 사용자 실제 나이 사용
+      const gender = 'male'; // TODO: 사용자 성별 사용
+      const minutes = elapsedSeconds / 60.0;
+
+      if (gender === 'male') {
+        // 남성: ((-55.0969 + (0.6309 × HR) + (0.1988 × W) + (0.2017 × A)) / 4.184) × 60 × T
+        calories = ((-55.0969 + (0.6309 * heartRate) + (0.1988 * weight) + (0.2017 * age)) / 4.184) * minutes;
+      } else {
+        // 여성: ((-20.4022 + (0.4472 × HR) - (0.1263 × W) + (0.074 × A)) / 4.184) × 60 × T
+        calories = ((-20.4022 + (0.4472 * heartRate) - (0.1263 * weight) + (0.074 * age)) / 4.184) * minutes;
+      }
+
+      // 음수 방지
+      calories = Math.max(0, calories);
     } else if (distanceMeters > 0) {
-      // MET 공식 (Fallback)
+      // MET 공식 (Fallback - 심박수 없을 때)
       const weight = 70.0;
       const hours = elapsedSeconds / 3600.0;
-      const met = 9.8;
+      const met = 9.8; // 러닝 MET 값
       calories = met * weight * hours;
     }
 
@@ -176,32 +184,37 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     const now = Date.now();
     const segmentDuration = (now - startTime) / 1000; // seconds
 
-    setCurrentSegmentItems(prev => {
-      const segmentCalories = Math.round((stats.calories || 0) / Math.max(1, prev.length + 1));
+    // Race condition 방지: segmentIdCounter 읽기 + 증가를 원자적으로 처리
+    setSegmentIdCounter(currentId => {
+      const segmentId = currentId;
 
-      const newSegment = createRunningRecordItem({
-        id: segmentIdCounter,
-        distance: distance,
-        cadence: stats.cadence || 0,
-        heartRate: stats.bpm || 0,
-        calories: segmentCalories,
-        orderIndex: segmentIdCounter - 1,
-        durationSec: segmentDuration,
-        startTimestamp: startTime / 1000, // Unix timestamp in seconds
-        locations: locations,
+      setCurrentSegmentItems(prev => {
+        const segmentCalories = Math.round((stats.calories || 0) / Math.max(1, prev.length + 1));
+
+        const newSegment = createRunningRecordItem({
+          id: segmentId,  // ✅ 함수형 업데이트로 읽은 안전한 ID
+          distance: distance,
+          cadence: stats.cadence ?? null, // 정책: undefined → null
+          heartRate: stats.bpm ?? null, // 정책: undefined → null
+          calories: segmentCalories,
+          orderIndex: segmentId - 1,
+          durationSec: segmentDuration,
+          startTimestamp: startTime / 1000, // Unix timestamp in seconds
+          locations: locations,
+        });
+
+        console.log(`📍 [RunningViewModel] 세그먼트 생성 완료: ${prev.length + 1}번째, ID=${segmentId}, ${distance}m`);
+        return [...prev, newSegment];
       });
 
-      console.log(`📍 [RunningViewModel] 세그먼트 생성 완료: ${prev.length + 1}번째, ${distance}m`);
-      return [...prev, newSegment];
+      return currentId + 1;  // ✅ 원자적으로 증가
     });
-
-    setSegmentIdCounter(prev => prev + 1);
 
     // 다음 세그먼트를 위한 초기화
     setSegmentStartTime(now);
     setSegmentDistance(0);
     setSegmentLocations([]);
-  }, [stats, segmentIdCounter]);
+  }, [stats]);
 
   /**
    * 최종 세그먼트 생성 (iOS finalizeCurrentSegment 대응)
@@ -211,24 +224,34 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     if (segmentDistance > 0 && segmentStartTime !== null) {
       const now = Date.now();
       const segmentDuration = (now - segmentStartTime) / 1000;
-      const segmentCalories = Math.round((stats.calories || 0) / Math.max(1, currentSegmentItems.length + 1));
 
-      const finalSegment = createRunningRecordItem({
-        id: segmentIdCounter,
-        distance: segmentDistance,
-        cadence: stats.cadence || 0,
-        heartRate: stats.bpm || 0,
-        calories: segmentCalories,
-        orderIndex: segmentIdCounter - 1,
-        durationSec: segmentDuration,
-        startTimestamp: segmentStartTime / 1000,
-        locations: segmentLocations,
+      // Race condition 방지: segmentIdCounter 읽기 + 증가를 원자적으로 처리
+      setSegmentIdCounter(currentId => {
+        const segmentId = currentId;
+
+        setCurrentSegmentItems(prev => {
+          const segmentCalories = Math.round((stats.calories || 0) / Math.max(1, prev.length + 1));
+
+          const finalSegment = createRunningRecordItem({
+            id: segmentId,  // ✅ 함수형 업데이트로 읽은 안전한 ID
+            distance: segmentDistance,
+            cadence: stats.cadence ?? null, // 정책: undefined → null
+            heartRate: stats.bpm ?? null, // 정책: undefined → null
+            calories: segmentCalories,
+            orderIndex: segmentId - 1,
+            durationSec: segmentDuration,
+            startTimestamp: segmentStartTime / 1000,
+            locations: segmentLocations,
+          });
+
+          console.log(`📍 [RunningViewModel] 최종 세그먼트 생성: ID=${segmentId}, ${segmentDistance}m`);
+          return [...prev, finalSegment];
+        });
+
+        return currentId + 1;  // ✅ 원자적으로 증가
       });
-
-      setCurrentSegmentItems(prev => [...prev, finalSegment]);
-      console.log(`📍 [RunningViewModel] 최종 세그먼트 생성: ${segmentDistance}m`);
     }
-  }, [segmentDistance, segmentStartTime, segmentLocations, stats, segmentIdCounter, currentSegmentItems.length]);
+  }, [segmentDistance, segmentStartTime, segmentLocations, stats]);
 
   /**
    * 세그먼트 추적 초기화 (iOS initializeSegmentTracking 대응)
@@ -243,10 +266,21 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
   }, []);
 
   /**
-   * LocationService 구독 설정
+   * LocationService 구독 설정 (포그라운드 모드 전용)
+   *
+   * 중요: 백그라운드 모드가 활성화되면 이 구독은 비활성화됩니다.
+   * 백그라운드 모드에서는 BackgroundTaskService가 GPS를 관리하고,
+   * 포그라운드 폴링(lines 309-451)이 AsyncStorage에서 데이터를 읽어옵니다.
+   *
    * GPS 위치 업데이트 시 거리 및 통계 갱신
    */
   useEffect(() => {
+    // 백그라운드 모드가 활성화되면 GPS 구독 비활성화 (중복 방지)
+    if (useBackgroundMode) {
+      console.log('[RunningViewModel] GPS 구독 비활성화 (백그라운드 모드 사용 중)');
+      return;
+    }
+
     let previousDistance = 0;
     let currentSegmentDist = 0;
     let currentSegmentLocs: Location[] = [];
@@ -256,7 +290,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
       setLocations(prev => [...prev, location]);
 
       // 세그먼트에 위치 추가 (러닝 중일 때만)
-      if (runningState === RunningState.RUNNING) {
+      if (runningState === RunningState.Running) {
         currentSegmentLocs.push(location);
         setSegmentLocations(prev => [...prev, location]);
       }
@@ -268,7 +302,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
       setDistance(data.totalDistance);
 
       // 거리 변화 감지 및 세그먼트 업데이트
-      if (runningState === RunningState.RUNNING) {
+      if (runningState === RunningState.Running) {
         const distanceDelta = data.totalDistance - previousDistance;
         if (distanceDelta > 0) {
           currentSegmentDist += distanceDelta;
@@ -285,31 +319,36 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
       }
     });
 
+    console.log('[RunningViewModel] GPS 구독 활성화 (포그라운드 모드)');
+
     return () => {
       unsubscribeLocation();
       unsubscribeTracking();
+      console.log('[RunningViewModel] GPS 구독 해제');
     };
-  }, [locationService, runningState, createSegment, segmentDistanceThreshold, segmentStartTime]);
+  }, [locationService, runningState, createSegment, segmentDistanceThreshold, segmentStartTime, useBackgroundMode]);
 
-  // 타이머 인터벌
+  // 타이머 인터벌 (일시정지 시간 제외한 실제 러닝 시간 계산)
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
 
-    if (runningState === RunningState.RUNNING && startTime) {
+    if (runningState === RunningState.Running && startTime) {
       interval = setInterval(() => {
         const now = Date.now();
-        const elapsed = Math.floor((now - startTime) / 1000);
-        setElapsedTime(elapsed);
+        const totalElapsed = Math.floor((now - startTime) / 1000);
+        // 일시정지 시간을 제외한 실제 러닝 시간
+        const actualElapsed = totalElapsed - pausedDuration;
+        setElapsedTime(actualElapsed);
 
         // 실시간 통계 업데이트 (센서 데이터 포함)
-        updateStats(distance, elapsed, sensorHeartRate, sensorCadence);
+        updateStats(distance, actualElapsed, sensorHeartRate, sensorCadence);
       }, 1000);
     }
 
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [runningState, startTime, distance, sensorHeartRate, sensorCadence, updateStats]);
+  }, [runningState, startTime, distance, sensorHeartRate, sensorCadence, pausedDuration, updateStats]);
 
   // 백그라운드 모드: 앱이 포그라운드일 때만 AsyncStorage에서 거리 폴링 + 세그먼트 생성
   useEffect(() => {
@@ -336,64 +375,56 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
             setSegmentDistance(currentSegmentDist);
 
             // 10m 달성 시 세그먼트 생성
-            if (currentSegmentDist >= segmentDistanceThreshold) {
+            if (currentSegmentDist >= segmentDistanceThreshold && segmentStartTime !== null) {
               // 현재 거리를 상수에 저장 (초기화 전에 값 보존)
               const segmentDistanceValue = currentSegmentDist;
+              const now = Date.now();
+              const segmentDuration = (now - segmentStartTime) / 1000; // seconds
 
-              // segmentStartTime을 현재 시점에서 가져오기 (ref가 아닌 state 직접 참조)
-              setSegmentStartTime((currentSegmentStartTime) => {
-                if (currentSegmentStartTime === null) return currentSegmentStartTime;
+              // 새로 추가된 위치들만 추출 (이전에 처리한 위치 이후부터)
+              const newLocations = allLocations.slice(lastProcessedLocationCount);
 
-                const now = Date.now();
-                const segmentDuration = (now - currentSegmentStartTime) / 1000; // seconds
+              // Location 형식으로 변환
+              const segmentLocs: Location[] = newLocations.map(loc => ({
+                latitude: loc.latitude,
+                longitude: loc.longitude,
+                altitude: loc.altitude,
+                accuracy: loc.accuracy,
+                speed: loc.speed,
+                timestamp: new Date(loc.timestamp),
+              }));
 
-                // 새로 추가된 위치들만 추출 (이전에 처리한 위치 이후부터)
-                const newLocations = allLocations.slice(lastProcessedLocationCount);
-
-                // Location 형식으로 변환
-                const segmentLocs: Location[] = newLocations.map(loc => ({
-                  latitude: loc.latitude,
-                  longitude: loc.longitude,
-                  altitude: loc.altitude,
-                  accuracy: loc.accuracy,
-                  speed: loc.speed,
-                  timestamp: new Date(loc.timestamp),
-                }));
-
-                // 세그먼트 생성 (statsRef.current 사용하여 최신 stats 참조)
-                // 먼저 현재 segmentIdCounter를 가져오기 위해 함수형 업데이트 사용
-                let createdSegmentId = 0;
-                setSegmentIdCounter(currentId => {
-                  createdSegmentId = currentId;
-                  return currentId + 1; // segmentIdCounter 증가
-                });
-
-                // 가져온 ID로 세그먼트 생성
+              // 세그먼트 생성 (React 안티패턴 방지: 중첩 setState 제거)
+              // ID 가져오기 + 세그먼트 생성 + ID 증가를 atomic하게 처리
+              setSegmentIdCounter(currentId => {
+                const segmentId = currentId;
                 const currentStats = statsRef.current; // 최신 stats 가져오기
+
                 setCurrentSegmentItems(prev => {
                   const segmentCalories = Math.round((currentStats.calories || 0) / Math.max(1, prev.length + 1));
 
                   const newSegment = createRunningRecordItem({
-                    id: createdSegmentId,
-                    distance: segmentDistanceValue,  // 👈 저장된 값 사용
+                    id: segmentId,
+                    distance: segmentDistanceValue,
                     cadence: currentStats.cadence || 0,
                     heartRate: currentStats.bpm || 0,
                     calories: segmentCalories,
-                    orderIndex: createdSegmentId - 1,
+                    orderIndex: segmentId - 1,
                     durationSec: segmentDuration,
-                    startTimestamp: currentSegmentStartTime / 1000,
+                    startTimestamp: segmentStartTime / 1000,
                     locations: segmentLocs,
                   });
 
-                  console.log(`📍 [RunningViewModel] 세그먼트 생성 완료 (백그라운드): ${prev.length + 1}번째, ${segmentDistanceValue.toFixed(2)}m`);
+                  console.log(`📍 [RunningViewModel] 세그먼트 생성 완료 (백그라운드): ${prev.length + 1}번째, ID=${segmentId}, ${segmentDistanceValue.toFixed(2)}m`);
 
                   return [...prev, newSegment];
                 });
 
-                return now; // segmentStartTime 업데이트
+                return currentId + 1; // segmentIdCounter 증가
               });
 
-              // 다음 세그먼트를 위한 초기화 (setSegmentStartTime 외부에서 실행)
+              // 다음 세그먼트를 위한 초기화
+              setSegmentStartTime(now);
               currentSegmentDist = 0;
               setSegmentDistance(0);
               setSegmentLocations([]);
@@ -436,7 +467,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       console.log(`[RunningViewModel] App state changed: ${nextAppState}`);
 
-      if (runningState === RunningState.RUNNING && useBackgroundMode) {
+      if (runningState === RunningState.Running && useBackgroundMode) {
         if (nextAppState === 'active') {
           startPolling(); // 포그라운드로 돌아오면 폴링 시작
         } else {
@@ -446,7 +477,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     });
 
     // 초기 상태: 백그라운드 모드 + 러닝 중 + 앱이 포그라운드일 때 폴링 시작
-    if (runningState === RunningState.RUNNING && useBackgroundMode && AppState.currentState === 'active') {
+    if (runningState === RunningState.Running && useBackgroundMode && AppState.currentState === 'active') {
       startPolling();
     }
 
@@ -463,7 +494,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     // Unity가 준비되지 않았으면 대기
     if (!isUnityReady) return;
 
-    if(runningState == RunningState.RUNNING) {
+    if(runningState === RunningState.Running) {
       unityService.setCharacterSpeed(stats.speed)
     } else {
       unityService.stopCharacter()
@@ -491,9 +522,11 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
       setCurrentRecord(record);
       setStartTime(Date.now());
       setElapsedTime(0);
+      setPausedDuration(0); // 일시정지 시간 초기화
+      setPauseStartTime(null); // 일시정지 시작 시간 초기화
       setDistance(0);
       setLocations([]);
-      setRunningState(RunningState.RUNNING);
+      setRunningState(RunningState.Running);
 
       // 3. GPS 추적 시작
       if (useBackgroundMode) {
@@ -544,30 +577,39 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
       const dummyRecord = createRunningRecord(0);
       setCurrentRecord(dummyRecord);
       setStartTime(Date.now());
-      setRunningState(RunningState.RUNNING);
+      setRunningState(RunningState.Running);
       return dummyRecord;
     }
   }, [startRunningMutation, locationService, backgroundTaskService, dataSourcePriorityService, useBackgroundMode, initializeSegmentTracking]);
 
   /**
    * 러닝 일시정지
-   * LocationService GPS 추적 일시정지
+   * LocationService GPS 추적 일시정지 + 일시정지 시간 기록
    */
   const pauseRunning = useCallback(() => {
     locationService.pauseTracking();
-    setRunningState(RunningState.PAUSED);
+    setPauseStartTime(Date.now()); // 일시정지 시작 시간 기록
+    setRunningState(RunningState.Paused);
     console.log('[RunningViewModel] Running paused, GPS tracking paused');
   }, [locationService]);
 
   /**
    * 러닝 재개
-   * LocationService GPS 추적 재개
+   * LocationService GPS 추적 재개 + 일시정지 시간 누적
    */
   const resumeRunning = useCallback(() => {
+    if (pauseStartTime) {
+      const now = Date.now();
+      const pauseDuration = Math.floor((now - pauseStartTime) / 1000); // 이번 일시정지 시간 (초)
+      setPausedDuration((prev) => prev + pauseDuration); // 누적
+      setPauseStartTime(null);
+      console.log(`[RunningViewModel] Paused for ${pauseDuration}s, total paused: ${pausedDuration + pauseDuration}s`);
+    }
+
     locationService.resumeTracking();
-    setRunningState(RunningState.RUNNING);
+    setRunningState(RunningState.Running);
     console.log('[RunningViewModel] Running resumed, GPS tracking resumed');
-  }, [locationService]);
+  }, [locationService, pauseStartTime, pausedDuration]);
 
   /**
    * 러닝 종료
@@ -615,10 +657,11 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
       });
 
       // 3. 최종 기록 업데이트
+      // 정책: 센서 데이터 없으면 null (not 0)
       const finalRecord = updateRunningRecord(currentRecord, {
         distance: Math.round(finalDistance), // GPS 기반 거리
-        cadence: stats.cadence || 0, // 센서 데이터 (없으면 0)
-        heartRate: stats.bpm || 0, // 센서 데이터 (없으면 0)
+        cadence: stats.cadence ?? null, // 정책: undefined → null
+        heartRate: stats.bpm ?? null, // 정책: undefined → null
         calorie: stats.calories ? Math.round(stats.calories) : 0, // 계산값 (없으면 0)
         durationSec: elapsedTime,
       });
@@ -627,7 +670,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
       try {
         const endRecord = await endRunningMutation(finalRecord);
         setLastEndedRecord(endRecord); // Finished 화면에서 사용할 최종 기록 저장
-        setRunningState(RunningState.COMPLETED);
+        setRunningState(RunningState.Finished);
         console.log('[RunningViewModel] Running completed, data sent to server');
 
         // 5. RunningRecordItems를 비동기로 전송 (iOS Task.detached 패턴)
@@ -654,8 +697,19 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
             .then(() => {
               console.log(`📤 [RunningViewModel] ${currentSegmentItems.length}개 세그먼트 비동기 업로드 완료`);
             })
-            .catch((error) => {
-              console.warn('⚠️ [RunningViewModel] 세그먼트 비동기 업로드 실패:', error);
+            .catch(async (error) => {
+              console.warn('⚠️ [RunningViewModel] 세그먼트 비동기 업로드 실패, 오프라인 저장:', error);
+
+              // 세그먼트 업로드 실패 시 오프라인 저장
+              try {
+                await offlineStorageService.addPendingSegmentUpload(
+                  currentRecord.id,
+                  currentSegmentItems
+                );
+                console.log(`💾 [RunningViewModel] ${currentSegmentItems.length}개 세그먼트 오프라인 저장 완료`);
+              } catch (offlineError) {
+                console.error('❌ [RunningViewModel] 세그먼트 오프라인 저장 실패:', offlineError);
+              }
             });
         }
 
@@ -669,7 +723,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
         // 네트워크 에러 시 오프라인 저장
         console.warn('[RunningViewModel] API failed, saving offline:', apiError.message);
         await offlineStorageService.addPendingUpload(currentRecord.id, finalRecord);
-        setRunningState(RunningState.COMPLETED);
+        setRunningState(RunningState.Finished);
 
         // 일단 완료로 처리 (나중에 재시도)
         return null;
@@ -706,10 +760,11 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     if (!currentRecord) return;
 
     try {
+      // 정책: 센서 데이터 없으면 null (not 0)
       const updatedRecord = updateRunningRecord(currentRecord, {
         distance,
-        heartRate: stats.bpm || 0,
-        cadence: stats.cadence || 0,
+        heartRate: stats.bpm ?? null, // 정책: undefined → null
+        cadence: stats.cadence ?? null, // 정책: undefined → null
         calorie: stats.calories ? Math.round(stats.calories) : 0,
         durationSec: elapsedTime,
       });
@@ -739,7 +794,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
    * 러닝 초기화
    */
   const resetRunning = useCallback(() => {
-    setRunningState(RunningState.IDLE);
+    setRunningState(RunningState.Stopped);
     setCurrentRecord(null);
     setStartTime(null);
     setElapsedTime(0);
@@ -797,9 +852,9 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     formatPace,
 
     // Computed values
-    isRunning: runningState === RunningState.RUNNING,
-    isPaused: runningState === RunningState.PAUSED,
-    isCompleted: runningState === RunningState.COMPLETED,
+    isRunning: runningState === RunningState.Running,
+    isPaused: runningState === RunningState.Paused,
+    isCompleted: runningState === RunningState.Finished,
     gpsAccuracy: trackingData?.accuracy || 0,
     currentSpeed: trackingData?.currentSpeed || 0,
     averageSpeed: trackingData?.averageSpeed || 0,

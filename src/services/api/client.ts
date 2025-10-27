@@ -77,13 +77,24 @@ export const apiUtils = {
 // ---- Interceptor Registration Order ----
 httpRequestLogging(apiClient);
 
-apiClient.interceptors.request.use((config) => {
-  const token = useAuthStore.getState().accessToken;
-  if(__DEV__) console.debug('[API_CLIENT] add Token to Headers token: ', token)
+// 토큰 자동 추가 및 사전 갱신 인터셉터
+apiClient.interceptors.request.use(async (config) => {
   const needsAuth = config.headers?.['x-requires-auth'] !== 'false'; // 기본: 필요, 옵션으로 끔
-  if (needsAuth && token) {
-    config.headers.Authorization = `Bearer ${token}`;
+
+  if (needsAuth) {
+    // 사전 토큰 검증 및 갱신 (TokenRefreshInterceptor)
+    const { tokenRefreshInterceptor } = await import('~/shared/services/TokenRefreshInterceptor');
+    await tokenRefreshInterceptor.validateAndRefreshIfNeeded();
+
+    // 최신 토큰 가져오기
+    const token = useAuthStore.getState().accessToken;
+    if(__DEV__) console.debug('[API_CLIENT] add Token to Headers token: ', token)
+
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
+
   return config;
 });
 
