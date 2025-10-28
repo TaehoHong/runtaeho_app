@@ -264,7 +264,7 @@ interface AuthState {
 ### API Client (`src/services/api/client.ts`)
 ```typescript
 const apiClient = axios.create({
-  baseURL: APP_CONFIG.API_BASE_URL,  // http://localhost:8080/api/v1
+  baseURL: APP_CONFIG.API_BASE_URL,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',

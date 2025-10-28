@@ -1,8 +1,10 @@
-import 'dotenv/config';
+// Environment-specific configuration
+// .env.local (로컬 개발), .env.dev (개발 서버), .env.prod (운영)
+const ENV = process.env.EXPO_PUBLIC_ENV || 'local';
 
 export default {
   expo: {
-    name: "app",
+    name: ENV === 'production' ? 'RunTaeho' : `RunTaeho (${ENV})`,
     slug: "app",
     version: "1.0.0",
     orientation: "portrait",
@@ -13,7 +15,9 @@ export default {
     assetBundlePatterns: ["**/*"],
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.hongtaeho.app",
+      bundleIdentifier: ENV === 'production'
+        ? "com.hongtaeho.app"
+        : `com.hongtaeho.app.${ENV}`,
       usesAppleSignIn: true,
       appleTeamId: "Y9XN2ZQ9G3",
       infoPlist: {
@@ -31,7 +35,9 @@ export default {
       },
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
-      package: "com.hongtaeho.app",
+      package: ENV === 'production'
+        ? "com.hongtaeho.app"
+        : `com.hongtaeho.app.${ENV}`,
       permissions: [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
@@ -72,8 +78,8 @@ export default {
       [
         "@react-native-google-signin/google-signin",
         {
-          iosUrlScheme: process.env.GOOGLE_IOS_CLIENT_ID ?
-            `com.googleusercontent.apps.${process.env.GOOGLE_IOS_CLIENT_ID.split('-')[0]}-${process.env.GOOGLE_IOS_CLIENT_ID.split('-')[1]}` :
+          iosUrlScheme: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?
+            `com.googleusercontent.apps.${process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID.split('-')[0]}-${process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID.split('-')[1]}` :
             "com.googleusercontent.apps.620303212609-581f7f3bgj104gtaermbtjqqf8u6khb8"
         }
       ],
@@ -90,10 +96,13 @@ export default {
     },
     extra: {
       // 앱에서 접근 가능한 환경변수
-      apiBaseUrl: process.env.API_BASE_URL,
-      googleIosClientId: process.env.GOOGLE_IOS_CLIENT_ID,
-      googleServerClientId: process.env.GOOGLE_SERVER_CLIENT_ID,
-      googleAndroidClientId: process.env.GOOGLE_ANDROID_CLIENT_ID,
+      env: ENV,
+      apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL,
+      googleIosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+      googleServerClientId: process.env.EXPO_PUBLIC_GOOGLE_SERVER_CLIENT_ID,
+      googleAndroidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+      enableDebug: process.env.EXPO_PUBLIC_ENABLE_DEBUG === 'true',
+      enableLogging: process.env.EXPO_PUBLIC_ENABLE_LOGGING === 'true',
       // 민감하지 않은 설정만 여기에
     }
   }

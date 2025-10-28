@@ -76,7 +76,7 @@ export class SilentTokenRefreshService {
     }
 
     // API 호출 - Backend AuthController 스펙: 'Refresh' 헤더에 Bearer 토큰
-    const apiUrl = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:8080/api/v1';
+    const apiUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
     const response = await fetch(`${apiUrl}/auth/refresh`, {
       method: 'POST',
       headers: {

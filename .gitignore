@@ -40,9 +40,11 @@ google-services.json
 *.keystore
 *.jks
 
-# environment files
+# environment files (keep templates, ignore actual config)
 .env
 .env.local
+.env.dev
+.env.prod
 .env.development
 .env.production
 .env.staging
@@ -59,11 +61,18 @@ secrets/
 # API keys and tokens
 api-keys.json
 tokens.json
+google-services-key.json
+
+# EAS
+.eas/
+
+/.serena
+.env
 
 # typescript
 *.tsbuildinfo
 app-example
 
 # generated native folders
-/ios
-/android
+# /ios
+# /android

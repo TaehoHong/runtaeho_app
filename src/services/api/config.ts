@@ -2,9 +2,29 @@
  * API Configuration
  */
 
+// Environment-aware API configuration
+const getApiBaseUrl = (): string => {
+  const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
+
+  if (!baseUrl) {
+    console.warn('⚠️ EXPO_PUBLIC_API_BASE_URL not set, using localhost');
+    return 'http://localhost:8080/api/v1';
+  }
+
+  return baseUrl;
+};
+
+const isLoggingEnabled = (): boolean => {
+  const enableLogging = process.env.EXPO_PUBLIC_ENABLE_LOGGING;
+  return enableLogging === 'true' || __DEV__;
+};
+
 export const API_CONFIG = {
-  // Base URL
-  BASE_URL: process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:8080/api/v1',
+  // Base URL (from environment)
+  BASE_URL: getApiBaseUrl(),
+
+  // Environment
+  ENV: process.env.EXPO_PUBLIC_ENV || 'local',
 
   // Timeout 설정
   TIMEOUT: 30000, // 30초
@@ -29,10 +49,10 @@ export const API_CONFIG = {
 
   // Logging 설정
   LOGGING: {
-    ENABLED: __DEV__, // 개발 환경에서만 활성화
-    LOG_REQUEST: true,
-    LOG_RESPONSE: true,
-    LOG_ERROR: true,
+    ENABLED: isLoggingEnabled(),
+    LOG_REQUEST: isLoggingEnabled(),
+    LOG_RESPONSE: isLoggingEnabled(),
+    LOG_ERROR: true, // Error는 항상 로깅
   },
 } as const;
 
