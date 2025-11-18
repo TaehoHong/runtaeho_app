@@ -16,8 +16,8 @@ export default {
     ios: {
       supportsTablet: true,
       bundleIdentifier: ENV === 'production'
-        ? "com.hongtaeho.app"
-        : `com.hongtaeho.app.${ENV}`,
+        ? "com.runtaeho.runtaeho"
+        : `com.runtaeho.runtaeho.${ENV}`,
       usesAppleSignIn: true,
       appleTeamId: "Y9XN2ZQ9G3",
       infoPlist: {
@@ -36,8 +36,8 @@ export default {
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
       package: ENV === 'production'
-        ? "com.hongtaeho.app"
-        : `com.hongtaeho.app.${ENV}`,
+        ? "com.runtaeho.runtaeho"
+        : `com.runtaeho.runtaeho.${ENV}`,
       permissions: [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
