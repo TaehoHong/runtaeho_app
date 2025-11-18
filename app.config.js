@@ -97,13 +97,15 @@ export default {
     extra: {
       // 앱에서 접근 가능한 환경변수
       env: ENV,
-      apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL,
-      googleIosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-      googleServerClientId: process.env.EXPO_PUBLIC_GOOGLE_SERVER_CLIENT_ID,
-      googleAndroidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+      apiBaseUrl: process.env.API_BASE_URL,
+      googleIosClientId: process.env.GOOGLE_IOS_CLIENT_ID,
+      googleServerClientId: process.env.GOOGLE_SERVER_CLIENT_ID,
+      googleAndroidClientId: process.env.GOOGLE_ANDROID_CLIENT_ID,
       enableDebug: process.env.EXPO_PUBLIC_ENABLE_DEBUG === 'true',
       enableLogging: process.env.EXPO_PUBLIC_ENABLE_LOGGING === 'true',
-      // 민감하지 않은 설정만 여기에
+      eas: {
+        projectId: "7fee86d0-4b4a-4da3-8926-d8b06ee84699",
+      }
     }
   }
 };

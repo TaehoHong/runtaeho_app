@@ -508,13 +508,30 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
    */
   const startRunning = useCallback(async () => {
     try {
-      // 1. GPS 권한 확인 및 요청
-      const hasPermission = await locationService.checkPermissions();
-      if (!hasPermission) {
-        const permission = await locationService.requestPermissions();
-        if (permission.status !== 'granted') {
-          throw new Error('Location permission required');
-        }
+      // 1. GPS 권한 플로우 실행 (새로운 Permission 시스템)
+      // - Foreground Location (필수)
+      // - Background Location (권장, 거부 시 Foreground만으로 진행)
+      // - Notification (선택)
+      const { permissionManager } = await import('~/features/permissions');
+
+      const flowResult = await permissionManager.executeFlow('running_start');
+
+      if (flowResult.aborted) {
+        // Foreground 권한 거부로 플로우 중단
+        throw new Error('Location permission required');
+      }
+
+      // Background 권한 상태 확인
+      const hasBackgroundPermission = flowResult.completedSteps.some(
+        (step) =>
+          step.type === 'LOCATION_BACKGROUND' && step.status === 'granted'
+      );
+
+      if (!hasBackgroundPermission) {
+        console.warn(
+          '[RunningViewModel] Background permission not granted, using foreground only'
+        );
+        // Foreground만으로 계속 진행
       }
 
       // 2. 백엔드 API: 러닝 시작

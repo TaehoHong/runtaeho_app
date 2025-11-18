@@ -71,7 +71,7 @@ export class AuthenticationService {
       const duration = Date.now() - startTime;
 
       useAuthStore.getState().setAccessToken(result.accessToken);
-      useAuthStore.getState().setAccessToken(result.refreshToken);
+      useAuthStore.getState().setRefreshToken(result.refreshToken);
       tokenStorage.saveTokens(result.accessToken, result.refreshToken)
 
 

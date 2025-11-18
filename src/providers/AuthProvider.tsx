@@ -182,7 +182,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [isLoggedIn, isNavigationReady, setViewState]);
 
   /**
-   * 로그인 완료 후 권한 요청
+   * 로그인 완료 후 권한 요청 (새로운 Permission 시스템 사용)
+   *
+   * 개선 사항:
+   * - Strategy Pattern 기반 권한 관리
+   * - 선언적 플로우 설정
+   * - 권한 상태 영구 저장
+   * - 에러 처리 강화
    */
   const requestPermissionsOnFirstLogin = async () => {
     try {
@@ -191,24 +197,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // 메인 스레드에서 권한 요청을 지연 실행
       setTimeout(async () => {
         try {
-          // 동적 import로 권한 모듈 로드
-          const [Location, Notifications] = await Promise.all([
-            import('expo-location'),
-            import('expo-notifications')
-          ]);
+          // 새로운 Permission 시스템 사용
+          const { permissionManager } = await import(
+            '../features/permissions'
+          );
 
-          // 위치 권한 요청 (러닝 앱에 필수)
-          const { status: locationStatus } = await Location.requestForegroundPermissionsAsync();
-          console.log('📍 [AuthProvider] 위치 권한 상태:', locationStatus);
+          // 로그인 플로우 실행 (Foreground Location만 필수)
+          const result = await permissionManager.executeFlow('login');
 
-          // 알림 권한 요청
-          const { status: notificationStatus } = await Notifications.requestPermissionsAsync();
-          console.log('🔔 [AuthProvider] 알림 권한 상태:', notificationStatus);
+          if (result.success) {
+            console.log('✅ [AuthProvider] 로그인 권한 플로우 성공');
+          } else if (result.aborted) {
+            console.warn(
+              '⚠️ [AuthProvider] 로그인 권한 플로우 중단:',
+              result.failedStep?.step.permission
+            );
+            // TODO: 사용자에게 권한 필요 안내 (Modal 등)
+          } else {
+            console.log(
+              '📍 [AuthProvider] 로그인 권한 플로우 완료 (일부 실패)',
+              result.completedSteps.map((s) => `${s.type}: ${s.status}`)
+            );
+          }
         } catch (error) {
           console.error('⚠️ [AuthProvider] 권한 요청 실패:', error);
         }
       }, 1000);
-
     } catch (error) {
       console.error('⚠️ [AuthProvider] 권한 요청 스케줄링 실패:', error);
     }

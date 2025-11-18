@@ -1,60 +1,21 @@
 {
   "cli": {
-    "version": ">= 13.2.0",
+    "version": ">= 16.27.0",
     "appVersionSource": "remote"
   },
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal",
-      "env": {
-        "EXPO_PUBLIC_ENV": "development"
-      },
-      "ios": {
-        "simulator": true,
-        "bundleIdentifier": "com.hongtaeho.app.development"
-      },
-      "android": {
-        "buildType": "apk",
-        "gradleCommand": ":app:assembleDebug"
-      }
+      "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal",
-      "env": {
-        "EXPO_PUBLIC_ENV": "development"
-      },
-      "ios": {
-        "simulator": false,
-        "bundleIdentifier": "com.hongtaeho.app.development"
-      },
-      "android": {
-        "buildType": "apk"
-      }
+      "distribution": "internal"
     },
     "production": {
-      "env": {
-        "EXPO_PUBLIC_ENV": "production"
-      },
-      "ios": {
-        "bundleIdentifier": "com.hongtaeho.app"
-      },
-      "android": {
-        "buildType": "app-bundle"
-      }
+      "autoIncrement": true
     }
   },
   "submit": {
-    "production": {
-      "ios": {
-        "appleId": "YOUR_APPLE_ID@example.com",
-        "ascAppId": "YOUR_ASC_APP_ID",
-        "appleTeamId": "Y9XN2ZQ9G3"
-      },
-      "android": {
-        "serviceAccountKeyPath": "./google-services-key.json",
-        "track": "internal"
-      }
-    }
+    "production": {}
   }
 }
