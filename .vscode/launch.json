@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "C/C++ Runner: Debug Session",
+      "type": "lldb",
+      "request": "launch",
+      "args": [],
+      "cwd": "/Users/hongtaeho/running/runtaeho_app/ios/unity/Il2CppOutputProject/IL2CPP/external/mono/mono/metadata",
+      "program": "/Users/hongtaeho/running/runtaeho_app/ios/unity/Il2CppOutputProject/IL2CPP/external/mono/mono/metadata/build/Debug/outDebug"
+    }
+  ]
+}

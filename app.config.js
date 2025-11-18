@@ -14,6 +14,7 @@ export default {
     newArchEnabled: true,
     assetBundlePatterns: ["**/*"],
     ios: {
+      icon: "./assets/images/icon.png",
       supportsTablet: true,
       bundleIdentifier: ENV === 'production'
         ? "com.runtaeho.runtaeho"
@@ -102,10 +103,7 @@ export default {
       googleServerClientId: process.env.GOOGLE_SERVER_CLIENT_ID,
       googleAndroidClientId: process.env.GOOGLE_ANDROID_CLIENT_ID,
       enableDebug: process.env.EXPO_PUBLIC_ENABLE_DEBUG === 'true',
-      enableLogging: process.env.EXPO_PUBLIC_ENABLE_LOGGING === 'true',
-      eas: {
-        projectId: "7fee86d0-4b4a-4da3-8926-d8b06ee84699",
-      }
+      enableLogging: process.env.EXPO_PUBLIC_ENABLE_LOGGING === 'true'
     }
   }
 };
