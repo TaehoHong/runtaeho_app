@@ -8,3 +8,4 @@ export { ShoeSelectionArea } from '../../../features/running/views/shoe-selectio
 export { StatsView } from '../../../features/running/views/stats-view';
 export { LoadingView } from './LoadingView';
 export { MainDistanceCard } from '../../../features/running/views/components/main-distance-card';
+export { AddShoeCard } from '../../../features/running/views/components/add-shoe-card';

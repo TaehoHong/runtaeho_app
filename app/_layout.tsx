@@ -46,6 +46,13 @@ export default Sentry.wrap(function RootLayout() {
                 }}
               />
               <Stack.Screen
+                name="shoes/add-shoe"
+                options={{
+                  headerShown: false,
+                  presentation: 'modal'
+                }}
+              />
+              <Stack.Screen
                 name="user"
                 options={{
                   headerShown: false

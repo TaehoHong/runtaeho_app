@@ -24,9 +24,13 @@ const bucketSidePadding = Math.round((screenWidth - BUCKET) / 2);
 
 interface ShoeSelectionAreaProps {
   onShoeSelect?: (shoeId: number) => void;
+  initialSelectedShoeId?: number | null;
 }
 
-export const ShoeSelectionArea: React.FC<ShoeSelectionAreaProps> = ({ onShoeSelect }) => {
+export const ShoeSelectionArea: React.FC<ShoeSelectionAreaProps> = ({
+  onShoeSelect,
+  initialSelectedShoeId
+}) => {
   // 신발 데이터 가져오기
   const { shoes, mainShoe, isLoadingShoes } = useShoeViewModel();
 
@@ -40,9 +44,23 @@ export const ShoeSelectionArea: React.FC<ShoeSelectionAreaProps> = ({ onShoeSele
   }, [shoes]);
 
 
-  // 메인 신발을 기본 선택으로 설정
+  // initialSelectedShoeId가 있으면 해당 신발로 스크롤
   useEffect(() => {
-    if (mainShoe && selectedShoeId === null) {
+    if (initialSelectedShoeId && selectedShoeId === null) {
+      const targetIndex = availableShoes.findIndex(shoe => shoe.id === initialSelectedShoeId);
+      if (targetIndex !== -1) {
+        setSelectedShoeId(initialSelectedShoeId);
+        scrollViewRef.current?.scrollTo({
+          x: targetIndex * BUCKET,
+          animated: true,
+        });
+      }
+    }
+  }, [initialSelectedShoeId, selectedShoeId, availableShoes]);
+
+  // 메인 신발을 기본 선택으로 설정 (initialSelectedShoeId가 없을 때만)
+  useEffect(() => {
+    if (mainShoe && selectedShoeId === null && !initialSelectedShoeId) {
       setSelectedShoeId(mainShoe.id);
       // 메인 신발의 인덱스로 스크롤
       const mainShoeIndex = availableShoes.findIndex(shoe => shoe.id === mainShoe.id);
@@ -53,7 +71,7 @@ export const ShoeSelectionArea: React.FC<ShoeSelectionAreaProps> = ({ onShoeSele
         });
       }
     }
-  }, [mainShoe, selectedShoeId, availableShoes]);
+  }, [mainShoe, selectedShoeId, availableShoes, initialSelectedShoeId]);
 
   // 스크롤 이벤트 핸들러
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
