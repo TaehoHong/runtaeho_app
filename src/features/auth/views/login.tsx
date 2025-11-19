@@ -7,8 +7,10 @@ import {
   Platform,
   StyleSheet,
   TouchableOpacity,
-  View,
+  View, 
+  Button,
 } from 'react-native';
+import * as Sentry from '@sentry/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Text } from '~/shared/components/typography';
 import { useAuthSignIn } from '../hooks/useAuthSignIn';
@@ -129,6 +131,8 @@ export const Login: React.FC = () => {
           </TouchableOpacity>
         )}
 
+        <Button title='Try!' onPress={ () => { Sentry.captureException(new Error('First error')) }}/>
+
         {/* 디버그 버튼: 모든 persist 데이터 삭제 */}
         {__DEV__ && (
           <TouchableOpacity style={styles.debugButton} onPress={handleClearAllData}>
@@ -144,6 +148,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: PRIMARY[800], 
+    justifyContent: 'space-between'
   },
 
   /** ---------- 배경 데코 공통 ---------- */
@@ -162,9 +167,13 @@ const styles = StyleSheet.create({
 
   /** ---------- 메인 타이틀/캐릭터 영역 ---------- */
   title_container: {
-    position: 'absolute',
-    left: 45.5,
-    top: 167,
+    flex: 1, // 남은 공간 차지
+    justifyContent: 'center', // 세로 중앙
+    alignItems: 'center', // 가로 중앙
+    alignSelf: 'center',
+    // position: 'absolute',
+    // left: 45.5,
+    // top: 167,
     width: 284,
     height: 175,
   },
@@ -213,11 +222,15 @@ const styles = StyleSheet.create({
 
   /** ---------- 버튼 영역 ---------- */
   buttonContainer: {
-    position: 'absolute',
-    left: (width - 329) / 2, // Figma: 23px 좌측 여백 = (375 - 329) / 2
-    width: 329,
-    top: 533, // Figma 기준 정확한 위치
-    gap: 16, // Figma: 버튼 간격 64px (첫번째 버튼 끝 581px, 두번째 시작 645px -> 645-581=64, 아니 16px gap)
+    // position: 'absolute',
+    // left: (width - 329) / 2, // Figma: 23px 좌측 여백 = (375 - 329) / 2
+    // width: 329,
+    // top: 533,
+    // gap: 16,
+    paddingHorizontal: 24, // ✅ 좌우 여백 (반응형)
+    paddingBottom: 40,     // ✅ 하단 여백
+    gap: 16,               // ✅ 간격 (고정)
+    width: '100%',
   },
   googleButton: {
     height: 48, // Figma 기준

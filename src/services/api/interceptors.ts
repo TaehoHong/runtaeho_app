@@ -2,6 +2,7 @@
 
 import { AxiosError, type AxiosInstance } from 'axios';
 import { API_CONFIG } from './config';
+import { reportError, addBreadcrumb } from '~/config/sentry';
 
 /**
  * 추가 Response Interceptor (로깅 전용)
@@ -44,6 +45,24 @@ export const httpResponseLogging = (client: AxiosInstance) => {
         }
       }
 
+      // Sentry에 API 에러 리포팅 (특정 에러는 제외)
+      const shouldReportToSentry = true;
+        // error.response?.status !== 401 && // 인증 에러 제외 (토큰 갱신 중)
+        // error.response?.status !== 403 && // 권한 에러 제외
+        // error.message !== 'Network Error' && // 네트워크 에러 제외
+        // !error.message?.includes('timeout'); // 타임아웃 제외
+
+      if (shouldReportToSentry) {
+        reportError(error, {
+          type: 'api-error',
+          method: error.config?.method,
+          url: error.config?.url,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+        });
+      }
+
       return Promise.reject(error);
     }
   );
@@ -71,6 +90,16 @@ export const httpRequestLogging = (client: AxiosInstance) => {
         console.log('   Body:', config.data);
       }
     }
+
+    // Sentry Breadcrumb 추가
+    addBreadcrumb(
+      `API Request: ${config.method?.toUpperCase()} ${config.url}`,
+      'http',
+      {
+        method: config.method,
+        url: config.url,
+      }
+    );
 
     return config;
   });

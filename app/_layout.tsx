@@ -5,22 +5,27 @@ import { queryClient } from '~/services/queryClient';
 import { AuthProvider } from '~/providers/AuthProvider';
 import { AppStateProvider } from '~/providers/AppStateProvider';
 import { PermissionManager } from '~/features/running/services/PermissionManager';
+import { initializeSentry, Sentry } from '~/config/sentry';
+import { ErrorBoundary } from '~/shared/components/ErrorBoundary';
+
+// Sentry 초기화
+initializeSentry();
 
 // 🔧 개발 환경 전용: API 로깅 인터셉터 등록
-// 프로덕션 배포 시 이 라인을 제거하거나 Sentry 등으로 대체
 if (__DEV__) {
   require('~/config/devSetup');
 }
 
-export default function RootLayout() {
+export default Sentry.wrap(function RootLayout() {
 
   // 권한 요청은 AuthProvider에서 로그인 후 한 번만 실행 (중복 제거)
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <AppStateProvider>
-          <Stack>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <AppStateProvider>
+            <Stack>
               <Stack.Screen
                 name="index"
                 options={{
@@ -47,8 +52,9 @@ export default function RootLayout() {
                 }}
               />
             </Stack>
-        </AppStateProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+          </AppStateProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
-}
+});

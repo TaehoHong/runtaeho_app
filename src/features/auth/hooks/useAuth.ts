@@ -20,6 +20,7 @@ import { userService } from '~/features/user/services/userService';
 import { useUserStore } from '~/stores/user/userStore';
 import { tokenStorage } from '~/utils/storage';
 import { useAuthStore } from '../stores/authStore';
+import { setUserContext, clearUserContext } from '~/config/sentry';
 
 /**
  * 통합 인증 Hook
@@ -108,6 +109,13 @@ export const useAuth = () => {
       }
       setLoggedIn(true);
 
+      // 5. Sentry에 사용자 컨텍스트 설정
+      setUserContext(
+        user.id.toString(),
+        user.userAccounts[0]!.email ?? '',
+        user.nickname
+      );
+
       console.log('✅ [useAuth] Login successful');
     } catch (error) {
       console.error('❌ [useAuth] Login failed:', error);
@@ -130,6 +138,9 @@ export const useAuth = () => {
       // 2. Store 초기화
       authStoreLogout();
       userStoreLogout();
+
+      // 3. Sentry 사용자 컨텍스트 제거
+      clearUserContext();
 
       console.log('✅ [useAuth] Logout successful');
     } catch (error) {

@@ -5,6 +5,5 @@
     "source.sortMembers": "explicit"
   },
   "java.configuration.updateBuildConfiguration": "automatic",
-  "java.compile.nullAnalysis.mode": "automatic",
-  "C_Cpp_Runner.msvcBatchPath": ""
+  "java.compile.nullAnalysis.mode": "automatic"
 }
