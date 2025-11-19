@@ -118,13 +118,15 @@ const styles = StyleSheet.create({
     width: width,
     flex: 1,
     justifyContent: 'flex-start',
-    alignItems: 'center'
   },
   scrollView: {
     flex: 1,
+    width: '100%',
   },
   scrollContent: {
     gap: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 32,
   },
   pointInfo: {
     

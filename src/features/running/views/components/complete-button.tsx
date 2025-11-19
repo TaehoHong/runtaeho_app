@@ -35,8 +35,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     alignSelf: 'center',
-    marginHorizontal: 16,
-    marginBottom: 16,
+    marginTop: 8,
   },
   text: {
     fontSize: 14,
