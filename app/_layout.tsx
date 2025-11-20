@@ -16,7 +16,10 @@ if (__DEV__) {
   require('~/config/devSetup');
 }
 
-export default Sentry.wrap(function RootLayout() {
+// Sentry 활성화 여부 확인
+const isSentryEnabled = (process.env.EXPO_PUBLIC_ENV || 'production') !== 'local';
+
+function RootLayout() {
 
   // 권한 요청은 AuthProvider에서 로그인 후 한 번만 실행 (중복 제거)
 
@@ -64,4 +67,7 @@ export default Sentry.wrap(function RootLayout() {
       </QueryClientProvider>
     </ErrorBoundary>
   );
-});
+}
+
+// Sentry가 활성화되어 있으면 wrap, 아니면 그냥 export
+export default isSentryEnabled ? Sentry.wrap(RootLayout) : RootLayout;

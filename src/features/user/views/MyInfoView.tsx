@@ -289,7 +289,7 @@ interface ModalProps {
 
 const PointModal: React.FC<ModalProps> = ({ visible, onClose }) => {
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
       <PointHistoryView onClose={onClose} />
     </Modal>
   );
@@ -297,7 +297,7 @@ const PointModal: React.FC<ModalProps> = ({ visible, onClose }) => {
 
 const ShoesModal: React.FC<ModalProps> = ({ visible, onClose }) => {
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
       <ShoesListView onClose={onClose} />
     </Modal>
   );
@@ -305,7 +305,7 @@ const ShoesModal: React.FC<ModalProps> = ({ visible, onClose }) => {
 
 const AvatarModal: React.FC<ModalProps> = ({ visible, onClose }) => {
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
       <AvatarView onClose={onClose} />
     </Modal>
   );

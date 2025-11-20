@@ -1,23 +1,20 @@
-import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React from 'react';
-import { GREY, PRIMARY } from '~/shared/styles';
 import {
   Alert,
   Dimensions,
   Platform,
   StyleSheet,
   TouchableOpacity,
-  View, 
-  Button,
+  View
 } from 'react-native';
-import * as Sentry from '@sentry/react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Text } from '~/shared/components/typography';
-import { useAuthSignIn } from '../hooks/useAuthSignIn';
+import { Icon } from '~/shared/components/ui';
+import { GREY, PRIMARY } from '~/shared/styles';
+import { useAppStore } from '~/stores/app/appStore';
 import { useUserStore } from '~/stores/user/userStore';
 import { useAuthStore } from '..';
-import { useAppStore } from '~/stores/app/appStore';
-import { Icon } from '~/shared/components/ui';
+import { useAuthSignIn } from '../hooks/useAuthSignIn';
 
 const { width, height } = Dimensions.get('window');
 
@@ -131,8 +128,6 @@ export const Login: React.FC = () => {
           </TouchableOpacity>
         )}
 
-        <Button title='Try!' onPress={ () => { Sentry.captureException(new Error('First error')) }}/>
-
         {/* 디버그 버튼: 모든 persist 데이터 삭제 */}
         {__DEV__ && (
           <TouchableOpacity style={styles.debugButton} onPress={handleClearAllData}>
@@ -222,14 +217,9 @@ const styles = StyleSheet.create({
 
   /** ---------- 버튼 영역 ---------- */
   buttonContainer: {
-    // position: 'absolute',
-    // left: (width - 329) / 2, // Figma: 23px 좌측 여백 = (375 - 329) / 2
-    // width: 329,
-    // top: 533,
-    // gap: 16,
-    paddingHorizontal: 24, // ✅ 좌우 여백 (반응형)
-    paddingBottom: 40,     // ✅ 하단 여백
-    gap: 16,               // ✅ 간격 (고정)
+    paddingHorizontal: 24, 
+    paddingBottom: 40,     
+    gap: 16,               
     width: '100%',
   },
   googleButton: {

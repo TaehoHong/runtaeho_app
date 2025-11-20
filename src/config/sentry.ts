@@ -5,7 +5,15 @@ import Constants from 'expo-constants';
  * Sentry 초기화 설정
  */
 export const initializeSentry = () => {
-  const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN;
+  const environment = process.env.EXPO_PUBLIC_ENV || 'production';
+
+  // local 환경에서는 Sentry 비활성화
+  if (environment === 'local') {
+    console.log('Sentry가 비활성화되었습니다. (EXPO_PUBLIC_ENV=local)');
+    return;
+  }
+
+  const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
   const releaseVersion = Constants.expoConfig?.version ?? '0.0.0';
   const distValue =
     Constants.expoConfig?.ios?.buildNumber ??
@@ -20,8 +28,8 @@ export const initializeSentry = () => {
   const options: Sentry.ReactNativeOptions = {
     dsn: sentryDsn,
 
-    // 환경 설정
-    environment: __DEV__ ? 'development' : 'production',
+    // 환경 설정 (EXPO_PUBLIC_ENV 기반)
+    environment: environment,
 
     // 디버그 모드 (개발 환경에서만 활성화)
     debug: __DEV__,
@@ -90,9 +98,21 @@ export const initializeSentry = () => {
 };
 
 /**
+ * Sentry 활성화 여부 확인
+ */
+const isSentryEnabled = (): boolean => {
+  const environment = process.env.EXPO_PUBLIC_ENV || 'production';
+  return environment !== 'local';
+};
+
+/**
  * 에러를 Sentry에 수동으로 보고
  */
 export const reportError = (error: Error, context?: Record<string, unknown>) => {
+  if (!isSentryEnabled()) {
+    console.log('[Sentry Disabled] Error:', error.message, context);
+    return;
+  }
   Sentry.captureException(error, {
     contexts: {
       custom: context,
@@ -104,6 +124,10 @@ export const reportError = (error: Error, context?: Record<string, unknown>) => 
  * 사용자 정의 메시지를 Sentry에 보고
  */
 export const reportMessage = (message: string, level: Sentry.SeverityLevel = 'info') => {
+  if (!isSentryEnabled()) {
+    console.log(`[Sentry Disabled] Message (${level}):`, message);
+    return;
+  }
   Sentry.captureMessage(message, level);
 };
 
@@ -111,6 +135,10 @@ export const reportMessage = (message: string, level: Sentry.SeverityLevel = 'in
  * 사용자 컨텍스트 설정
  */
 export const setUserContext = (userId: string, email: string, username: string) => {
+  if (!isSentryEnabled()) {
+    console.log('[Sentry Disabled] Set User Context:', { userId, email, username });
+    return;
+  }
   Sentry.setUser({
     id: userId,
     email: email,
@@ -122,6 +150,10 @@ export const setUserContext = (userId: string, email: string, username: string) 
  * 사용자 컨텍스트 제거 (로그아웃 시)
  */
 export const clearUserContext = () => {
+  if (!isSentryEnabled()) {
+    console.log('[Sentry Disabled] Clear User Context');
+    return;
+  }
   Sentry.setUser(null);
 };
 
@@ -129,6 +161,10 @@ export const clearUserContext = () => {
  * 커스텀 태그 추가
  */
 export const addTag = (key: string, value: string) => {
+  if (!isSentryEnabled()) {
+    console.log('[Sentry Disabled] Add Tag:', { key, value });
+    return;
+  }
   Sentry.setTag(key, value);
 };
 
@@ -136,19 +172,30 @@ export const addTag = (key: string, value: string) => {
  * 커스텀 컨텍스트 추가
  */
 export const addContext = (name: string, context: Record<string, unknown>) => {
+  if (!isSentryEnabled()) {
+    console.log('[Sentry Disabled] Add Context:', { name, context });
+    return;
+  }
   Sentry.setContext(name, context);
 };
 
 /**
  * Breadcrumb 추가 (디버깅용 이벤트 추적)
  */
-export const addBreadcrumb = (message: string, category: string, data: Record<string, unknown>) => {
-  Sentry.addBreadcrumb({
+export const addBreadcrumb = (message: string, category: string, data?: Record<string, unknown>) => {
+  if (!isSentryEnabled()) {
+    console.log('[Sentry Disabled] Add Breadcrumb:', { message, category, data });
+    return;
+  }
+  const breadcrumb: Sentry.Breadcrumb = {
     message,
     category,
     level: 'info',
-    data: data ?? undefined,
-  });
+  };
+  if (data) {
+    breadcrumb.data = data;
+  }
+  Sentry.addBreadcrumb(breadcrumb);
 };
 
 export { Sentry };
