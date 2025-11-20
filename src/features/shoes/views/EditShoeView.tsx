@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '~/shared/components/typography';
 import { GREY, PRIMARY, RED } from '~/shared/styles';
-import type { Shoe } from '../models';
+import type { ShoeViewModel } from '../models';
 import { createPatchShoeDto } from '../models';
 import { shoeService } from '../services';
 
@@ -20,7 +20,7 @@ import { shoeService } from '../services';
  * Figma: #4_마이페이지_내 신발_신발수정하기
  */
 interface EditShoeViewProps {
-  shoe: Shoe;
+  shoe: ShoeViewModel;
   onClose?: () => void;
   onSuccess?: () => void;
 }
