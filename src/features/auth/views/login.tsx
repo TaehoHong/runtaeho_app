@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Alert,
   Dimensions,
@@ -16,11 +16,27 @@ import { useUserStore } from '~/stores/user/userStore';
 import { useAuthStore } from '..';
 import { useAuthSignIn } from '../hooks/useAuthSignIn';
 
-const { width, height } = Dimensions.get('window');
+const DESIGN_WIDTH = 375;
+const DESIGN_HEIGHT = 812;
 
 export const Login: React.FC = () => {
   console.log('🔐 [LOGIN] 로그인 화면 렌더링');
 
+  // 화면 크기 기반 스케일 계산
+  const scale = useMemo(() => {
+    const { width, height } = Dimensions.get('window');
+    const widthScale = width / DESIGN_WIDTH;
+    const heightScale = height / DESIGN_HEIGHT;
+
+    // 85%~115% 범위로 제한
+    const boundedWidthScale = Math.max(0.85, Math.min(1.15, widthScale));
+    const boundedHeightScale = Math.max(0.85, Math.min(1.15, heightScale));
+
+    return {
+      sw: (size: number) => Math.round(size * boundedWidthScale),
+      sh: (size: number) => Math.round(size * boundedHeightScale),
+    };
+  }, []);
   const { isLoading, signInWithGoogle, signInWithApple } = useAuthSignIn();
   const resetUserStore = useUserStore((state) => state.resetAppState);
   const resetAuthStore = useAuthStore((state) => state.logout);
@@ -90,14 +106,44 @@ export const Login: React.FC = () => {
 
       {/* 메인 컨텐츠 */}
       <View style={styles.title_container}>
-        {/* 메인 텍스트 */}
-        <Icon name="title_run" style={styles.title_run}/>
-        <Icon name="title_taeho" style={styles.title_taeho}/>
+        {/* 메인 텍스트 - 동적 크기 */}
+        <Icon
+          name="title_run"
+          style={[styles.title_run, {
+            width: scale.sw(200),
+            height: scale.sh(64),
+          }]}
+        />
+        <Icon
+          name="title_taeho"
+          style={[styles.title_taeho, {
+            width: scale.sw(201),
+            height: scale.sh(64),
+          }]}
+        />
 
-        {/* 캐릭터들 - 텍스트 위에 배치 */}
-        <Icon name="character_1" style={styles.character1}/>
-        <Icon name="character_2" style={styles.character2}/>
-        <Icon name="character_3" style={styles.character3}/>
+        {/* 캐릭터들 - 동적 크기 */}
+        <Icon
+          name="character_2"
+          style={[styles.character2, {
+            width: scale.sw(29),
+            height: scale.sh(29),
+          }]}
+        />
+        <Icon
+          name="character_1"
+          style={[styles.character1, {
+            width: scale.sw(29),
+            height: scale.sh(29),
+          }]}
+        />
+        <Icon
+          name="character_3"
+          style={[styles.character3, {
+            width: scale.sw(33),
+            height: scale.sh(28),
+          }]}
+        />
       </View>
 
       {/* 로그인 버튼들 */}
@@ -162,52 +208,53 @@ const styles = StyleSheet.create({
   /** ---------- 메인 타이틀/캐릭터 영역 ---------- */
   title_container: {
     position: 'absolute',
-    left: '12.1%', // 45.5/375 = 12.1%
-    top: '20.6%', // 167/812 = 20.6%
-    width: 284,
+    left: '12.1%',   // 45.5/375 = 12.1% (좌측 여백)
+    right: '12.1%',  // 45.5/375 = 12.1% (우측 여백 - 좌우 대칭)
+    top: '20.6%',    // 167/812 = 20.6%
     height: 175,
+    // width 제거 - left + right로 자동 계산
   },
   title_run: {
     position: 'absolute',
     left: 0,
-    top: 22, // 189 - 167 = 22
-    height: 64,
-    width: 200,
+    top: '12.6%',    // 22/175 = 12.6%
     zIndex: 1,
+    resizeMode: 'contain',
+    // width, height는 동적으로 전달됨
   },
   title_taeho: {
     position: 'absolute',
-    left: 83.25, // 128.74 - 45.5 = 83.24
-    top: 111.31, // 278.31 - 167 = 111.31
-    height: 63.75,
-    width: 201.16,
+    left: '29.3%',   // 83.25/284 = 29.3%
+    top: '63.6%',    // 111.31/175 = 63.6%
     zIndex: 1,
+    resizeMode: 'contain',
+    // width, height는 동적으로 전달됨
   },
-  // 캐릭터 세 개: 타이틀 주변에 고정 위치 (Figma 기준)
+  // 캐릭터 세 개: 타이틀 주변에 퍼센트 위치 (Figma 기준)
   character2: {
     position: 'absolute',
-    left: 79, // 124.5 - 45.5 = 79
-    top: 0, // 167 - 167 = 0
-    width: 29,
-    height: 29,
+    left: '27.8%',   // 79/284 = 27.8%
+    top: 0,
     zIndex: 2,
+    resizeMode: 'contain',
+    // width, height는 동적으로 전달됨
   },
   character1: {
     position: 'absolute',
-    left: 190, // 258.5 - 45.5 = 213
-    top: 19, // 186 - 167 = 19
-    width: 29,
-    height: 29,
+    left: '67.6%',   // 192/284 = 67.6%
+    top: '10.9%',    // 19/175 = 10.9%
     transform: [{ rotate: '90deg' }],
     zIndex: 2,
+    resizeMode: 'contain',
+    // width, height는 동적으로 전달됨
   },
   character3: {
     position: 'absolute',
-    left: 145, // 190.5 - 45.5 = 145
-    top: 98, // 265 - 167 = 98
-    width: 33,
-    height: 28,
+    left: '51.1%',   // 145/284 = 51.1%
+    top: '56%',      // 98/175 = 56%
     zIndex: 2,
+    resizeMode: 'contain',
+    // width, height는 동적으로 전달됨
   },
 
   /** ---------- 버튼 영역 ---------- */
