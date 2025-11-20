@@ -142,8 +142,7 @@ export const Login: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: PRIMARY[800], 
-    justifyContent: 'space-between'
+    backgroundColor: PRIMARY[800],
   },
 
   /** ---------- 배경 데코 공통 ---------- */
@@ -162,13 +161,9 @@ const styles = StyleSheet.create({
 
   /** ---------- 메인 타이틀/캐릭터 영역 ---------- */
   title_container: {
-    flex: 1, // 남은 공간 차지
-    justifyContent: 'center', // 세로 중앙
-    alignItems: 'center', // 가로 중앙
-    alignSelf: 'center',
-    // position: 'absolute',
-    // left: 45.5,
-    // top: 167,
+    position: 'absolute',
+    left: '12.1%', // 45.5/375 = 12.1%
+    top: '20.6%', // 167/812 = 20.6%
     width: 284,
     height: 175,
   },
@@ -217,10 +212,13 @@ const styles = StyleSheet.create({
 
   /** ---------- 버튼 영역 ---------- */
   buttonContainer: {
-    paddingHorizontal: 24, 
-    paddingBottom: 40,     
-    gap: 16,               
-    width: '100%',
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+    gap: 16,
   },
   googleButton: {
     height: 48, // Figma 기준
