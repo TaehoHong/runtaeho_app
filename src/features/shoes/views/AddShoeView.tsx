@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import { Text } from '~/shared/components/typography';
 import { GREY, PRIMARY, RED } from '~/shared/styles';
 import { createAddShoeDto } from '../models';
@@ -89,56 +89,58 @@ export const AddShoeView: React.FC<AddShoeViewProps> = ({ onClose, onSuccess }) 
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardAvoid}
-      >
-        {/* 헤더 */}
-        <Header onClose={onClose} />
+    <SafeAreaProvider>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardAvoid}
+        >
+          {/* 헤더 */}
+          <Header onClose={onClose} />
 
-        {/* 메인 컨텐츠 */}
-        <View style={styles.content}>
-          {/* 브랜드 입력 */}
-          <InputField
-            label="브랜드"
-            placeholder="신발의 브랜드를 입력해주세요."
-            value={brand}
-            onChangeText={handleBrandChange}
-          />
+          {/* 메인 컨텐츠 */}
+          <View style={styles.content}>
+            {/* 브랜드 입력 */}
+            <InputField
+              label="브랜드"
+              placeholder="신발의 브랜드를 입력해주세요."
+              value={brand}
+              onChangeText={handleBrandChange}
+            />
 
-          {/* 모델명 입력 */}
-          <InputField
-            label="모델명"
-            placeholder="신발의 모델명을 입력해주세요."
-            value={model}
-            onChangeText={handleModelChange}
-          />
+            {/* 모델명 입력 */}
+            <InputField
+              label="모델명"
+              placeholder="신발의 모델명을 입력해주세요."
+              value={model}
+              onChangeText={handleModelChange}
+            />
 
-          {/* 목표 거리 입력 */}
-          <InputField
-            label="목표 거리 (km)"
-            placeholder="목표 거리를 입력해주세요."
-            value={targetDistance}
-            onChangeText={handleTargetDistanceChange}
-            keyboardType="numeric"
-            error={targetDistanceError}
-          />
+            {/* 목표 거리 입력 */}
+            <InputField
+              label="목표 거리 (km)"
+              placeholder="목표 거리를 입력해주세요."
+              value={targetDistance}
+              onChangeText={handleTargetDistanceChange}
+              keyboardType="numeric"
+              error={targetDistanceError}
+            />
 
-          {/* 저장 버튼 */}
-          <TouchableOpacity
-            style={[
-              styles.submitButton,
-              !isFormValid() && styles.submitButtonDisabled,
-            ]}
-            onPress={handleSubmit}
-            disabled={!isFormValid() || isSubmitting}
-          >
-            <Text style={styles.submitButtonText}>신발 저장하기</Text>
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+            {/* 저장 버튼 */}
+            <TouchableOpacity
+              style={[
+                styles.submitButton,
+                !isFormValid() && styles.submitButtonDisabled,
+              ]}
+              onPress={handleSubmit}
+              disabled={!isFormValid() || isSubmitting}
+            >
+              <Text style={styles.submitButtonText}>신발 저장하기</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 };
 

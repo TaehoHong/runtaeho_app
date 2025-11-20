@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   menuItemButton: {
-    width: 162,
+    flex: 1,  // 균등 분할
     borderRadius: 8,
     backgroundColor: '#fff',
     justifyContent: 'center',

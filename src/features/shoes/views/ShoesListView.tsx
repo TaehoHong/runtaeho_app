@@ -16,6 +16,7 @@ import { GREY, PRIMARY, RED } from '~/shared/styles';
 import type { ShoeViewModel } from '../models';
 import { useShoeViewModel } from '../viewmodels';
 import { AddShoeView } from './AddShoeView';
+import { EditShoeView } from './EditShoeView';
 import { StoredShoesListView } from './StoredShoesListView';
 
 /**
@@ -210,6 +211,24 @@ export const ShoesListView: React.FC<ShoesListViewProps> = ({ onClose }) => {
           />
         </Modal>
       )}
+
+      {/* 신발 수정 모달 */}
+      {showEditShoeView && selectedShoe && (
+        <Modal
+          visible={showEditShoeView}
+          animationType="slide"
+          presentationStyle="fullScreen"
+          onRequestClose={() => setShowEditShoeView(false)}
+        >
+          <EditShoeView
+            shoe={selectedShoe}
+            onClose={() => setShowEditShoeView(false)}
+            onSuccess={() => {
+              refreshShoes();
+            }}
+          />
+        </Modal>
+      )}
       </SafeAreaView>
     </SafeAreaProvider>
   );
@@ -305,7 +324,7 @@ interface ShoeCardProps {
 
 const ShoeCard: React.FC<ShoeCardProps> = ({ shoe, onPress }) => {
   return (
-    <TouchableOpacity style={styles.shoeItemContent} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity style={styles.shoeItemContent} onPress={onPress} activeOpacity={1.0}>
       <View style={styles.shoeItemImageContainer}>
         <Icon name="shoe" size={24} />
       </View>
