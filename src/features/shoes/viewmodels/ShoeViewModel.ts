@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { useInfiniteShoes, useAddShoe, usePatchShoe, } from '../services';
+import { useInfiniteShoes, useAddShoe, usePatchShoe, useUpdateToMain } from '../services';
 import {
   type Shoe,
   type PatchShoeDto,
@@ -47,7 +47,7 @@ export const useShoeViewModel = () => {
   // Mutations
   const { mutateAsync: addShoe, isPending: isAddingShoe } = useAddShoe();
   const { mutateAsync: patchShoe, isPending: isPatchingShoe } = usePatchShoe();
-
+  const { mutateAsync: updateToMain, isPending: isUpdatingToMain } = useUpdateToMain();
   /**
    * 신발 추가
    */
@@ -106,13 +106,12 @@ export const useShoeViewModel = () => {
    */
   const handleSetMainShoe = useCallback(async (shoeId: number) => {
     try {
-      const patchShoeDto = createPatchShoeDto(shoeId, { isMain: true });
-      return await patchShoe(patchShoeDto);
+      return await updateToMain(shoeId);
     } catch (error) {
       console.error('Failed to set main shoe:', error);
       throw error;
     }
-  }, [patchShoe]);
+  }, [updateToMain]);
 
   /**
    * 신발 활성화

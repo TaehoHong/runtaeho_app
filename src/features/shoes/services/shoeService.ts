@@ -55,4 +55,8 @@ export const shoeService = {
     );
     return data;
   },
+
+  updateToMain: async (shoeId: number): Promise<void> => {
+    await apiClient.post<void>(API_ENDPOINTS.SHOE.UPDATE_TO_MAIN(shoeId));
+  },
 };

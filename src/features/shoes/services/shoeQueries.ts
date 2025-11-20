@@ -78,3 +78,19 @@ export const usePatchShoe = () => {
     },
   });
 };
+
+
+/**
+ * 메인 신발 설정
+ */
+export const useUpdateToMain = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (shoeId: number) => shoeService.updateToMain(shoeId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.shoe.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.shoe.detail(variables) });
+    },
+  });
+};

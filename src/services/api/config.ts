@@ -101,6 +101,7 @@ export const API_ENDPOINTS = {
     BASE: '/shoes',
     ALL: '/shoes',
     PATCH: (id: number) => `/shoes/${id}`,
+    UPDATE_TO_MAIN: (id: number) => `/shoes/${id}/main`,
   },
   
   STATISTICS: {

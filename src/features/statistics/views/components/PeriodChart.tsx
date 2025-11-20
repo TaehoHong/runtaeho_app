@@ -8,7 +8,7 @@
  */
 
 import React, { useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, Dimensions } from 'react-native';
 import Svg, { Line, Path, Text as SvgText } from 'react-native-svg';
 import type { ChartDataPoint } from '../../models';
 import { Period } from '../../models';
@@ -20,7 +20,8 @@ interface PeriodChartProps {
   isEmpty?: boolean;
 }
 
-const CHART_WIDTH = 335;
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const CHART_WIDTH = SCREEN_WIDTH - 40; // 좌우 20px 마진
 const CHART_HEIGHT = 315;
 const CHART_PADDING = { top: 56, right: 16, bottom: 40, left: 35 };
 const X_AXIS_MARGIN = 10; // X축 양 끝 마진

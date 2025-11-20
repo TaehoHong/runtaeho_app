@@ -1,4 +1,5 @@
 import { Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppStore, RunningState, ViewState } from '~/stores/app/appStore';
 import { Icon } from '~/shared/components/ui';
 
@@ -9,6 +10,7 @@ import { Icon } from '~/shared/components/ui';
 export default function TabLayout() {
   const runningState = useAppStore((state) => state.runningState);
   const viewState = useAppStore((state) => state.viewState);
+  const insets = useSafeAreaInsets();
 
   // iOS와 동일한 로직: 러닝 중이 아니고 로딩 완료 시에만 탭바 표시
   const shouldShowTabBar = runningState === RunningState.Stopped && viewState === ViewState.Loaded;
@@ -29,9 +31,9 @@ export default function TabLayout() {
           backgroundColor: 'white',
           borderTopWidth: 1,
           borderTopColor: 'rgba(0,0,0,0.2)',
-          paddingBottom: 10,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
           paddingTop: 5,
-          height: 60,
+          height: 60 + (insets.bottom > 0 ? insets.bottom : 10),
           opacity: shouldShowTabBar ? 1 : 0,
           pointerEvents: shouldShowTabBar ? 'auto' : 'none',
         },

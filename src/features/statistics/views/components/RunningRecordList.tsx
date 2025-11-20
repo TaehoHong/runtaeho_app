@@ -163,8 +163,8 @@ const styles = StyleSheet.create({
   },
   cardStats: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 7,
+    justifyContent: 'space-around',
+    paddingHorizontal: 12,
   },
   statBox: {
     flex: 1,
