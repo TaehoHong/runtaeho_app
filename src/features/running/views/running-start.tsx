@@ -1,9 +1,10 @@
-import React from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, StyleSheet } from 'react-native';
 import { useUserStore, useAppStore, RunningState } from '~/stores';
 import { StartButton } from '~/shared/components';
 import { useRunning } from '../contexts';
 import { permissionManager } from '~/services/PermissionManager';
+import { PermissionRequestModal } from '~/features/permissions/views/PermissionRequestModal';
 
 /**
  * 러닝 시작 화면
@@ -14,6 +15,7 @@ export const RunningStartView: React.FC = () => {
   console.log('[RunningStartView] haveRunningRecord: ', haveRunningRecord)
 
   const { startRunning } = useRunning();
+  const [showPermissionModal, setShowPermissionModal] = useState(false);
 
   const handleStartRunning = async () => {
     console.log('🏃 [RunningStartView] 러닝 시작 버튼 눌러짐');
@@ -24,22 +26,8 @@ export const RunningStartView: React.FC = () => {
 
     if (!permissionCheck.hasAllPermissions) {
       console.warn('[RunningStartView] Missing permissions:', permissionCheck);
-
-      // 거부된 권한 메시지 생성
-      const message = permissionManager.getMissingPermissionsMessage(permissionCheck);
-
-      // 설정으로 이동 안내
-      Alert.alert(
-        '권한이 필요합니다',
-        `러닝을 시작하려면 다음 권한이 필요합니다.\n\n${message}\n\n설정에서 권한을 허용해주세요.`,
-        [
-          { text: '취소', style: 'cancel' },
-          {
-            text: '설정으로 이동',
-            onPress: () => permissionManager.openAppSettings()
-          }
-        ]
-      );
+      // 권한이 없으면 모달 표시
+      setShowPermissionModal(true);
       return;
     }
 
@@ -60,11 +48,19 @@ export const RunningStartView: React.FC = () => {
     }
   };
 
+  const handlePermissionModalClose = () => {
+    setShowPermissionModal(false);
+  };
+
   return (
     <View style={styles.container}>
-      <StartButton 
-        onPress={handleStartRunning} 
+      <StartButton
+        onPress={handleStartRunning}
         haveRunningRecord={haveRunningRecord}
+      />
+      <PermissionRequestModal
+        visible={showPermissionModal}
+        onClose={handlePermissionModalClose}
       />
     </View>
   );

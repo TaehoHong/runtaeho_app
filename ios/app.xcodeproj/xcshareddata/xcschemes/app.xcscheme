@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-               BuildableName = "&#x1103;&#x1161;&#x11af;&#x1105;&#x1167;&#x1105;&#x1161; &#x1110;&#x1162;&#x1112;&#x1169;&#x1100;&#x116e;&#x11ab;.app"
+               BuildableName = "RunTaeho.app"
                BlueprintName = "app"
                ReferencedContainer = "container:app.xcodeproj">
             </BuildableReference>
@@ -59,7 +59,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "&#x1103;&#x1161;&#x11af;&#x1105;&#x1167;&#x1105;&#x1161; &#x1110;&#x1162;&#x1112;&#x1169;&#x1100;&#x116e;&#x11ab;.app"
+            BuildableName = "RunTaeho.app"
             BlueprintName = "app"
             ReferencedContainer = "container:app.xcodeproj">
          </BuildableReference>
@@ -76,7 +76,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "&#x1103;&#x1161;&#x11af;&#x1105;&#x1167;&#x1105;&#x1161; &#x1110;&#x1162;&#x1112;&#x1169;&#x1100;&#x116e;&#x11ab;.app"
+            BuildableName = "RunTaeho.app"
             BlueprintName = "app"
             ReferencedContainer = "container:app.xcodeproj">
          </BuildableReference>

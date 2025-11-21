@@ -3,7 +3,6 @@ import React, { type ReactNode, useCallback, useEffect, useState } from 'react';
 import { useAppStore, ViewState } from '../stores/app/appStore';
 import { useAuthStore } from '../features/auth/stores/authStore';
 import { useAuth } from '../features/auth/hooks/useAuth';
-import { PermissionRequestModal } from '../features/permissions/views/PermissionRequestModal';
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -21,7 +20,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const setViewState = useAppStore((state) => state.setViewState);
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const { verifyAndRefreshToken } = useAuth();
-  const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [hasRequestedPermissions, setHasRequestedPermissions] = useState(false);
   const [isNavigationReady, setIsNavigationReady] = useState(false);
 
@@ -189,8 +187,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
    * v3.0 개선 사항:
    * - 단순화된 권한 관리 (복잡도 80% 감소)
    * - 최초 요청 여부 추적 (AsyncStorage)
-   * - 모달로 권한 요청 화면 표시
-   * - 모든 권한이 이미 허용된 경우 모달 표시하지 않음
+   * - 로그인 직후 바로 권한 요청 (모달 없이)
+   * - 순서: Location(Foreground) → Location(Background) → Motion/Fitness
+   * - 이미 권한이 있으면 재요청 안함
    */
   const requestPermissionsOnFirstLogin = async () => {
     try {
@@ -199,27 +198,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // v3.0 PermissionManager 사용
       const { permissionManager } = await import('../services/PermissionManager');
 
-      // 1. 현재 권한 상태 확인
-      const permissionCheck = await permissionManager.checkRequiredPermissions();
+      // 1. 최초 권한 요청 완료 여부 확인
+      const hasCompleted = await permissionManager.hasCompletedInitialRequest();
 
-      if (permissionCheck.hasAllPermissions) {
-        console.log('✅ [AuthProvider] 모든 권한이 이미 허용됨 - 모달 표시 안함');
-        // 모든 권한이 허용되어 있으면 완료로 표시하고 모달 띄우지 않음
-        await permissionManager.markInitialRequestComplete();
+      if (hasCompleted) {
+        console.log('✅ [AuthProvider] 권한 요청 이미 완료됨 (설정에서 변경 가능)');
         return;
       }
 
-      // 2. 최초 권한 요청 완료 여부 확인
-      const hasCompleted = await permissionManager.hasCompletedInitialRequest();
+      // 2. 권한 직접 요청 (모달 없이)
+      console.log('📋 [AuthProvider] 권한 직접 요청 시작...');
+      const result = await permissionManager.requestAllPermissions();
 
-      if (!hasCompleted) {
-        console.log('📋 [AuthProvider] 권한 미허용 - 권한 요청 모달 표시');
-        // 권한 요청 모달 표시
-        setTimeout(() => {
-          setShowPermissionModal(true);
-        }, 800);
+      if (result.success) {
+        console.log('✅ [AuthProvider] 모든 권한 허용됨');
       } else {
-        console.log('✅ [AuthProvider] 권한 요청 이미 완료됨 (일부 권한은 거부됨)');
+        console.warn('⚠️ [AuthProvider] 일부 권한 거부됨:', result.granted);
+        console.log('💡 [AuthProvider] 러닝 시작 버튼 클릭시 설정으로 이동 가능');
       }
     } catch (error) {
       console.error('⚠️ [AuthProvider] 권한 확인 실패:', error);
@@ -227,13 +222,5 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
 
-  return (
-    <>
-      {children}
-      <PermissionRequestModal
-        visible={showPermissionModal}
-        onClose={() => setShowPermissionModal(false)}
-      />
-    </>
-  );
+  return <>{children}</>;
 };

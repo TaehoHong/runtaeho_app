@@ -24,6 +24,7 @@ export default {
       infoPlist: {
         NSLocationWhenInUseUsageDescription: "이 앱은 러닝 기록을 위해 위치 정보를 사용합니다.",
         NSLocationAlwaysAndWhenInUseUsageDescription: "백그라운드에서 러닝 거리를 정확하게 기록하기 위해 항상 위치 정보가 필요합니다.",
+        NSMotionUsageDescription: "걸음 수 측정 및 러닝 페이스 분석을 위해 동작 및 피트니스 데이터를 사용합니다.",
         UIBackgroundModes: ["location"] // 백그라운드 위치 업데이트
       }
     },
@@ -43,6 +44,7 @@ export default {
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION", // 백그라운드 위치 추적
+        "ACTIVITY_RECOGNITION", // 동작 및 피트니스 (걸음 수)
         "FOREGROUND_SERVICE",
         "FOREGROUND_SERVICE_LOCATION" // Foreground Service (위치)
       ]
@@ -62,6 +64,12 @@ export default {
           isIosBackgroundLocationEnabled: true,
           isAndroidBackgroundLocationEnabled: true,
           isAndroidForegroundServiceEnabled: true
+        }
+      ],
+      [
+        "expo-sensors",
+        {
+          motionPermission: "걸음 수 측정 및 러닝 페이스 분석을 위해 동작 및 피트니스 데이터를 사용합니다."
         }
       ],
       [

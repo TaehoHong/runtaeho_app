@@ -1,15 +1,8 @@
-/**
- * 러닝 기록 모델
- * Swift RunningRecord.swift에서 마이그레이션
- *
- * 정책: 센서 데이터(cadence, heartRate)는 수집 불가 시 null
- * - Priority: 1. Garmin, 2. Watch(with app), 3. Phone
- * - 모든 디바이스에서 수집 실패 시 null (UI: "--")
- */
 export interface RunningRecord {
   id: number;
   shoeId?: number;
   distance: number;
+  steps: number | null;
   cadence: number | null; // null 허용 (센서 데이터 없을 때)
   heartRate: number | null; // null 허용 (센서 데이터 없을 때)
   calorie: number;
@@ -19,14 +12,13 @@ export interface RunningRecord {
 
 /**
  * 서버에서 받은 ID로 초기 RunningRecord 생성
- * Swift RunningRecord init(id:) 생성자와 동일
- * 정책: 센서 데이터 없으면 null
  */
 export const createRunningRecord = (id: number): RunningRecord => ({
   id,
   distance: 0,
-  cadence: null, // 센서 데이터 없음
-  heartRate: null, // 센서 데이터 없음
+  steps: null,
+  cadence: null,
+  heartRate: null,
   calorie: 0,
   durationSec: 0,
   startTimestamp: Date.now() / 1000, // Convert to seconds
@@ -34,12 +26,12 @@ export const createRunningRecord = (id: number): RunningRecord => ({
 
 /**
  * 완료된 러닝 기록 생성
- * Swift RunningRecord init(모든 필드) 생성자와 동일
  */
 export const createCompletedRunningRecord = (data: {
   id: number;
   shoeId?: number;
   distance: number;
+  steps: number | null; // null 허용
   cadence: number | null; // null 허용
   heartRate: number | null; // null 허용
   calorie: number;
@@ -49,6 +41,7 @@ export const createCompletedRunningRecord = (data: {
   id: data.id,
   ...(data.shoeId !== undefined && { shoeId: data.shoeId }),
   distance: data.distance,
+  steps: data.steps,
   cadence: data.cadence,
   heartRate: data.heartRate,
   calorie: data.calorie,

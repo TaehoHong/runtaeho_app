@@ -1,13 +1,14 @@
 /**
  * Permission Request Modal (v3.0)
  *
- * 최초 로그인 후 필수 권한 요청 모달 (화면 하단 절반)
+ * 러닝 시작 시 권한이 없을 경우 표시되는 모달 (화면 하단 절반)
  * - 위치 권한 (Foreground + Background)
  * - 동작/피트니스 권한
+ * - 버튼 클릭 시 iOS 설정 화면으로 이동
  */
 
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { permissionManager } from '~/services/PermissionManager';
 import { PRIMARY, GREY } from '~/shared/styles';
 import { Icon } from '~/shared/components/ui';
@@ -18,53 +19,39 @@ interface PermissionRequestModalProps {
 }
 
 export const PermissionRequestModal: React.FC<PermissionRequestModalProps> = ({ visible, onClose }) => {
-  const [isRequesting, setIsRequesting] = useState(false);
+  const [missingPermissions, setMissingPermissions] = useState<string>('');
 
   /**
-   * 권한 요청 처리
+   * 모달이 열릴 때마다 현재 권한 상태 확인
    */
-  const handleRequestPermissions = async () => {
-    if (isRequesting) return;
-
-    setIsRequesting(true);
-    console.log('[PermissionRequestModal] Requesting permissions...');
-
-    try {
-      const result = await permissionManager.requestAllPermissions();
-
-      if (result.success) {
-        console.log('[PermissionRequestModal] All permissions granted');
-        // 모달 닫기
-        onClose();
-      } else {
-        console.warn('[PermissionRequestModal] Some permissions denied:', result.granted);
-
-        // 거부된 권한 확인
-        const permissionCheck = await permissionManager.checkRequiredPermissions();
-        const message = permissionManager.getMissingPermissionsMessage(permissionCheck);
-
-        // 설정으로 이동 안내
-        Alert.alert(
-          '권한이 필요합니다',
-          `${message}\n\n설정에서 권한을 허용해주세요.`,
-          [
-            { text: '취소', style: 'cancel' },
-            {
-              text: '설정으로 이동',
-              onPress: () => permissionManager.openAppSettings()
-            }
-          ]
-        );
-      }
-    } catch (error) {
-      console.error('[PermissionRequestModal] Permission request failed:', error);
-      Alert.alert(
-        '오류',
-        '권한 요청 중 문제가 발생했습니다.\n다시 시도해주세요.'
-      );
-    } finally {
-      setIsRequesting(false);
+  useEffect(() => {
+    if (visible) {
+      checkMissingPermissions();
     }
+  }, [visible]);
+
+  /**
+   * 거부된 권한 확인 및 메시지 생성
+   */
+  const checkMissingPermissions = async () => {
+    try {
+      const permissionCheck = await permissionManager.checkRequiredPermissions();
+      const message = permissionManager.getMissingPermissionsMessage(permissionCheck);
+      setMissingPermissions(message);
+    } catch (error) {
+      console.error('[PermissionRequestModal] Failed to check permissions:', error);
+      setMissingPermissions('권한 확인 중 오류가 발생했습니다.');
+    }
+  };
+
+  /**
+   * 설정 화면으로 이동
+   */
+  const handleOpenSettings = async () => {
+    console.log('[PermissionRequestModal] Opening app settings...');
+    await permissionManager.openAppSettings();
+    // 설정에서 돌아올 때 권한 상태 재확인
+    checkMissingPermissions();
   };
 
   return (
@@ -91,10 +78,13 @@ export const PermissionRequestModal: React.FC<PermissionRequestModalProps> = ({ 
 
           {/* 헤더 */}
           <View style={styles.header}>
-            <Text style={styles.title}>앱 사용을 위한{'\n'}권한이 필요해요</Text>
+            <Text style={styles.title}>러닝을 시작하려면{'\n'}권한이 필요해요</Text>
             <Text style={styles.subtitle}>
-              RunTaeho는 러닝 기록을 위해{'\n'}다음 권한을 사용합니다
+              설정에서 다음 권한을 허용해주세요
             </Text>
+            {missingPermissions ? (
+              <Text style={styles.missingPermissions}>{missingPermissions}</Text>
+            ) : null}
           </View>
 
           {/* 권한 목록 */}
@@ -126,25 +116,19 @@ export const PermissionRequestModal: React.FC<PermissionRequestModalProps> = ({ 
             </View>
           </View>
 
-          {/* 권한 요청 버튼 */}
+          {/* 설정으로 이동 버튼 */}
           <TouchableOpacity
-            style={[styles.button, isRequesting && styles.buttonDisabled]}
-            onPress={handleRequestPermissions}
-            disabled={isRequesting}
+            style={styles.button}
+            onPress={handleOpenSettings}
             activeOpacity={0.8}
           >
-            {isRequesting ? (
-              <ActivityIndicator size="small" color={GREY.WHITE} />
-            ) : (
-              <Text style={styles.buttonText}>권한 허용하기</Text>
-            )}
+            <Text style={styles.buttonText}>설정으로 이동</Text>
           </TouchableOpacity>
 
           {/* 나중에 하기 */}
           <TouchableOpacity
             style={styles.skipButton}
             onPress={onClose}
-            disabled={isRequesting}
           >
             <Text style={styles.skipButtonText}>나중에 하기</Text>
           </TouchableOpacity>
@@ -191,6 +175,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '400',
     color: GREY[500],
+    lineHeight: 20,
+  },
+  missingPermissions: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: GREY[700],
+    marginTop: 12,
     lineHeight: 20,
   },
   permissionList: {

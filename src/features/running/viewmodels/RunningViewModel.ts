@@ -18,6 +18,7 @@ import { locationService, type LocationTrackingData } from '../services/Location
 import { backgroundTaskService } from '../services/BackgroundTaskService';
 import { offlineStorageService } from '../services/OfflineStorageService';
 import { dataSourcePriorityService } from '../services/sensors/DataSourcePriorityService';
+import { pedometerService, type PedometerData } from '../services/sensors/PedometerService';
 import { unityService } from '../../unity/services/UnityService';
 import { useAppStore, RunningState } from '~/stores/app/appStore';
 
@@ -63,6 +64,9 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
   const [sensorHeartRate, setSensorHeartRate] = useState<number | undefined>(undefined);
   const [sensorCadence, setSensorCadence] = useState<number | undefined>(undefined);
 
+  // Pedometer 데이터 (걸음 수, 케이던스)
+  const [pedometerData, setPedometerData] = useState<PedometerData | null>(null);
+
   // 실시간 통계
   const [stats, setStats] = useState<RunningStats>({
     bpm: undefined,
@@ -95,7 +99,9 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
 
   /**
    * 실시간 통계 업데이트
-   * 센서 데이터 우선순위: 웨어러블 → 핸드폰 센서 → undefined
+   * 센서 데이터 우선순위:
+   * - 심박수: 웨어러블 → 핸드폰 센서 → undefined
+   * - 케이던스: Pedometer → 웨어러블 → 핸드폰 센서 → undefined
    */
   const updateStats = useCallback((
     distanceMeters: number,
@@ -501,6 +507,21 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     }
   }, [isUnityReady, runningState, stats.speed])
 
+  /**
+   * Pedometer 데이터로 케이던스 업데이트
+   * 우선순위: Pedometer > 센서 케이던스
+   */
+  useEffect(() => {
+    if (runningState !== RunningState.Running) return;
+    if (!pedometerData) return;
+
+    // Pedometer 케이던스를 stats에 반영 (센서 케이던스보다 우선)
+    setStats(prev => ({
+      ...prev,
+      cadence: pedometerData.cadence,
+    }));
+  }, [pedometerData, runningState])
+
 
   /**
    * 러닝 시작
@@ -561,6 +582,18 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
       });
       console.log('[RunningViewModel] Sensor monitoring started');
 
+      // 5. Pedometer 시작 (걸음 수 추적)
+      try {
+        await pedometerService.startTracking((data) => {
+          setPedometerData(data);
+          console.log('[RunningViewModel] Pedometer - Steps:', data.steps, 'Cadence:', data.cadence);
+        });
+        console.log('[RunningViewModel] Pedometer started');
+      } catch (error) {
+        console.warn('[RunningViewModel] Pedometer unavailable:', error);
+        // Pedometer는 선택적 기능이므로 실패해도 계속 진행
+      }
+
       // 통계 초기화
       setStats({
         bpm: undefined,
@@ -581,6 +614,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
       locationService.stopTracking();
       backgroundTaskService.stopBackgroundTracking().catch(console.error);
       dataSourcePriorityService.stopAllMonitoring().catch(console.error);
+      pedometerService.stopTracking();
 
       // Swift와 동일하게 에러 시 더미 기록 생성
       const dummyRecord = createRunningRecord(0);
@@ -655,6 +689,12 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
       await dataSourcePriorityService.stopAllMonitoring();
       console.log('[RunningViewModel] Sensor monitoring stopped');
 
+      // 3. Pedometer 중지
+      pedometerService.stopTracking();
+      const finalSteps = pedometerService.getCurrentSteps();
+      const finalCadence = pedometerService.getCurrentCadence();
+      console.log(`[RunningViewModel] Pedometer stopped - Steps: ${finalSteps}, Cadence: ${finalCadence}`);
+
       console.log(`[RunningViewModel] Final stats:`, {
         distance: finalDistance,
         duration: elapsedTime,
@@ -665,11 +705,12 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
         calories: stats.calories ? Math.round(stats.calories) : undefined,
       });
 
-      // 3. 최종 기록 업데이트
+      // 4. 최종 기록 업데이트
       // 정책: 센서 데이터 없으면 null (not 0)
       const finalRecord = updateRunningRecord(currentRecord, {
         distance: Math.round(finalDistance), // GPS 기반 거리
-        cadence: stats.cadence ?? null, // 정책: undefined → null
+        steps: finalSteps > 0 ? finalSteps : null, // Pedometer 걸음 수
+        cadence: finalCadence > 0 ? finalCadence : (stats.cadence ?? null), // Pedometer 케이던스 우선
         heartRate: stats.bpm ?? null, // 정책: undefined → null
         calorie: stats.calories ? Math.round(stats.calories) : 0, // 계산값 (없으면 0)
         durationSec: elapsedTime,
@@ -744,6 +785,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
       locationService.stopTracking();
       backgroundTaskService.stopBackgroundTracking().catch(console.error);
       dataSourcePriorityService.stopAllMonitoring().catch(console.error);
+      pedometerService.stopTracking();
 
       throw error;
     }
