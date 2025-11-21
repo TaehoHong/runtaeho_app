@@ -20,7 +20,7 @@ export default {
         ? "com.runtaeho.runtaeho"
         : `com.runtaeho.runtaeho.${ENV}`,
       usesAppleSignIn: true,
-      appleTeamId: "Y9XN2ZQ9G3",
+      appleTeamId: "3F893P33SC",
       infoPlist: {
         NSLocationWhenInUseUsageDescription: "이 앱은 러닝 기록을 위해 위치 정보를 사용합니다.",
         NSLocationAlwaysAndWhenInUseUsageDescription: "백그라운드에서 러닝 거리를 정확하게 기록하기 위해 항상 위치 정보가 필요합니다.",

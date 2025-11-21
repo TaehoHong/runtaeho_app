@@ -52,7 +52,12 @@ export class PermissionManager {
   }
 
   /**
-   * 필수 권한 확인 (위치 + 동작/피트니스)
+   * 필수 권한 확인 (위치만 체크)
+   *
+   * Note: Motion/Fitness 권한은 iOS에서 체크 불가능
+   * - iOS는 Pedometer 권한을 명시적으로 체크하는 API가 없음
+   * - 실제로 사용할 때만 권한 팝업이 뜨고, 거부되어도 에러 없이 동작
+   * - 따라서 필수 권한에서 제외하고, 런타임에 optional로 처리
    */
   async checkRequiredPermissions(): Promise<PermissionCheckResult> {
     // 1. 위치 권한 (Foreground + Background)
@@ -62,35 +67,26 @@ export class PermissionManager {
     const locationForeground = foreground.granted;
     const locationBackground = background.granted;
 
-    // 2. 동작/피트니스 권한 (실제 체크)
-    let motion = false;
+    // 2. 동작/피트니스 권한 (참고용, 필수 아님)
+    // iOS: 권한 체크 불가능, 항상 true로 설정
+    // Android: ACTIVITY_RECOGNITION 권한이 있어야 하지만, 없어도 앱 사용 가능
+    let motion = true; // 기본값 true (필수 아님)
 
-    if (Platform.OS === 'ios') {
-      // iOS: Pedometer 사용 가능 여부 확인
-      try {
-        const available = await Pedometer.isAvailableAsync();
-        motion = available;
-      } catch {
-        motion = false;
-      }
-    } else {
-      // Android: ACTIVITY_RECOGNITION 권한 필요 (API 29+)
+    if (Platform.OS === 'android') {
+      // Android만 체크 (API 29+)
       try {
         const androidVersion = typeof Platform.Version === 'number' ? Platform.Version : parseInt(String(Platform.Version), 10);
         if (androidVersion >= 29) {
-          // Android에서는 Pedometer 사용 가능 여부로 판단
           const available = await Pedometer.isAvailableAsync();
           motion = available;
-        } else {
-          motion = true; // 구버전은 권한 불필요
         }
       } catch {
-        motion = false;
+        motion = true; // 에러 발생 시에도 계속 진행
       }
     }
 
     return {
-      hasAllPermissions: locationForeground && locationBackground && motion,
+      hasAllPermissions: locationForeground && locationBackground, // Motion 제외
       location: locationForeground,
       locationBackground,
       motion
@@ -174,7 +170,8 @@ export class PermissionManager {
       }
 
       // ===== 4. 성공 여부 판단 =====
-      const success = granted.location && granted.locationBackground && granted.motion;
+      // Motion 권한은 선택사항이므로 성공 판정에서 제외
+      const success = granted.location && granted.locationBackground;
 
       if (success) {
         console.log('[PermissionManager] All permissions granted');
@@ -214,13 +211,15 @@ export class PermissionManager {
 
   /**
    * 권한 거부 시 안내 메시지 생성
+   *
+   * Note: Motion 권한은 제외 (iOS에서 체크 불가능)
    */
   getMissingPermissionsMessage(result: PermissionCheckResult): string {
     const missing: string[] = [];
 
     if (!result.location) missing.push('위치 (사용 중)');
     if (!result.locationBackground) missing.push('위치 (항상)');
-    if (!result.motion) missing.push('활동 및 피트니스');
+    // Motion 권한은 필수가 아니므로 메시지에서 제외
 
     return missing.length > 0
       ? `다음 권한이 필요합니다:\n• ${missing.join('\n• ')}`

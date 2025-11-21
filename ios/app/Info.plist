@@ -29,10 +29,12 @@
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>app</string>
-				<string>com.hongtaeho.app</string>
+				<string>com.runtaeho.runtaeho</string>
 			</array>
 		</dict>
 		<dict>
