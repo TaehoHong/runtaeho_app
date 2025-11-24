@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import { Period } from '../../models';
 import { PRIMARY, GREY } from '~/shared/styles';
 
@@ -26,22 +26,48 @@ export const DateFilterTabs: React.FC<DateFilterTabsProps> = ({
     { label: '년', value: Period.YEAR },
   ];
 
+  // 선택된 탭의 인덱스 계산
+  const selectedIndex = tabs.findIndex((tab) => tab.value === selected);
+
+  // 애니메이션 값 초기화 (선택된 탭의 위치로)
+  const animatedValue = React.useRef(new Animated.Value(selectedIndex)).current;
+
+  // 선택이 변경될 때 애니메이션 실행
+  React.useEffect(() => {
+    Animated.spring(animatedValue, {
+      toValue: selectedIndex,
+      useNativeDriver: true,
+      tension: 100,
+      friction: 10,
+    }).start();
+  }, [selectedIndex, animatedValue]);
+
+  // 선택된 배경의 translateX 계산 (각 탭의 너비 80)
+  const translateX = animatedValue.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: [0, 80, 160],
+  });
+
   return (
     <View style={styles.container}>
-      {tabs.map((tab, index) => {
+      {/* 슬라이딩 배경 */}
+      <Animated.View
+        style={[
+          styles.slidingBackground,
+          {
+            transform: [{ translateX }],
+          },
+        ]}
+      />
+
+      {/* 탭 버튼들 */}
+      {tabs.map((tab) => {
         const isSelected = selected === tab.value;
-        const isFirst = index === 0;
-        const isLast = index === tabs.length - 1;
 
         return (
           <TouchableOpacity
             key={tab.value}
-            style={[
-              styles.tab,
-              isSelected && styles.tabSelected,
-              isFirst && styles.tabFirst,
-              isLast && styles.tabLast,
-            ]}
+            style={styles.tab}
             onPress={() => onSelect(tab.value)}
             activeOpacity={0.7}
           >
@@ -62,13 +88,22 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 16,
     borderRadius: 21,
-    overflow: 'hidden',
-    backgroundColor: GREY[50],
+    backgroundColor: GREY.WHITE,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 2,
+    position: 'relative',
+  },
+  slidingBackground: {
+    position: 'absolute',
+    width: 80,
+    height: 34,
+    backgroundColor: PRIMARY[600],
+    borderRadius: 24,
+    left: 0,
+    top: 0,
   },
   tab: {
     width: 80,
@@ -76,18 +111,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'transparent',
-  },
-  tabFirst: {
-    // 스타일 제거 (전체 컨테이너에 borderRadius 적용)
-  },
-  tabLast: {
-    // 스타일 제거
-  },
-  tabSelected: {
-    backgroundColor: PRIMARY[600],
-    borderRadius: 24,
-    marginVertical: 4,
-    marginHorizontal: 4,
+    zIndex: 1,
   },
   tabText: {
     fontSize: 14,

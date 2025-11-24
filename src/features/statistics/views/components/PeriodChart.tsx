@@ -60,14 +60,16 @@ export const PeriodChart: React.FC<PeriodChartProps> = ({
       case Period.WEEK:
         return ['월', '화', '수', '목', '금', '토', '일'];
       case Period.MONTH: {
-        // 실제 월의 마지막 날 기준으로 균등 분할
-        const labels = ['1'];
-        const step = Math.floor((lastDayOfMonth - 1) / 10); // 약 10개 라벨
-        for (let i = 1; i <= 9; i++) {
-          const day = 1 + step * i;
+        // 3일 간격으로 표시 (1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 마지막날)
+        const labels: string[] = [];
+        for (let day = 1; day <= lastDayOfMonth; day += 3) {
           labels.push(String(day));
         }
-        labels.push(String(lastDayOfMonth));
+        // 마지막 날이 포함되지 않았으면 추가
+        const lastLabel = labels[labels.length - 1];
+        if (lastLabel && parseInt(lastLabel) !== lastDayOfMonth) {
+          labels.push(String(lastDayOfMonth));
+        }
         return labels;
       }
       case Period.YEAR:
@@ -77,20 +79,49 @@ export const PeriodChart: React.FC<PeriodChartProps> = ({
     }
   }, [period, lastDayOfMonth]);
 
-  // 기간 라벨 (좌측 상단)
+  // 기간 라벨
   const periodLabel = useMemo(() => {
     const now = new Date();
     switch (period) {
-      case Period.WEEK:
-        // "1주차" 형식
-        const weekNum = Math.ceil(now.getDate() / 7);
-        return `${now.getMonth() + 1}월\n${weekNum}주차`;
+      case Period.WEEK: {
+        // 이번 주의 월요일 구하기
+        const dayOfWeek = now.getDay();
+        const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // 일요일이면 -6, 아니면 월요일까지의 차이
+        const monday = new Date(now);
+        monday.setDate(now.getDate() + diff);
+
+        // 이번 주의 일요일 구하기
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+
+        // 날짜 포맷팅
+        const startMonth = monday.getMonth() + 1;
+        const startDay = monday.getDate();
+        const endMonth = sunday.getMonth() + 1;
+        const endDay = sunday.getDate();
+
+        // 같은 달이면 "24일~30일", 다른 달이면 "27일~11월1일"
+        const dateRange = startMonth === endMonth
+          ? `${startDay}일~${endDay}일`
+          : `${startDay}일~${endMonth}월${endDay}일`;
+
+        return {
+          left: `${now.getMonth() + 1}월`,
+          right: dateRange,
+        };
+      }
       case Period.MONTH:
-        return `${now.getMonth() + 1}월`;
+        return {
+          left: `${now.getMonth() + 1}월`,
+          right: null,
+        };
       case Period.YEAR:
-        return `${now.getFullYear()}년`;
+        return {
+          left: `${now.getFullYear()}년`,
+          right: null,
+        };
       default:
-        return '';
+        return { left: '', right: null };
     }
   }, [period]);
 
@@ -191,7 +222,7 @@ export const PeriodChart: React.FC<PeriodChartProps> = ({
   return (
     <View style={styles.container}>
       <Svg width={CHART_WIDTH} height={CHART_HEIGHT}>
-        {/* 기간 라벨 (좌측 상단) */}
+        {/* 기간 라벨 - 월/년 (좌측 상단) */}
         <SvgText
           x={16}
           y={32}
@@ -199,16 +230,20 @@ export const PeriodChart: React.FC<PeriodChartProps> = ({
           fontWeight="600"
           fill={GREY[900]}
         >
-          {periodLabel.split('\n')[0]}
+          {periodLabel.left}
         </SvgText>
-        {periodLabel.split('\n')[1] && (
+
+        {/* 주차 라벨 (우측 상단) - Period.WEEK일 때만 표시 */}
+        {periodLabel.right && (
           <SvgText
-            x={16}
-            y={48}
+            x={CHART_WIDTH - 16}
+            y={32}
             fontSize={14}
+            fontWeight="500"
             fill={GREY[700]}
+            textAnchor="end"
           >
-            {periodLabel.split('\n')[1]}
+            {periodLabel.right}
           </SvgText>
         )}
 
