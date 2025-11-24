@@ -5,11 +5,11 @@ const ENV = process.env.EXPO_PUBLIC_ENV || 'local';
 export default {
   expo: {
     name: ENV === 'production' ? 'RunTaeho' : `RunTaeho (${ENV})`,
-    slug: "app",
+    slug: "runtaeho",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
-    scheme: "app",
+    scheme: "runtaeho",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
     assetBundlePatterns: ["**/*"],
@@ -96,6 +96,14 @@ export default {
         "expo-asset",
         {
           "assets": ["./assets/fonts"]
+        }
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "project": "runtaeho",
+          "organization": "runtaeho"
         }
       ]
     ],
