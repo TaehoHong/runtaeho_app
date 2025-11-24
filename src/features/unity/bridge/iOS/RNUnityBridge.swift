@@ -18,6 +18,38 @@ class RNUnityBridge: RCTEventEmitter {
         return true
     }
 
+    override func supportedEvents() -> [String]! {
+        return [
+            "onUnityError",
+            "onCharactorReady"
+        ]
+    }
+
+    override init() {
+        super.init()
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleCharactorReady),
+            name: NSNotification.Name("UnityCharactorReady"),
+            object: nil
+        )
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    @objc
+    private func handleCharactorReady() {
+        print("[RNUnityBridge] 🎉 Charactor Ready! Sending to React Native...")
+
+        sendEvent(withName: "onCharactorReady", body: [
+            "ready": true,
+            "timestamp": ISO8601DateFormatter().string(from: Date())
+        ])
+    }
+
     // MARK: - React Native에서 호출할 수 있는 메서드들
 
     /// Unity에 일반 메시지 전송 (순수 브리지)

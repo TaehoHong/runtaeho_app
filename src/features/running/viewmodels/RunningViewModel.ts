@@ -497,13 +497,25 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
    * 러닝 상태에 따라 Unity 캐릭터 속도 제어
    */
   useEffect(() => {
-    // Unity가 준비되지 않았으면 대기
     if (!isUnityReady) return;
 
-    if(runningState === RunningState.Running) {
-      unityService.setCharacterSpeed(stats.speed)
+    if (!unityService.isReady()) {
+      console.log('[RunningViewModel] ⏳ Waiting for GameObject...');
+      unityService.onReady(() => {
+        console.log('[RunningViewModel] ✅ GameObject Ready, applying speed control');
+        if (runningState === RunningState.Running) {
+          unityService.setCharacterSpeed(stats.speed);
+        } else {
+          unityService.stopCharacter();
+        }
+      });
+      return;
+    }
+
+    if (runningState === RunningState.Running) {
+      unityService.setCharacterSpeed(stats.speed);
     } else {
-      unityService.stopCharacter()
+      unityService.stopCharacter();
     }
   }, [isUnityReady, runningState, stats.speed])
 

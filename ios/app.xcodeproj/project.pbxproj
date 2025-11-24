@@ -22,6 +22,7 @@
 		F730CDD92E925BF4002CDFCA /* UnityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F730CDD22E925BF4002CDFCA /* UnityView.swift */; };
 		F730CDDA2E925BF4002CDFCA /* UnityViewManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F730CDD42E925BF4002CDFCA /* UnityViewManager.swift */; };
 		F730CDDB2E925BF4002CDFCA /* UnityViewManager.m in Sources */ = {isa = PBXBuildFile; fileRef = F730CDD32E925BF4002CDFCA /* UnityViewManager.m */; };
+		F77F8FC22ED3E49E0077E3A1 /* UnityNativeBridge.mm in Sources */ = {isa = PBXBuildFile; fileRef = F77F8FC12ED3E49E0077E3A1 /* UnityNativeBridge.mm */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -61,6 +62,7 @@
 		F730CDD32E925BF4002CDFCA /* UnityViewManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = UnityViewManager.m; path = ../src/features/unity/bridge/iOS/UnityViewManager.m; sourceTree = SOURCE_ROOT; };
 		F730CDD42E925BF4002CDFCA /* UnityViewManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UnityViewManager.swift; path = ../src/features/unity/bridge/iOS/UnityViewManager.swift; sourceTree = SOURCE_ROOT; };
 		F73BCBDE2E8402E70087982B /* UnityFramework.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = UnityFramework.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		F77F8FC12ED3E49E0077E3A1 /* UnityNativeBridge.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = UnityNativeBridge.mm; path = app/UnityNativeBridge.mm; sourceTree = "<group>"; };
 		FCEA5D850C2BAF9F99E234A4 /* Pods-app.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-app.release.xcconfig"; path = "Target Support Files/Pods-app/Pods-app.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -101,6 +103,7 @@
 				F730CDD22E925BF4002CDFCA /* UnityView.swift */,
 				F730CDD32E925BF4002CDFCA /* UnityViewManager.m */,
 				F730CDD42E925BF4002CDFCA /* UnityViewManager.swift */,
+				F77F8FC12ED3E49E0077E3A1 /* UnityNativeBridge.mm */,
 			);
 			name = app;
 			sourceTree = "<group>";
@@ -421,6 +424,7 @@
 				F730CDD82E925BF4002CDFCA /* UnityBridgeService.swift in Sources */,
 				F730CDD92E925BF4002CDFCA /* UnityView.swift in Sources */,
 				F730CDDA2E925BF4002CDFCA /* UnityViewManager.swift in Sources */,
+				F77F8FC22ED3E49E0077E3A1 /* UnityNativeBridge.mm in Sources */,
 				F730CDDB2E925BF4002CDFCA /* UnityViewManager.m in Sources */,
 				D3ECE5C27DC205CBAEEC4ABE /* ExpoModulesProvider.swift in Sources */,
 			);

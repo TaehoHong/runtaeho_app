@@ -19,6 +19,10 @@ class Unity: ObservableObject  {
     private var loaded = false
     private let framework: UnityFramework
 
+    private let queueLock = NSLock()
+    private var messageQueue: [(objectName: String, methodName: String, parameter: String)] = []
+    private var isGameObjectReady = false
+
     private init() {
         // Load framework and get the singleton instance
         let bundlePath = Bundle.main.bundlePath + self.frameworkPath
@@ -37,63 +41,80 @@ class Unity: ObservableObject  {
     }
 
     func start() {
-        // Load native state textures concurrently
         let loadingGroup = DispatchGroup()
         loadingGroup.wait()
 
-        /* Unity 6에서는 CAMetalDisplayLink를 사용하므로 nextDrawable()을 직접 호출하면 안됨
-           아래 Metal layer clear 코드는 Unity 6에서 crash를 발생시키므로 주석처리 */
-        /*
-        if let layer = framework.appController()?.rootView?.layer as? CAMetalLayer, let drawable = layer.nextDrawable(), let buffer = MTLCreateSystemDefaultDevice()?.makeCommandQueue()?.makeCommandBuffer() {
-            let descriptor = MTLRenderPassDescriptor()
-            descriptor.colorAttachments[0].loadAction = .clear
-            descriptor.colorAttachments[0].storeAction = .store
-            descriptor.colorAttachments[0].texture = drawable.texture
-            descriptor.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
-
-            if let encoder = buffer.makeRenderCommandEncoder(descriptor: descriptor) {
-                encoder.label = "Unity Prestart Clear"
-                encoder.endEncoding()
-                buffer.present(drawable)
-                buffer.commit()
-                buffer.waitUntilCompleted()
-            }
-        }
-        */
-
-        // Start Unity
         framework.runEmbedded(withArgc: CommandLine.argc, argv: CommandLine.unsafeArgv, appLaunchOpts: nil)
-
-        // Hide Unity's UIWindow so it won't display UIView or intercept touches
         framework.appController().window.isHidden = true
 
         loaded = true
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleGameObjectReady),
+            name: NSNotification.Name("UnityCharactorReady"),
+            object: nil
+        )
+
+        print("[Unity] Framework started, waiting for GameObject ready signal...")
     }
 
     func stop() {
-        // docs.unity3d.com/ScriptReference/Application.Unload.html
         framework.unloadApplication()
-
-        /* We could unload native state textures here too, but on restart
-           we will have to ensure Unity does not have any texture reference else reading
-           will result in a null pointer exception. For now we will leave the memory as allocated. */
-
         loaded = false
+
+        queueLock.lock()
+        isGameObjectReady = false
+        messageQueue.removeAll()
+        queueLock.unlock()
+
+        NotificationCenter.default.removeObserver(self)
     }
 
-    // Expose Unity's UIView while loaded
     var view: UIView? { loaded ? framework.appController().rootView : nil }
 
-    func sendMessage(_ objectName: String, methodName: String, parameter: String) {
-        print("[Unity] sendMessage 호출됨: \(objectName).\(methodName)(\(parameter))")
+    @objc
+    private func handleGameObjectReady() {
+        queueLock.lock()
+        let count = messageQueue.count
+        isGameObjectReady = true
+        let messagesToProcess = messageQueue
+        messageQueue.removeAll()
+        queueLock.unlock()
 
-        if loaded {
-            print("[Unity] Unity가 로드된 상태입니다. 메시지를 전송합니다.")
-            self.framework.sendMessageToGO(withName: objectName, functionName: methodName, message: parameter)
-            print("[Unity] 메시지 전송 완료")
-        } else {
-            print("[Unity] 오류: Unity가 아직 로드되지 않았습니다!")
+        print("[Unity] 🎉 GameObject Ready! Processing \(count) queued messages...")
+
+        for msg in messagesToProcess {
+            sendMessageImmediate(msg.objectName, methodName: msg.methodName, parameter: msg.parameter)
         }
+    }
+
+    func sendMessage(_ objectName: String, methodName: String, parameter: String) {
+        print("[Unity] sendMessage: \(objectName).\(methodName)(\(parameter))")
+
+        if !loaded {
+            print("[Unity] ❌ Not loaded, ignoring")
+            return
+        }
+
+        queueLock.lock()
+        let ready = isGameObjectReady
+        queueLock.unlock()
+
+        if !ready {
+            print("[Unity] ⏳ Queuing message (GameObject not ready)")
+            queueLock.lock()
+            messageQueue.append((objectName, methodName, parameter))
+            queueLock.unlock()
+            return
+        }
+
+        sendMessageImmediate(objectName, methodName: methodName, parameter: parameter)
+    }
+
+    private func sendMessageImmediate(_ objectName: String, methodName: String, parameter: String) {
+        print("[Unity] ✅ Sending to GameObject: \(objectName).\(methodName)(\(parameter))")
+        framework.sendMessageToGO(withName: objectName, functionName: methodName, message: parameter)
     }
 }
 

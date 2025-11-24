@@ -14,8 +14,7 @@ import { getUnityPartName } from '~/features/avatar/models/avatarConstants';
  */
 export class UnityService {
   private static instance: UnityService
-  
-  // 도메인 상수들
+
   private static readonly UNITY_OBJECT_NAME = 'Charactor';
   private static readonly UNITY_SPEED_METHOD = 'SetSpeed';
   private static readonly UNITY_MOTION_METHOD = 'SetTrigger';
@@ -23,13 +22,35 @@ export class UnityService {
   private static readonly MIN_SPEED = 3.0;
   private static readonly MAX_SPEED = 7.0;
   private static readonly VALID_MOTIONS: CharacterMotion[] = ['IDLE', 'MOVE', 'ATTACK', 'DAMAGED'];
-  
+
+  private readyCallbacks: Array<() => void> = [];
+
   static getInstance = (): UnityService => {
     if(!UnityService.instance) {
       UnityService.instance = new UnityService()
     }
     return UnityService.instance;
   };
+
+  constructor() {
+    UnityBridge.subscribeToGameObjectReady(() => {
+      this.log('🎉 GameObject Ready! Executing pending callbacks...');
+      this.readyCallbacks.forEach(callback => callback());
+      this.readyCallbacks = [];
+    });
+  }
+
+  isReady(): boolean {
+    return UnityBridge.isGameObjectReady();
+  }
+
+  onReady(callback: () => void): void {
+    if (this.isReady()) {
+      callback();
+    } else {
+      this.readyCallbacks.push(callback);
+    }
+  }
   
   // ==========================================
   // Unity 화면 제어 (UnityView 컴포넌트에서 처리)
@@ -52,8 +73,11 @@ export class UnityService {
   async setCharacterSpeed(speed: number): Promise<void> {
     this.log(`Setting character speed: ${speed}`);
 
+    if (!this.isReady()) {
+      this.log('⚠️ GameObject not ready, message will be queued');
+    }
+
     try {
-      // 도메인 로직: 속도 범위 검증 및 변환
       let clampedSpeed
       if (speed >= UnityService.MAX_SPEED) {
         clampedSpeed = UnityService.MAX_SPEED
@@ -80,8 +104,11 @@ export class UnityService {
   async stopCharacter(): Promise<void> {
     this.log('Stopping character');
 
+    if (!this.isReady()) {
+      this.log('⚠️ GameObject not ready, message will be queued');
+    }
+
     try {
-      // 도메인 로직: 캐릭터 정지는 속도를 0으로 설정하고 IDLE 상태로 변경
       await UnityBridge.sendUnityMessage(
         UnityService.UNITY_OBJECT_NAME,
         UnityService.UNITY_SPEED_METHOD,
@@ -98,8 +125,11 @@ export class UnityService {
   async setCharacterMotion(motion: CharacterMotion): Promise<void> {
     this.log(`Setting character motion: ${motion}`);
 
+    if (!this.isReady()) {
+      this.log('⚠️ GameObject not ready, message will be queued');
+    }
+
     try {
-      // 도메인 로직: 모션 타입 검증
       if (!UnityService.VALID_MOTIONS.includes(motion)) {
         throw new Error(`Invalid motion: ${motion}. Valid motions: ${UnityService.VALID_MOTIONS.join(', ')}`);
       }
@@ -119,29 +149,27 @@ export class UnityService {
   
   async changeAvatar(items: Item[]): Promise<void> {
     this.log(`Changing avatar with ${items.length} items`);
-    this.log(`Changing avatar items:  ${items}`);
+
+    if (!this.isReady()) {
+      this.log('⚠️ GameObject not ready, message will be queued');
+    }
 
     try {
-      // 1. 도메인 로직: 아바타 아이템 검증
       const validatedItems = this.validateAvatarItems(items);
 
       if (validatedItems.length === 0) {
         throw new Error('No valid avatar items provided');
       }
 
-      // 2. Unity 형식으로 변환
       const unityData = this.convertToUnityAvatarDtoList(validatedItems);
-
-      // 3. JSON 문자열로 변환 (Swift와 동일)
       const jsonString = JSON.stringify(unityData);
 
       this.log('Unity Avatar Data:', jsonString);
 
-      // 4. Unity로 전송 (Swift와 동일하게 sendUnityMessage 사용)
       await UnityBridge.sendUnityMessage(
-        UnityService.UNITY_OBJECT_NAME,  // "Charactor"
-        UnityService.CHANGE_AVATAR,       // "SetSprites"
-        jsonString                         // {"list":[...]}
+        UnityService.UNITY_OBJECT_NAME,
+        UnityService.CHANGE_AVATAR,
+        jsonString
       );
 
       this.log(`Avatar changed with ${validatedItems.length} items`);

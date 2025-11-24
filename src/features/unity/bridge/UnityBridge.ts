@@ -13,13 +13,15 @@ const { RNUnityBridge: NativeUnityBridge } = NativeModules;
 
 // Unity Bridge 인터페이스 (iOS RNUnityBridge와 일치)
 export interface UnityBridgeInterface {
-  // Unity로 메시지 전송 (순수 브리지 메서드)
   sendUnityMessage(objectName: string, methodName: string, parameter: string): Promise<void>;
   sendUnityJSON(objectName: string, methodName: string, data: any[]): Promise<void>;
+  isGameObjectReady(): boolean;
+  subscribeToGameObjectReady(callback: () => void): () => void;
 }
 
 class UnityBridgeImpl implements UnityBridgeInterface {
   private eventEmitter: NativeEventEmitter | null = null;
+  private isCharactorReady: boolean = false;
 
   constructor() {
     console.log('[UnityBridge] Available native modules:', Object.keys(NativeModules));
@@ -28,6 +30,12 @@ class UnityBridgeImpl implements UnityBridgeInterface {
     if (NativeUnityBridge) {
       console.log('[UnityBridge] Creating event emitter for RNUnityBridge...');
       this.eventEmitter = new NativeEventEmitter(NativeUnityBridge);
+
+      this.eventEmitter.addListener('onCharactorReady', (event) => {
+        console.log('[UnityBridge] 🎉 GameObject Ready!', event);
+        this.isCharactorReady = true;
+      });
+
       console.log('[UnityBridge] Event listeners setup completed');
     } else {
       console.warn('[UnityBridge] RNUnityBridge native module not available');
@@ -35,10 +43,34 @@ class UnityBridgeImpl implements UnityBridgeInterface {
     }
   }
 
-  // iOS RNUnityBridge의 실제 메서드와 일치
+  isGameObjectReady(): boolean {
+    return this.isCharactorReady;
+  }
+
+  subscribeToGameObjectReady(callback: () => void): () => void {
+    if (!this.eventEmitter) {
+      console.warn('[UnityBridge] Event emitter not available');
+      return () => {};
+    }
+
+    const subscription = this.eventEmitter.addListener('onCharactorReady', () => {
+      this.isCharactorReady = true;
+      callback();
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }
+
   async sendUnityMessage(objectName: string, methodName: string, parameter: string): Promise<void> {
     if (!NativeUnityBridge) {
       throw new Error('RNUnityBridge native module not available');
+    }
+
+    if (!this.isCharactorReady) {
+      console.warn(`[UnityBridge] ⚠️ GameObject not ready: ${objectName}.${methodName}(${parameter})`);
+      console.warn('[UnityBridge] Message will be queued by iOS Unity.swift');
     }
 
     try {
@@ -53,6 +85,11 @@ class UnityBridgeImpl implements UnityBridgeInterface {
   async sendUnityJSON(objectName: string, methodName: string, data: any[]): Promise<void> {
     if (!NativeUnityBridge) {
       throw new Error('RNUnityBridge native module not available');
+    }
+
+    if (!this.isCharactorReady) {
+      console.warn(`[UnityBridge] ⚠️ GameObject not ready: ${objectName}.${methodName} (JSON)`);
+      console.warn('[UnityBridge] Message will be queued by iOS Unity.swift');
     }
 
     try {
