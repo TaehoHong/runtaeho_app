@@ -23,7 +23,7 @@ export class UnityService {
   private static readonly MAX_SPEED = 7.0;
   private static readonly VALID_MOTIONS: CharacterMotion[] = ['IDLE', 'MOVE', 'ATTACK', 'DAMAGED'];
 
-  private readyCallbacks: Array<() => void> = [];
+  private readyCallbacks: (() => void)[] = [];
 
   static getInstance = (): UnityService => {
     if(!UnityService.instance) {
@@ -51,6 +51,16 @@ export class UnityService {
       this.readyCallbacks.push(callback);
     }
   }
+
+  /**
+   * GameObject Ready 상태 리셋
+   * Unity View가 reattach될 때 호출
+   */
+  resetGameObjectReady(): void {
+    this.log('Resetting GameObject Ready state');
+    UnityBridge.resetGameObjectReady();
+    this.readyCallbacks = [];
+  }
   
   // ==========================================
   // Unity 화면 제어 (UnityView 컴포넌트에서 처리)
@@ -69,6 +79,16 @@ export class UnityService {
   // ==========================================
   // Unity 제어 메서드들 (도메인 로직 포함)
   // ==========================================
+
+  async initCharacter(items: Item[]): Promise<void> {
+    if (items.length > 0) {
+      console.log('[RunningView] Sending avatar items after GameObject ready:', items.length);
+      await unityService.changeAvatar(items);
+    }
+
+    // Unity 캐릭터 초기 속도 설정
+    await unityService.stopCharacter();
+  }
   
   async setCharacterSpeed(speed: number): Promise<void> {
     this.log(`Setting character speed: ${speed}`);

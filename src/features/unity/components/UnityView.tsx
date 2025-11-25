@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useCallback } from 'react';
-import { requireNativeComponent, type ViewProps, UIManager, findNodeHandle, Platform } from 'react-native';
+import { requireNativeComponent, type ViewProps } from 'react-native';
+import { unityService } from '../services/UnityService';
 
 interface UnityViewProps extends ViewProps {
   // Unity Ready 이벤트
@@ -16,23 +17,15 @@ const NativeUnityView = requireNativeComponent<UnityViewProps>('UnityView');
 export const UnityView: React.FC<UnityViewProps> = (props) => {
   const viewRef = useRef(null);
 
+  // ⚠️ 중요: UnityView 마운트 시 GameObject Ready 상태 리셋
+  // 이전 UnityView의 상태를 초기화하여 새로운 UnityView의 GameObject Ready를 정확히 감지
   useEffect(() => {
-    // 컴포넌트가 마운트되면 Unity View를 재연결
-    if (Platform.OS === 'ios') {
-      const nodeHandle = findNodeHandle(viewRef.current);
-      if (nodeHandle && UIManager.dispatchViewManagerCommand) {
-        // 약간의 지연을 두고 재연결 (레이아웃이 완료된 후)
-        setTimeout(() => {
-          UIManager.dispatchViewManagerCommand(
-            nodeHandle,
-            // @ts-ignore
-            UIManager.getViewManagerConfig('UnityView').Commands.reattachUnityView,
-            []
-          );
-          console.log('[UnityView] Reattach command dispatched');
-        }, 100);
-      }
-    }
+    console.log('[UnityView] Mounted - Resetting GameObject Ready state');
+    unityService.resetGameObjectReady();
+
+    return () => {
+      console.log('[UnityView] Unmounted');
+    };
   }, []);
 
   // 디버깅용 이벤트 핸들러

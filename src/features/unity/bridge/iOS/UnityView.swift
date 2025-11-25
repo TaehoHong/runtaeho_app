@@ -136,8 +136,16 @@ class UnityView: UIView {
             return
         }
 
-        // Unity View가 이미 다른 곳에 추가되어 있을 수 있으므로 제거 후 재추가
+        // Unity View가 이미 현재 view에 붙어있으면 스킵 (불필요한 이벤트 방지)
         if let unityView = Unity.shared.view {
+            if unityView.superview == self {
+                print("[UnityView] Unity view already attached to this view, skipping reattach")
+                return
+            }
+
+            // Unity View가 다른 곳에서 옮겨오는 경우인지 확인
+            let wasAttachedElsewhere = (unityView.superview != nil)
+
             // 다른 superview에서 제거
             unityView.removeFromSuperview()
 
@@ -148,13 +156,19 @@ class UnityView: UIView {
             unityView.translatesAutoresizingMaskIntoConstraints = true
             self.setNeedsLayout()
 
-            print("[UnityView] Unity view reattached successfully")
+            print("[UnityView] Unity view reattached successfully (wasAttachedElsewhere: \(wasAttachedElsewhere))")
 
-            // React Native에 재연결 완료 알림
-            self.onUnityReady?([
-                "message": "Unity reattached successfully",
-                "timestamp": ISO8601DateFormatter().string(from: Date())
-            ])
+            // 실제로 다른 곳에서 옮겨온 경우에만 React Native에 알림
+            // (같은 view 내에서 재배치되는 경우 이벤트 발생 안 함)
+            if wasAttachedElsewhere {
+                self.onUnityReady?([
+                    "message": "Unity reattached successfully",
+                    "type": "reattach",
+                    "timestamp": ISO8601DateFormatter().string(from: Date())
+                ])
+            } else {
+                print("[UnityView] Unity view was not attached elsewhere, skipping event")
+            }
         }
     }
 

@@ -47,6 +47,15 @@ class UnityBridgeImpl implements UnityBridgeInterface {
     return this.isCharactorReady;
   }
 
+  /**
+   * GameObject Ready 상태를 리셋
+   * Unity View가 reattach될 때 호출하여 GameObject Ready 상태를 초기화
+   */
+  resetGameObjectReady(): void {
+    console.log('[UnityBridge] Resetting GameObject Ready state');
+    this.isCharactorReady = false;
+  }
+
   subscribeToGameObjectReady(callback: () => void): () => void {
     if (!this.eventEmitter) {
       console.warn('[UnityBridge] Event emitter not available');
