@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { SwipeListView } from 'react-native-swipe-list-view';
 import { Text } from '~/shared/components/typography';
 import { Icon } from '~/shared/components/ui';
@@ -87,6 +87,7 @@ export const StoredShoesListView: React.FC<StoredShoesListViewProps> = ({ onClos
   const storedShoes = shoeViewModels.filter((shoe) => shoe.isAchieved);
 
   return (
+    <SafeAreaProvider>
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* 헤더 */}
       <Header onClose={onClose} />
@@ -135,6 +136,7 @@ export const StoredShoesListView: React.FC<StoredShoesListViewProps> = ({ onClos
         onCancel={() => setShowDeleteModal(false)}
       />
     </SafeAreaView>
+    </SafeAreaProvider>
   );
 };
 

@@ -1,7 +1,5 @@
-import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert } from 'react-native';
-import { userService } from '~/features/user/services/userService';
 import { AuthMessages } from '../constants/AuthMessages';
 import { AuthError, AuthErrorType } from '../models/AuthError';
 import { AuthProviderType } from '../models/AuthType';
@@ -19,7 +17,7 @@ import { useAuth } from './useAuth';
  */
 export const useAuthSignIn = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { completeLogin } = useAuth();
   const authService = AuthenticationService.shared;
 
   /**
@@ -69,7 +67,8 @@ export const useAuthSignIn = () => {
   /**
    * 공통 로그인 처리 함수
    *
-   * Service Layer 직접 호출 → useAuth hook으로 상태 저장
+   * OAuth 인증 → JWT 토큰 획득 → completeLogin() 호출
+   * 라우팅은 AuthProvider가 자동 처리 (약관 동의 체크 포함)
    */
   const handleSignIn = async (provider: AuthProviderType): Promise<void> => {
     if (isLoading) return;
@@ -93,19 +92,11 @@ export const useAuthSignIn = () => {
         authCodeResult.authorizationCode
       );
 
-      // 3. 사용자 전체 데이터 조회
-      const userData = await userService.getUserData();
+      // 3. 로그인 완료 처리 (사용자 데이터 조회 + Store 저장)
+      await completeLogin(tokenDto.accessToken, tokenDto.refreshToken);
 
-      if (!userData) {
-        throw AuthError.networkError('Failed to fetch user data');
-      }
-
-      // 4. useAuth hook으로 로그인 처리 (Store + TokenStorage)
-      await login(userData, tokenDto.accessToken, tokenDto.refreshToken);
-
-      // 5. 성공 시 메인 화면으로 이동
-      console.log(`✅ [LOGIN] ${provider} 로그인 성공`);
-      router.replace('/(tabs)');
+      // 4. 성공 로그 (라우팅은 AuthProvider가 자동 처리)
+      console.log(`✅ [LOGIN] ${provider} 로그인 완료 (AuthProvider가 라우팅 처리)`);
 
     } catch (error: any) {
       console.error(`❌ [LOGIN] ${provider} 로그인 실패:`, error);

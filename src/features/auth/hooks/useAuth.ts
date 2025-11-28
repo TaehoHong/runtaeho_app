@@ -232,6 +232,38 @@ export const useAuth = () => {
     }
   }, [setLoading, setError, setLoginData, convertEquippedItems]);
 
+  /**
+   * 사용자 데이터 기반 로그인 완료 처리
+   *
+   * useAuthSignIn, useTermsAgreement에서 공통으로 사용하는 헬퍼 함수
+   * - 사용자 데이터 조회 → login() 호출 → Store/Token 저장
+   * - 라우팅은 AuthProvider가 자동 처리
+   *
+   * @param accessToken - JWT Access Token
+   * @param refreshToken - JWT Refresh Token (optional)
+   * @throws Error - 사용자 데이터 조회 실패 시
+   *
+   * @internal 이 함수는 내부 헬퍼로, useAuthSignIn과 useTermsAgreement에서만 사용됩니다.
+   */
+  const completeLogin = useCallback(async (
+    accessToken: string,
+    refreshToken?: string
+  ): Promise<void> => {
+    console.log('🔐 [useAuth] completeLogin 시작');
+
+    // 1. 사용자 전체 데이터 조회
+    const userData = await userService.getUserData();
+
+    if (!userData) {
+      throw new Error('Failed to fetch user data');
+    }
+
+    // 2. login() 호출로 Store + TokenStorage 저장
+    await login(userData, accessToken, refreshToken);
+
+    console.log('✅ [useAuth] completeLogin 완료 (AuthProvider가 라우팅 처리)');
+  }, [login]);
+
   return {
     // State
     isLoggedIn,
@@ -245,6 +277,7 @@ export const useAuth = () => {
     logout,
     verifyAndRefreshToken,
     refreshUserData,
+    completeLogin,
   };
 };
 

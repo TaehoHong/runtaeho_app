@@ -1,8 +1,9 @@
 import { router } from 'expo-router';
-import React, { type ReactNode, useCallback, useEffect, useState } from 'react';
-import { useAppStore, ViewState } from '../stores/app/appStore';
-import { useAuthStore } from '../features/auth/stores/authStore';
+import React, { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from '../features/auth/hooks/useAuth';
+import { useAuthStore } from '../features/auth/stores/authStore';
+import { ViewState, useAppStore } from '../stores/app/appStore';
+import { isAgreedOnTermsFromToken } from '~/features/auth/utils/jwtUtils';
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -19,6 +20,7 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const setViewState = useAppStore((state) => state.setViewState);
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
+  const accessToken = useAuthStore((state) => state.accessToken);
   const { verifyAndRefreshToken } = useAuth();
   const [hasRequestedPermissions, setHasRequestedPermissions] = useState(false);
   const [isNavigationReady, setIsNavigationReady] = useState(false);
@@ -141,18 +143,47 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => clearTimeout(timer);
   }, [initializeAuthState]);
 
+  /**
+   * 인증 상태에 따른 네비게이션 제어
+   *
+   * 의존성:
+   * - isLoggedIn: 로그인 여부
+   * - accessToken: 토큰 변경 감지 (약관 동의 후 토큰 재발행 시 필수)
+   * - isNavigationReady: 네비게이션 준비 완료 여부
+   *
+   * 플로우:
+   * 1. 로그인 → isLoggedIn=true, 약관 미동의 토큰 → /auth/terms-agreement
+   * 2. 약관 동의 완료 → 토큰 재발행 (isAgreedOnTerms=true) → accessToken 변경 → useEffect 재실행
+   * 3. 새 토큰 확인 → isAgreedOnTerms=true → /(tabs)/running
+   */
   useEffect(() => {
+    console.log('🔄 [AuthProvider] useEffect 실행 - isLoggedIn:', isLoggedIn, 'hasToken:', !!accessToken, 'isNavigationReady:', isNavigationReady);
+
     // 네비게이션이 준비되지 않았으면 대기
     if (!isNavigationReady) {
       console.log('⏳ [AuthProvider] 네비게이션 준비 대기 중...');
       return;
     }
 
-    console.log('🔄 [AuthProvider] 로그인 상태 변경:', isLoggedIn);
+    console.log('🔄 [AuthProvider] 인증 상태 확인 - isLoggedIn:', isLoggedIn, 'hasToken:', !!accessToken);
 
     // 로그인 상태에 따라 네비게이션 제어
     try {
       if (isLoggedIn) {
+        // 토큰에서 약관 동의 여부 확인
+        const accessToken = useAuthStore.getState().accessToken;
+
+        if (accessToken) {
+          const isAgreedOnTerms = isAgreedOnTermsFromToken(accessToken);
+
+          if (!isAgreedOnTerms) {
+            // 약관 미동의 → 약관 동의 화면으로
+            console.log('📄 [AuthProvider] 약관 미동의 → 약관 동의 화면으로 이동');
+            router.replace('/auth/terms-agreement');
+            return;
+          }
+        }
+
         console.log('✅ [AuthProvider] 로그인 상태 - 메인 화면으로 이동');
         // ViewState를 Loaded로 설정하여 탭바 표시 보장
         setViewState(ViewState.Loaded);
@@ -179,7 +210,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setTimeout(() => setIsNavigationReady(true), 200);
       }, 500);
     }
-  }, [isLoggedIn, isNavigationReady, setViewState]);
+  }, [isLoggedIn, accessToken, isNavigationReady, setViewState]);
 
   /**
    * 로그인 완료 후 권한 요청 (v3.0 PermissionManager 사용)

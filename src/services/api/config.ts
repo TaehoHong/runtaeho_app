@@ -107,4 +107,11 @@ export const API_ENDPOINTS = {
   STATISTICS: {
     SUMMARY: '/running/statistics',
   },
+
+  TERMS: {
+    ALL: '/terms',
+    PATCH_AGREEMENT: '/users/agreement'
+
+  }
+
 } as const;

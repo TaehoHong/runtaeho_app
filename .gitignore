@@ -33,6 +33,7 @@ yarn-error.*
 # local env files
 .env*.local
 .env
+.serena
 
 # sensitive config files
 GoogleService-Info.plist
