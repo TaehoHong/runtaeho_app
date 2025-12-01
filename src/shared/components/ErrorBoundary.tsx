@@ -1,4 +1,4 @@
-import React, { Component, ReactNode } from 'react';
+import React, { Component, type ReactNode } from 'react';
 import { GREY } from '~/shared/styles';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from '~/shared/components/typography';import { ErrorService } from '../services/ErrorService';
@@ -117,7 +117,7 @@ export function withErrorBoundary<P extends object>(
 ) {
   return function WrappedComponent(props: P) {
     return (
-      <ErrorBoundary fallback={fallback} onError={onError}>
+      <ErrorBoundary fallback={fallback} {...(onError && { onError })}>
         <Component {...props} />
       </ErrorBoundary>
     );

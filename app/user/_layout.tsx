@@ -17,6 +17,37 @@ export default function UserLayout() {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="profile-edit"
+        options={{
+          headerShown: false,
+          presentation: 'modal',
+        }}
+      />
+      <Stack.Screen
+        name="terms-list"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="terms-detail"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="app-info"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="licenses"
+        options={{
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 }

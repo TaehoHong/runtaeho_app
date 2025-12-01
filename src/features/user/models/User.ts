@@ -27,15 +27,25 @@ export const createUser = (data: {
   level?: number;
   createdAt?: Date;
   lastLoginAt?: Date;
-}): User => ({
-  id: data.id,
-  nickname: data.nickname,
-  userAccounts: data.userAccounts ?? [],
-  profileImageURL: data.profileImageURL,
-  level: data.level ?? 1,
-  createdAt: data.createdAt ?? new Date(),
-  lastLoginAt: data.lastLoginAt,
-});
+}): User => {
+  const user: User = {
+    id: data.id,
+    nickname: data.nickname,
+    userAccounts: data.userAccounts ?? [],
+    level: data.level ?? 1,
+    createdAt: data.createdAt ?? new Date(),
+  };
+
+  if (data.profileImageURL) {
+    user.profileImageURL = data.profileImageURL;
+  }
+
+  if (data.lastLoginAt) {
+    user.lastLoginAt = data.lastLoginAt;
+  }
+
+  return user;
+};
 
 /**
  * 마지막 로그인 시간 업데이트

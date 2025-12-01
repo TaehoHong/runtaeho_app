@@ -12,7 +12,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '~/shared/components/typography';
 import { Icon } from '~/shared/components/ui';
 import { GREY, PRIMARY, RED } from '~/shared/styles';
-import { useUserStore } from '~/stores/user/userStore';
 import { PointFilter, PointFilterConfig, type PointHistoryViewModel } from '../models';
 import { usePointViewModel } from '../viewmodels';
 
@@ -24,7 +23,7 @@ interface PointHistoryViewProps {
 export const PointHistoryView: React.FC<PointHistoryViewProps> = ({ onClose }) => {
   const {
     selectedFilter,
-    currentPoints = useUserStore((state) => state.totalPoint),
+    currentPoints,
     filteredPointHistory,
     isLoading,
     isLoadingMore,

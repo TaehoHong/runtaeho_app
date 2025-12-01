@@ -15,7 +15,10 @@ import {
 /**
  * Point ViewModel
  */
-export const usePointViewModel = (point: number = useUserStore(state => state.totalPoint)) => {
+export const usePointViewModel = (pointOverride?: number) => {
+  // Store에서 포인트 가져오기 (Hook은 최상위에서 호출)
+  const storePoint = useUserStore(state => state.totalPoint);
+  const point = pointOverride ?? storePoint;
 
   // 상태 관리
   const [selectedFilter, setSelectedFilter] = useState<PointFilter>(PointFilter.ALL);

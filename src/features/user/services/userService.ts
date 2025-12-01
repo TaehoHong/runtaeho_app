@@ -9,6 +9,15 @@ import { apiClient } from '../../../services/api/client';
 import { API_ENDPOINTS } from '../../../services/api/config';
 
 /**
+ * 프로필 업데이트 응답
+ */
+export interface ProfileResponse {
+  id: number;
+  nickname: string;
+  profileImageUrl?: string;
+}
+
+/**
  * User API Service
  */
 export const userService = {
@@ -65,5 +74,51 @@ export const userService = {
    */
   deleteUser: async (): Promise<void> => {
     await apiClient.delete(API_ENDPOINTS.USER.BASE);
+  },
+
+  /**
+   * 프로필 업데이트 (닉네임 및/또는 프로필 이미지)
+   * PATCH /api/v1/users/me (multipart/form-data)
+   */
+  updateProfile: async (params: {
+    nickname?: string;
+    profileImage?: {
+      uri: string;
+      type: string;
+      name: string;
+    };
+  }): Promise<ProfileResponse> => {
+    const formData = new FormData();
+
+    if (params.nickname) {
+      formData.append('nickname', params.nickname);
+    }
+
+    if (params.profileImage) {
+      formData.append('profileImage', {
+        uri: params.profileImage.uri,
+        type: params.profileImage.type,
+        name: params.profileImage.name,
+      } as unknown as Blob);
+    }
+
+    const { data } = await apiClient.patch<ProfileResponse>(
+      API_ENDPOINTS.USER.ME,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return data;
+  },
+
+  /**
+   * 회원 탈퇴 (익명화 처리)
+   * DELETE /api/v1/users/me
+   */
+  withdraw: async (): Promise<void> => {
+    await apiClient.delete(API_ENDPOINTS.USER.ME);
   },
 };

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -40,6 +40,7 @@ export const ShoesListView: React.FC<ShoesListViewProps> = ({ onClose }) => {
   // UI 전용 로컬 상태
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [swipedShoeId, setSwipedShoeId] = useState<number | null>(null);
+  const swipeListRef = useRef<SwipeListView<ShoeViewModel>>(null);
   const [selectedShoe, setSelectedShoe] = useState<ShoeViewModel | null>(null);
   const [showStorageModal, setShowStorageModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -48,6 +49,12 @@ export const ShoesListView: React.FC<ShoesListViewProps> = ({ onClose }) => {
   const [showEditShoeView, setShowEditShoeView] = useState(false);
 
   console.log('👟 [ShoesListView] 렌더링, 신발 개수:', shoeViewModels.length);
+
+  // 열린 스와이프 행 닫기
+  const closeOpenRows = () => {
+    swipeListRef.current?.closeAllOpenRows();
+    setSwipedShoeId(null);
+  };
 
   // 새로고침
   const handleRefresh = async () => {
@@ -58,9 +65,9 @@ export const ShoesListView: React.FC<ShoesListViewProps> = ({ onClose }) => {
 
   // 대표 신발 설정
   const handleSetMain = async (shoeId: number) => {
+    closeOpenRows();
     try {
       await handleSetMainShoe(shoeId);
-      setSwipedShoeId(null);
       console.log('✅ [ShoesListView] 대표 신발 설정 완료:', shoeId);
     } catch (error) {
       console.error('❌ [ShoesListView] 대표 신발 설정 실패:', error);
@@ -69,6 +76,7 @@ export const ShoesListView: React.FC<ShoesListViewProps> = ({ onClose }) => {
 
   // 보관 처리 (isEnabled: false)
   const handleStorage = async (shoe: ShoeViewModel) => {
+    closeOpenRows();
     setSelectedShoe(shoe);
     setShowStorageModal(true);
   };
@@ -79,7 +87,6 @@ export const ShoesListView: React.FC<ShoesListViewProps> = ({ onClose }) => {
     try {
       await disableShoe(selectedShoe.id);
       setShowStorageModal(false);
-      setSwipedShoeId(null);
       console.log('✅ [ShoesListView] 신발 보관 완료:', selectedShoe.displayName);
     } catch (error) {
       console.error('❌ [ShoesListView] 신발 보관 실패:', error);
@@ -88,6 +95,7 @@ export const ShoesListView: React.FC<ShoesListViewProps> = ({ onClose }) => {
 
   // 삭제 처리
   const handleDelete = async (shoe: ShoeViewModel) => {
+    closeOpenRows();
     setSelectedShoe(shoe);
     setShowDeleteModal(true);
   };
@@ -98,7 +106,6 @@ export const ShoesListView: React.FC<ShoesListViewProps> = ({ onClose }) => {
     try {
       await deleteShoe(selectedShoe.id);
       setShowDeleteModal(false);
-      setSwipedShoeId(null);
       console.log('✅ [ShoesListView] 신발 삭제 완료:', selectedShoe.displayName);
     } catch (error) {
       console.error('❌ [ShoesListView] 신발 삭제 실패:', error);
@@ -125,6 +132,7 @@ export const ShoesListView: React.FC<ShoesListViewProps> = ({ onClose }) => {
         <LoadingState />
       ) : (
         <SwipeListView
+          ref={swipeListRef}
           data={activeShoes}
           keyExtractor={(item) => `shoe-${item.id}`}
           ListHeaderComponent={

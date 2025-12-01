@@ -1,8 +1,7 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from '~/features/auth/hooks/useAuth';
 import { AvatarView } from '~/features/avatar/views';
@@ -10,7 +9,7 @@ import { PointHistoryView } from '~/features/point/views';
 import { ShoesListView } from '~/features/shoes/views';
 import { Text } from '~/shared/components/typography';
 import { Icon } from '~/shared/components/ui';
-import { GREY, RED } from '~/shared/styles';
+import { GREY } from '~/shared/styles';
 import type { User } from '../models';
 
 /**
@@ -20,50 +19,12 @@ import type { User } from '../models';
  */
 export const MyInfoView: React.FC = () => {
   // useAuth Hook 사용 (현업 표준 패턴)
-  const { user: currentUser, totalPoint, logout } = useAuth();
-  const router = useRouter();
-  const [showLogoutAlert, setShowLogoutAlert] = useState(false);
+  const { user: currentUser, totalPoint } = useAuth();
   const [showPointModal, setShowPointModal] = useState(false);
   const [showShoesModal, setShowShoesModal] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   console.log('👤 [MyInfoView] 내정보 화면 렌더링');
-
-  /**
-   * 로그아웃 핸들러
-   *
-   * useAuth hook의 logout 사용 (performCompleteLogout 대체)
-   */
-  const handleLogout = async () => {
-    if (isLoggingOut) return;
-
-    try {
-      setIsLoggingOut(true);
-      console.log('🚪 [MyInfoView] 로그아웃 시작...');
-
-      // useAuth의 logout 호출 (모든 데이터 제거)
-      await logout();
-
-      console.log('✅ [MyInfoView] 로그아웃 완료');
-      setShowLogoutAlert(false);
-
-      // 로그인 화면으로 리다이렉트
-      router.replace('/auth/login');
-    } catch (error) {
-      console.error('❌ [MyInfoView] 로그아웃 실패:', error);
-      setShowLogoutAlert(false);
-
-      // 에러 알림 표시
-      Alert.alert(
-        '로그아웃 실패',
-        '로그아웃 중 오류가 발생했습니다. 다시 시도해주세요.',
-        [{ text: '확인', style: 'default' }]
-      );
-    } finally {
-      setIsLoggingOut(false);
-    }
-  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -83,44 +44,9 @@ export const MyInfoView: React.FC = () => {
         
         {/* 메뉴 설정 카드 */}
         <MenuSettingsCard />
-        
-        {/* 로그아웃 버튼 */}
-        <LogoutButton onPress={() => setShowLogoutAlert(true)} />
       </ScrollView>
-      
-      {/* 로그아웃 알림 */}
-      <Modal
-        visible={showLogoutAlert}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowLogoutAlert(false)}
-      >
-        <View style={styles.alertOverlay}>
-          <View style={styles.alertContainer}>
-            <Text style={styles.alertTitle}>로그아웃</Text>
-            <Text style={styles.alertMessage}>정말로 로그아웃하시겠습니까?</Text>
-            <View style={styles.alertButtons}>
-              <TouchableOpacity 
-                style={[styles.alertButton, styles.cancelButton]} 
-                onPress={() => setShowLogoutAlert(false)}
-              >
-                <Text style={styles.cancelButtonText}>취소</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.alertButton, styles.logoutButton]}
-                onPress={handleLogout}
-                disabled={isLoggingOut}
-              >
-                <Text style={styles.logoutButtonText}>
-                  {isLoggingOut ? '로그아웃 중...' : '로그아웃'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-      
-      {/* 마네도들 - iOS fullScreenCover 대응 */}
+
+      {/* 모달들 - iOS fullScreenCover 대응 */}
       <PointModal visible={showPointModal} onClose={() => setShowPointModal(false)} />
       <ShoesModal visible={showShoesModal} onClose={() => setShowShoesModal(false)} />
       <AvatarModal visible={showAvatarModal} onClose={() => setShowAvatarModal(false)} />
@@ -139,24 +65,33 @@ interface ProfileCardProps {
 
 
 const ProfileCard: React.FC<ProfileCardProps> = ({ user, totalPoint, onPointPress }) => {
-  	// 프로필 이미지 source 결정
-  	const imageSource = user?.profileImageURL
-      ? { uri: user.profileImageURL }  // URL인 경우 객체로 감싸기
-      : require('assets/images/default-profile-image.png');  // 로컬 파일
+  const router = useRouter();
 
-  	return (
-        <View style={[styles.profileCard]}>
-            <View style={[styles.profileHeader, styles.rowCentered]}>
-                <Image
-                  style={styles.profileImage}
-                  source={imageSource}
-                  contentFit="cover"
-                 />
-                <View style={styles.usernameContainer}>
-                    <Text style={styles.username}>{user?.nickname || '사용자'}</Text>
-                    <Icon name="pencil" size={18} />
-                </View>
-            </View>
+  // 프로필 이미지 source 결정
+  const imageSource = user?.profileImageURL
+    ? { uri: user.profileImageURL }  // URL인 경우 객체로 감싸기
+    : require('assets/images/default-profile-image.png');  // 로컬 파일
+
+  const handleEditProfile = () => {
+    router.push('/user/profile-edit');
+  };
+
+  return (
+    <View style={[styles.profileCard]}>
+      <TouchableOpacity
+        style={[styles.profileHeader, styles.rowCentered]}
+        onPress={handleEditProfile}
+      >
+        <Image
+          style={styles.profileImage}
+          source={imageSource}
+          contentFit="cover"
+        />
+        <View style={styles.usernameContainer}>
+          <Text style={styles.username}>{user?.nickname || '사용자'}</Text>
+          <Icon name="pencil" size={18} />
+        </View>
+      </TouchableOpacity>
             <View style={styles.horizontalDivider} />
             <View style={[styles.pointRow, styles.rowCentered]}>
                 <View style={[styles.pointLabel, styles.rowCentered]}>
@@ -244,7 +179,8 @@ const MenuSettingsCard: React.FC<MenuSettingsCardProps> = ({ items }) => {
 
   const defaultMenuItems: MenuItemProps[] = [
     { title: '연결 계정 관리', onPress: () => router.push('/user/account-connection') },
-    { title: '공지사항', onPress: () => console.log('공지사항') },
+    { title: '약관 및 정책', onPress: () => router.push('/user/terms-list') },
+    { title: '설정', onPress: () => router.push('/user/settings') },
   ];
 
   const menuItems = items || defaultMenuItems;
@@ -258,23 +194,6 @@ const MenuSettingsCard: React.FC<MenuSettingsCardProps> = ({ items }) => {
         ))}
       </View>
     </View>
-  );
-};
-
-/**
- * 로그아웃 버튼
- * iOS LogoutButton 대응
- */
-interface LogoutButtonProps {
-  onPress: () => void;
-}
-
-const LogoutButton: React.FC<LogoutButtonProps> = ({ onPress }) => {
-  return (
-    <TouchableOpacity style={styles.logoutButtonContainer} onPress={onPress}>
-      <Ionicons name="log-out-outline" size={12} color={GREY[400]} />
-      <Text style={styles.logoutButtonText}>로그아웃</Text>
-    </TouchableOpacity>
   );
 };
 
@@ -376,85 +295,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontFamily: 'Pretendard',
     textAlign: 'left',
-  },
-  logoutButtonContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: GREY[50],
-    marginBottom: 20,
-    paddingHorizontal: 20,
-    borderRadius: 16,
-  },
-  logoutButtonText: {
-    fontSize: 12,
-    color: GREY[400],
-    marginLeft: 8,
-  },
-  alertOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  alertContainer: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    minWidth: 300,
-  },
-  alertTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  alertMessage: {
-    fontSize: 16,
-    marginBottom: 20,
-    textAlign: 'center',
-    color: '#666',
-  },
-  alertButtons: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  alertButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  cancelButton: {
-    backgroundColor: GREY[100],
-  },
-  cancelButtonText: {
-    color: '#666',
-    fontSize: 16,
-  },
-  logoutButton: {
-    backgroundColor: RED[400],
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: 'white',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: GREY[100],
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  modalContent: {
-    flex: 1,
-    padding: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   rowCentered: {
       alignItems: "center",

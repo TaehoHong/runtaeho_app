@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import { Text } from '~/shared/components/typography';
 import { GREY, PRIMARY, RED } from '~/shared/styles';
 import type { ShoeViewModel } from '../models';
@@ -110,6 +110,7 @@ export const EditShoeView: React.FC<EditShoeViewProps> = ({
   };
 
   return (
+    <SafeAreaProvider>
     <SafeAreaView style={styles.container} edges={['top']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -160,6 +161,7 @@ export const EditShoeView: React.FC<EditShoeViewProps> = ({
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
+    </SafeAreaProvider>
   );
 };
 

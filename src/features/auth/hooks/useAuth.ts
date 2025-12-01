@@ -280,36 +280,3 @@ export const useAuth = () => {
     completeLogin,
   };
 };
-
-/**
- * 토큰만 관리하는 Hook (옵션)
- */
-export const useAuthToken = () => {
-  const accessToken = useAuthStore((state) => state.accessToken);
-  const refreshToken = useAuthStore((state) => state.refreshToken);
-  const setAccessToken = useAuthStore((state) => state.setAccessToken);
-  const setRefreshToken = useAuthStore((state) => state.setRefreshToken);
-
-  const updateTokens = useCallback(async (
-    newAccessToken: string,
-    newRefreshToken?: string
-  ): Promise<void> => {
-    await tokenStorage.saveTokens(newAccessToken, newRefreshToken);
-    setAccessToken(newAccessToken);
-    if (newRefreshToken) {
-      setRefreshToken(newRefreshToken);
-    }
-  }, [setAccessToken, setRefreshToken]);
-
-  const clearTokens = useCallback(async (): Promise<void> => {
-    await tokenStorage.clearTokens();
-    // Store는 logout()으로 초기화하므로 여기서는 호출하지 않음
-  }, []);
-
-  return {
-    accessToken,
-    refreshToken,
-    updateTokens,
-    clearTokens,
-  };
-};

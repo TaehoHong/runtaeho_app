@@ -1,4 +1,4 @@
 /**
  * User ViewModels 통합 Export
  */
-export * from './UserViewModel';
+// UserViewModel은 사용되지 않아 삭제됨

@@ -9,10 +9,8 @@
 
 import { create } from 'zustand';
 import type {
-  AvatarData,
   CharacterMotion,
   CharacterState,
-  UnityBridgeConfig,
   UnityError,
   UnityStatus,
 } from '../../features/unity/types/UnityTypes';
@@ -30,14 +28,8 @@ interface UnityState {
   // Character State
   characterState: CharacterState | null;
 
-  // Avatar State
-  currentAvatar: AvatarData | null;
-
   // Unity Status
   unityStatus: UnityStatus | null;
-
-  // Configuration
-  config: UnityBridgeConfig;
 
   // UI State
   isUnityViewVisible: boolean;
@@ -49,10 +41,8 @@ interface UnityState {
   setError: (error: UnityError | null) => void;
   clearError: () => void;
   updateCharacterState: (characterState: CharacterState) => void;
-  updateAvatarData: (avatarData: AvatarData) => void;
   updateUnityStatus: (unityStatus: UnityStatus) => void;
   setUnityViewVisible: (isVisible: boolean) => void;
-  updateConfig: (config: Partial<UnityBridgeConfig>) => void;
   resetUnityState: () => void;
 }
 
@@ -69,14 +59,7 @@ const initialState = {
     isMoving: false,
     timestamp: new Date().toISOString(),
   },
-  currentAvatar: null,
   unityStatus: null,
-  config: {
-    enableDebugLogs: __DEV__,
-    autoConnect: true,
-    reconnectAttempts: 3,
-    eventBufferSize: 50,
-  },
   isUnityViewVisible: false,
   lastInteraction: null,
 };
@@ -119,12 +102,6 @@ export const useUnityStore = create<UnityState>((set) => ({
       lastInteraction: new Date().toISOString(),
     }),
 
-  updateAvatarData: (currentAvatar) =>
-    set({
-      currentAvatar,
-      lastInteraction: new Date().toISOString(),
-    }),
-
   updateUnityStatus: (unityStatus) =>
     set({
       unityStatus,
@@ -137,12 +114,6 @@ export const useUnityStore = create<UnityState>((set) => ({
       isUnityViewVisible,
       lastInteraction: new Date().toISOString(),
     }),
-
-  updateConfig: (configUpdate) =>
-    set((state) => ({
-      config: { ...state.config, ...configUpdate },
-      lastInteraction: new Date().toISOString(),
-    })),
 
   resetUnityState: () => set(initialState),
 }));

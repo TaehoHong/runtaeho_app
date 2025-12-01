@@ -76,9 +76,7 @@ export class SystemInfoManager {
    * 앱 버전
    */
   getAppVersion(): string {
-    return Constants.expoConfig?.version || 
-           Constants.manifest?.version || 
-           '1.0.0';
+    return Constants.expoConfig?.version || '1.0.0';
   }
   
   /**
@@ -86,13 +84,9 @@ export class SystemInfoManager {
    */
   getBuildNumber(): string {
     if (Platform.OS === 'ios') {
-      return Constants.expoConfig?.ios?.buildNumber || 
-             Constants.manifest?.ios?.buildNumber || 
-             '1';
+      return Constants.expoConfig?.ios?.buildNumber || '1';
     } else {
-      const versionCode = Constants.expoConfig?.android?.versionCode || 
-                         Constants.manifest?.android?.versionCode || 
-                         1;
+      const versionCode = Constants.expoConfig?.android?.versionCode || 1;
       return String(versionCode);
     }
   }
@@ -111,13 +105,9 @@ export class SystemInfoManager {
    */
   getBundleId(): string {
     if (Platform.OS === 'ios') {
-      return Constants.expoConfig?.ios?.bundleIdentifier || 
-             Constants.manifest?.ios?.bundleIdentifier || 
-             'com.runtaeho.app';
+      return Constants.expoConfig?.ios?.bundleIdentifier || 'com.runtaeho.app';
     } else {
-      return Constants.expoConfig?.android?.package || 
-             Constants.manifest?.android?.package || 
-             'com.runtaeho.app';
+      return Constants.expoConfig?.android?.package || 'com.runtaeho.app';
     }
   }
   
@@ -125,9 +115,7 @@ export class SystemInfoManager {
    * 앱 이름
    */
   getAppName(): string {
-    return Constants.expoConfig?.name || 
-           Constants.manifest?.name || 
-           'RunTaeho';
+    return Constants.expoConfig?.name || 'RunTaeho';
   }
   
   /**
@@ -158,9 +146,7 @@ export class SystemInfoManager {
    * Expo SDK 버전
    */
   getExpoVersion(): string {
-    return Constants.expoConfig?.sdkVersion || 
-           Constants.manifest?.sdkVersion || 
-           'Unknown';
+    return Constants.expoConfig?.sdkVersion || 'Unknown';
   }
   
   /**
@@ -175,7 +161,7 @@ export class SystemInfoManager {
    * 개발 환경 여부
    */
   isDevelopment(): boolean {
-    return __DEV__ || Constants.executionEnvironment === 'devClient';
+    return __DEV__;
   }
   
   /**

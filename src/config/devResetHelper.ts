@@ -13,25 +13,21 @@ import { useUserStore } from '~/stores/user/userStore';
 import { useUnityStore } from '~/stores/unity/unityStore';
 
 /**
- * 모든 Zustand 스토어 초기화
+ * 모든 Zustand 스토어 초기화 (내부 함수)
  */
-export const resetAllStores = async (): Promise<void> => {
+const resetAllStores = async (): Promise<void> => {
   console.log('🔄 [DEV] Zustand 스토어 초기화 시작...');
 
   try {
-    // 1. App Store 초기화
     useAppStore.getState().resetAppState();
     console.log('  ✅ AppStore 초기화 완료');
 
-    // 2. Auth Store 초기화
     useAuthStore.getState().resetAuthState();
     console.log('  ✅ AuthStore 초기화 완료');
 
-    // 3. User Store 초기화
     useUserStore.getState().resetAppState();
     console.log('  ✅ UserStore 초기화 완료');
 
-    // 4. Unity Store 초기화
     useUnityStore.getState().resetUnityState();
     console.log('  ✅ UnityStore 초기화 완료');
 
@@ -43,9 +39,9 @@ export const resetAllStores = async (): Promise<void> => {
 };
 
 /**
- * AsyncStorage 완전 초기화
+ * AsyncStorage 완전 초기화 (내부 함수)
  */
-export const clearAsyncStorage = async (): Promise<void> => {
+const clearAsyncStorage = async (): Promise<void> => {
   console.log('🔄 [DEV] AsyncStorage 초기화 시작...');
 
   try {
@@ -58,10 +54,9 @@ export const clearAsyncStorage = async (): Promise<void> => {
 };
 
 /**
- * SecureStore (Keychain) 초기화
- * 토큰 등 민감 정보 제거
+ * SecureStore (Keychain) 초기화 (내부 함수)
  */
-export const clearSecureStore = async (): Promise<void> => {
+const clearSecureStore = async (): Promise<void> => {
   console.log('🔄 [DEV] SecureStore 초기화 시작...');
 
   try {
@@ -75,7 +70,7 @@ export const clearSecureStore = async (): Promise<void> => {
     for (const key of keysToRemove) {
       try {
         await SecureStore.deleteItemAsync(key);
-      } catch (error) {
+      } catch {
         // 키가 존재하지 않으면 에러 무시
       }
     }
@@ -105,13 +100,8 @@ export const resetDevEnvironment = async (): Promise<void> => {
   const startTime = Date.now();
 
   try {
-    // 1. Zustand 스토어 초기화
     await resetAllStores();
-
-    // 2. AsyncStorage 초기화
     await clearAsyncStorage();
-
-    // 3. SecureStore 초기화
     await clearSecureStore();
 
     const elapsed = Date.now() - startTime;
@@ -127,44 +117,5 @@ export const resetDevEnvironment = async (): Promise<void> => {
     console.error('═══════════════════════════════════════');
     console.error(error);
     console.error('');
-  }
-};
-
-/**
- * 선택적 초기화 옵션
- */
-export interface ResetOptions {
-  stores?: boolean;      // Zustand 스토어 초기화 여부
-  asyncStorage?: boolean; // AsyncStorage 초기화 여부
-  secureStore?: boolean;  // SecureStore 초기화 여부
-}
-
-/**
- * 옵션을 지정하여 선택적 초기화
- */
-export const resetWithOptions = async (options: ResetOptions): Promise<void> => {
-  if (!__DEV__) return;
-
-  const { stores = true, asyncStorage = true, secureStore = true } = options;
-
-  console.log('🔄 [DEV] 선택적 초기화 시작:', options);
-
-  try {
-    if (stores) {
-      await resetAllStores();
-    }
-
-    if (asyncStorage) {
-      await clearAsyncStorage();
-    }
-
-    if (secureStore) {
-      await clearSecureStore();
-    }
-
-    console.log('✅ [DEV] 선택적 초기화 완료');
-  } catch (err) {
-    console.error('❌ [DEV] 선택적 초기화 실패:', err);
-    throw err;
   }
 };

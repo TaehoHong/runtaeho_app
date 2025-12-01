@@ -89,7 +89,7 @@ class BiometricStorageImpl {
     await secureStorage.save(key, value, {
       keychainAccessible: KeychainAccessibility.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
       requireAuthentication: Platform.OS === 'android', // Android만 지원
-      authenticationPrompt: promptMessage,
+      ...(promptMessage && { authenticationPrompt: promptMessage }),
     });
 
     console.log(`🔐 [BiometricStorage] Saved with biometry: ${key}`);

@@ -10,6 +10,7 @@ import { createUserAccount } from './UserAccount';
 export interface UserDataDto {
   id: number;
   name: string;
+  profileImageUrl?: string;
   authorityType: string;
   totalPoint: number;
   userAccounts: UserAccountDataDto[];
@@ -40,6 +41,30 @@ export interface EquippedItemDataDto {
 }
 
 /**
+ * 프로필 이미지 URL을 전체 URL로 변환
+ * 서버에서 상대 경로(/profile-images/...)로 내려오면 S3 버킷 URL과 결합
+ */
+const buildFullImageUrl = (imageUrl: string | undefined): string | undefined => {
+  if (!imageUrl) {
+    return undefined;
+  }
+
+  // 이미 전체 URL인 경우 그대로 반환
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+    return imageUrl;
+  }
+
+  // 상대 경로인 경우 S3 버킷 URL과 결합
+  const s3BucketUrl = process.env.EXPO_PUBLIC_S3_BUCKET_URL;
+  if (!s3BucketUrl) {
+    console.warn('⚠️ EXPO_PUBLIC_S3_BUCKET_URL not set');
+    return imageUrl;
+  }
+
+  return `${s3BucketUrl}${imageUrl}`;
+};
+
+/**
  * UserDataDto를 User로 변환
  */
 export const userDataDtoToUser = (dto: UserDataDto): User => {
@@ -55,11 +80,19 @@ export const userDataDtoToUser = (dto: UserDataDto): User => {
     return accountData ? userAccountDataDtoToUserAccount(accountData) : createUserAccount({ provider });
   });
 
-  return createUser({
+  const userParams: Parameters<typeof createUser>[0] = {
     id: dto.id,
     nickname: dto.name,
     userAccounts: accounts,
-  });
+  };
+
+  // 프로필 이미지 URL을 전체 URL로 변환
+  const fullImageUrl = buildFullImageUrl(dto.profileImageUrl);
+  if (fullImageUrl) {
+    userParams.profileImageURL = fullImageUrl;
+  }
+
+  return createUser(userParams);
 };
 
 /**

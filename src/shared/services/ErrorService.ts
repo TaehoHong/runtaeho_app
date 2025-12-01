@@ -118,7 +118,7 @@ export class ErrorService {
       level,
       message,
       originalError: error,
-      context,
+      ...(context && { context }),
       timestamp: Date.now(),
     };
   }

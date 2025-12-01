@@ -155,20 +155,20 @@ class SecureStorageImpl implements ISecureStorage {
    */
   private mapAccessibility(
     accessibility?: KeychainAccessibility
-  ): SecureStore.SecureStoreOptions['keychainAccessible'] | undefined {
+  ): NonNullable<SecureStore.SecureStoreOptions['keychainAccessible']> {
     if (!accessibility) {
       // 기본값: 기기 잠금 해제 시 접근 가능 (현재 기기만)
       return SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY;
     }
 
-    const mapping: Record<string, SecureStore.SecureStoreOptions['keychainAccessible']> = {
+    const mapping: Record<string, NonNullable<SecureStore.SecureStoreOptions['keychainAccessible']>> = {
       [KeychainAccessibility.WHEN_UNLOCKED]: SecureStore.WHEN_UNLOCKED,
       [KeychainAccessibility.WHEN_UNLOCKED_THIS_DEVICE_ONLY]: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
       [KeychainAccessibility.AFTER_FIRST_UNLOCK]: SecureStore.AFTER_FIRST_UNLOCK,
       [KeychainAccessibility.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY]: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
     };
 
-    return mapping[accessibility];
+    return mapping[accessibility] ?? SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY;
   }
 
   // ===== Fallback Methods (AsyncStorage) =====

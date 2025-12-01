@@ -114,19 +114,33 @@ export const useShoeViewModel = () => {
   }, [updateToMain]);
 
   /**
+   * 무한 스크롤된 신발 목록 결합
+   */
+  const shoes = useMemo(() => {
+    if (!infiniteShoesData?.pages) return [];
+    return infiniteShoesData.pages.flatMap(page => page.content);
+  }, [infiniteShoesData]);
+
+  /**
+   * 메인 신발 (infiniteShoes에서 찾기)
+   */
+  const mainShoe = useMemo(() => {
+    return shoes.find(shoe => shoe.isMain && shoe.isEnabled) || null;
+  }, [shoes]);
+
+  /**
    * 신발 활성화
    */
   const enableShoe = useCallback(async (shoeId: number) => {
     try {
-      var isMain = false
-      if(!mainShoe) isMain = true
-      const patchShoeDto = createPatchShoeDto(shoeId, { isMain: isMain, isEnabled: true });
+      const isMain = !mainShoe;
+      const patchShoeDto = createPatchShoeDto(shoeId, { isMain, isEnabled: true });
       return await patchShoe(patchShoeDto);
     } catch (error) {
       console.error('Failed to toggle shoe enabled:', error);
       throw error;
     }
-  }, [patchShoe]);
+  }, [patchShoe, mainShoe]);
 
 
 
@@ -154,21 +168,6 @@ export const useShoeViewModel = () => {
   const validateShoeData = useCallback((shoe: Partial<Shoe>) => {
     return validateShoe(shoe);
   }, []);
-
-  /**
-   * 무한 스크롤된 신발 목록 결합
-   */
-  const shoes = useMemo(() => {
-    if (!infiniteShoesData?.pages) return [];
-    return infiniteShoesData.pages.flatMap(page => page.content);
-  }, [infiniteShoesData]);
-
-  /**
-   * 메인 신발 (infiniteShoes에서 찾기)
-   */
-  const mainShoe = useMemo(() => {
-    return shoes.find(shoe => shoe.isMain && shoe.isEnabled) || null;
-  }, [shoes]);
 
   /**
    * 필터링된 신발 목록

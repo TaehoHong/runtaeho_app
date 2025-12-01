@@ -20,17 +20,14 @@ export const useUnityViewModel = () => {
   const isLoading = useUnityStore((state) => state.isLoading);
   const error = useUnityStore((state) => state.error);
   const characterState = useUnityStore((state) => state.characterState);
-  const currentAvatar = useUnityStore((state) => state.currentAvatar);
   const unityStatus = useUnityStore((state) => state.unityStatus);
   const isUnityViewVisible = useUnityStore((state) => state.isUnityViewVisible);
 
   // Zustand Actions
-  const setConnected = useUnityStore((state) => state.setConnected);
   const setLoading = useUnityStore((state) => state.setLoading);
   const setError = useUnityStore((state) => state.setError);
   const clearError = useUnityStore((state) => state.clearError);
   const updateCharacterState = useUnityStore((state) => state.updateCharacterState);
-  const updateAvatarData = useUnityStore((state) => state.updateAvatarData);
   const setUnityViewVisible = useUnityStore((state) => state.setUnityViewVisible);
 
   /**
@@ -142,13 +139,6 @@ export const useUnityViewModel = () => {
 
     try {
       await unityService.changeAvatar(items);
-
-      const timestamp = new Date().toISOString();
-      updateAvatarData({
-        items,
-        timestamp,
-      });
-
       setLoading(false);
     } catch (error) {
       setLoading(false);
@@ -159,7 +149,7 @@ export const useUnityViewModel = () => {
       });
       throw error;
     }
-  }, [setLoading, setError, updateAvatarData]);
+  }, [setLoading, setError]);
 
   return {
     // State (read-only)
@@ -167,7 +157,6 @@ export const useUnityViewModel = () => {
     isLoading,
     error,
     characterState,
-    currentAvatar,
     unityStatus,
     isUnityViewVisible,
 
