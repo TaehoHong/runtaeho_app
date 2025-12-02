@@ -82,9 +82,6 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     statsRef.current = stats;
   }, [stats]);
 
-  // 러닝 종료 후 최종 기록 (Finished 화면에서 사용)
-  const [lastEndedRecord, setLastEndedRecord] = useState<EndRunningRecord | null>(null);
-
   const [currentSegmentItems, setCurrentSegmentItems] = useState<RunningRecordItem[]>([]);
   const [segmentStartTime, setSegmentStartTime] = useState<number | null>(null);
   const [segmentDistance, setSegmentDistance] = useState<number>(0);
@@ -728,10 +725,12 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
         durationSec: elapsedTime,
       });
 
-      // 4. 백엔드 API: 러닝 종료 (오프라인 지원)
+      // currentRecord를 최종 데이터로 업데이트
+      setCurrentRecord(finalRecord);
+
+      // 5. 백엔드 API: 러닝 종료 (오프라인 지원)
       try {
         const endRecord = await endRunningMutation(finalRecord);
-        setLastEndedRecord(endRecord); // Finished 화면에서 사용할 최종 기록 저장
         setRunningState(RunningState.Finished);
         console.log('[RunningViewModel] Running completed, data sent to server');
 
@@ -889,7 +888,6 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     distance,
     locations,
     stats,
-    lastEndedRecord, // 러닝 종료 후 최종 기록
     trackingData, // GPS 추적 데이터
     useBackgroundMode, // 백그라운드 모드 사용 여부
     currentSegmentItems, // 현재 세그먼트 아이템들

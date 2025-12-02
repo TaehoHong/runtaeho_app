@@ -26,6 +26,8 @@ import { QUERY_KEY_PREFIX, QUERY_OPTIONS } from '../models/avatarConstants';
 import type { Item, Avatar, ItemType, PurchaseItemsRequest, UpdateEquippedItemsRequest } from '../models/';
 import { avatarService } from './avatarService';
 import type { CursorResult } from '~/shared/utils/dto/CursorResult';
+import { pointService } from '~/features/point/services/pointService';
+import { useUserStore } from '~/stores/user/userStore';
 
 // ===================================
 // Query Keys (캐시 키 관리)
@@ -113,6 +115,7 @@ export function useMainAvatar(): UseQueryResult<Avatar, Error> {
  * 아이템 구매 Mutation
  *
  * 성공 시:
+ * - 서버에서 최신 포인트를 조회하여 전역 상태 동기화
  * - 모든 아이템 캐시 무효화 (isOwned 상태 변경되므로)
  *
  * @returns Mutation Result
@@ -133,11 +136,21 @@ export function usePurchaseItems(): UseMutationResult<
   unknown
 > {
   const queryClient = useQueryClient();
+  const setTotalPoint = useUserStore((state) => state.setTotalPoint);
 
   return useMutation({
     mutationFn: (request: PurchaseItemsRequest) =>
       avatarService.purchaseItems(request),
-    onSuccess: () => {
+    onSuccess: async () => {
+      // 서버에서 최신 포인트 조회하여 전역 상태 동기화
+      try {
+        const { point } = await pointService.getUserPoint();
+        setTotalPoint(point);
+        console.log(`💰 [usePurchaseItems] 포인트 동기화: ${point}`);
+      } catch (error) {
+        console.error('❌ [usePurchaseItems] 포인트 동기화 실패:', error);
+      }
+
       // 모든 아이템 목록 캐시 무효화
       queryClient.invalidateQueries({
         queryKey: avatarQueryKeys.items(),

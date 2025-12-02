@@ -1,13 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, Dimensions, Alert, ActivityIndicator } from 'react-native';
 import { useAppStore, RunningState } from '~/stores/app/appStore';
+import { useUserStore } from '~/stores/user/userStore';
 import { MainDistanceCard, DetailedStatisticsCard, ShoeSelectionArea, CompleteButton } from '~/shared/components';
 import { PointInfoBar } from './components/point-info-bar';
 import { AddShoeCard } from './components/add-shoe-card';
 import { useRunning } from '../contexts';
 import { runningService } from '../services/runningService';
-import { updateRunningRecord } from '../models';
-import { useGetUserPoint } from '~/features/point/services/pointQueries';
+import { type RunningRecord } from '../models';
 import { useShoeViewModel } from '~/features/shoes/viewmodels';
 import { GREY } from '~/shared/styles';
 
@@ -20,15 +20,15 @@ const { width } = Dimensions.get('window');
  */
 export const RunningFinishedView: React.FC = () => {
   const setRunningState = useAppStore((state) => state.setRunningState);
-  const { currentRecord, resetRunning } = useRunning();
+  const { currentRecord, resetRunning, distance } = useRunning();
 
   // 신발 데이터 가져오기
   const { shoes, isLoadingShoes } = useShoeViewModel();
   const [selectedShoeId, setSelectedShoeId] = useState<number | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // 사용자 포인트 조회
-  const { data: userPointData } = useGetUserPoint();
+  // 사용자 포인트 (Single Source of Truth: userStore)
+  const totalPoint = useUserStore((state) => state.totalPoint);
 
   // 활성화된 신발 필터링
   const availableShoes = useMemo(() => {
@@ -39,12 +39,11 @@ export const RunningFinishedView: React.FC = () => {
   const hasShoe = availableShoes.length > 0; 
 
   // 획득 포인트 계산 (100m당 1포인트)
-  const earnedPoints = currentRecord
-    ? Math.floor((currentRecord.distance || 0) / 100)
-    : 0;
+  // NOTE: currentRecord.distance는 초기값(0)이므로, 실시간 distance state 사용
+  const earnedPoints = Math.floor(distance / 100);
 
   // 보유 포인트
-  const totalPoints = userPointData?.point || 0;
+  const totalPoints = totalPoint;
 
   // 신발 추가 후 자동으로 React Query가 신발 목록을 갱신하고,
   // 첫 신발이므로 자동으로 메인 설정되어 ShoeSelectionArea가 표시됩니다.
@@ -63,12 +62,13 @@ export const RunningFinishedView: React.FC = () => {
       setIsUpdating(true);
 
       // 선택된 신발이 있으면 runningRecord 업데이트
-      if (selectedShoeId !== null) {
+      if (selectedShoeId !== null && currentRecord) {
         console.log(`👟 [RunningFinishedView] 선택된 신발 ID: ${selectedShoeId}로 업데이트 중...`);
 
-        const updatedRecord = updateRunningRecord(currentRecord, {
+        const updatedRecord: RunningRecord = {
+          ...currentRecord,
           shoeId: selectedShoeId,
-        });
+        };
 
         await runningService.updateRunningRecord(updatedRecord);
         console.log('✅ [RunningFinishedView] 신발 정보 업데이트 완료');

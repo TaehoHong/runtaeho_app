@@ -15,7 +15,9 @@ export const MainDistanceCard: React.FC = () => {
   const { distance } = useRunning();
 
   // 거리를 km 단위로 변환 (distance는 미터 단위)
-  const distanceKm = (distance / 1000).toFixed(2);
+  // 1의 자리 버림 처리 (예: 299m → 290m → 0.29km)
+  const truncatedDistance = Math.floor(distance / 10) * 10;
+  const distanceKm = (truncatedDistance / 1000).toFixed(2);
 
   return (
     <View style={styles.container}>

@@ -2,6 +2,8 @@ import React, { useEffect, type ReactNode, useCallback, useRef } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import { useAppStore, ViewState } from '~/stores';
 import { useAuthStore } from '~/features';
+import { useUserStore } from '~/stores/user/userStore';
+import { pointService } from '~/features/point/services/pointService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface AppStateProviderProps {
@@ -182,10 +184,23 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
   /**
    * 서버에서 최신 사용자 데이터 동기화
    * iOS syncUserDataFromServer() 대응
+   *
+   * 포인트 동기화: 다른 디바이스에서의 변경사항이나
+   * 서버 측 보정을 반영하기 위해 서버 포인트로 동기화
    */
   const syncUserDataFromServer = async () => {
     console.log('🔄 [AppStateProvider] Syncing user data from server');
-    // TODO: UserService를 통한 사용자 데이터 조회 및 업데이트
+
+    // 포인트 동기화
+    try {
+      const { point } = await pointService.getUserPoint();
+      useUserStore.getState().setTotalPoint(point);
+      console.log(`💰 [AppStateProvider] 포인트 동기화 완료: ${point}`);
+    } catch (error) {
+      console.error('❌ [AppStateProvider] 포인트 동기화 실패:', error);
+    }
+
+    // TODO: 기타 사용자 데이터 동기화 (필요시 추가)
   };
 
   /**

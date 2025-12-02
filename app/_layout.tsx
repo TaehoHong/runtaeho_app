@@ -43,8 +43,7 @@ function RootLayout() {
               <Stack.Screen
                 name="auth/login"
                 options={{
-                  headerShown: false,
-                  presentation: 'modal'
+                  headerShown: false
                 }}
               />
               <Stack.Screen

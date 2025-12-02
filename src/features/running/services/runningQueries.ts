@@ -8,6 +8,7 @@ import type { RunningRecord } from '~/features/running/models';
 import type { CursorResult } from '~/shared/utils/dto/CursorResult';
 import { queryKeys } from '../../../services/queryClient';
 import { runningService } from './runningService';
+import { useUserStore } from '~/stores/user/userStore';
 
 /**
  * 러닝 시작
@@ -26,13 +27,22 @@ export const useStartRunning = () => {
 /**
  * 러닝 종료
  * 기존: useEndRunningMutation()
+ *
+ * 서버 응답의 point는 러닝 완료 후 총 포인트이므로
+ * setTotalPoint로 전역 상태를 동기화합니다.
  */
 export const useEndRunning = () => {
   const queryClient = useQueryClient();
+  const setTotalPoint = useUserStore((state) => state.setTotalPoint);
 
   return useMutation({
     mutationFn: (runningRecord: RunningRecord) => runningService.endRunning(runningRecord),
-    onSuccess: () => {
+    onSuccess: (endRecord) => {
+      // 서버 응답의 총 포인트로 전역 상태 동기화
+      if (endRecord.point !== undefined) {
+        setTotalPoint(endRecord.point);
+        console.log(`💰 [useEndRunning] 포인트 동기화: ${endRecord.point}`);
+      }
       queryClient.invalidateQueries({ queryKey: queryKeys.running.all });
     },
   });

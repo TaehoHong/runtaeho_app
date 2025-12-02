@@ -44,7 +44,7 @@ export default function TabLayout() {
           fontWeight: '500',
         },
         // iOS와 동일한 애니메이션 효과
-        animation: 'fade',
+        animation: 'none',
         // animationDuration는 지원되지 않는 속성이므로 제거
       }}
     >

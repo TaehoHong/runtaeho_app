@@ -22,10 +22,10 @@ const StateItemCompactView: React.FC<StatItemProps> = ({ title, subtitle }) => {
 };
 
 export const DetailedStatisticsCard: React.FC = () => {
-  const { lastEndedRecord, formatElapsedTime, formatBpm, formatPace } = useRunning();
+  const { currentRecord, formatElapsedTime, formatBpm, formatPace } = useRunning();
 
   // 러닝 종료 후 데이터가 없으면 기본값 표시
-  if (!lastEndedRecord) {
+  if (!currentRecord) {
     return (
       <View style={styles.container}>
         <View style={styles.row}>
@@ -38,18 +38,18 @@ export const DetailedStatisticsCard: React.FC = () => {
   }
 
   // 심박수 포맷팅
-  const heartRateText = formatBpm(lastEndedRecord.heartRate > 0 ? lastEndedRecord.heartRate : undefined);
+  const heartRateText = formatBpm(currentRecord.heartRate && currentRecord.heartRate > 0 ? currentRecord.heartRate : undefined);
 
   // 페이스 계산 및 포맷팅 (분:초/km)
-  const paceSeconds = lastEndedRecord.distance > 0
-    ? Math.floor((lastEndedRecord.durationSec / lastEndedRecord.distance) * 1000)
+  const paceSeconds = currentRecord.distance > 0
+    ? Math.floor((currentRecord.durationSec / currentRecord.distance) * 1000)
     : 0;
   const paceMinutes = Math.floor(paceSeconds / 60);
   const paceSecondsRemainder = paceSeconds % 60;
   const paceText = formatPace(paceMinutes, paceSecondsRemainder);
 
   // 러닝 시간 포맷팅 (분:초)
-  const timeText = formatElapsedTime(lastEndedRecord.durationSec);
+  const timeText = formatElapsedTime(currentRecord.durationSec);
 
   return (
     <View style={styles.container}>

@@ -142,7 +142,6 @@ export function useAvatarViewModel(): AvatarViewModel {
   const globalEquippedItems = useUserStore((state) => state.equippedItems);
   const totalPoint = useUserStore((state) => state.totalPoint);
   const setEquippedItems = useUserStore((state) => state.setEquippedItems);
-  const deductPoints = useUserStore((state) => state.deductPoints);
 
   // 전역 equippedItems를 항상 Map으로 정규화해 사용
   const globalEquippedMap = useMemo<EquippedItemsMap>(() => normalizeEquippedMap(globalEquippedItems), [globalEquippedItems]);
@@ -307,10 +306,12 @@ export function useAvatarViewModel(): AvatarViewModel {
   /**
    * 구매 확인
    * iOS: confirmPurchase()
+   *
+   * 포인트 동기화는 usePurchaseItems의 onSuccess에서 서버 조회로 처리됨
    */
   const confirmPurchase = useCallback(async () => {
     try {
-      // 1. 아이템 구매
+      // 1. 아이템 구매 (포인트 동기화는 mutation onSuccess에서 처리)
       await purchaseMutation.mutateAsync({
         itemIds: itemsToPurchase.map((i) => i.id),
       });
@@ -322,13 +323,10 @@ export function useAvatarViewModel(): AvatarViewModel {
         itemIds,
       });
 
-      // 3. 포인트 차감
-      deductPoints(totalPurchasePrice);
-
-      // 4. 전역 상태 동기화
+      // 3. 전역 상태 동기화
       setEquippedItems(pendingEquippedItems);
 
-      // 5. 모달 닫기
+      // 4. 모달 닫기
       setShowPurchaseModal(false);
 
       // TODO: 성공 토스트 표시
@@ -341,10 +339,8 @@ export function useAvatarViewModel(): AvatarViewModel {
     itemsToPurchase,
     pendingEquippedItems,
     avatarId,
-    totalPurchasePrice,
     purchaseMutation,
     updateEquippedMutation,
-    deductPoints,
     setEquippedItems,
   ]);
 
