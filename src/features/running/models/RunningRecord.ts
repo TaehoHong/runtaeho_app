@@ -97,7 +97,7 @@ export const formatRunningRecord = (record: RunningRecord) => ({
 });
 
 /**
- * 시간 포맷팅 (초 -> HH:MM:SS)
+ * 시간 포맷팅 (초 -> HH 시 MM 분 SS 초)
  */
 export const formatDuration = (seconds: number): string => {
   const hours = Math.floor(seconds / 3600);
@@ -105,7 +105,7 @@ export const formatDuration = (seconds: number): string => {
   const secs = Math.floor(seconds % 60);
 
   if (hours > 0) {
-    return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    return `${hours} 시 ${String(minutes).padStart(2, '0')} 분 ${String(secs).padStart(2, '0')} 초`;
   }
-  return `${minutes}:${String(secs).padStart(2, '0')}`;
+  return `${minutes} 분 ${String(secs).padStart(2, '0')} 초`;
 };

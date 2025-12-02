@@ -83,7 +83,17 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
   }, [stats]);
 
   const [currentSegmentItems, setCurrentSegmentItems] = useState<RunningRecordItem[]>([]);
+  // currentSegmentItems의 최신 값을 참조하기 위한 ref (endRunning에서 사용)
+  const segmentItemsRef = useRef<RunningRecordItem[]>(currentSegmentItems);
+  useEffect(() => {
+    segmentItemsRef.current = currentSegmentItems;
+  }, [currentSegmentItems]);
   const [segmentStartTime, setSegmentStartTime] = useState<number | null>(null);
+  // segmentStartTime의 최신 값을 참조하기 위한 ref (백그라운드 폴링에서 사용)
+  const segmentStartTimeRef = useRef<number | null>(segmentStartTime);
+  useEffect(() => {
+    segmentStartTimeRef.current = segmentStartTime;
+  }, [segmentStartTime]);
   const [segmentDistance, setSegmentDistance] = useState<number>(0);
   const [segmentLocations, setSegmentLocations] = useState<Location[]>([]);
   const [segmentIdCounter, setSegmentIdCounter] = useState<number>(1);
@@ -222,39 +232,41 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
   /**
    * 최종 세그먼트 생성 (iOS finalizeCurrentSegment 대응)
    * 러닝 종료 시 10m 미만이라도 저장
+   * NOTE: ref도 동기적으로 업데이트하여 endRunning에서 즉시 참조 가능
    */
   const finalizeCurrentSegment = useCallback(() => {
     if (segmentDistance > 0 && segmentStartTime !== null) {
       const now = Date.now();
       const segmentDuration = (now - segmentStartTime) / 1000;
+      const currentStats = statsRef.current;
+      const currentItems = segmentItemsRef.current;
 
-      // Race condition 방지: segmentIdCounter 읽기 + 증가를 원자적으로 처리
-      setSegmentIdCounter(currentId => {
-        const segmentId = currentId;
+      const segmentId = currentItems.length + 1;
+      const segmentCalories = Math.round((currentStats.calories || 0) / Math.max(1, currentItems.length + 1));
 
-        setCurrentSegmentItems(prev => {
-          const segmentCalories = Math.round((stats.calories || 0) / Math.max(1, prev.length + 1));
-
-          const finalSegment = createRunningRecordItem({
-            id: segmentId,  // ✅ 함수형 업데이트로 읽은 안전한 ID
-            distance: segmentDistance,
-            cadence: stats.cadence ?? null, // 정책: undefined → null
-            heartRate: stats.bpm ?? null, // 정책: undefined → null
-            calories: segmentCalories,
-            orderIndex: segmentId - 1,
-            durationSec: segmentDuration,
-            startTimestamp: segmentStartTime / 1000,
-            locations: segmentLocations,
-          });
-
-          console.log(`📍 [RunningViewModel] 최종 세그먼트 생성: ID=${segmentId}, ${segmentDistance}m`);
-          return [...prev, finalSegment];
-        });
-
-        return currentId + 1;  // ✅ 원자적으로 증가
+      const finalSegment = createRunningRecordItem({
+        id: segmentId,
+        distance: segmentDistance,
+        cadence: currentStats.cadence ?? null,
+        heartRate: currentStats.bpm ?? null,
+        calories: segmentCalories,
+        orderIndex: segmentId - 1,
+        durationSec: segmentDuration,
+        startTimestamp: segmentStartTime / 1000,
+        locations: segmentLocations,
       });
+
+      console.log(`📍 [RunningViewModel] 최종 세그먼트 생성: ID=${segmentId}, ${segmentDistance}m`);
+
+      // ref를 먼저 업데이트 (동기) -> endRunning에서 즉시 참조 가능
+      const newItems = [...currentItems, finalSegment];
+      segmentItemsRef.current = newItems;
+
+      // state도 업데이트 (비동기) -> UI 반영용
+      setCurrentSegmentItems(newItems);
+      setSegmentIdCounter(segmentId + 1);
     }
-  }, [segmentDistance, segmentStartTime, segmentLocations, stats]);
+  }, [segmentDistance, segmentStartTime, segmentLocations]);
 
   /**
    * 세그먼트 추적 초기화 (iOS initializeSegmentTracking 대응)
@@ -378,11 +390,13 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
             setSegmentDistance(currentSegmentDist);
 
             // 10m 달성 시 세그먼트 생성
-            if (currentSegmentDist >= segmentDistanceThreshold && segmentStartTime !== null) {
+            // NOTE: segmentStartTimeRef.current를 사용하여 최신 값 참조 (클로저 stale 값 방지)
+            const currentSegmentStartTime = segmentStartTimeRef.current;
+            if (currentSegmentDist >= segmentDistanceThreshold && currentSegmentStartTime !== null) {
               // 현재 거리를 상수에 저장 (초기화 전에 값 보존)
               const segmentDistanceValue = currentSegmentDist;
               const now = Date.now();
-              const segmentDuration = (now - segmentStartTime) / 1000; // seconds
+              const segmentDuration = (now - currentSegmentStartTime) / 1000; // seconds
 
               // 새로 추가된 위치들만 추출 (이전에 처리한 위치 이후부터)
               const newLocations = allLocations.slice(lastProcessedLocationCount);
@@ -414,7 +428,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
                     calories: segmentCalories,
                     orderIndex: segmentId - 1,
                     durationSec: segmentDuration,
-                    startTimestamp: segmentStartTime / 1000,
+                    startTimestamp: currentSegmentStartTime / 1000,
                     locations: segmentLocs,
                   });
 
@@ -734,17 +748,19 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
         setRunningState(RunningState.Finished);
         console.log('[RunningViewModel] Running completed, data sent to server');
 
-        // 5. RunningRecordItems를 비동기로 전송 (iOS Task.detached 패턴)
+        // 6. RunningRecordItems를 비동기로 전송 (iOS Task.detached 패턴)
         // UI 블로킹 없이 백그라운드에서 전송
-        if (currentSegmentItems.length > 0) {
+        // NOTE: segmentItemsRef.current를 사용해야 finalizeCurrentSegment() 이후 최신 값 참조 가능
+        const segmentsToUpload = segmentItemsRef.current;
+        if (segmentsToUpload.length > 0) {
           // 세그먼트 데이터를 서버 형식으로 변환
-          const itemsForServer = currentSegmentItems.map(segment => ({
+          const itemsForServer = segmentsToUpload.map(segment => ({
             distance: segment.distance,
             durationSec: segment.durationSec,
             cadence: segment.cadence,
             heartRate: segment.heartRate,
-            minHeartRate: segment.heartRate, // TODO: 실제 최소값 계산
-            maxHeartRate: segment.heartRate, // TODO: 실제 최대값 계산
+            minHeartRate: segment.heartRate,
+            maxHeartRate: segment.heartRate,
             orderIndex: segment.orderIndex,
             startTimeStamp: segment.startTimestamp,
             endTimeStamp: segment.startTimestamp + segment.durationSec,
@@ -756,7 +772,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
             items: itemsForServer,
           })
             .then(() => {
-              console.log(`📤 [RunningViewModel] ${currentSegmentItems.length}개 세그먼트 비동기 업로드 완료`);
+              console.log(`📤 [RunningViewModel] ${segmentsToUpload.length}개 세그먼트 비동기 업로드 완료`);
             })
             .catch(async (error) => {
               console.warn('⚠️ [RunningViewModel] 세그먼트 비동기 업로드 실패, 오프라인 저장:', error);
@@ -765,9 +781,9 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
               try {
                 await offlineStorageService.addPendingSegmentUpload(
                   currentRecord.id,
-                  currentSegmentItems
+                  segmentsToUpload
                 );
-                console.log(`💾 [RunningViewModel] ${currentSegmentItems.length}개 세그먼트 오프라인 저장 완료`);
+                console.log(`💾 [RunningViewModel] ${segmentsToUpload.length}개 세그먼트 오프라인 저장 완료`);
               } catch (offlineError) {
                 console.error('❌ [RunningViewModel] 세그먼트 오프라인 저장 실패:', offlineError);
               }
@@ -811,7 +827,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     dataSourcePriorityService,
     useBackgroundMode,
     finalizeCurrentSegment,
-    currentSegmentItems,
+    // NOTE: currentSegmentItems 제거 - segmentItemsRef.current로 최신 값 참조
   ]);
 
   /**
