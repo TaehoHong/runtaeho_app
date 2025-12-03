@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import { Text } from '~/shared/components/typography';
 import { Icon } from '~/shared/components/ui';
 import { GREY, PRIMARY, RED } from '~/shared/styles';
@@ -53,6 +53,7 @@ export const PointHistoryView: React.FC<PointHistoryViewProps> = ({ onClose }) =
   console.log('point: ', currentPoints)
 
   return (
+    <SafeAreaProvider>
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* 헤더 */}
       <Header onClose={onClose} />
@@ -93,6 +94,7 @@ export const PointHistoryView: React.FC<PointHistoryViewProps> = ({ onClose }) =
         )}
       </View>
     </SafeAreaView>
+    </SafeAreaProvider>
   );
 };
 

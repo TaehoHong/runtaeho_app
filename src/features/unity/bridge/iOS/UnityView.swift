@@ -16,6 +16,9 @@ class UnityView: UIView {
     private var unityView: UIView?
     private var isUnityLoaded = false
 
+    // Reattach 대기 상태 관리
+    private var pendingReattach = false
+
     // React Native 이벤트 콜백들
     @objc var onUnityReady: RCTDirectEventBlock?
     @objc var onUnityError: RCTDirectEventBlock?
@@ -36,6 +39,14 @@ class UnityView: UIView {
 
         // Container 밖으로 나가는 부분 잘라내기 (Aspect Fill)
         clipsToBounds = true
+
+        // 앱 활성화 알림 구독 (Background → Foreground 복귀 시)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleUnityDidBecomeActive),
+            name: NSNotification.Name("UnityDidBecomeActive"),
+            object: nil
+        )
 
         // Unity 초기화
         initializeUnity()
@@ -93,6 +104,12 @@ class UnityView: UIView {
 
         guard let unityView = self.unityView else { return }
 
+        // 앱이 활성 상태가 아니면 레이아웃 업데이트 스킵
+        guard Unity.shared.isAppActive else {
+            print("[UnityView] App not active, skipping layout")
+            return
+        }
+
         // Container 크기
         let containerSize = bounds.size
         guard containerSize.width > 0 && containerSize.height > 0 else { return }
@@ -129,63 +146,130 @@ class UnityView: UIView {
         print("[UnityView] Aspect Fill: container=\(containerSize), unity=\(CGSize(width: scaledWidth, height: scaledHeight)), scale=\(fillScale)")
     }
 
-    // Unity View 재연결 (다른 화면에서 사용 후 돌아올 때)
-    func reattachUnityView() {
+    // MARK: - App Lifecycle Handling
+
+    @objc private func handleUnityDidBecomeActive() {
+        print("[UnityView] 📱 Unity did become active notification received (pendingReattach: \(pendingReattach), isUnityLoaded: \(isUnityLoaded))")
+
+        guard isUnityLoaded else {
+            print("[UnityView] Unity not loaded, skipping foreground handling")
+            return
+        }
+
+        // Pending reattach가 있으면 실행
+        if pendingReattach {
+            pendingReattach = false
+            safeReattachUnityView()
+        } else {
+            // Reattach가 필요 없어도 레이아웃 업데이트는 필요할 수 있음
+            // (Background에서 layoutSubviews가 스킵되었을 수 있음)
+            DispatchQueue.main.async { [weak self] in
+                self?.setNeedsLayout()
+                self?.layoutIfNeeded()
+            }
+        }
+    }
+
+    // MARK: - Safe View Reattachment
+
+    /// Unity View 안전한 재연결 (CATransaction 충돌 방지)
+    private func safeReattachUnityView() {
         guard isUnityLoaded else {
             print("[UnityView] Unity not loaded, cannot reattach")
             return
         }
 
-        // Unity View가 이미 현재 view에 붙어있으면 스킵 (불필요한 이벤트 방지)
-        if let unityView = Unity.shared.view {
-            if unityView.superview == self {
-                print("[UnityView] Unity view already attached to this view, skipping reattach")
-                return
-            }
-
-            // Unity View가 다른 곳에서 옮겨오는 경우인지 확인
-            let wasAttachedElsewhere = (unityView.superview != nil)
-
-            // 다른 superview에서 제거
-            unityView.removeFromSuperview()
-
-            // 현재 view에 추가
-            self.addSubview(unityView)
-
-            // Frame 기반으로 배치 (layoutSubviews에서 Aspect Fill 적용)
-            unityView.translatesAutoresizingMaskIntoConstraints = true
-            self.setNeedsLayout()
-
-            print("[UnityView] Unity view reattached successfully (wasAttachedElsewhere: \(wasAttachedElsewhere))")
-
-            // 실제로 다른 곳에서 옮겨온 경우에만 React Native에 알림
-            // (같은 view 내에서 재배치되는 경우 이벤트 발생 안 함)
-            if wasAttachedElsewhere {
-                self.onUnityReady?([
-                    "message": "Unity reattached successfully",
-                    "type": "reattach",
-                    "timestamp": ISO8601DateFormatter().string(from: Date())
-                ])
-            } else {
-                print("[UnityView] Unity view was not attached elsewhere, skipping event")
-            }
+        // 앱이 활성 상태가 아니면 reattach 대기
+        guard Unity.shared.isSafeToReattach else {
+            print("[UnityView] ⏳ Not safe to reattach, queueing for later")
+            pendingReattach = true
+            return
         }
+
+        // Unity View 참조 확인
+        guard let unityView = Unity.shared.view else {
+            print("[UnityView] ⚠️ Unity view is nil, cannot reattach")
+            return
+        }
+
+        // 이미 현재 view에 붙어있으면 스킵
+        if unityView.superview == self {
+            print("[UnityView] Unity view already attached to this view, skipping reattach")
+            return
+        }
+
+        // CATransaction을 사용하여 안전하게 view 조작
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)  // 암시적 애니메이션 비활성화
+
+        // Unity View가 다른 곳에서 옮겨오는 경우인지 확인
+        let wasAttachedElsewhere = (unityView.superview != nil)
+
+        // 다른 superview에서 제거
+        unityView.removeFromSuperview()
+
+        // 현재 view에 추가
+        self.addSubview(unityView)
+
+        // Frame 기반으로 배치 (layoutSubviews에서 Aspect Fill 적용)
+        unityView.translatesAutoresizingMaskIntoConstraints = true
+
+        CATransaction.commit()
+
+        // 레이아웃은 CATransaction 완료 후 별도로 처리
+        DispatchQueue.main.async { [weak self] in
+            self?.setNeedsLayout()
+            self?.layoutIfNeeded()
+        }
+
+        print("[UnityView] ✅ Unity view reattached safely (wasAttachedElsewhere: \(wasAttachedElsewhere))")
+
+        // 실제로 다른 곳에서 옮겨온 경우에만 React Native에 알림
+        if wasAttachedElsewhere {
+            self.onUnityReady?([
+                "message": "Unity reattached successfully",
+                "type": "reattach",
+                "timestamp": ISO8601DateFormatter().string(from: Date())
+            ])
+        }
+    }
+
+    // Unity View 재연결 (다른 화면에서 사용 후 돌아올 때) - 기존 메서드 유지
+    func reattachUnityView() {
+        safeReattachUnityView()
     }
 
     // 화면에 나타날 때
     override func didMoveToWindow() {
         super.didMoveToWindow()
 
-        // 화면에 추가될 때 Unity View 재연결
-        if window != nil && isUnityLoaded {
+        guard window != nil else {
+            print("[UnityView] View removed from window")
+            return
+        }
+
+        guard isUnityLoaded else {
+            print("[UnityView] Unity not loaded yet, skipping reattach")
+            return
+        }
+
+        // 앱이 활성 상태인지 확인 후 reattach
+        if Unity.shared.isSafeToReattach {
             print("[UnityView] View added to window, reattaching Unity view")
-            reattachUnityView()
+            safeReattachUnityView()
+        } else {
+            print("[UnityView] ⏳ View added to window but app not active, queueing reattach")
+            pendingReattach = true
         }
     }
 
     // Unity 정리
     deinit {
         print("[UnityView] Cleaning up Unity view")
+
+        // NotificationCenter 구독 해제
+        NotificationCenter.default.removeObserver(self)
+
         // Unity View는 제거하지 않음 - 다른 화면에서 사용할 수 있음
         // unityView?.removeFromSuperview()
     }
@@ -202,12 +286,12 @@ class UnityView: UIView {
     }
 
     @objc func pauseUnity() {
-        // Unity 일시정지 로직
         print("[UnityView] Pausing Unity")
+        Unity.shared.pause()
     }
 
     @objc func resumeUnity() {
-        // Unity 재개 로직
         print("[UnityView] Resuming Unity")
+        Unity.shared.resume()
     }
 }
