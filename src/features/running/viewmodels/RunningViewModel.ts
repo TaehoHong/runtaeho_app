@@ -17,7 +17,6 @@ import {
 import { locationService, type LocationTrackingData } from '../services/LocationService';
 import { backgroundTaskService } from '../services/BackgroundTaskService';
 import { offlineStorageService } from '../services/OfflineStorageService';
-import { dataSourcePriorityService } from '../services/sensors/DataSourcePriorityService';
 import { pedometerService, type PedometerData } from '../services/sensors/PedometerService';
 import { unityService } from '../../unity/services/UnityService';
 import { useAppStore, RunningState } from '~/stores/app/appStore';
@@ -592,18 +591,11 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
         console.log('[RunningViewModel] Foreground GPS tracking started');
       }
 
-      // 4. 센서 모니터링 시작 (웨어러블 → 핸드폰 센서 → undefined)
-      await dataSourcePriorityService.startAllMonitoring({
-        onHeartRate: (data) => {
-          setSensorHeartRate(data.value);
-          console.log('[RunningViewModel] Heart rate:', data.value, 'from', data.source);
-        },
-        onCadence: (data) => {
-          setSensorCadence(data.value);
-          console.log('[RunningViewModel] Cadence:', data.value, 'from', data.source);
-        },
-      });
-      console.log('[RunningViewModel] Sensor monitoring started');
+      // 4. 센서 모니터링 (현재 미구현 - 웨어러블 연동 시 추가 예정)
+      // TODO: HealthKit/GoogleFit/웨어러블 연동 시 센서 모니터링 구현
+      setSensorHeartRate(undefined);
+      setSensorCadence(undefined);
+      console.log('[RunningViewModel] Sensor monitoring skipped (not implemented)');
 
       // 5. Pedometer 시작 (걸음 수 추적)
       try {
@@ -636,7 +628,6 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
       // GPS 추적 중지 (에러 시 정리)
       locationService.stopTracking();
       backgroundTaskService.stopBackgroundTracking().catch(console.error);
-      dataSourcePriorityService.stopAllMonitoring().catch(console.error);
       pedometerService.stopTracking();
 
       // Swift와 동일하게 에러 시 더미 기록 생성
@@ -646,7 +637,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
       setRunningState(RunningState.Running);
       return dummyRecord;
     }
-  }, [startRunningMutation, locationService, backgroundTaskService, dataSourcePriorityService, useBackgroundMode, initializeSegmentTracking]);
+  }, [startRunningMutation, locationService, backgroundTaskService, useBackgroundMode, initializeSegmentTracking]);
 
   /**
    * 러닝 일시정지
@@ -708,11 +699,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
         console.log('[RunningViewModel] Foreground GPS tracking stopped');
       }
 
-      // 2. 센서 모니터링 중지
-      await dataSourcePriorityService.stopAllMonitoring();
-      console.log('[RunningViewModel] Sensor monitoring stopped');
-
-      // 3. Pedometer 중지
+      // 2. Pedometer 중지
       pedometerService.stopTracking();
       const finalSteps = pedometerService.getCurrentSteps();
       const finalCadence = pedometerService.getCurrentCadence();
@@ -808,10 +795,9 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     } catch (error) {
       console.error('Failed to end running:', error);
 
-      // 에러 발생 시에도 GPS 추적 및 센서 모니터링 중지
+      // 에러 발생 시에도 GPS 추적 중지
       locationService.stopTracking();
       backgroundTaskService.stopBackgroundTracking().catch(console.error);
-      dataSourcePriorityService.stopAllMonitoring().catch(console.error);
       pedometerService.stopTracking();
 
       throw error;
@@ -824,7 +810,6 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     locationService,
     backgroundTaskService,
     offlineStorageService,
-    dataSourcePriorityService,
     useBackgroundMode,
     finalizeCurrentSegment,
     // NOTE: currentSegmentItems 제거 - segmentItemsRef.current로 최신 값 참조

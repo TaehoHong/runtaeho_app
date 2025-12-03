@@ -4,16 +4,13 @@
  *
  * @example
  * ```typescript
- * import { tokenStorage, secureStorage, biometricStorage } from '~/utils/storage';
+ * import { tokenStorage, secureStorage } from '~/utils/storage';
  *
  * // 토큰 저장
  * await tokenStorage.saveTokens(accessToken, refreshToken);
  *
  * // 토큰 로드
  * const { accessToken } = await tokenStorage.loadTokens();
- *
- * // 생체인증과 함께 저장
- * await biometricStorage.saveWithBiometry('sensitive', 'data');
  * ```
  */
 
@@ -33,7 +30,6 @@ export { SecureStorageError, SecureStorageErrorCode } from './errors';
 
 // ===== Core Storage Exports =====
 export { secureStorage } from './SecureStorage';
-export { biometricStorage } from './BiometricStorage';
 
 // ===== Token Storage Constants =====
 
