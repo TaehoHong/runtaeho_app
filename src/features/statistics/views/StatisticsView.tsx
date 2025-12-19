@@ -10,8 +10,9 @@
  * - Empty State (데이터 없을 때)
  */
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View} from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { Period } from '../models';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStatisticsViewModel } from '../viewmodels';
@@ -36,6 +37,14 @@ export const StatisticsView = () => {
     error,
     handleRefresh,
   } = useStatisticsViewModel(selectedPeriod);
+
+  // 탭 포커스 시 데이터 새로고침
+  useFocusEffect(
+    useCallback(() => {
+      console.log('📊 [STATISTICS_VIEW] 탭 포커스 - 데이터 새로고침');
+      handleRefresh();
+    }, [handleRefresh])
+  );
 
   // 기간 변경 핸들러 - period가 변경되면 자동으로 통계 데이터 다시 로드
   const onPeriodChange = (period: Period) => {

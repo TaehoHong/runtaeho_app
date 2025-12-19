@@ -10,10 +10,10 @@
  * - 미확인 결과 체크 후 결과 화면으로 리다이렉트
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useLeagueViewModel } from '../viewmodels';
 import { useGetUncheckedResult } from '../services';
 import { LeagueHeader } from './components/LeagueHeader';
@@ -55,6 +55,14 @@ export const LeagueView = () => {
     error,
     handleRefresh,
   } = useLeagueViewModel();
+
+  // 탭 포커스 시 데이터 새로고침
+  useFocusEffect(
+    useCallback(() => {
+      console.log('🏆 [LEAGUE_VIEW] 탭 포커스 - 데이터 새로고침');
+      handleRefresh();
+    }, [handleRefresh])
+  );
 
   // 컨텐츠 렌더링 함수
   const renderContent = () => {
