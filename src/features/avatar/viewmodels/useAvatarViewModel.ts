@@ -266,6 +266,19 @@ export function useAvatarViewModel(): AvatarViewModel {
   // Effects
   // ===================================
 
+  // 아바타 화면 마운트 시 Unity에 현재 장착 아이템과 헤어 색상 전송
+  useEffect(() => {
+    const items = Object.values(globalEquippedMap).filter((item): item is Item => !!item);
+    const hairColor = globalHairColor || DEFAULT_HAIR_COLOR.hex;
+
+    if (items.length > 0) {
+      unityService.changeAvatar(items, hairColor);
+      if (__DEV__) {
+        console.log('🎨 [AvatarViewModel] Initial avatar sync to Unity:', items.length, 'items, hairColor:', hairColor);
+      }
+    }
+  }, []); // 마운트 시 1회만 실행
+
   // Global 상태가 변경되면 Pending 상태 동기화
   useEffect(() => {
     setPendingEquippedItems(normalizeEquippedMap(globalEquippedItems));

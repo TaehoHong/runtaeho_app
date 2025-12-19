@@ -104,9 +104,20 @@ export const useLeagueViewModel = () => {
   }, [joinLeagueMutation]);
 
   // 데이터 유효성 검사
-  const hasValidData = currentLeague !== null && currentLeague !== undefined;
-  const hasError = error !== null;
+  // 백엔드가 null을 반환하면 axios가 빈 문자열 ""로 해석할 수 있음
+  const hasValidData = !!currentLeague && typeof currentLeague === 'object';
+  const hasError = error != null; // null 또는 undefined 체크
   const isNotJoined = !isLoading && !hasError && !hasValidData;
+
+  // 디버그 로그
+  console.log('🏆 [LEAGUE_VM] 상태:', {
+    currentLeague: JSON.stringify(currentLeague),
+    isLoading,
+    error: error?.message ?? (error === null ? 'null' : 'undefined'),
+    hasValidData,
+    hasError,
+    isNotJoined,
+  });
 
   return {
     // Raw 데이터

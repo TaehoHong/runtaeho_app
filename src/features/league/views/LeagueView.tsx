@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useLeagueViewModel } from '../viewmodels';
@@ -19,6 +19,7 @@ import { useGetUncheckedResult } from '../services';
 import { LeagueHeader } from './components/LeagueHeader';
 import { MyRankCard } from './components/MyRankCard';
 import { RankingSection } from './components/RankingSection';
+import { LeagueNotJoinedView } from './components/LeagueNotJoinedView';
 import { PRIMARY, GREY } from '~/shared/styles';
 
 export const LeagueView = () => {
@@ -53,12 +54,22 @@ export const LeagueView = () => {
     isNotJoined,
     error,
     handleRefresh,
-    handleJoinLeague,
-    isJoining,
   } = useLeagueViewModel();
 
   // 컨텐츠 렌더링 함수
   const renderContent = () => {
+    // 디버그 로그
+    console.log('🏆 [LEAGUE_VIEW] renderContent 상태:', {
+      isCheckingResult,
+      hasCheckedResult,
+      isLoading,
+      hasValidData,
+      hasError,
+      isNotJoined,
+      formattedData: formattedData ? 'exists' : 'null',
+      error: error?.message ?? 'none',
+    });
+
     // 결과 체크 중이거나 로딩 상태
     if ((isCheckingResult && !hasCheckedResult) || (isLoading && !hasValidData)) {
       return (
@@ -83,25 +94,7 @@ export const LeagueView = () => {
 
     // 리그 미참가 상태
     if (isNotJoined) {
-      return (
-        <View style={styles.centerContainer}>
-          <Text style={styles.notJoinedTitle}>리그에 참가하세요!</Text>
-          <Text style={styles.notJoinedSubText}>
-            다른 러너들과 경쟁하고{'\n'}더 높은 티어에 도전하세요
-          </Text>
-          <TouchableOpacity
-            style={styles.joinButton}
-            onPress={handleJoinLeague}
-            disabled={isJoining}
-          >
-            {isJoining ? (
-              <ActivityIndicator size="small" color={GREY.WHITE} />
-            ) : (
-              <Text style={styles.joinButtonText}>리그 참가하기</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      );
+      return <LeagueNotJoinedView />;
     }
 
     // 정상 데이터
@@ -188,36 +181,5 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: GREY[500],
     textAlign: 'center',
-  },
-  notJoinedTitle: {
-    fontSize: 24,
-    fontFamily: 'Pretendard-Bold',
-    fontWeight: '700',
-    color: GREY[900],
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  notJoinedSubText: {
-    fontSize: 16,
-    fontFamily: 'Pretendard-Medium',
-    fontWeight: '500',
-    color: GREY[500],
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 24,
-  },
-  joinButton: {
-    backgroundColor: PRIMARY[600],
-    paddingHorizontal: 32,
-    paddingVertical: 14,
-    borderRadius: 8,
-    minWidth: 160,
-    alignItems: 'center',
-  },
-  joinButtonText: {
-    fontSize: 16,
-    fontFamily: 'Pretendard-SemiBold',
-    fontWeight: '600',
-    color: GREY.WHITE,
   },
 });

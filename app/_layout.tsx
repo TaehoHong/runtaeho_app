@@ -43,7 +43,8 @@ function RootLayout() {
               <Stack.Screen
                 name="auth/login"
                 options={{
-                  headerShown: false
+                  headerShown: false,
+                  animation: 'none'
                 }}
               />
               <Stack.Screen

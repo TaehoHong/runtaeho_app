@@ -2,7 +2,7 @@
  * 아바타 화면 (메인)
  */
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
 import { useAvatarViewModel } from '../viewmodels/useAvatarViewModel';
 import { AvatarHeader } from './components/AvatarHeader';
@@ -28,6 +28,12 @@ export const AvatarView: React.FC<AvatarViewProps> = ({ onClose }) => {
   const viewModel = useAvatarViewModel();
   const insets = useSafeAreaInsets();
 
+  // 뒤로가기 버튼 핸들러: Unity에 원래 상태 복원 후 화면 닫기
+  const handleClose = useCallback(() => {
+    viewModel.cancelChanges();
+    onClose();
+  }, [viewModel.cancelChanges, onClose]);
+
   return (
     <View style={[
       styles.container,
@@ -37,7 +43,7 @@ export const AvatarView: React.FC<AvatarViewProps> = ({ onClose }) => {
       }
     ]}>
       {/* Header */}
-      <AvatarHeader onClose={onClose} points={viewModel.totalPoint} />
+      <AvatarHeader onClose={handleClose} points={viewModel.totalPoint} />
       {/* Unity Character Preview */}
       <AvatarPreview equippedItems={viewModel.previewItems} />
 
