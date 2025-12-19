@@ -167,8 +167,8 @@ export class UnityService {
     }
   }
   
-  async changeAvatar(items: Item[]): Promise<void> {
-    this.log(`Changing avatar with ${items.length} items`);
+  async changeAvatar(items: Item[], hairColor?: string): Promise<void> {
+    this.log(`Changing avatar with ${items.length} items, hairColor: ${hairColor}`);
 
     if (!this.isReady()) {
       this.log('⚠️ GameObject not ready, message will be queued');
@@ -177,11 +177,13 @@ export class UnityService {
     try {
       const validatedItems = this.validateAvatarItems(items);
 
-      if (validatedItems.length === 0) {
-        throw new Error('No valid avatar items provided');
+      // items가 비어있고 hairColor도 없으면 업데이트할 것이 없음
+      if (validatedItems.length === 0 && !hairColor) {
+        this.log('No valid avatar items and no hairColor provided, skipping update');
+        return;
       }
 
-      const unityData = this.convertToUnityAvatarDtoList(validatedItems);
+      const unityData = this.convertToUnityAvatarDtoList(validatedItems, hairColor);
       const jsonString = JSON.stringify(unityData);
 
       this.log('Unity Avatar Data:', jsonString);
@@ -192,7 +194,7 @@ export class UnityService {
         jsonString
       );
 
-      this.log(`Avatar changed with ${validatedItems.length} items`);
+      this.log(`Avatar changed with ${validatedItems.length} items, hairColor: ${hairColor}`);
     } catch (error) {
       this.logError('Failed to change avatar', error);
       throw error;
@@ -205,30 +207,21 @@ export class UnityService {
 
   /**
    * Item 배열을 Unity가 기대하는 UnityAvatarDtoList로 변환
-   * Swift UnityService.changeAvatar의 변환 로직과 동일
-   *
-   * @param items - 변환할 아이템 배열
-   * @returns Unity가 기대하는 {"list": [...]} 구조
+   * Unity의 SpriteSettingDto 구조에 맞게 각 아이템에 hairColor 포함
    */
-  private convertToUnityAvatarDtoList(items: Item[]): UnityAvatarDtoList {
-    const unityAvatarDtos: UnityAvatarDto[] = items.map(item => {
-      // Swift: itemType.unityName
-      const part = getUnityPartName(item.itemType.id);
-
-      // Swift: avatarItem.unityFilePath + avatarItem.name
-      const itemPath = item.unityFilePath + item.name;
-
+  private convertToUnityAvatarDtoList(items: Item[], hairColor?: string): UnityAvatarDtoList {
+    const list = items.map(item => {
+      const partName = getUnityPartName(item.itemType.id);
       return {
-        name: item.name,           // 예: "New_Armor_01.png"
-        part,                       // 예: "Hair", "Cloth", "Pant"
-        itemPath,                   // 예: "Sprites/Hair/New_Armor_01.png"
+        name: item.name,
+        part: partName,
+        itemPath: item.unityFilePath + item.name,
+        // Hair 파트에만 hairColor 추가 (Unity에서 Hair 파트만 색상 적용)
+        ...(partName === 'Hair' && hairColor ? { hairColor } : {}),
       };
     });
 
-    // Swift: UnityAvatarDtoList(list: unityAvatarDtos)
-    return {
-      list: unityAvatarDtos,
-    };
+    return { list };
   }
 
   private validateAvatarItems(items: Item[]): Item[] {

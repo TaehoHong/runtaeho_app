@@ -1,7 +1,9 @@
 import React from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { useAppStore, RunningState } from '~/stores/app/appStore';
-import { StatsView, StopButton, PlayButton } from '~/shared/components';
+import { StatsView } from './stats-view';
+import { StopButton } from './components/stop-button';
+import { PlayButton } from './components/play-button';
 import { useRunning } from '../contexts';
 
 const { width, height } = Dimensions.get('window');

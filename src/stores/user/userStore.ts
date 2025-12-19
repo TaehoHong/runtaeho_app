@@ -13,6 +13,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import type { Item, EquippedItemsMap } from '~/features/avatar';
 import { ItemStatus, getItemTypeById } from '~/features/avatar/models';
+import { DEFAULT_HAIR_COLOR } from '~/features/avatar/models/avatarConstants';
 import { type User } from '~/features/user/models/User';
 import { type UserAccount } from '~/features/user/models/UserAccount';
 import { userDataDtoToUser, type UserDataDto } from '~/features/user/models/UserDataDto';
@@ -71,6 +72,7 @@ interface UserState {
   // Avatar 정보
   avatarId: number;
   equippedItems: EquippedItemsMap; // ItemType을 key로 하는 맵
+  hairColor: string; // 헤어 색상 (HEX 형식: "#FFFFFF")
 
   // User Preferences
   userPreferences: UserPreferences;
@@ -89,7 +91,9 @@ interface UserState {
     avatarId: number;
     haveRunningRecord: boolean;
     equippedItems: EquippedItemsMap;
+    hairColor?: string;
   }) => void;
+  setHairColor: (hairColor: string) => void;
   logout: () => void;
   updateProfile: (params: { nickname?: string; profileImageURL?: string }) => void;
   disconnectAccount: (provider: string) => void;
@@ -132,6 +136,7 @@ export const useUserStore = create<UserState>()(
       avatarId: 0,
       haveRunningRecord: false,
       equippedItems: {} as EquippedItemsMap,
+      hairColor: DEFAULT_HAIR_COLOR.hex, // 기본 헤어 색상: 갈색
       userPreferences: defaultPreferences,
       appLaunchCount: 0,
       lastAppVersion: null,
@@ -145,7 +150,7 @@ export const useUserStore = create<UserState>()(
        * 기존: setLoginData reducer
        *
        */
-      setLoginData: ({ user, totalPoint, avatarId, haveRunningRecord, equippedItems }) => {
+      setLoginData: ({ user, totalPoint, avatarId, haveRunningRecord, equippedItems, hairColor }) => {
         // Update last login
         user.lastLoginAt = new Date();
 
@@ -155,6 +160,7 @@ export const useUserStore = create<UserState>()(
           avatarId,
           haveRunningRecord,
           equippedItems,
+          hairColor: hairColor || DEFAULT_HAIR_COLOR.hex,
         });
 
         // Debug logging
@@ -163,9 +169,18 @@ export const useUserStore = create<UserState>()(
           console.log('CurrentUser:', user);
           console.log('Point:', totalPoint);
           console.log('EquippedItems:', equippedItems);
+          console.log('HairColor:', hairColor);
           console.log('====================================');
         }
       },
+
+      /**
+       * 헤어 색상 설정
+       */
+      setHairColor: (hairColor) =>
+        set({
+          hairColor,
+        }),
 
       /**
        * 로그아웃
@@ -181,6 +196,7 @@ export const useUserStore = create<UserState>()(
           profileImgUrl: null,
           avatarId: 0,
           equippedItems: {} as EquippedItemsMap,
+          hairColor: DEFAULT_HAIR_COLOR.hex,
           userPreferences: defaultPreferences,
           appLaunchCount: 0,
           lastAppVersion: null,
@@ -484,13 +500,14 @@ export const useUserStore = create<UserState>()(
         };;
 
         console.log("userData.haveRunningRecord: ", userData.haveRunningRecord)
-      
+
         get().setLoginData({
           user,
           totalPoint: userData.totalPoint,
           avatarId: userData.avatarId,
           haveRunningRecord: userData.haveRunningRecord,
           equippedItems: convertEquippedItems(userData.equippedItems || []),
+          hairColor: userData.hairColor || DEFAULT_HAIR_COLOR.hex,
         });
       },
     }),
@@ -503,6 +520,7 @@ export const useUserStore = create<UserState>()(
         totalPoint: state.totalPoint,
         avatarId: state.avatarId,
         equippedItems: state.equippedItems,
+        hairColor: state.hairColor,
         userPreferences: state.userPreferences,
         appLaunchCount: state.appLaunchCount,
         lastAppVersion: state.lastAppVersion,

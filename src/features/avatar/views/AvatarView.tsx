@@ -9,6 +9,7 @@ import { AvatarHeader } from './components/AvatarHeader';
 import { AvatarPreview } from './components/AvatarPreview';
 import { BottomButtons } from './components/BottomButtons';
 import { CategoryTabs } from './components/CategoryTabs';
+import { HairColorPicker } from './components/HairColorPicker';
 import { InsufficientPointsAlert } from './components/InsufficientPointsAlert';
 import { ItemsGrid } from './components/ItemsGrid';
 import { PurchaseModal } from './components/PurchaseModal';
@@ -51,6 +52,14 @@ export const AvatarView: React.FC<AvatarViewProps> = ({ onClose }) => {
           selectedIndex={viewModel.selectedCategoryIndex}
           onSelectCategory={viewModel.selectCategory}
         />
+
+        {/* Hair Color Picker (머리 카테고리일 때만 표시) */}
+        {viewModel.isHairCategory && (
+          <HairColorPicker
+            selectedColor={viewModel.pendingHairColor}
+            onSelectColor={viewModel.selectHairColor}
+          />
+        )}
 
         {/* Items Grid */}
         <ItemsGrid

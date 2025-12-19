@@ -59,6 +59,12 @@ function RootLayout() {
                   headerShown: false
                 }}
               />
+              <Stack.Screen
+                name="league"
+                options={{
+                  headerShown: false
+                }}
+              />
             </Stack>
           </AppStateProvider>
         </AuthProvider>

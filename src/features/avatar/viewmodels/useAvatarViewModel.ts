@@ -18,6 +18,8 @@ import {
   useUpdateEquippedItems,
   type Item,
   type EquippedItemsMap,
+  type HairColor,
+  DEFAULT_HAIR_COLOR,
 } from '~/features/avatar';
 import { unityService } from '~/features/unity/services/UnityService';
 import { useUserStore } from '~/stores/user/userStore';
@@ -113,6 +115,11 @@ export interface AvatarViewModel {
   readonly showInsufficientPointsAlert: boolean;
   readonly isLoading: boolean;
 
+  // Hair Color State
+  readonly pendingHairColor: string;
+  readonly hasHairColorChanged: boolean;
+  readonly isHairCategory: boolean;
+
   // Actions
   selectCategory: (index: number) => void;
   selectItem: (item: Item) => void;
@@ -123,6 +130,7 @@ export interface AvatarViewModel {
   cancelChanges: () => void;
   setShowPurchaseModal: (show: boolean) => void;
   setShowInsufficientPointsAlert: (show: boolean) => void;
+  selectHairColor: (color: HairColor) => void;
 
   // Pagination
   fetchNextPage: () => void;
@@ -141,7 +149,9 @@ export function useAvatarViewModel(): AvatarViewModel {
   const avatarId = useUserStore((state) => state.avatarId);
   const globalEquippedItems = useUserStore((state) => state.equippedItems);
   const totalPoint = useUserStore((state) => state.totalPoint);
+  const globalHairColor = useUserStore((state) => state.hairColor);
   const setEquippedItems = useUserStore((state) => state.setEquippedItems);
+  const setGlobalHairColor = useUserStore((state) => state.setHairColor);
 
   // 전역 equippedItems를 항상 Map으로 정규화해 사용
   const globalEquippedMap = useMemo<EquippedItemsMap>(() => normalizeEquippedMap(globalEquippedItems), [globalEquippedItems]);
@@ -151,6 +161,7 @@ export function useAvatarViewModel(): AvatarViewModel {
   // ===================================
   const [selectedCategoryIndex, setSelectedCategoryIndex] = useState(0);
   const [pendingEquippedItems, setPendingEquippedItems] = useState<EquippedItemsMap>(() => normalizeEquippedMap(globalEquippedItems));
+  const [pendingHairColor, setPendingHairColor] = useState<string>(() => globalHairColor || DEFAULT_HAIR_COLOR.hex);
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [showInsufficientPointsAlert, setShowInsufficientPointsAlert] = useState(false);
 
@@ -201,10 +212,22 @@ export function useAvatarViewModel(): AvatarViewModel {
   }, [allItems, selectedCategory]);
 
   // Unity 프리뷰용 아이템
-  const previewItems = useMemo(() => pendingEquippedItems, [pendingEquippedItems]);
+  const previewItems = pendingEquippedItems;
 
-  // 변경 여부 확인
+  // 헤어 카테고리 여부 (카테고리 type 1 = 머리)
+  const isHairCategory = selectedCategory === 1;
+
+  // 헤어 색상 변경 여부
+  const hasHairColorChanged = pendingHairColor.toLowerCase() !== (globalHairColor || DEFAULT_HAIR_COLOR.hex).toLowerCase();
+
+  // 변경 여부 확인 (아이템 + 헤어 색상)
   const hasChanges = useMemo(() => {
+    // 헤어 색상 변경 확인
+    if (hasHairColorChanged) {
+      return true;
+    }
+
+    // 아이템 변경 확인
     for (const [itemTypeId, item] of Object.entries(pendingEquippedItems)) {
       const globalItem = globalEquippedMap[itemTypeId as unknown as number];
       if (item?.id !== globalItem?.id) {
@@ -212,7 +235,7 @@ export function useAvatarViewModel(): AvatarViewModel {
       }
     }
     return false;
-  }, [pendingEquippedItems, globalEquippedMap]);
+  }, [pendingEquippedItems, globalEquippedMap, hasHairColorChanged]);
 
   // 구매해야 할 아이템
   const itemsToPurchase = useMemo(() => {
@@ -248,6 +271,11 @@ export function useAvatarViewModel(): AvatarViewModel {
     setPendingEquippedItems(normalizeEquippedMap(globalEquippedItems));
   }, [globalEquippedItems]);
 
+  // Global 헤어 색상이 변경되면 Pending 상태 동기화
+  useEffect(() => {
+    setPendingHairColor(globalHairColor || DEFAULT_HAIR_COLOR.hex);
+  }, [globalHairColor]);
+
   // ===================================
   // Actions
   // ===================================
@@ -260,6 +288,30 @@ export function useAvatarViewModel(): AvatarViewModel {
   }, []);
 
   /**
+   * 헤어 색상 선택
+   */
+  const selectHairColor = useCallback(
+    (color: HairColor) => {
+      // 같은 색상 재선택 시 무시
+      if (pendingHairColor.toLowerCase() === color.hex.toLowerCase()) {
+        return;
+      }
+
+      // Pending 상태 업데이트
+      setPendingHairColor(color.hex);
+
+      // Unity 프리뷰 즉시 업데이트 (현재 장착된 아이템과 함께)
+      const items = Object.values(pendingEquippedItems).filter((item): item is Item => !!item);
+      unityService.changeAvatar(items, color.hex);
+
+      if (__DEV__) {
+        console.log(`🎨 [AvatarViewModel] Hair color selected: ${color.name} (${color.hex})`);
+      }
+    },
+    [pendingHairColor, pendingEquippedItems]
+  );
+
+  /**
    * 아이템 선택
    */
   const selectItem = useCallback(
@@ -269,8 +321,8 @@ export function useAvatarViewModel(): AvatarViewModel {
         return;
       }
 
-      // Unity 프리뷰 즉시 업데이트
-      unityService.changeAvatar([item]);
+      // Unity 프리뷰 즉시 업데이트 (헤어 색상 포함)
+      unityService.changeAvatar([item], pendingHairColor);
 
       // Pending 상태 업데이트 (Record 불변 업데이트)
       setPendingEquippedItems((prev) => ({
@@ -278,7 +330,7 @@ export function useAvatarViewModel(): AvatarViewModel {
         [item.itemType.id]: item,
       }));
     },
-    [pendingEquippedItems]
+    [pendingEquippedItems, pendingHairColor]
   );
 
   /**
@@ -316,15 +368,17 @@ export function useAvatarViewModel(): AvatarViewModel {
         itemIds: itemsToPurchase.map((i) => i.id),
       });
 
-      // 2. 착용 상태 업데이트
+      // 2. 착용 상태 업데이트 (헤어 색상 포함)
       const itemIds = toItemIds(pendingEquippedItems);
       await updateEquippedMutation.mutateAsync({
         avatarId,
         itemIds,
+        hairColor: pendingHairColor,
       });
 
-      // 3. 전역 상태 동기화
+      // 3. 전역 상태 동기화 (아이템 + 헤어 색상)
       setEquippedItems(pendingEquippedItems);
+      setGlobalHairColor(pendingHairColor);
 
       // 4. 모달 닫기
       setShowPurchaseModal(false);
@@ -338,10 +392,12 @@ export function useAvatarViewModel(): AvatarViewModel {
   }, [
     itemsToPurchase,
     pendingEquippedItems,
+    pendingHairColor,
     avatarId,
     purchaseMutation,
     updateEquippedMutation,
     setEquippedItems,
+    setGlobalHairColor,
   ]);
 
   /**
@@ -352,16 +408,18 @@ export function useAvatarViewModel(): AvatarViewModel {
       // 구매 필요
       attemptPurchase();
     } else {
-      // 착용만 업데이트
+      // 착용만 업데이트 (헤어 색상 포함)
       try {
         const itemIds = toItemIds(pendingEquippedItems);
         await updateEquippedMutation.mutateAsync({
           avatarId,
           itemIds,
+          hairColor: pendingHairColor,
         });
 
-        // 전역 상태 동기화
+        // 전역 상태 동기화 (아이템 + 헤어 색상)
         setEquippedItems(pendingEquippedItems);
+        setGlobalHairColor(pendingHairColor);
 
         // TODO: 성공 토스트 표시
         console.log('✅ 착용 완료');
@@ -374,21 +432,28 @@ export function useAvatarViewModel(): AvatarViewModel {
     shouldShowPurchaseButton,
     attemptPurchase,
     pendingEquippedItems,
+    pendingHairColor,
     avatarId,
     updateEquippedMutation,
     setEquippedItems,
+    setGlobalHairColor,
   ]);
 
   /**
    * 취소
    */
   const cancelChanges = useCallback(() => {
+    // 아이템 상태 복원
     setPendingEquippedItems(normalizeEquippedMap(globalEquippedItems));
-    
-    let items = Object.values(pendingEquippedItems).filter((item): item is Item => !!item);
-    unityService.changeAvatar(items);
 
-  }, [globalEquippedItems]);
+    // 헤어 색상 복원
+    setPendingHairColor(globalHairColor || DEFAULT_HAIR_COLOR.hex);
+
+    // Unity 프리뷰 복원 (원래 상태로)
+    const items = Object.values(globalEquippedItems).filter((item): item is Item => !!item);
+    unityService.changeAvatar(items, globalHairColor || DEFAULT_HAIR_COLOR.hex);
+
+  }, [globalEquippedItems, globalHairColor]);
 
   // ===================================
   // Return ViewModel
@@ -410,6 +475,11 @@ export function useAvatarViewModel(): AvatarViewModel {
     showInsufficientPointsAlert,
     isLoading,
 
+    // Hair Color State
+    pendingHairColor,
+    hasHairColorChanged,
+    isHairCategory,
+
     // Actions
     selectCategory,
     selectItem,
@@ -420,6 +490,7 @@ export function useAvatarViewModel(): AvatarViewModel {
     cancelChanges,
     setShowPurchaseModal,
     setShowInsufficientPointsAlert,
+    selectHairColor,
 
     // Pagination
     fetchNextPage,

@@ -23,6 +23,20 @@ export const ICONS = {
   character_3: require('../../../assets/images/icons/character_3.png'),
   title_run: require('../../../assets/images/title_run.png'),
   title_taeho: require('../../../assets/images/title_taeho.png'),
+  // 리그 탭 아이콘 (TODO: 실제 리그 아이콘으로 교체 필요)
+  league: require('../../../assets/images/icons/league.png'),
+} as const;
+
+/**
+ * 리그 티어 이미지
+ */
+export const TIER_IMAGES = {
+  BRONZE: require('../../../assets/images/tiers/bronze.png'),
+  SILVER: require('../../../assets/images/tiers/silver.png'),
+  GOLD: require('../../../assets/images/tiers/gold.png'),
+  PLATINUM: require('../../../assets/images/tiers/platinum.png'),
+  DIAMOND: require('../../../assets/images/tiers/diamond.png'),
+  CHALLENGER: require('../../../assets/images/tiers/challenger.png'),
 } as const;
 
 export const ITEM_IMAGE = {

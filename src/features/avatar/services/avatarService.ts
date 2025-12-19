@@ -63,20 +63,16 @@ export const avatarService = {
    * 착용 아이템 업데이트
    *
    * 백엔드 API: PUT /api/v1/avatars/{avatarId}
-   * Request Body: { itemIds: number[] }
-   *
-   * 주의: PUT이므로 전체 착용 아이템 목록을 전송해야 함
+   * Request Body: { itemIds: number[], hairColor?: string }
    */
   updateEquippedItems: async (request: UpdateEquippedItemsRequest): Promise<Avatar> => {
-    const { avatarId, itemIds } = request;
-
     const { data } = await apiClient.put<Avatar>(
-      API_ENDPOINTS.AVATAR.UPDATE_EQUIPPED_ITEMS(avatarId),
+      API_ENDPOINTS.AVATAR.UPDATE_EQUIPPED_ITEMS(request.avatarId),
       {
-        itemIds: itemIds,
+        itemIds: request.itemIds,
+        hairColor: request.hairColor,
       }
     );
-    
     return data;
   },
 

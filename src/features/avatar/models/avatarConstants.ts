@@ -9,6 +9,48 @@
 
 
 // ===================================
+// 헤어 색상 관련 상수
+// ===================================
+
+/**
+ * 헤어 색상 정의
+ * 7가지 색상 중 선택 가능
+ */
+export const HAIR_COLORS = [
+  { id: 1, name: '검정', hex: '#1A1A1A' },
+  { id: 2, name: '갈색', hex: '#8B4513' },
+  { id: 3, name: '금발', hex: '#FFD700' },
+  { id: 4, name: '빨강', hex: '#DC143C' },
+  { id: 5, name: '파랑', hex: '#4169E1' },
+  { id: 6, name: '보라', hex: '#9370DB' },
+  { id: 7, name: '흰색', hex: '#FFFFFF' },
+] as const;
+
+/**
+ * 헤어 색상 타입
+ */
+export type HairColor = typeof HAIR_COLORS[number];
+
+/**
+ * 기본 헤어 색상 (갈색)
+ */
+export const DEFAULT_HAIR_COLOR: HairColor = HAIR_COLORS[1]; // #8B4513
+
+/**
+ * 헤어 색상 ID로 색상 정보 찾기
+ */
+export function getHairColorById(id: number): HairColor | undefined {
+  return HAIR_COLORS.find((color) => color.id === id);
+}
+
+/**
+ * HEX 값으로 헤어 색상 찾기
+ */
+export function getHairColorByHex(hex: string): HairColor | undefined {
+  return HAIR_COLORS.find((color) => color.hex.toLowerCase() === hex.toLowerCase());
+}
+
+// ===================================
 // 카테고리 관련 상수
 // ===================================
 

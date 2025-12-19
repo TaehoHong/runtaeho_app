@@ -15,7 +15,7 @@
 // ===================================
 // Types & Models
 // ===================================
-export type { Item, EquippedItemsMap, ItemType, PurchaseItemsRequest, ItemCategory } from './models';
+export type { Item, EquippedItemsMap, ItemType, PurchaseItemsRequest, ItemCategory, HairColor } from './models';
 export { isItemType } from './models';
 
 // ===================================
@@ -26,7 +26,12 @@ export {
   ITEM_CARD_SIZE, ITEM_CATEGORIES, ITEM_OPACITY, PRICE_DISPLAY, QUERY_KEY_PREFIX,
   QUERY_OPTIONS, SUCCESS_MESSAGES, UNITY_PREVIEW, getCategoryByType,
   getCategoryDisplayName,
-  getCategoryUnityName
+  getCategoryUnityName,
+  // Hair Color
+  HAIR_COLORS,
+  DEFAULT_HAIR_COLOR,
+  getHairColorById,
+  getHairColorByHex,
 } from './models/avatarConstants';
 
 export { ItemStatus } from './models/Item';

@@ -4,6 +4,7 @@
  */
 
 import type { Item } from './Item'
+import { DEFAULT_HAIR_COLOR } from './avatarConstants'
 
 /**
  * 아바타 (사용자 아바타 정보)
@@ -12,6 +13,7 @@ export interface Avatar {
   readonly id: number;
   readonly userId: number;
   readonly isMain: boolean;
+  readonly hairColor: string;  // 헤어 색상 (HEX 형식: "#FFFFFF")
   readonly items: readonly Item[];
 }
 
@@ -21,6 +23,7 @@ export interface Avatar {
 export interface UpdateEquippedItemsRequest {
   readonly avatarId: number;
   readonly itemIds: readonly number[];
+  readonly hairColor?: string;  // 헤어 색상 변경 시 포함 (HEX 형식)
 }
 
 /**
@@ -46,10 +49,11 @@ export const createAvatar = (
   id: number,
   userId: number,
   isMain: boolean = false,
-  orderIndex: number = 0
+  hairColor: string = DEFAULT_HAIR_COLOR.hex
 ): Avatar => ({
   id,
   userId,
   isMain,
+  hairColor,
   items: [],
 });

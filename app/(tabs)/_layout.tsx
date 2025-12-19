@@ -5,6 +5,7 @@ import { Icon } from '~/shared/components/ui';
 
 /**
  * 메인 탭 네비게이션 레이아웃
+ * 피그마 디자인: 통계 / 러닝 / 리그 / 내정보 (4개 탭)
  * 러닝 상태에 따라 탭바 표시/숨김 제어
  */
 export default function TabLayout() {
@@ -45,15 +46,14 @@ export default function TabLayout() {
         },
         // iOS와 동일한 애니메이션 효과
         animation: 'none',
-        // animationDuration는 지원되지 않는 속성이므로 제거
       }}
     >
       <Tabs.Screen
-        name="profile"
+        name="statistics"
         options={{
-          title: '내정보',
+          title: '통계',
           tabBarIcon: ({ color, size }) => (
-            <Icon name = 'myinfo' size={size} tintColor={color} />
+            <Icon name="chart" size={size} tintColor={color} />
           ),
         }}
       />
@@ -62,16 +62,25 @@ export default function TabLayout() {
         options={{
           title: '러닝',
           tabBarIcon: ({ color, size }) => (
-            <Icon name = 'shoe' size={size} tintColor={color} />
+            <Icon name="shoe" size={size} tintColor={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="statistics"
+        name="league"
         options={{
-          title: '통계',
+          title: '리그',
           tabBarIcon: ({ color, size }) => (
-            <Icon name = 'chart' size={size} tintColor={color} />
+            <Icon name="league" size={size} tintColor={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: '내정보',
+          tabBarIcon: ({ color, size }) => (
+            <Icon name="myinfo" size={size} tintColor={color} />
           ),
         }}
       />

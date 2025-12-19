@@ -131,11 +131,13 @@ export interface UnityAvatarUpdateOptions {
 
 /**
  * Unity에서 기대하는 개별 아바타 아이템 구조
+ * Unity의 SpriteSettingDto와 매칭됨
  */
 export interface UnityAvatarDto {
-  name: string;      // 아이템 이름 (예: "New_Armor_01.png")
-  part: string;      // Unity 파트명 (예: "Hair", "Cloth", "Pant")
-  itemPath: string;  // 전체 경로 (예: "Sprites/Hair/New_Armor_01.png")
+  name: string;       // 아이템 이름 (예: "New_Armor_01.png")
+  part: string;       // Unity 파트명 (예: "Hair", "Cloth", "Pant")
+  itemPath: string;   // 전체 경로 (예: "Sprites/Hair/New_Armor_01.png")
+  hairColor?: string; // 헤어 색상 (HEX 형식: "#FFFFFF") - Hair 파트에서만 사용
 }
 
 /**
@@ -143,6 +145,7 @@ export interface UnityAvatarDto {
  */
 export interface UnityAvatarDtoList {
   list: UnityAvatarDto[];
+  hairColor?: string; // 헤어 색상 (HEX 형식: "#FFFFFF")
 }
 
 // ==========================================

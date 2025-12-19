@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useUserStore, useAppStore, RunningState } from '~/stores';
-import { StartButton } from '~/shared/components';
+import { StartButton } from './components/start-button';
 import { useRunning } from '../contexts';
 import { permissionManager } from '~/services/PermissionManager';
 import { PermissionRequestModal } from '~/features/permissions/views/PermissionRequestModal';

@@ -110,8 +110,14 @@ export const API_ENDPOINTS = {
 
   TERMS: {
     ALL: '/terms',
-    PATCH_AGREEMENT: '/users/agreement'
+    PATCH_AGREEMENT: '/users/agreement',
+  },
 
-  }
-
+  LEAGUE: {
+    CURRENT: '/league/current',
+    PROFILE: '/league/profile',
+    JOIN: '/league/join',
+    RESULT: '/league/result',
+    RESULT_CONFIRM: '/league/result/confirm',
+  },
 } as const;

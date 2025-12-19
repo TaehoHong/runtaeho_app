@@ -160,6 +160,14 @@ export const queryKeys = {
     }) => ['statistics', 'timePatterns', filters] as const,
     dashboard: (period: string) => ['statistics', 'dashboard', period] as const,
   },
+
+  // League 관련 Query Keys
+  league: {
+    all: ['league'] as const,
+    current: ['league', 'current'] as const,
+    profile: ['league', 'profile'] as const,
+    result: ['league', 'result'] as const,
+  },
 } as const;
 
 /**

@@ -1,7 +1,10 @@
 import React from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { useAppStore, RunningState } from '~/stores/app/appStore';
-import { StatsView, PauseButton, StopButton, MainDistanceCard } from '~/shared/components';
+import { StatsView } from './stats-view';
+import { PauseButton } from './components/pause-button';
+import { StopButton } from './components/stop-button';
+import { MainDistanceCard } from './components/main-distance-card';
 import { useRunning } from '../contexts';
 
 const { width, height } = Dimensions.get('window');
