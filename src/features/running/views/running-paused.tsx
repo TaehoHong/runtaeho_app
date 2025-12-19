@@ -2,6 +2,7 @@ import React from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { useAppStore, RunningState } from '~/stores/app/appStore';
 import { StatsView } from './stats-view';
+import { MainDistanceCard } from './components/main-distance-card';
 import { StopButton } from './components/stop-button';
 import { PlayButton } from './components/play-button';
 import { useRunning } from '../contexts';
@@ -47,10 +48,13 @@ export const RunningPausedView: React.FC = () => {
       {/* 러닝 통계 (현재 진행 상황 표시) */}
       <StatsView />
 
-      {/* 제어 버튼들 - iOS의 [종료], [재개] */}
+      {/* 현재 누적 거리 - Figma 디자인 */}
+      <MainDistanceCard />
+
+      {/* 제어 버튼들 - Figma: [재개(초록)] [종료(회색)] 순서 */}
       <View style={styles.buttonContainer}>
-        <StopButton onPress={handleStopRunning} />
         <PlayButton onPress={handleResumeRunning} />
+        <StopButton onPress={handleStopRunning} />
       </View>
     </View>
   );
@@ -63,13 +67,18 @@ const styles = StyleSheet.create({
   container: {
     width: width,
     height: height * 0.5,
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    gap: 25,
+    paddingHorizontal: 16,
+    paddingBottom: 43, // Figma: 812-(704+65)=43px
+    gap: 16, // Figma: 480-464=16px
   },
   buttonContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 20,
+    justifyContent: 'space-between',
+    width: '100%',
+    paddingHorizontal: 42, // Figma: 58px - container padding 16px = 42px
+    marginTop: 96, // Figma: 704-592=112px (gap 16 포함하여 96)
   },
 });

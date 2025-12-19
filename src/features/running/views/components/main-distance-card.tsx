@@ -15,15 +15,18 @@ export const MainDistanceCard: React.FC = () => {
   const { distance } = useRunning();
 
   // 거리를 km 단위로 변환 (distance는 미터 단위)
-  // 1의 자리 버림 처리 (예: 299m → 290m → 0.29km)
-  const truncatedDistance = Math.floor(distance / 10) * 10;
-  const distanceKm = (truncatedDistance / 1000).toFixed(2);
+  // 소수점 1자리까지 표시 (Figma 디자인: "00.0 km")
+  const distanceKm = (distance / 1000).toFixed(1);
+  // 10km 미만일 때 앞에 0 붙이기 (00.0 형식)
+  const formattedDistance = parseFloat(distanceKm) < 10
+    ? `0${distanceKm}`
+    : distanceKm;
 
   return (
     <View style={styles.container}>
       <Text style={styles.label}>현재 누적 거리</Text>
       <View style={styles.distanceContainer}>
-        <Text style={styles.distanceValue}>{distanceKm}</Text>
+        <Text style={styles.distanceValue}>{formattedDistance}</Text>
         <Text style={styles.distanceUnit}>km</Text>
       </View>
     </View>
@@ -34,14 +37,19 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
+    paddingVertical: 24,
+    paddingHorizontal: 16,
     width: '100%',
+    backgroundColor: GREY.WHITE,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
   },
   label: {
     fontSize: 12,
     fontWeight: '400',
     color: GREY[500],
-    marginBottom: 16,
+    marginBottom: 12,
   },
   distanceContainer: {
     flexDirection: 'row',

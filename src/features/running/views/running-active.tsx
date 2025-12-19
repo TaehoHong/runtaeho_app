@@ -76,10 +76,10 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
     width: '100%',
-    paddingHorizontal: 29,
+    gap: 100,
     marginTop: 42,
   },
 });
