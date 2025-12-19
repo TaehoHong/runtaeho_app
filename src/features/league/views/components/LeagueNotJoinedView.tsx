@@ -3,9 +3,10 @@
  * 리그 미참여 상태 화면
  *
  * 티어 이미지 캐러셀 (부드러운 순환 애니메이션)
+ * - 상태 변경 없이 연속 애니메이션으로 깜빡임 방지
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View, Easing } from 'react-native';
 import { Image } from 'expo-image';
 import { TIER_IMAGES } from '~/shared/constants/images';
@@ -23,105 +24,147 @@ const ALL_TIERS: LeagueTierType[] = [
 ];
 
 const TIER_COUNT = ALL_TIERS.length;
+const VISIBLE_SLOTS = 5; // 화면에 보이는 슬롯 수
 
-// 위치별 크기/투명도 설정 (중앙이 가장 큼)
-// 5개 슬롯: 0=왼쪽 끝, 1=왼쪽, 2=중앙, 3=오른쪽, 4=오른쪽 끝
-const SLOT_CONFIG = [
-  { width: 40, height: 25, opacity: 0.4, x: -100 },  // 슬롯 0
-  { width: 55, height: 35, opacity: 0.7, x: -50 },   // 슬롯 1
-  { width: 80, height: 51, opacity: 1.0, x: 0 },     // 슬롯 2 (중앙)
-  { width: 55, height: 35, opacity: 0.7, x: 50 },    // 슬롯 3
-  { width: 40, height: 25, opacity: 0.4, x: 100 },   // 슬롯 4
-];
+// 슬롯별 설정 (위치 0~4, 중앙=2가 가장 큼)
+const SLOT_CONFIGS = {
+  width: [40, 55, 80, 55, 40],
+  height: [25, 35, 51, 35, 25],
+  opacity: [0.4, 0.7, 1.0, 0.7, 0.4],
+  x: [-100, -60, 0, 60, 100],
+};
 
 // 애니메이션 설정
-const ANIMATION_DURATION = 600; // 전환 시간 (ms)
-const CYCLE_INTERVAL = 2000;    // 순환 간격 (ms)
+const ANIMATION_DURATION = 600;
+const CYCLE_INTERVAL = 2000;
 
-// 슬롯 0 기본값 (화면 밖으로 나갈 때 사용)
-const DEFAULT_SLOT = { width: 40, height: 25, opacity: 0.4, x: -100 };
+// 충분히 긴 inputRange 생성 (애니메이션이 오래 돌아도 커버)
+const MAX_SCROLL = TIER_COUNT * 20;
+const INPUT_RANGE = Array.from({ length: MAX_SCROLL + 1 }, (_, i) => i);
 
 /**
- * 티어 아이템 컴포넌트 - 슬롯 기반 애니메이션
+ * 스크롤 값에서 특정 티어의 슬롯 위치 계산
+ */
+const getSlotPosition = (baseIndex: number, scrollVal: number): number => {
+  const scrollInt = Math.floor(scrollVal);
+  // 중앙(슬롯2)에 있어야 할 티어 인덱스
+  const centerTierIndex = scrollInt % TIER_COUNT;
+  // 이 티어의 상대 위치 (중앙 기준)
+  let relativePos = baseIndex - centerTierIndex;
+  // 순환 처리 (-3 ~ 2 범위로 정규화)
+  while (relativePos < -Math.floor(TIER_COUNT / 2)) relativePos += TIER_COUNT;
+  while (relativePos > Math.floor(TIER_COUNT / 2)) relativePos -= TIER_COUNT;
+  // 슬롯 위치로 변환 (중앙=2)
+  return relativePos + 2;
+};
+
+/**
+ * 슬롯 위치에 따른 스타일 값 반환
+ */
+const getSlotValue = (slotPos: number, values: number[], offScreen: number): number => {
+  if (slotPos < 0 || slotPos >= VISIBLE_SLOTS) return offScreen;
+  return values[slotPos] ?? offScreen;
+};
+
+/**
+ * 보간된 값 계산 (현재 슬롯 → 다음 슬롯)
+ */
+const interpolateValue = (
+  baseIndex: number,
+  scrollVal: number,
+  values: number[],
+  offScreen: number
+): number => {
+  const scrollInt = Math.floor(scrollVal);
+  const scrollFrac = scrollVal - scrollInt;
+
+  const currentSlot = getSlotPosition(baseIndex, scrollInt);
+  const nextSlot = getSlotPosition(baseIndex, scrollInt + 1);
+
+  const currentValue = getSlotValue(currentSlot, values, offScreen);
+  const nextValue = getSlotValue(nextSlot, values, offScreen);
+
+  return currentValue + (nextValue - currentValue) * scrollFrac;
+};
+
+/**
+ * X 위치 계산 (화면 밖 처리 포함)
+ */
+const interpolateX = (baseIndex: number, scrollVal: number): number => {
+  const scrollInt = Math.floor(scrollVal);
+  const scrollFrac = scrollVal - scrollInt;
+
+  const currentSlot = getSlotPosition(baseIndex, scrollInt);
+  const nextSlot = getSlotPosition(baseIndex, scrollInt + 1);
+
+  const getX = (slot: number): number => {
+    if (slot < 0) return -150;
+    if (slot >= VISIBLE_SLOTS) return 150;
+    return SLOT_CONFIGS.x[slot] ?? 0;
+  };
+
+  const currentX = getX(currentSlot);
+  const nextX = getX(nextSlot);
+
+  return currentX + (nextX - currentX) * scrollFrac;
+};
+
+/**
+ * 티어 아이템 컴포넌트
+ * scrollAnim 값에 따라 자신의 위치를 계산
  */
 const TierItem = ({
   tier,
-  slotIndex,
-  animProgress,
+  baseIndex,
+  scrollAnim,
 }: {
   tier: LeagueTierType;
-  slotIndex: number; // 현재 슬롯 위치 (0~4)
-  animProgress: Animated.Value; // 0~1 애니메이션 진행도
+  baseIndex: number;
+  scrollAnim: Animated.Value;
 }) => {
-  // 현재 슬롯과 다음 슬롯 (왼쪽으로 이동)
-  const currentSlot = SLOT_CONFIG[slotIndex] ?? DEFAULT_SLOT;
-  const nextSlotIndex = slotIndex === 0 ? -1 : slotIndex - 1; // -1이면 화면 밖
-  const nextSlot = nextSlotIndex >= 0 ? SLOT_CONFIG[nextSlotIndex] : null;
-
-  // 화면 밖으로 나가는 경우
-  if (nextSlot === null || nextSlot === undefined) {
-    // 슬롯 0에서 화면 밖으로 사라짐
-    const opacity = animProgress.interpolate({
-      inputRange: [0, 0.5, 1],
-      outputRange: [currentSlot.opacity, 0, 0],
-      extrapolate: 'clamp',
-    });
-
-    const translateX = animProgress.interpolate({
-      inputRange: [0, 1],
-      outputRange: [currentSlot.x, -150],
-      extrapolate: 'clamp',
-    });
-
-    return (
-      <Animated.View
-        style={[
-          styles.tierItemContainer,
-          {
-            opacity,
-            transform: [{ translateX }],
-            zIndex: 0,
-          },
-        ]}
-      >
-        <View style={{ width: currentSlot.width, height: currentSlot.height }}>
-          <Image
-            source={TIER_IMAGES[tier]}
-            style={styles.tierImage}
-            contentFit="contain"
-          />
-        </View>
-      </Animated.View>
-    );
-  }
-
-  // 일반적인 슬롯 간 이동
-  const width = animProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [currentSlot.width, nextSlot.width],
+  // opacity
+  const opacity = scrollAnim.interpolate({
+    inputRange: INPUT_RANGE,
+    outputRange: INPUT_RANGE.map((v) =>
+      interpolateValue(baseIndex, v, SLOT_CONFIGS.opacity, 0)
+    ),
     extrapolate: 'clamp',
   });
 
-  const height = animProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [currentSlot.height, nextSlot.height],
+  // translateX
+  const translateX = scrollAnim.interpolate({
+    inputRange: INPUT_RANGE,
+    outputRange: INPUT_RANGE.map((v) => interpolateX(baseIndex, v)),
     extrapolate: 'clamp',
   });
 
-  const opacity = animProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [currentSlot.opacity, nextSlot.opacity],
+  // width
+  const width = scrollAnim.interpolate({
+    inputRange: INPUT_RANGE,
+    outputRange: INPUT_RANGE.map((v) =>
+      interpolateValue(baseIndex, v, SLOT_CONFIGS.width, 30)
+    ),
     extrapolate: 'clamp',
   });
 
-  const translateX = animProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [currentSlot.x, nextSlot.x],
+  // height
+  const height = scrollAnim.interpolate({
+    inputRange: INPUT_RANGE,
+    outputRange: INPUT_RANGE.map((v) =>
+      interpolateValue(baseIndex, v, SLOT_CONFIGS.height, 19)
+    ),
     extrapolate: 'clamp',
   });
 
-  // zIndex는 중앙에 가까울수록 높음
-  const zIndex = slotIndex === 2 ? 3 : slotIndex === 1 || slotIndex === 3 ? 2 : 1;
+  // zIndex
+  const zIndexValues = [1, 2, 3, 2, 1];
+  const zIndex = scrollAnim.interpolate({
+    inputRange: INPUT_RANGE,
+    outputRange: INPUT_RANGE.map((v) =>
+      interpolateValue(baseIndex, v, zIndexValues, 0)
+    ),
+    extrapolate: 'clamp',
+  });
 
   return (
     <Animated.View
@@ -145,107 +188,14 @@ const TierItem = ({
   );
 };
 
-// 슬롯 4 기본값 (오른쪽 끝)
-const SLOT_4_CONFIG = { width: 40, height: 25, opacity: 0.4, x: 100 };
-
-/**
- * 새로 들어오는 티어 아이템 (오른쪽에서 등장)
- */
-const EnteringTierItem = ({
-  tier,
-  animProgress,
-}: {
-  tier: LeagueTierType;
-  animProgress: Animated.Value;
-}) => {
-  const startConfig = { width: 30, height: 19, opacity: 0, x: 150 };
-  const endConfig = SLOT_CONFIG[4] ?? SLOT_4_CONFIG; // 슬롯 4로 진입
-
-  const width = animProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [startConfig.width, endConfig.width],
-    extrapolate: 'clamp',
-  });
-
-  const height = animProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [startConfig.height, endConfig.height],
-    extrapolate: 'clamp',
-  });
-
-  const opacity = animProgress.interpolate({
-    inputRange: [0, 0.3, 1],
-    outputRange: [0, endConfig.opacity * 0.5, endConfig.opacity],
-    extrapolate: 'clamp',
-  });
-
-  const translateX = animProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [startConfig.x, endConfig.x],
-    extrapolate: 'clamp',
-  });
-
-  return (
-    <Animated.View
-      style={[
-        styles.tierItemContainer,
-        {
-          opacity,
-          transform: [{ translateX }],
-          zIndex: 0,
-        },
-      ]}
-    >
-      <Animated.View style={{ width, height }}>
-        <Image
-          source={TIER_IMAGES[tier]}
-          style={styles.tierImage}
-          contentFit="contain"
-        />
-      </Animated.View>
-    </Animated.View>
-  );
-};
-
-/**
- * 현재 슬롯에 표시할 티어 배열 계산
- * centerTierIndex: 중앙(슬롯2)에 올 티어의 인덱스
- * 반환: [슬롯0티어, 슬롯1티어, 슬롯2티어, 슬롯3티어, 슬롯4티어]
- */
-const getVisibleTiers = (centerTierIndex: number): LeagueTierType[] => {
-  const result: LeagueTierType[] = [];
-  for (let offset = -2; offset <= 2; offset++) {
-    const tierIndex = (centerTierIndex + offset + TIER_COUNT) % TIER_COUNT;
-    const tier = ALL_TIERS[tierIndex];
-    if (tier !== undefined) {
-      result.push(tier);
-    }
-  }
-  return result;
-};
-
-/**
- * 다음에 오른쪽에서 들어올 티어 계산
- */
-const getNextEnteringTier = (centerTierIndex: number): LeagueTierType => {
-  const nextTierIndex = (centerTierIndex + 3) % TIER_COUNT;
-  return ALL_TIERS[nextTierIndex] ?? LeagueTierType.BRONZE;
-};
-
 export const LeagueNotJoinedView = () => {
   // 페이드인 애니메이션
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(20)).current;
 
-  // 현재 중앙에 표시될 티어 인덱스 (0 = BRONZE가 중앙)
-  const [centerTierIndex, setCenterTierIndex] = useState(0);
-
-  // 애니메이션 진행도 (0 = 정지, 1 = 완료)
-  const animProgress = useRef(new Animated.Value(0)).current;
-
-  // 현재 표시 중인 티어들
-  const visibleTiers = getVisibleTiers(centerTierIndex);
-  const enteringTier = getNextEnteringTier(centerTierIndex);
+  // 연속 스크롤 애니메이션 값 (0부터 계속 증가, 상태 변경 없음)
+  const scrollAnim = useRef(new Animated.Value(0)).current;
+  const scrollValue = useRef(0);
 
   // 초기 페이드인 애니메이션
   useEffect(() => {
@@ -263,7 +213,7 @@ export const LeagueNotJoinedView = () => {
     ]).start();
   }, [fadeAnim, translateY]);
 
-  // 캐러셀 자동 순환
+  // 캐러셀 자동 순환 (상태 변경 없이 연속 애니메이션)
   useEffect(() => {
     let intervalId: ReturnType<typeof setInterval>;
     let isMounted = true;
@@ -271,20 +221,14 @@ export const LeagueNotJoinedView = () => {
     const animate = () => {
       if (!isMounted) return;
 
-      // 애니메이션 진행도를 0에서 1로
-      Animated.timing(animProgress, {
-        toValue: 1,
+      scrollValue.current += 1;
+
+      Animated.timing(scrollAnim, {
+        toValue: scrollValue.current,
         duration: ANIMATION_DURATION,
         easing: Easing.inOut(Easing.cubic),
         useNativeDriver: false,
-      }).start(({ finished }) => {
-        if (finished && isMounted) {
-          // 애니메이션 완료 후 상태 업데이트
-          setCenterTierIndex((prev) => (prev + 1) % TIER_COUNT);
-          // 진행도 리셋
-          animProgress.setValue(0);
-        }
-      });
+      }).start();
     };
 
     // 초기 딜레이 후 시작
@@ -298,7 +242,7 @@ export const LeagueNotJoinedView = () => {
       clearTimeout(initialDelay);
       if (intervalId) clearInterval(intervalId);
     };
-  }, [animProgress]);
+  }, [scrollAnim]);
 
   return (
     <Animated.View
@@ -311,23 +255,16 @@ export const LeagueNotJoinedView = () => {
       ]}
     >
       <View style={styles.card}>
-        {/* 티어 이미지 캐러셀 */}
+        {/* 티어 이미지 캐러셀 - 6개 모두 렌더링, 각자 위치 계산 */}
         <View style={styles.carouselContainer}>
-          {/* 기존 5개 슬롯의 티어들 */}
-          {visibleTiers.map((tier, slotIndex) => (
+          {ALL_TIERS.map((tier, index) => (
             <TierItem
-              key={`${tier}-${slotIndex}`}
+              key={tier}
               tier={tier}
-              slotIndex={slotIndex}
-              animProgress={animProgress}
+              baseIndex={index}
+              scrollAnim={scrollAnim}
             />
           ))}
-          {/* 오른쪽에서 새로 들어오는 티어 */}
-          <EnteringTierItem
-            key={`entering-${enteringTier}`}
-            tier={enteringTier}
-            animProgress={animProgress}
-          />
         </View>
 
         {/* 안내 텍스트 */}
