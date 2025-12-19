@@ -23,10 +23,10 @@ export const StatsView: React.FC = () => {
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
-  // Figma 디자인: 센서 데이터 없으면 "00" 표시
+  // 정책: undefined 또는 null이면 "--" 표시
   const bpm = stats.bpm !== undefined && stats.bpm !== null
     ? String(stats.bpm).padStart(2, '0')
-    : '00';
+    : '--';
   const pace = `${String(stats.pace.minutes).padStart(2, '0')}:${String(stats.pace.seconds).padStart(2, '0')}`;
   const runningTime = formatElapsedTime(elapsedTime);
 
@@ -65,19 +65,15 @@ const styles = StyleSheet.create({
   statItem: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 8,
-    flex: 1,
-    backgroundColor: GREY.WHITE,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
+    paddingVertical: 12,
+    paddingHorizontal: 0,
+    flex: 1
   },
   statLabel: {
     fontSize: 12,
-    fontWeight: '600', // Figma: Pretendard SemiBold
+    fontWeight: '400', // Figma: Pretendard SemiBold
     color: GREY[500],
-    marginBottom: 8,
+    marginBottom: 6,
   },
   statValue: {
     fontSize: 27,

@@ -1,13 +1,11 @@
 import React from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useAppStore, RunningState } from '~/stores/app/appStore';
 import { StatsView } from './stats-view';
 import { PauseButton } from './components/pause-button';
 import { StopButton } from './components/stop-button';
 import { MainDistanceCard } from './components/main-distance-card';
 import { useRunning } from '../contexts';
-
-const { width, height } = Dimensions.get('window');
 
 /**
  * 러닝 진행 중 화면
@@ -67,19 +65,17 @@ export const RunningActive = RunningActiveView;
 
 const styles = StyleSheet.create({
   container: {
-    width: width,
-    height: height * 0.5,
-    justifyContent: 'flex-start',
-    alignItems: 'center',
+    flex: 1,
     paddingTop: 16,
     paddingHorizontal: 16,
   },
   buttonContainer: {
+    position: 'absolute',
+    bottom: 42,
+    left: 58,
+    right: 58,
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    width: '100%',
-    gap: 100,
-    marginTop: 42,
   },
 });
