@@ -3,18 +3,25 @@
  * 리그 미참여 상태 화면
  *
  * 티어 이미지 캐러셀 (부드러운 순환 애니메이션)
- * - 상태 변경 없이 연속 애니메이션으로 깜빡임 방지
+ * - Animated.modulo를 사용한 무한 순환
+ * - 모듈 레벨 캐싱으로 성능 최적화
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { Animated, StyleSheet, Text, View, Easing } from 'react-native';
 import { Image } from 'expo-image';
 import { TIER_IMAGES } from '~/shared/constants/images';
 import { GREY } from '~/shared/styles';
 import { LeagueTierType } from '../../models';
 
-// 모든 티어 (6개)
+// 티어 이미지 목록 (개수 변경 가능)
 const ALL_TIERS: LeagueTierType[] = [
+  LeagueTierType.BRONZE,
+  LeagueTierType.SILVER,
+  LeagueTierType.GOLD,
+  LeagueTierType.PLATINUM,
+  LeagueTierType.DIAMOND,
+  LeagueTierType.CHALLENGER,
   LeagueTierType.BRONZE,
   LeagueTierType.SILVER,
   LeagueTierType.GOLD,
@@ -23,8 +30,10 @@ const ALL_TIERS: LeagueTierType[] = [
   LeagueTierType.CHALLENGER,
 ];
 
-const TIER_COUNT = ALL_TIERS.length;
-const VISIBLE_SLOTS = 5; // 화면에 보이는 슬롯 수
+// 상수 (ALL_TIERS 기반으로 자동 계산)
+const ITEM_COUNT = ALL_TIERS.length;
+const VISIBLE_SLOTS = 5;
+const CENTER_SLOT = Math.floor(VISIBLE_SLOTS / 2); // 2
 
 // 슬롯별 설정 (위치 0~4, 중앙=2가 가장 큼)
 const SLOT_CONFIGS = {
@@ -32,138 +41,117 @@ const SLOT_CONFIGS = {
   height: [25, 35, 51, 35, 25],
   opacity: [0.4, 0.7, 1.0, 0.7, 0.4],
   x: [-100, -60, 0, 60, 100],
-};
+} as const;
 
 // 애니메이션 설정
 const ANIMATION_DURATION = 600;
 const CYCLE_INTERVAL = 2000;
 
-// 충분히 긴 inputRange 생성 (애니메이션이 오래 돌아도 커버)
-const MAX_SCROLL = TIER_COUNT * 20;
-const INPUT_RANGE = Array.from({ length: MAX_SCROLL + 1 }, (_, i) => i);
+// InputRange: 한 사이클(0~ITEM_COUNT) 커버
+const CYCLE_INPUT_RANGE = Array.from({ length: ITEM_COUNT + 1 }, (_, i) => i);
 
 /**
- * 스크롤 값에서 특정 티어의 슬롯 위치 계산
+ * 스크롤 값에서 특정 아이템의 슬롯 위치 계산
+ * - ITEM_COUNT 개수에 상관없이 동작
+ * - 중앙(CENTER_SLOT) 기준으로 상대 위치 계산
  */
-const getSlotPosition = (baseIndex: number, scrollVal: number): number => {
-  const scrollInt = Math.floor(scrollVal);
-  // 중앙(슬롯2)에 있어야 할 티어 인덱스
-  const centerTierIndex = scrollInt % TIER_COUNT;
-  // 이 티어의 상대 위치 (중앙 기준)
-  let relativePos = baseIndex - centerTierIndex;
-  // 순환 처리 (-3 ~ 2 범위로 정규화)
-  while (relativePos < -Math.floor(TIER_COUNT / 2)) relativePos += TIER_COUNT;
-  while (relativePos > Math.floor(TIER_COUNT / 2)) relativePos -= TIER_COUNT;
-  // 슬롯 위치로 변환 (중앙=2)
-  return relativePos + 2;
+const getSlotPosition = (baseIndex: number, scrollInt: number): number => {
+  // 음수 처리를 위한 안전한 modulo
+  const centerItemIndex = ((scrollInt % ITEM_COUNT) + ITEM_COUNT) % ITEM_COUNT;
+  let relativePos = baseIndex - centerItemIndex;
+
+  // 순환 정규화: -half ~ +half 범위로 조정
+  const halfCount = Math.floor(ITEM_COUNT / 2);
+  while (relativePos < -halfCount) relativePos += ITEM_COUNT;
+  while (relativePos >= ITEM_COUNT - halfCount) relativePos -= ITEM_COUNT;
+
+  return relativePos + CENTER_SLOT;
 };
 
 /**
  * 슬롯 위치에 따른 스타일 값 반환
  */
-const getSlotValue = (slotPos: number, values: number[], offScreen: number): number => {
+const getSlotValue = (
+  slotPos: number,
+  values: readonly number[],
+  offScreen: number
+): number => {
   if (slotPos < 0 || slotPos >= VISIBLE_SLOTS) return offScreen;
   return values[slotPos] ?? offScreen;
 };
 
 /**
- * 보간된 값 계산 (현재 슬롯 → 다음 슬롯)
+ * X 위치 값 반환
  */
-const interpolateValue = (
-  baseIndex: number,
-  scrollVal: number,
-  values: number[],
-  offScreen: number
-): number => {
-  const scrollInt = Math.floor(scrollVal);
-  const scrollFrac = scrollVal - scrollInt;
-
-  const currentSlot = getSlotPosition(baseIndex, scrollInt);
-  const nextSlot = getSlotPosition(baseIndex, scrollInt + 1);
-
-  const currentValue = getSlotValue(currentSlot, values, offScreen);
-  const nextValue = getSlotValue(nextSlot, values, offScreen);
-
-  return currentValue + (nextValue - currentValue) * scrollFrac;
+const getX = (slot: number): number => {
+  if (slot < 0) return -150;
+  if (slot >= VISIBLE_SLOTS) return 150;
+  return SLOT_CONFIGS.x[slot] ?? 0;
 };
 
 /**
- * X 위치 계산 (화면 밖 처리 포함)
+ * 특정 아이템의 OutputRange 생성
+ * - 정수 시점(0, 1, 2, ..., ITEM_COUNT)의 값을 계산
+ * - 중간 값은 React Native interpolate가 선형 보간
  */
-const interpolateX = (baseIndex: number, scrollVal: number): number => {
-  const scrollInt = Math.floor(scrollVal);
-  const scrollFrac = scrollVal - scrollInt;
+const createOutputRanges = (baseIndex: number) => {
+  const x: number[] = [];
+  const opacity: number[] = [];
+  const width: number[] = [];
+  const height: number[] = [];
 
-  const currentSlot = getSlotPosition(baseIndex, scrollInt);
-  const nextSlot = getSlotPosition(baseIndex, scrollInt + 1);
+  for (let scrollInt = 0; scrollInt <= ITEM_COUNT; scrollInt++) {
+    const currentSlot = getSlotPosition(baseIndex, scrollInt);
 
-  const getX = (slot: number): number => {
-    if (slot < 0) return -150;
-    if (slot >= VISIBLE_SLOTS) return 150;
-    return SLOT_CONFIGS.x[slot] ?? 0;
-  };
+    // X 위치
+    x.push(getX(currentSlot));
 
-  const currentX = getX(currentSlot);
-  const nextX = getX(nextSlot);
+    // Opacity
+    opacity.push(getSlotValue(currentSlot, SLOT_CONFIGS.opacity, 0));
 
-  return currentX + (nextX - currentX) * scrollFrac;
+    // Width, Height
+    width.push(getSlotValue(currentSlot, SLOT_CONFIGS.width, 30));
+    height.push(getSlotValue(currentSlot, SLOT_CONFIGS.height, 19));
+  }
+
+  return { x, opacity, width, height };
 };
+
+// 모든 아이템의 OutputRange를 미리 계산 (모듈 레벨 캐싱)
+const ALL_OUTPUT_RANGES = ALL_TIERS.map((_, index) => createOutputRanges(index));
 
 /**
  * 티어 아이템 컴포넌트
- * scrollAnim 값에 따라 자신의 위치를 계산
  */
 const TierItem = ({
   tier,
   baseIndex,
-  scrollAnim,
+  normalizedScroll,
 }: {
   tier: LeagueTierType;
   baseIndex: number;
-  scrollAnim: Animated.Value;
+  normalizedScroll: Animated.AnimatedModulo<number>;
 }) => {
-  // opacity
-  const opacity = scrollAnim.interpolate({
-    inputRange: INPUT_RANGE,
-    outputRange: INPUT_RANGE.map((v) =>
-      interpolateValue(baseIndex, v, SLOT_CONFIGS.opacity, 0)
-    ),
-    extrapolate: 'clamp',
+  const outputRanges = ALL_OUTPUT_RANGES[baseIndex]!;
+
+  const translateX = normalizedScroll.interpolate({
+    inputRange: CYCLE_INPUT_RANGE,
+    outputRange: outputRanges.x,
   });
 
-  // translateX
-  const translateX = scrollAnim.interpolate({
-    inputRange: INPUT_RANGE,
-    outputRange: INPUT_RANGE.map((v) => interpolateX(baseIndex, v)),
-    extrapolate: 'clamp',
+  const opacity = normalizedScroll.interpolate({
+    inputRange: CYCLE_INPUT_RANGE,
+    outputRange: outputRanges.opacity,
   });
 
-  // width
-  const width = scrollAnim.interpolate({
-    inputRange: INPUT_RANGE,
-    outputRange: INPUT_RANGE.map((v) =>
-      interpolateValue(baseIndex, v, SLOT_CONFIGS.width, 30)
-    ),
-    extrapolate: 'clamp',
+  const width = normalizedScroll.interpolate({
+    inputRange: CYCLE_INPUT_RANGE,
+    outputRange: outputRanges.width,
   });
 
-  // height
-  const height = scrollAnim.interpolate({
-    inputRange: INPUT_RANGE,
-    outputRange: INPUT_RANGE.map((v) =>
-      interpolateValue(baseIndex, v, SLOT_CONFIGS.height, 19)
-    ),
-    extrapolate: 'clamp',
-  });
-
-  // zIndex
-  const zIndexValues = [1, 2, 3, 2, 1];
-  const zIndex = scrollAnim.interpolate({
-    inputRange: INPUT_RANGE,
-    outputRange: INPUT_RANGE.map((v) =>
-      interpolateValue(baseIndex, v, zIndexValues, 0)
-    ),
-    extrapolate: 'clamp',
+  const height = normalizedScroll.interpolate({
+    inputRange: CYCLE_INPUT_RANGE,
+    outputRange: outputRanges.height,
   });
 
   return (
@@ -173,7 +161,6 @@ const TierItem = ({
         {
           opacity,
           transform: [{ translateX }],
-          zIndex,
         },
       ]}
     >
@@ -193,9 +180,15 @@ export const LeagueNotJoinedView = () => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(20)).current;
 
-  // 연속 스크롤 애니메이션 값 (0부터 계속 증가, 상태 변경 없음)
+  // 연속 스크롤 값 (무한히 증가)
   const scrollAnim = useRef(new Animated.Value(0)).current;
   const scrollValue = useRef(0);
+
+  // 정규화된 스크롤 값 (0 ~ ITEM_COUNT 범위로 순환)
+  const normalizedScroll = useMemo(
+    () => Animated.modulo(scrollAnim, ITEM_COUNT),
+    [scrollAnim]
+  );
 
   // 초기 페이드인 애니메이션
   useEffect(() => {
@@ -213,7 +206,7 @@ export const LeagueNotJoinedView = () => {
     ]).start();
   }, [fadeAnim, translateY]);
 
-  // 캐러셀 자동 순환 (상태 변경 없이 연속 애니메이션)
+  // 캐러셀 자동 순환
   useEffect(() => {
     let intervalId: ReturnType<typeof setInterval>;
     let isMounted = true;
@@ -255,14 +248,14 @@ export const LeagueNotJoinedView = () => {
       ]}
     >
       <View style={styles.card}>
-        {/* 티어 이미지 캐러셀 - 6개 모두 렌더링, 각자 위치 계산 */}
+        {/* 티어 이미지 캐러셀 */}
         <View style={styles.carouselContainer}>
           {ALL_TIERS.map((tier, index) => (
             <TierItem
-              key={tier}
+              key={index}
               tier={tier}
               baseIndex={index}
-              scrollAnim={scrollAnim}
+              normalizedScroll={normalizedScroll}
             />
           ))}
         </View>
