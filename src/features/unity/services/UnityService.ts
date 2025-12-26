@@ -1,10 +1,13 @@
 /**
  * Unity Bridge Service for React Native
  * Unity와 React Native 간의 통신을 담당하는 서비스
+ *
+ * UnityBridge의 Push + Pull 패턴을 활용하여
+ * Race Condition 없이 안정적으로 Unity 통신 관리
  */
 
 import { UnityBridge } from '../bridge/UnityBridge';
-import { type CharacterMotion, type UnityAvatarDto, type UnityAvatarDtoList } from '../types/UnityTypes';
+import { type CharacterMotion, type UnityAvatarDtoList } from '../types/UnityTypes';
 import type { Item } from '~/features/avatar';
 import { getUnityPartName } from '~/features/avatar/models/avatarConstants';
 
@@ -13,7 +16,7 @@ import { getUnityPartName } from '~/features/avatar/models/avatarConstants';
  * React Native와 Unity 간의 모든 통신을 관리하며 도메인 로직을 포함
  */
 export class UnityService {
-  private static instance: UnityService
+  private static instance: UnityService;
 
   private static readonly UNITY_OBJECT_NAME = 'Charactor';
   private static readonly UNITY_SPEED_METHOD = 'SetSpeed';
@@ -23,43 +26,51 @@ export class UnityService {
   private static readonly MAX_SPEED = 7.0;
   private static readonly VALID_MOTIONS: CharacterMotion[] = ['IDLE', 'MOVE', 'ATTACK', 'DAMAGED'];
 
-  private readyCallbacks: (() => void)[] = [];
-
   static getInstance = (): UnityService => {
-    if(!UnityService.instance) {
-      UnityService.instance = new UnityService()
+    if (!UnityService.instance) {
+      UnityService.instance = new UnityService();
     }
     return UnityService.instance;
   };
 
   constructor() {
-    UnityBridge.subscribeToGameObjectReady(() => {
-      this.log('🎉 GameObject Ready! Executing pending callbacks...');
-      this.readyCallbacks.forEach(callback => callback());
-      this.readyCallbacks = [];
-    });
-  }
-
-  isReady(): boolean {
-    return UnityBridge.isGameObjectReady();
-  }
-
-  onReady(callback: () => void): void {
-    if (this.isReady()) {
-      callback();
-    } else {
-      this.readyCallbacks.push(callback);
-    }
+    this.log('Service initialized');
   }
 
   /**
-   * GameObject Ready 상태 리셋
-   * Unity View가 reattach될 때 호출
+   * 현재 Ready 상태 (동기)
    */
-  resetGameObjectReady(): void {
-    this.log('Resetting GameObject Ready state');
-    UnityBridge.resetGameObjectReady();
-    this.readyCallbacks = [];
+  isReady(): boolean {
+    const ready = UnityBridge.isGameObjectReady();
+    this.log(`isReady: ${ready}`);
+    return ready;
+  }
+
+  /**
+   * Ready 상태와 Native 동기화 (비동기)
+   * 이벤트를 놓쳤을 수 있으므로 Native에서 확인
+   */
+  async syncReady(): Promise<boolean> {
+    const ready = await UnityBridge.syncReadyState();
+    this.log(`syncReady: ${ready}`);
+    return ready;
+  }
+
+  /**
+   * Ready 시 콜백 실행
+   * - 이미 ready면 즉시 실행
+   * - 아니면 UnityBridge에 구독 (Native 상태도 확인)
+   */
+  onReady(callback: () => void): () => void {
+    return UnityBridge.subscribeToGameObjectReady(callback);
+  }
+
+  /**
+   * Ready 상태 리셋
+   */
+  async resetGameObjectReady(): Promise<void> {
+    this.log('Resetting Ready state');
+    await UnityBridge.resetGameObjectReady();
   }
   
   // ==========================================
@@ -82,12 +93,12 @@ export class UnityService {
 
   async initCharacter(items: Item[]): Promise<void> {
     if (items.length > 0) {
-      console.log('[RunningView] Sending avatar items after GameObject ready:', items.length);
-      await unityService.changeAvatar(items);
+      this.log(`Initializing character with ${items.length} items`);
+      await this.changeAvatar(items);
     }
 
     // Unity 캐릭터 초기 속도 설정
-    await unityService.stopCharacter();
+    await this.stopCharacter();
   }
   
   async setCharacterSpeed(speed: number): Promise<void> {

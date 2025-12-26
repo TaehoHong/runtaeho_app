@@ -507,10 +507,9 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
    * 러닝 상태에 따라 Unity 캐릭터 속도 제어
    */
   useEffect(() => {
+    console.log('[RunningViewModel] isUnityReady:', isUnityReady);
     if (!isUnityReady) return;
-
     if (!unityService.isReady()) {
-      console.log('[RunningViewModel] ⏳ Waiting for GameObject...');
       unityService.onReady(() => {
         console.log('[RunningViewModel] ✅ GameObject Ready, applying speed control');
         if (runningState === RunningState.Running) {

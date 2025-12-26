@@ -5,12 +5,27 @@
 //  Created by Hong Taeho on 9/23/25.
 //  React Native Unity Bridge Module
 //
+//  Architecture: Push + Pull Pattern
+//  - Push: 이벤트 발생 시 즉시 알림 (리스너 있을 때)
+//  - Pull: 언제든 현재 상태 조회 가능
+//  - Buffer: 리스너 없을 때 이벤트 보관 후 나중에 발송
+//
 
 import UIKit
 import React
 
 @objc(RNUnityBridge)
 class RNUnityBridge: RCTEventEmitter {
+
+    // MARK: - Singleton for state management
+
+    @objc static var shared: RNUnityBridge?
+
+    // MARK: - State (Single Source of Truth)
+
+    private var _isCharactorReady: Bool = false
+    private var _hasListeners: Bool = false
+    private var pendingEvents: [[String: Any]] = []
 
     // MARK: - React Native 모듈 설정
 
@@ -25,8 +40,11 @@ class RNUnityBridge: RCTEventEmitter {
         ]
     }
 
+    // MARK: - Lifecycle
+
     override init() {
         super.init()
+        RNUnityBridge.shared = self
 
         NotificationCenter.default.addObserver(
             self,
@@ -34,20 +52,72 @@ class RNUnityBridge: RCTEventEmitter {
             name: NSNotification.Name("UnityCharactorReady"),
             object: nil
         )
+
+        print("[RNUnityBridge] ✅ Initialized")
     }
 
     deinit {
         NotificationCenter.default.removeObserver(self)
+        RNUnityBridge.shared = nil
     }
+
+    // MARK: - RCTEventEmitter Listener Management
+
+    override func startObserving() {
+        _hasListeners = true
+        print("[RNUnityBridge] 👂 Listeners started, pending: \(pendingEvents.count)")
+        flushPendingEvents()
+    }
+
+    override func stopObserving() {
+        _hasListeners = false
+        print("[RNUnityBridge] 🔇 Listeners stopped")
+    }
+
+    // MARK: - Event Handling
 
     @objc
     private func handleCharactorReady() {
-        print("[RNUnityBridge] 🎉 Charactor Ready! Sending to React Native...")
+        print("[RNUnityBridge] 🎉 Charactor Ready!")
+        _isCharactorReady = true
 
-        sendEvent(withName: "onCharactorReady", body: [
+        let eventBody: [String: Any] = [
             "ready": true,
             "timestamp": ISO8601DateFormatter().string(from: Date())
-        ])
+        ]
+
+        if _hasListeners {
+            print("[RNUnityBridge] 📤 Sending event immediately")
+            sendEvent(withName: "onCharactorReady", body: eventBody)
+        } else {
+            print("[RNUnityBridge] 📦 Buffering event (no listeners)")
+            pendingEvents.append(eventBody)
+        }
+    }
+
+    private func flushPendingEvents() {
+        guard !pendingEvents.isEmpty else { return }
+        for event in pendingEvents {
+            print("[RNUnityBridge] 📤 Flushing buffered event")
+            sendEvent(withName: "onCharactorReady", body: event)
+        }
+        pendingEvents.removeAll()
+    }
+
+    // MARK: - State Query (Pull Pattern)
+
+    @objc
+    func isCharactorReady(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+        print("[RNUnityBridge] 🔍 isCharactorReady: \(_isCharactorReady)")
+        resolve(_isCharactorReady)
+    }
+
+    @objc
+    func resetCharactorReady(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+        print("[RNUnityBridge] 🔄 Reset Ready state")
+        _isCharactorReady = false
+        pendingEvents.removeAll()
+        resolve(nil)
     }
 
     // MARK: - React Native에서 호출할 수 있는 메서드들

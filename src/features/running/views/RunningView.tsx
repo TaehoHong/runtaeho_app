@@ -29,6 +29,7 @@ export const RunningView: React.FC = () => {
   const [isUnityReady, setIsUnityReady] = useState(false);
   const [isDebugVisible, setIsDebugVisible] = useState(false);
   const isInitialMount = useRef(true);
+  const hasInitializedAvatar = useRef(false);
 
   console.log('🏃 [RunningView] 렌더링, viewState:', viewState, 'runningState:', runningState, 'isLoggedIn:', isLoggedIn, 'isUnityReady:', isUnityReady);
 
@@ -62,132 +63,142 @@ export const RunningView: React.FC = () => {
     useCallback(() => {
       // 최초 마운트 시에는 handleUnityReady에서 초기화하므로 스킵
       if (isInitialMount.current) {
-        console.log('🔄 [RunningView] 최초 포커스 - 아이템 동기화 스킵 (handleUnityReady에서 처리)');
+        console.log('🔄 [RunningView] 최초 포커스 - 스킵');
         isInitialMount.current = false;
         return;
       }
 
-      console.log(`🔄 [RunningView] 화면 포커스 - GameObject Ready 체크: ${unityService.isReady()}, isUnityReady: ${isUnityReady}`);
+      console.log('🔄 [RunningView] 화면 포커스 - 아바타 동기화');
 
-      // ⚠️ 중요: unityService.isReady()를 먼저 체크!
-      // Unity GameObject가 리셋될 수 있으므로 로컬 isUnityReady 상태만으로는 부족함
-      if (!unityService.isReady()) {
-        console.log('⏳ [RunningView] GameObject not ready - 포커스 동기화 대기');
-
-        // GameObject Ready를 기다린 후 동기화
-        unityService.onReady(async () => {
-          console.log('✅ [RunningView] GameObject ready! 포커스 동기화 시작');
-          try {
-            const items = Object.values(equippedItems).filter((item): item is Item => !!item);
-            if (items.length > 0) {
-              await unityService.changeAvatar(items);
-              console.log(`✅ [RunningView] 포커스 아바타 동기화 완료 (${items.length}개 아이템)`);
-            }
-          } catch (error) {
-            console.error('❌ [RunningView] 포커스 아바타 동기화 실패:', error);
-          }
-        });
-        return;
-      }
-
-      // GameObject가 이미 준비된 경우 즉시 동기화
-      console.log('🔄 [RunningView] 화면 포커스 - 장착 아이템 동기화 시작 (GameObject ready)');
-
-      const syncCharacter = async () => {
+      // onReady는 Push + Pull 패턴으로 안전하게 처리
+      const unsubscribe = unityService.onReady(async () => {
         try {
           const items = Object.values(equippedItems).filter((item): item is Item => !!item);
-
-          // 아이템이 있을 때만 아바타 변경
           if (items.length > 0) {
             await unityService.changeAvatar(items);
-            console.log(`✅ [RunningView] 포커스 아바타 동기화 완료 (${items.length}개 아이템)`);
-          } else {
-            console.log('⚠️ [RunningView] 동기화할 아이템 없음');
+            console.log(`✅ [RunningView] 포커스 동기화 완료 (${items.length}개)`);
           }
         } catch (error) {
-          console.error('❌ [RunningView] 포커스 아바타 동기화 실패:', error);
+          console.error('❌ [RunningView] 포커스 동기화 실패:', error);
         }
-      };
+      });
 
-      syncCharacter();
-    }, [isUnityReady, equippedItems])
+      return () => unsubscribe();
+    }, [equippedItems])
   );
 
   /**
    * 백그라운드 ↔ 포그라운드 전환 감지 및 Unity 재초기화
    * Unity는 백그라운드에서 리셋될 수 있으므로 포그라운드 복귀 시 재초기화 필요
+   * CRITICAL FIX: getState()를 사용하여 stale closure 문제 해결
    */
   useEffect(() => {
+    let unsubscribe: (() => void) | null = null;
+
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active') {
-        console.log(`🔄 [RunningView] 포그라운드 복귀 - GameObject Ready 체크: ${unityService.isReady()}`);
+        console.log('🔄 [RunningView] 포그라운드 복귀 - 캐릭터 재초기화');
 
-        // ⚠️ 중요: unityService.isReady()를 먼저 체크!
-        if (!unityService.isReady()) {
-          console.log('⏳ [RunningView] GameObject not ready - 포그라운드 재초기화 대기');
-
-          // GameObject Ready를 기다린 후 재초기화
-          unityService.onReady(async () => {
-            console.log('✅ [RunningView] GameObject ready! 포그라운드 재초기화 시작');
-            try {
-              const items = Object.values(equippedItems).filter((item): item is Item => !!item);
-              await unityService.initCharacter(items);
-              console.log(`✅ [RunningView] 포그라운드 재초기화 완료 (${items.length}개 아이템)`);
-            } catch (error) {
-              console.error('❌ [RunningView] 포그라운드 재초기화 실패:', error);
-            }
-          });
-          return;
+        // 이전 구독 정리
+        if (unsubscribe) {
+          unsubscribe();
         }
 
-        // GameObject가 이미 준비된 경우 즉시 재초기화
-        console.log('🔄 [RunningView] 포그라운드 복귀 - Unity 재초기화 시작 (GameObject ready)');
-
-        const reinitializeCharacter = async () => {
+        // onReady는 Push + Pull 패턴으로 안전하게 처리
+        unsubscribe = unityService.onReady(async () => {
           try {
-            const items = Object.values(equippedItems).filter((item): item is Item => !!item);
+            // CRITICAL FIX: 클로저 대신 스토어에서 직접 읽기 (stale closure 방지)
+            const currentEquippedItems = useUserStore.getState().equippedItems;
+            const items = Object.values(currentEquippedItems).filter((item): item is Item => !!item);
             await unityService.initCharacter(items);
-            console.log(`✅ [RunningView] 포그라운드 재초기화 완료 (${items.length}개 아이템)`);
+            console.log(`✅ [RunningView] 포그라운드 재초기화 완료 (${items.length}개)`);
           } catch (error) {
             console.error('❌ [RunningView] 포그라운드 재초기화 실패:', error);
           }
-        };
-
-        reinitializeCharacter();
+        });
       }
     });
 
-    return () => subscription.remove();
-  }, [equippedItems]);
+    return () => {
+      subscription.remove();
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, []); // 의존성 제거 - getState() 사용으로 항상 최신 값 참조
+
+  /**
+   * Reactive sync: 첫 로그인 시 데이터가 늦게 도착하는 경우 처리
+   * Unity가 ready된 후에 equippedItems가 채워지면 아바타를 동기화
+   * CRITICAL FIX: 첫 로그인 race condition 해결
+   */
+  useEffect(() => {
+    // 조건: Unity 준비됨 + 아직 초기화 안됨
+    if (!isUnityReady || hasInitializedAvatar.current) {
+      return;
+    }
+
+    const items = Object.values(equippedItems).filter((item): item is Item => !!item);
+
+    // 아이템이 없으면 대기 (데이터 아직 안 도착)
+    if (items.length === 0) {
+      console.log('[RunningView] Reactive sync - 아이템 대기 중...');
+      return;
+    }
+
+    // 초기화 완료 표시 (중복 방지)
+    hasInitializedAvatar.current = true;
+    console.log('[RunningView] Reactive sync - 아바타 데이터 도착, 동기화 시작');
+
+    const unsubscribe = unityService.onReady(async () => {
+      try {
+        await unityService.changeAvatar(items);
+        console.log(`✅ [RunningView] Reactive sync 완료 (${items.length}개)`);
+      } catch (error) {
+        console.error('❌ [RunningView] Reactive sync 실패:', error);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [isUnityReady, equippedItems]);
 
   /**
    * Unity 준비 완료 이벤트 핸들러
-   * GameObject Ready를 기다린 후 최초 초기화만 수행
+   * Push + Pull 패턴으로 Race Condition 없이 안정적으로 초기화
+   * CRITICAL FIX: getState()를 사용하여 stale closure 문제 해결
    */
-  const handleUnityReady = useCallback(async (event: any) => {
-    console.log('[RunningView] Unity Ready:', event.nativeEvent);
+  const handleUnityReady = useCallback((event: any) => {
+    console.log('[RunningView] Unity View Ready:', event.nativeEvent);
 
-    // GameObject Ready를 항상 기다림 (중요!)
-    console.log('[RunningView] GameObject 준비 대기 중...');
-
-    unityService.onReady(async () => {
-      console.log('[RunningView] ✅ GameObject Ready! 최초 초기화 시작');
+    // unityService.onReady는 이미 ready면 즉시 실행하고,
+    // 아니면 Native 상태도 확인 후 구독 (이벤트 놓침 방지)
+    const unsubscribe = unityService.onReady(async () => {
+      console.log('[RunningView] ✅ GameObject Ready! 초기화 시작');
 
       try {
-        const items = Object.values(equippedItems).filter((item): item is Item => !!item);
-
-        // 최초 초기화 (캐릭터 설정 + 정지 상태)
+        // CRITICAL FIX: 클로저 대신 스토어에서 직접 읽기 (stale closure 방지)
+        const currentEquippedItems = useUserStore.getState().equippedItems;
+        const items = Object.values(currentEquippedItems).filter((item): item is Item => !!item);
         await unityService.initCharacter(items);
 
-        console.log(`✅ [RunningView] 최초 초기화 완료 (${items.length}개 아이템)`);
+        // 아이템이 있었다면 초기화 완료로 표시
+        if (items.length > 0) {
+          hasInitializedAvatar.current = true;
+        }
 
-        // Unity 준비 완료 플래그 설정
+        console.log(`✅ [RunningView] 초기화 완료 (${items.length}개 아이템)`);
         setIsUnityReady(true);
       } catch (error) {
-        console.error('❌ [RunningView] 최초 초기화 실패:', error);
+        console.error('❌ [RunningView] 초기화 실패:', error);
+        // 에러가 발생해도 isUnityReady를 true로 설정하여 UI가 진행되도록 함
+        setIsUnityReady(true);
       }
     });
-  }, [equippedItems]);
+
+    // 컴포넌트 리렌더링 시 이전 구독 정리를 위해 반환
+    // (useCallback이므로 실제로 정리되지 않지만, 향후 useEffect로 전환 시 활용 가능)
+    return unsubscribe;
+  }, []); // 의존성 제거 - getState() 사용으로 항상 최신 값 참조
 
   if (viewState === ViewState.Loading) {
     console.log('⏳ [RunningView] 로딩 화면 표시');

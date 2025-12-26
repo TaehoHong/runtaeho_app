@@ -12,8 +12,12 @@
 
 @interface RCT_EXTERN_MODULE(RNUnityBridge, RCTEventEmitter)
 
-// Unity Message Methods (순수 브리지)
+// Unity Message Methods
 RCT_EXTERN_METHOD(sendUnityMessage:(NSString *)objectName methodName:(NSString *)methodName parameter:(NSString *)parameter resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 RCT_EXTERN_METHOD(sendUnityJSON:(NSString *)objectName methodName:(NSString *)methodName data:(NSArray *)data resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
+
+// State Query Methods (Pull Pattern)
+RCT_EXTERN_METHOD(isCharactorReady:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
+RCT_EXTERN_METHOD(resetCharactorReady:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 
 @end

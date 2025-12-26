@@ -1,6 +1,8 @@
 /**
  * 아바타 프리뷰 (Unity View)
  * SRP: Unity 캐릭터 렌더링만 담당
+ *
+ * Push + Pull 패턴으로 Race Condition 없이 안정적으로 Unity 통신
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
@@ -20,77 +22,50 @@ export const AvatarPreview: React.FC<Props> = ({ equippedItems }) => {
 
   // 장착 아이템 변경 시 Unity 아바타 동기화
   useEffect(() => {
-    console.log(`🔄 [AvatarPreview] equippedItems 변경 - GameObject Ready 체크: ${unityService.isReady()}, isUnityReady: ${isUnityReady}`);
+    // Unity가 아직 준비되지 않았으면 스킵 (handleUnityReady에서 처리)
+    if (!isUnityReady) return;
 
-    // ⚠️ 중요: unityService.isReady()를 먼저 체크!
-    if (!unityService.isReady()) {
-      console.log('⏳ [AvatarPreview] GameObject not ready - 아이템 동기화 대기');
+    console.log('🔄 [AvatarPreview] 아이템 변경 - 동기화');
 
-      // GameObject Ready를 기다린 후 동기화
-      unityService.onReady(async () => {
-        console.log('✅ [AvatarPreview] GameObject ready! 아이템 동기화 시작');
-        try {
-          const items = Object.values(equippedItems).filter((item): item is Item => !!item);
-          if (items.length > 0) {
-            await unityService.changeAvatar(items);
-            console.log(`✅ [AvatarPreview] 아바타 동기화 완료 (${items.length}개 아이템)`);
-          }
-        } catch (error) {
-          console.error('❌ [AvatarPreview] 아바타 동기화 실패:', error);
-        }
-      });
-      return;
-    }
-
-    // GameObject가 이미 준비된 경우 즉시 동기화
-    console.log('🔄 [AvatarPreview] 장착 아이템 동기화 시작 (GameObject ready)');
-
-    const syncAvatar = async () => {
+    const unsubscribe = unityService.onReady(async () => {
       try {
         const items = Object.values(equippedItems).filter((item): item is Item => !!item);
-
         if (items.length > 0) {
           await unityService.changeAvatar(items);
-          console.log(`✅ [AvatarPreview] 아바타 동기화 완료 (${items.length}개 아이템)`);
+          console.log(`✅ [AvatarPreview] 동기화 완료 (${items.length}개)`);
         }
       } catch (error) {
-        console.error('❌ [AvatarPreview] 아바타 동기화 실패:', error);
+        console.error('❌ [AvatarPreview] 동기화 실패:', error);
       }
-    };
+    });
 
-    syncAvatar();
+    return () => unsubscribe();
   }, [equippedItems, isUnityReady]);
 
   /**
    * Unity 준비 완료 이벤트 핸들러
-   * GameObject Ready를 기다린 후 최초 동기화만 수행
+   * Push + Pull 패턴으로 Race Condition 없이 안정적으로 초기화
    */
-  const handleUnityReady = useCallback(async (event: any) => {
-    console.log('[AvatarPreview] Unity Ready:', event.nativeEvent);
+  const handleUnityReady = useCallback((event: any) => {
+    console.log('[AvatarPreview] Unity View Ready:', event.nativeEvent);
 
-    // GameObject Ready를 항상 기다림 (중요!)
-    console.log('[AvatarPreview] GameObject 준비 대기 중...');
-
-    unityService.onReady(async () => {
-      console.log('[AvatarPreview] ✅ GameObject Ready! 최초 동기화 시작');
+    const unsubscribe = unityService.onReady(async () => {
+      console.log('[AvatarPreview] ✅ GameObject Ready! 초기화 시작');
 
       try {
         const items = Object.values(equippedItems).filter((item): item is Item => !!item);
-
         if (items.length > 0) {
-          console.log(`[AvatarPreview] Syncing ${items.length} equipped items to Unity`);
           await unityService.changeAvatar(items);
-          console.log(`✅ [AvatarPreview] 최초 동기화 완료 (${items.length}개 아이템)`);
-        } else {
-          console.log('[AvatarPreview] No equipped items to sync');
+          console.log(`✅ [AvatarPreview] 초기화 완료 (${items.length}개)`);
         }
-
-        // Unity 준비 완료 플래그 설정
         setIsUnityReady(true);
       } catch (error) {
-        console.error('❌ [AvatarPreview] 최초 동기화 실패:', error);
+        console.error('❌ [AvatarPreview] 초기화 실패:', error);
+        setIsUnityReady(true); // 에러가 발생해도 진행
       }
     });
+
+    return unsubscribe;
   }, [equippedItems]);
 
   return (
