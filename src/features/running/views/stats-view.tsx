@@ -8,12 +8,27 @@ import { Text } from '~/shared/components/typography';
 import { useRunning } from '~/features/running/contexts';
 
 /**
+ * 페이스 타입
+ * - instant: 순간 페이스 (최근 10초 기준) - RunningActive에서 사용
+ * - average: 전체 평균 페이스 (시작~현재) - RunningPaused, RunningFinished에서 사용
+ */
+type PaceType = 'instant' | 'average';
+
+interface StatsViewProps {
+  /**
+   * 표시할 페이스 타입
+   * @default 'average'
+   */
+  paceType?: PaceType;
+}
+
+/**
  * 러닝 통계 뷰 (피그마 디자인 기반)
  * BPM, 페이스, 러닝 시간 표시
  *
  * 정책: 센서 데이터 없으면 "--" 표시
  */
-export const StatsView: React.FC = () => {
+export const StatsView: React.FC<StatsViewProps> = ({ paceType = 'average' }) => {
   const { elapsedTime, stats } = useRunning();
 
   // 러닝 시간 포맷팅 (MM:SS)
@@ -27,7 +42,13 @@ export const StatsView: React.FC = () => {
   const bpm = stats.bpm !== undefined && stats.bpm !== null
     ? String(stats.bpm).padStart(2, '0')
     : '--';
-  const pace = `${String(stats.pace.minutes).padStart(2, '0')}:${String(stats.pace.seconds).padStart(2, '0')}`;
+
+  // 페이스 타입에 따라 순간/평균 페이스 선택
+  const paceData = paceType === 'instant' ? stats.instantPace : stats.pace;
+  // 순간 페이스가 0인 경우 (아직 계산 안됨) "--" 표시
+  const pace = paceData.totalSeconds === 0
+    ? '--:--'
+    : `${String(paceData.minutes).padStart(2, '0')}:${String(paceData.seconds).padStart(2, '0')}`;
   const runningTime = formatElapsedTime(elapsedTime);
 
   return (

@@ -91,10 +91,10 @@ export class UnityService {
   // Unity 제어 메서드들 (도메인 로직 포함)
   // ==========================================
 
-  async initCharacter(items: Item[]): Promise<void> {
+  async initCharacter(items: Item[], hairColor?: string): Promise<void> {
     if (items.length > 0) {
       this.log(`Initializing character with ${items.length} items`);
-      await this.changeAvatar(items);
+      await this.changeAvatar(items, hairColor);
     }
 
     // Unity 캐릭터 초기 속도 설정

@@ -43,9 +43,9 @@ export const RunningActiveView: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      {/* 러닝 통계 - BPM, 페이스, 러닝 시간 */}
+      {/* 러닝 통계 - BPM, 순간 페이스, 러닝 시간 */}
       <View style={{ marginBottom: 16 }}>
-        <StatsView />
+        <StatsView paceType="instant" />
       </View>
 
       {/* 현재 누적 거리 - Figma 디자인 */}

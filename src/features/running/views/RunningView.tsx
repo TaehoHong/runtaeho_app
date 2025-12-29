@@ -25,6 +25,7 @@ export const RunningView: React.FC = () => {
   const setViewState = useAppStore((state) => state.setViewState);
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const equippedItems = useUserStore((state) => state.equippedItems);
+  const hairColor = useUserStore((state) => state.hairColor);
   const [unityStarted, setUnityStarted] = useState(false);
   const [isUnityReady, setIsUnityReady] = useState(false);
   const [isDebugVisible, setIsDebugVisible] = useState(false);
@@ -75,7 +76,7 @@ export const RunningView: React.FC = () => {
         try {
           const items = Object.values(equippedItems).filter((item): item is Item => !!item);
           if (items.length > 0) {
-            await unityService.changeAvatar(items);
+            await unityService.changeAvatar(items, hairColor);
             console.log(`✅ [RunningView] 포커스 동기화 완료 (${items.length}개)`);
           }
         } catch (error) {
@@ -90,7 +91,6 @@ export const RunningView: React.FC = () => {
   /**
    * 백그라운드 ↔ 포그라운드 전환 감지 및 Unity 재초기화
    * Unity는 백그라운드에서 리셋될 수 있으므로 포그라운드 복귀 시 재초기화 필요
-   * CRITICAL FIX: getState()를 사용하여 stale closure 문제 해결
    */
   useEffect(() => {
     let unsubscribe: (() => void) | null = null;
@@ -107,10 +107,9 @@ export const RunningView: React.FC = () => {
         // onReady는 Push + Pull 패턴으로 안전하게 처리
         unsubscribe = unityService.onReady(async () => {
           try {
-            // CRITICAL FIX: 클로저 대신 스토어에서 직접 읽기 (stale closure 방지)
             const currentEquippedItems = useUserStore.getState().equippedItems;
             const items = Object.values(currentEquippedItems).filter((item): item is Item => !!item);
-            await unityService.initCharacter(items);
+            await unityService.initCharacter(items, hairColor);
             console.log(`✅ [RunningView] 포그라운드 재초기화 완료 (${items.length}개)`);
           } catch (error) {
             console.error('❌ [RunningView] 포그라운드 재초기화 실패:', error);
@@ -125,12 +124,11 @@ export const RunningView: React.FC = () => {
         unsubscribe();
       }
     };
-  }, []); // 의존성 제거 - getState() 사용으로 항상 최신 값 참조
+  }, []);
 
   /**
    * Reactive sync: 첫 로그인 시 데이터가 늦게 도착하는 경우 처리
    * Unity가 ready된 후에 equippedItems가 채워지면 아바타를 동기화
-   * CRITICAL FIX: 첫 로그인 race condition 해결
    */
   useEffect(() => {
     // 조건: Unity 준비됨 + 아직 초기화 안됨
@@ -179,7 +177,7 @@ export const RunningView: React.FC = () => {
         // CRITICAL FIX: 클로저 대신 스토어에서 직접 읽기 (stale closure 방지)
         const currentEquippedItems = useUserStore.getState().equippedItems;
         const items = Object.values(currentEquippedItems).filter((item): item is Item => !!item);
-        await unityService.initCharacter(items);
+        await unityService.initCharacter(items, hairColor);
 
         // 아이템이 있었다면 초기화 완료로 표시
         if (items.length > 0) {
