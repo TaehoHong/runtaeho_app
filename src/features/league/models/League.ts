@@ -61,6 +61,7 @@ export const TIER_INFO: Record<LeagueTierType, {
  * 백엔드 ParticipantResponse 매핑
  */
 export interface LeagueParticipant {
+  id: number;
   rank: number;
   nickname: string | null;
   distance: number; // 미터 단위

@@ -49,4 +49,15 @@ export const leagueService = {
   confirmResult: async (): Promise<void> => {
     await apiClient.post(API_ENDPOINTS.LEAGUE.RESULT_CONFIRM);
   },
+
+  /**
+   * 참가자 거리 업데이트
+   * PATCH /api/v1/league-participants/{participantId}/distance
+   */
+  updateParticipantDistance: async (participantId: number, distance: number): Promise<void> => {
+    await apiClient.patch(
+      API_ENDPOINTS.LEAGUE_PARTICIPANT.UPDATE_DISTANCE(participantId),
+      { distance }
+    );
+  },
 };

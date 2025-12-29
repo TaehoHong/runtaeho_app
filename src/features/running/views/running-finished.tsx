@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, Dimensions, Alert, ActivityIndicator } from 'react-native';
+import { router } from 'expo-router';
 import { useAppStore, RunningState } from '~/stores/app/appStore';
 import { useUserStore } from '~/stores/user/userStore';
 import { MainDistanceCard } from './components/main-distance-card';
@@ -12,6 +13,7 @@ import { useRunning } from '../contexts';
 import { runningService } from '../services/runningService';
 import { type RunningRecord } from '../models';
 import { useShoeViewModel } from '~/features/shoes/viewmodels';
+import { leagueService } from '~/features/league/services/leagueService';
 import { GREY } from '~/shared/styles';
 
 const { width } = Dimensions.get('window');
@@ -23,6 +25,7 @@ const { width } = Dimensions.get('window');
  */
 export const RunningFinishedView: React.FC = () => {
   const setRunningState = useAppStore((state) => state.setRunningState);
+  const setPreviousLeagueRank = useAppStore((state) => state.setPreviousLeagueRank);
   const { currentRecord, resetRunning, distance } = useRunning();
 
   // 신발 데이터 가져오기
@@ -77,12 +80,41 @@ export const RunningFinishedView: React.FC = () => {
         console.log('✅ [RunningFinishedView] 신발 정보 업데이트 완료');
       }
 
+      // 리그 거리 업데이트 (순위 애니메이션을 위한 처리)
+      try {
+        // 1. 현재 리그 정보 조회 (이전 순위 획득)
+        const currentLeague = await leagueService.getCurrentLeague();
+
+        if (currentLeague) {
+          const myParticipant = currentLeague.participants.find(p => p.isMe);
+
+          if (myParticipant) {
+            const previousRank = myParticipant.rank;
+            console.log(`🏆 [RunningFinishedView] 이전 순위: ${previousRank}`);
+
+            // 2. 리그 참가자 거리 업데이트
+            await leagueService.updateParticipantDistance(myParticipant.id, distance);
+            console.log(`📊 [RunningFinishedView] 리그 거리 업데이트 완료: ${distance}m`);
+
+            // 3. 이전 순위 저장 (애니메이션용)
+            setPreviousLeagueRank(previousRank);
+          }
+        }
+      } catch (leagueError) {
+        // 리그 관련 에러는 무시 (리그 미참가 상태일 수 있음)
+        console.log('ℹ️ [RunningFinishedView] 리그 업데이트 스킵:', leagueError);
+      }
+
       // 러닝 상태 초기화
       resetRunning();
 
       // 러닝 종료 후 Stopped 상태로 복귀
       setRunningState(RunningState.Stopped);
       console.log('✅ [RunningFinishedView] 러닝 완료 처리 완료');
+
+      // 리그 탭으로 이동하여 순위 확인
+      router.replace('/(tabs)/league');
+      console.log('🏆 [RunningFinishedView] 리그 탭으로 이동');
     } catch (error) {
       console.error('❌ [RunningFinishedView] 러닝 완료 처리 실패:', error);
       Alert.alert('오류', '러닝 데이터 저장에 실패했습니다.');

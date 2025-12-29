@@ -32,10 +32,12 @@ interface AppState {
   // State
   viewState: ViewState;
   runningState: RunningState;
+  previousLeagueRank: number | null; // 이전 리그 순위 (애니메이션용)
 
   // Actions
   setViewState: (viewState: ViewState) => void;
   setRunningState: (runningState: RunningState) => void;
+  setPreviousLeagueRank: (rank: number | null) => void;
   resetAppState: () => void;
 }
 
@@ -45,6 +47,7 @@ interface AppState {
 const initialState = {
   viewState: ViewState.Loading,
   runningState: RunningState.Stopped,
+  previousLeagueRank: null as number | null,
 };
 
 /**
@@ -59,6 +62,8 @@ export const useAppStore = create<AppState>((set) => ({
   setViewState: (viewState) => set({ viewState }),
 
   setRunningState: (runningState) => set({ runningState }),
+
+  setPreviousLeagueRank: (rank) => set({ previousLeagueRank: rank }),
 
   resetAppState: () => set(initialState),
 }));

@@ -2,7 +2,7 @@
  * 약관 동의 화면
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,14 +10,13 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-  Linking,
-  Alert,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useTermsStore } from '../stores';
 import { useTermsAgreement } from '../hooks';
 import { TermType } from '../models/types';
 import { Colors } from '~/shared/styles';
+import { TermsDetailModal } from './TermsDetailModal';
 
 export const TermsAgreementScreen: React.FC = () => {
   const {
@@ -32,6 +31,10 @@ export const TermsAgreementScreen: React.FC = () => {
   } = useTermsStore();
 
   const { isSubmitting, canProceed, submitAgreement } = useTermsAgreement();
+
+  // 모달 상태
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedTerm, setSelectedTerm] = useState<{ url: string; title: string } | null>(null);
 
   // 약관 내용 로드 (제출 중이 아닐 때만 - 제출 완료 후 리렌더링 방지)
   useEffect(() => {
@@ -48,19 +51,16 @@ export const TermsAgreementScreen: React.FC = () => {
     setAllAgreements(!isAllAgreed);
   };
 
-  // 약관 링크 열기
-  const openTermsLink = async (link: string, title: string) => {
-    try {
-      const canOpen = await Linking.canOpenURL(link);
-      if (canOpen) {
-        await Linking.openURL(link);
-      } else {
-        Alert.alert('오류', `${title}을(를) 열 수 없습니다.`);
-      }
-    } catch (error) {
-      console.error('❌ [TERMS] 링크 열기 실패:', error);
-      Alert.alert('오류', '약관을 열 수 없습니다. 잠시 후 다시 시도해주세요.');
-    }
+  // 약관 모달 열기
+  const openTermsModal = (link: string, title: string) => {
+    setSelectedTerm({ url: link, title });
+    setModalVisible(true);
+  };
+
+  // 약관 모달 닫기
+  const closeTermsModal = () => {
+    setModalVisible(false);
+    setSelectedTerm(null);
   };
 
   // 로딩 중 또는 제출 완료 후 라우팅 대기 중
@@ -142,7 +142,7 @@ export const TermsAgreementScreen: React.FC = () => {
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => openTermsLink(serviceTerm.link, '서비스 이용약관')}
+              onPress={() => openTermsModal(serviceTerm.link, '서비스 이용약관')}
               activeOpacity={0.7}
             >
               <Text style={styles.viewDetail}>자세히 보기 &gt;</Text>
@@ -166,7 +166,7 @@ export const TermsAgreementScreen: React.FC = () => {
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => openTermsLink(privateTerm.link, '개인정보 처리방침')}
+              onPress={() => openTermsModal(privateTerm.link, '개인정보 처리방침')}
               activeOpacity={0.7}
             >
               <Text style={styles.viewDetail}>자세히 보기 &gt;</Text>
@@ -190,7 +190,7 @@ export const TermsAgreementScreen: React.FC = () => {
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => openTermsLink(locationTerm.link, '위치기반서비스 이용약관')}
+              onPress={() => openTermsModal(locationTerm.link, '위치기반서비스 이용약관')}
               activeOpacity={0.7}
             >
               <Text style={styles.viewDetail}>자세히 보기 &gt;</Text>
@@ -198,6 +198,14 @@ export const TermsAgreementScreen: React.FC = () => {
           </View>
         )}
       </ScrollView>
+
+      {/* 약관 상세 모달 */}
+      <TermsDetailModal
+        visible={modalVisible}
+        url={selectedTerm?.url || ''}
+        title={selectedTerm?.title || ''}
+        onClose={closeTermsModal}
+      />
 
       {/* 제출 버튼 */}
       <View style={styles.footer}>

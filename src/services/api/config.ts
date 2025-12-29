@@ -120,4 +120,8 @@ export const API_ENDPOINTS = {
     RESULT: '/league/result',
     RESULT_CONFIRM: '/league/result/confirm',
   },
+
+  LEAGUE_PARTICIPANT: {
+    UPDATE_DISTANCE: (participantId: number) => `/league-participants/${participantId}/distance`,
+  },
 } as const;
