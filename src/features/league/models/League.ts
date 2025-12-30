@@ -74,9 +74,8 @@ export interface LeagueParticipant {
  * 백엔드 CurrentLeagueResponse 매핑
  */
 export interface CurrentLeague {
-  seasonNumber: number;
+  sessionId: number;
   tierName: string;
-  groupId: number;
   myRank: number;
   totalParticipants: number;
   myDistance: number; // 미터 단위
@@ -132,7 +131,6 @@ export enum LeagueResultStatus {
  * 백엔드 LeagueResultResponse 매핑
  */
 export interface LeagueResult {
-  seasonNumber: number;
   previousTier: LeagueTierType;
   currentTier: LeagueTierType;
   resultStatus: LeagueResultStatus;

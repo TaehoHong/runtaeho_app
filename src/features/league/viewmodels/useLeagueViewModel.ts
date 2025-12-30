@@ -34,8 +34,8 @@ export interface FormattedLeagueData {
   relegationCutRank: number;
   progressPosition: number; // 0~1 비율
 
-  // 시즌 정보
-  seasonNumber: number;
+  // 세션 정보
+  sessionId: number;
   remainingDays: number;
 
   // 참가자 목록 (내 주변)
@@ -86,7 +86,7 @@ export const useLeagueViewModel = () => {
       promotionCutRank: currentLeague.promotionCutRank,
       relegationCutRank: currentLeague.relegationCutRank,
       progressPosition,
-      seasonNumber: currentLeague.seasonNumber,
+      sessionId: currentLeague.sessionId,
       remainingDays: currentLeague.remainingDays,
       participants: currentLeague.participants,
       myParticipant,

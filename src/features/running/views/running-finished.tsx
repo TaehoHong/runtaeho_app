@@ -83,7 +83,17 @@ export const RunningFinishedView: React.FC = () => {
       // 리그 거리 업데이트 (순위 애니메이션을 위한 처리)
       try {
         // 1. 현재 리그 정보 조회 (이전 순위 획득)
-        const currentLeague = await leagueService.getCurrentLeague();
+        let currentLeague = await leagueService.getCurrentLeague();
+
+        // 리그 세션이 없으면 자동으로 리그 참가
+        if (!currentLeague) {
+          console.log('🏆 [RunningFinishedView] 리그 세션 없음, 자동 참가 진행...');
+          await leagueService.joinLeague();
+          console.log('✅ [RunningFinishedView] 리그 참가 완료');
+
+          // 참가 후 리그 정보 다시 조회
+          currentLeague = await leagueService.getCurrentLeague();
+        }
 
         if (currentLeague) {
           const myParticipant = currentLeague.participants.find(p => p.isMe);
@@ -101,7 +111,7 @@ export const RunningFinishedView: React.FC = () => {
           }
         }
       } catch (leagueError) {
-        // 리그 관련 에러는 무시 (리그 미참가 상태일 수 있음)
+        // 리그 관련 에러는 무시 (리그 참가 실패 등)
         console.log('ℹ️ [RunningFinishedView] 리그 업데이트 스킵:', leagueError);
       }
 
