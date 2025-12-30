@@ -139,11 +139,13 @@ export const LeagueView = () => {
             relegationCutRank={formattedData.relegationCutRank}
             promotionStatus={formattedData.promotionStatus}
             progressPosition={formattedData.progressPosition}
-            previousRank={previousLeagueRank ?? undefined}
           />
 
           {/* 순위표 */}
-          <RankingSection participants={formattedData.participants} />
+          <RankingSection
+            participants={formattedData.participants}
+            previousRank={previousLeagueRank ?? undefined}
+          />
 
           {/* 개발용 애니메이션 테스트 버튼 */}
           {__DEV__ && (
