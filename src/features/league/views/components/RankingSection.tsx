@@ -15,7 +15,7 @@ import type { LeagueParticipant } from '../../models';
 import { RankItem } from './RankItem';
 
 const RANK_ITEM_HEIGHT = 56;
-const STEP_DURATION = 200; // 각 칸 이동 시간 (ms)
+const TOTAL_ANIMATION_DURATION = 1200; // 전체 애니메이션 시간 (ms) - 이동 거리와 무관하게 고정
 
 interface RankingSectionProps {
   participants: LeagueParticipant[];
@@ -67,21 +67,22 @@ export const RankingSection = ({ participants, previousRank }: RankingSectionPro
 
     console.log(`🏆 [RankingSection] 연속 밀어내기 애니메이션 시작: ${effectiveStartRank}위 → ${myCurrentRank}위 (${totalSteps}칸)`);
 
-    // 전체 애니메이션 시간
-    const totalDuration = STEP_DURATION * totalSteps;
+    // 각 스텝당 시간 (전체 시간을 스텝 수로 나눔)
+    const stepDuration = TOTAL_ANIMATION_DURATION / totalSteps;
 
-    // "나"의 이동 애니메이션 (연속)
+    // "나"의 이동 애니메이션 (연속, 가감속 적용)
     const myMoveAnimation = Animated.timing(myAnimatedY, {
       toValue: -RANK_ITEM_HEIGHT * totalSteps,
-      duration: totalDuration,
-      easing: Easing.out(Easing.cubic),
+      duration: TOTAL_ANIMATION_DURATION,
+      // easing: Easing.out(Easing.cubic), // 시작 가속 + 끝 감속
+      easing: Easing.bezier(0.4, 0, 0.2, 1),
       useNativeDriver: true,
     });
 
-    // 스케일 업 애니메이션
+    // 스케일 업 애니메이션 (시작할 때)
     const scaleUpAnimation = Animated.timing(myAnimatedScale, {
       toValue: 1.1,
-      duration: 150,
+      duration: 200,
       easing: Easing.out(Easing.quad),
       useNativeDriver: true,
     });
@@ -89,13 +90,14 @@ export const RankingSection = ({ participants, previousRank }: RankingSectionPro
     // 밀려나는 항목들의 애니메이션 (시차 적용)
     const displacedMoveAnimations: Animated.CompositeAnimation[] = [];
     for (let i = 0; i < totalSteps; i++) {
-      const delay = STEP_DURATION * i;
+      // 각 항목이 밀려나기 시작하는 시점
+      const delay = stepDuration * i;
       displacedMoveAnimations.push(
         Animated.sequence([
           Animated.delay(delay),
           Animated.timing(displacedAnimations[i]!, {
             toValue: RANK_ITEM_HEIGHT,
-            duration: STEP_DURATION,
+            duration: stepDuration,
             easing: Easing.inOut(Easing.cubic),
             useNativeDriver: true,
           }),
@@ -103,10 +105,10 @@ export const RankingSection = ({ participants, previousRank }: RankingSectionPro
       );
     }
 
-    // 스케일 다운 애니메이션
+    // 스케일 다운 애니메이션 (끝날 때)
     const scaleDownAnimation = Animated.timing(myAnimatedScale, {
       toValue: 1,
-      duration: 150,
+      duration: 200,
       easing: Easing.out(Easing.quad),
       useNativeDriver: true,
     });
