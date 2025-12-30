@@ -3,8 +3,8 @@
  * 순위표 섹션
  *
  * 순위 상승 애니메이션:
- * - "나"가 위로 올라가면서 다른 참가자를 아래로 밀어냄
- * - 단계별로 한 칸씩 스왑하며 연속 이동
+ * - "나"가 위로 연속적으로 올라감 (멈춤 없음)
+ * - 밀려나는 항목들이 시차를 두고 아래로 이동
  * - 스케일 효과로 이동 중인 항목 강조
  */
 
@@ -15,7 +15,7 @@ import type { LeagueParticipant } from '../../models';
 import { RankItem } from './RankItem';
 
 const RANK_ITEM_HEIGHT = 56;
-const STEP_DURATION = 250; // 각 단계 애니메이션 시간 (ms)
+const STEP_DURATION = 200; // 각 칸 이동 시간 (ms)
 
 interface RankingSectionProps {
   participants: LeagueParticipant[];
@@ -24,13 +24,16 @@ interface RankingSectionProps {
 
 export const RankingSection = ({ participants, previousRank }: RankingSectionProps) => {
   const [isAnimating, setIsAnimating] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0);
   const [displayOrder, setDisplayOrder] = useState<LeagueParticipant[]>([]);
 
-  // 애니메이션 값
+  // "나" 애니메이션 값
   const myAnimatedY = useRef(new Animated.Value(0)).current;
   const myAnimatedScale = useRef(new Animated.Value(1)).current;
-  const displacedAnimatedY = useRef(new Animated.Value(0)).current;
+
+  // 밀려나는 항목들의 애니메이션 값 (최대 10개 지원)
+  const displacedAnimations = useRef(
+    Array.from({ length: 10 }, () => new Animated.Value(0))
+  ).current;
 
   // "나" 참가자 찾기
   const myParticipant = participants.find(p => p.isMe);
@@ -44,97 +47,89 @@ export const RankingSection = ({ participants, previousRank }: RankingSectionPro
   // 이동해야 할 칸 수
   const totalSteps = effectiveStartRank - myCurrentRank;
 
-  // 초기 순서 설정 (previousRank 기준)
+  // 애니메이션 실행
   useEffect(() => {
-    if (previousRank !== undefined && myCurrentRank > 0 && totalSteps > 0) {
-      const reordered = createInitialOrder(participants, myCurrentRank, previousRank);
-      setDisplayOrder(reordered);
-      setCurrentStep(0);
-      setIsAnimating(true);
-
-      // 애니메이션 값 초기화
-      myAnimatedY.setValue(0);
-      myAnimatedScale.setValue(1);
-      displacedAnimatedY.setValue(0);
-
-      console.log(`🏆 [RankingSection] 밀어내기 애니메이션 시작: ${effectiveStartRank}위 → ${myCurrentRank}위`);
-    } else {
+    if (previousRank === undefined || myCurrentRank <= 0 || totalSteps <= 0) {
       setDisplayOrder([...participants]);
       setIsAnimating(false);
-    }
-  }, [previousRank, myCurrentRank, totalSteps, participants]);
-
-  // 단계별 애니메이션 실행 (멈춤 없이 연속)
-  useEffect(() => {
-    if (!isAnimating || !previousRank) return;
-
-    const isFirstStep = currentStep === 0;
-
-    if (currentStep >= totalSteps) {
-      // 애니메이션 완료 - 스케일 다운 후 종료
-      Animated.timing(myAnimatedScale, {
-        toValue: 1,
-        duration: 150,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }).start(() => {
-        console.log(`🏆 [RankingSection] 애니메이션 완료`);
-        setIsAnimating(false);
-        setDisplayOrder([...participants]);
-      });
       return;
     }
 
-    // Y값 초기화
+    // 초기 순서 설정 (나를 previousRank 위치에 배치)
+    const reordered = createInitialOrder(participants, myCurrentRank, previousRank);
+    setDisplayOrder(reordered);
+    setIsAnimating(true);
+
+    // 애니메이션 값 초기화
     myAnimatedY.setValue(0);
-    displacedAnimatedY.setValue(0);
+    myAnimatedScale.setValue(1);
+    displacedAnimations.forEach(anim => anim.setValue(0));
 
-    // 애니메이션 배열 구성
-    const animations: Animated.CompositeAnimation[] = [
-      // "나" 위로 이동
-      Animated.timing(myAnimatedY, {
-        toValue: -RANK_ITEM_HEIGHT,
-        duration: STEP_DURATION,
-        easing: Easing.inOut(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      // 밀려나는 항목 아래로 이동
-      Animated.timing(displacedAnimatedY, {
-        toValue: RANK_ITEM_HEIGHT,
-        duration: STEP_DURATION,
-        easing: Easing.inOut(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ];
+    console.log(`🏆 [RankingSection] 연속 밀어내기 애니메이션 시작: ${effectiveStartRank}위 → ${myCurrentRank}위 (${totalSteps}칸)`);
 
-    // 첫 스텝에서만 스케일 업
-    if (isFirstStep) {
-      animations.push(
-        Animated.timing(myAnimatedScale, {
-          toValue: 1.1,
-          duration: STEP_DURATION * 0.5,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        })
+    // 전체 애니메이션 시간
+    const totalDuration = STEP_DURATION * totalSteps;
+
+    // "나"의 이동 애니메이션 (연속)
+    const myMoveAnimation = Animated.timing(myAnimatedY, {
+      toValue: -RANK_ITEM_HEIGHT * totalSteps,
+      duration: totalDuration,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    });
+
+    // 스케일 업 애니메이션
+    const scaleUpAnimation = Animated.timing(myAnimatedScale, {
+      toValue: 1.1,
+      duration: 150,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    });
+
+    // 밀려나는 항목들의 애니메이션 (시차 적용)
+    const displacedMoveAnimations: Animated.CompositeAnimation[] = [];
+    for (let i = 0; i < totalSteps; i++) {
+      const delay = STEP_DURATION * i;
+      displacedMoveAnimations.push(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(displacedAnimations[i]!, {
+            toValue: RANK_ITEM_HEIGHT,
+            duration: STEP_DURATION,
+            easing: Easing.inOut(Easing.cubic),
+            useNativeDriver: true,
+          }),
+        ])
       );
     }
 
-    Animated.parallel(animations).start(() => {
-      // 순서 업데이트 후 즉시 다음 스텝
-      setDisplayOrder(prev => {
-        const newOrder = [...prev];
-        const myIndex = newOrder.findIndex(p => p.isMe);
-        if (myIndex > 0) {
-          [newOrder[myIndex - 1], newOrder[myIndex]] = [newOrder[myIndex], newOrder[myIndex - 1]];
-        }
-        return newOrder;
-      });
-      setCurrentStep(prev => prev + 1);
+    // 스케일 다운 애니메이션
+    const scaleDownAnimation = Animated.timing(myAnimatedScale, {
+      toValue: 1,
+      duration: 150,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
     });
-  }, [isAnimating, currentStep, previousRank, totalSteps, myAnimatedY, myAnimatedScale, displacedAnimatedY, participants]);
 
-  // displayOrder에서 "나"의 현재 인덱스 찾기
-  const myIndexInDisplay = displayOrder.findIndex(p => p.isMe);
+    // 전체 애니메이션 실행
+    Animated.sequence([
+      // 스케일 업과 동시에 이동 + 밀어내기 시작
+      Animated.parallel([
+        scaleUpAnimation,
+        myMoveAnimation,
+        ...displacedMoveAnimations,
+      ]),
+      // 완료 후 스케일 다운
+      scaleDownAnimation,
+    ]).start(() => {
+      console.log(`🏆 [RankingSection] 애니메이션 완료`);
+      setIsAnimating(false);
+      setDisplayOrder([...participants]); // 최종 순서로 복원
+    });
+  }, [previousRank, myCurrentRank, totalSteps, participants]);
+
+  // "나"의 초기 인덱스 (애니메이션 시작 위치)
+  const myInitialIndex = displayOrder.findIndex(p => p.isMe);
 
   return (
     <View style={styles.container}>
@@ -162,7 +157,7 @@ export const RankingSection = ({ participants, previousRank }: RankingSectionPro
                 ]}
               >
                 <View style={styles.animatedMeContent}>
-                  <Text style={styles.animatedRank}>{index + 1}</Text>
+                  <Text style={styles.animatedRank}>{myCurrentRank}</Text>
                   <View style={styles.animatedAvatar} />
                   <Text style={styles.animatedName}>나</Text>
                   <Text style={styles.animatedDistance}>
@@ -173,26 +168,30 @@ export const RankingSection = ({ participants, previousRank }: RankingSectionPro
             );
           }
 
-          // 애니메이션 중 밀려나는 항목 (나의 바로 위 항목)
-          if (isAnimating && index === myIndexInDisplay - 1) {
-            return (
-              <Animated.View
-                key={`displaced-${participant.rank}`}
-                style={[
-                  styles.displacedItem,
-                  {
-                    transform: [{ translateY: displacedAnimatedY }],
-                  },
-                ]}
-              >
-                <RankItem
-                  participant={{
-                    ...participant,
-                    rank: index + 1,
-                  }}
-                />
-              </Animated.View>
-            );
+          // 애니메이션 중 밀려나는 항목들 ("나" 위의 항목들)
+          if (isAnimating && myInitialIndex > 0) {
+            // "나"의 위에 있는 항목들 (밀려날 항목들)
+            const displacedIndex = myInitialIndex - 1 - index;
+            if (displacedIndex >= 0 && displacedIndex < totalSteps) {
+              return (
+                <Animated.View
+                  key={`displaced-${participant.rank}-${index}`}
+                  style={[
+                    styles.displacedItem,
+                    {
+                      transform: [{ translateY: displacedAnimations[displacedIndex] }],
+                    },
+                  ]}
+                >
+                  <RankItem
+                    participant={{
+                      ...participant,
+                      rank: index + 1,
+                    }}
+                  />
+                </Animated.View>
+              );
+            }
           }
 
           // 일반 항목
