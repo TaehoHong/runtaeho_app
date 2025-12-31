@@ -19,7 +19,7 @@ const TOTAL_ANIMATION_DURATION = 1200; // 전체 애니메이션 시간 (ms) - �
 
 interface RankingSectionProps {
   participants: LeagueParticipant[];
-  previousRank?: number;
+  previousRank?: number | undefined;
 }
 
 export const RankingSection = ({ participants, previousRank }: RankingSectionProps) => {
@@ -181,7 +181,7 @@ export const RankingSection = ({ participants, previousRank }: RankingSectionPro
                   style={[
                     styles.displacedItem,
                     {
-                      transform: [{ translateY: displacedAnimations[displacedIndex] }],
+                      transform: [{ translateY: displacedAnimations[displacedIndex]! }],
                     },
                   ]}
                 >
@@ -245,7 +245,7 @@ function createInitialOrder(
     }
   }
 
-  console.log(`🏆 [createInitialOrder] 결과:`, result.map((p, idx) => `${idx + 1}: ${p.isMe ? '나' : p.name}`).join(', '));
+  console.log(`🏆 [createInitialOrder] 결과:`, result.map((p, idx) => `${idx + 1}: ${p.isMe ? '나' : p.nickname ?? '익명'}`).join(', '));
 
   return result;
 }

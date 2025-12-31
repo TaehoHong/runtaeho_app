@@ -4,7 +4,7 @@
  */
 
 import { StyleSheet, Text, View } from 'react-native';
-import { PRIMARY, GREY, RED } from '~/shared/styles';
+import { PRIMARY, GREY, RED, BLUE } from '~/shared/styles';
 import type { PromotionStatus } from '../../models';
 
 interface MyRankCardProps {
@@ -26,9 +26,14 @@ export const MyRankCard = ({
   promotionStatus,
   progressPosition,
 }: MyRankCardProps) => {
+  // 강등이 없는 티어인지 확인 (BRONZE 등 최하위 티어)
+  const hasNoRelegation = relegationCutRank > totalParticipants;
+
   // 프로그레스 바 영역 비율 계산
   const promotionZoneWidth = (promotionCutRank / totalParticipants) * 100;
-  const relegationZoneWidth = ((totalParticipants - relegationCutRank + 1) / totalParticipants) * 100;
+  const relegationZoneWidth = hasNoRelegation
+    ? 0
+    : ((totalParticipants - relegationCutRank + 1) / totalParticipants) * 100;
   const markerPosition = progressPosition * 100;
 
   return (
@@ -61,20 +66,20 @@ export const MyRankCard = ({
               { width: `${promotionZoneWidth}%` },
             ]}
           />
-          {/* 강등 영역 */}
-          <View
-            style={[
-              styles.relegationZone,
-              { width: `${relegationZoneWidth}%` },
-            ]}
-          />
+          {/* 강등 영역 (강등이 있는 티어에서만 표시) */}
+          {!hasNoRelegation && (
+            <View
+              style={[
+                styles.relegationZone,
+                { width: `${relegationZoneWidth}%` },
+              ]}
+            />
+          )}
           {/* 내 위치 마커 */}
           <View
             style={[
               styles.myPositionMarker,
               { left: `${markerPosition}%` },
-              promotionStatus === 'PROMOTION' && styles.markerPromotion,
-              promotionStatus === 'RELEGATION' && styles.markerRelegation,
             ]}
           />
         </View>
@@ -83,7 +88,9 @@ export const MyRankCard = ({
         <View style={styles.progressLabels}>
           <Text style={styles.promotionLabel}>승격 (상위 30%)</Text>
           <Text style={styles.maintainLabel}>유지</Text>
-          <Text style={styles.relegationLabel}>강등 (하위 20%)</Text>
+          {!hasNoRelegation && (
+            <Text style={styles.relegationLabel}>강등 (하위 20%)</Text>
+          )}
         </View>
       </View>
     </View>
@@ -179,7 +186,7 @@ const styles = StyleSheet.create({
     top: -4,
     width: 16,
     height: 16,
-    backgroundColor: PRIMARY[600],
+    backgroundColor: BLUE.SECONDARY,
     borderWidth: 2,
     borderColor: GREY.WHITE,
     borderRadius: 2,
