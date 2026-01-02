@@ -4,6 +4,7 @@
  */
 
 import { StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { PRIMARY, GREY } from '~/shared/styles';
 import { formatDistance, type LeagueParticipant } from '../../models';
 
@@ -11,10 +12,15 @@ interface RankItemProps {
   participant: LeagueParticipant;
 }
 
+
+
 export const RankItem = ({ participant }: RankItemProps) => {
   const isMe = participant.isMe;
   const displayName = isMe ? '나' : (participant.nickname ?? '익명');
   const distanceFormatted = formatDistance(participant.distance);
+  const imageSource = participant?.profileImageUrl
+    ? { uri: participant.profileImageUrl }  // URL인 경우 객체로 감싸기
+    : require('assets/images/default-profile-image.png');  // 로컬 파일
 
   return (
     <View style={[styles.container, isMe && styles.containerMe]}>
@@ -23,8 +29,15 @@ export const RankItem = ({ participant }: RankItemProps) => {
         {participant.rank}
       </Text>
 
-      {/* 아바타 플레이스홀더 */}
-      <View style={[styles.avatar, isMe && styles.avatarMe]} />
+      {/* 프로필 이미지 */}
+      <View style={[styles.avatarContainer, isMe && styles.avatarContainerMe]}>
+        <Image
+          source={imageSource}
+          style={styles.avatarImage}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+        />
+      </View>
 
       {/* 이름 */}
       <Text style={[styles.name, isMe && styles.textMe]}>
@@ -61,14 +74,32 @@ const styles = StyleSheet.create({
     minWidth: 24,
     textAlign: 'center',
   },
-  avatar: {
+  avatarContainer: {
     width: 32,
     height: 32,
     backgroundColor: PRIMARY[50],
-    borderRadius: 4,
+    borderRadius: 16,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  avatarMe: {
+  avatarContainerMe: {
     backgroundColor: PRIMARY[600],
+  },
+  avatarImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: GREY[300],
+  },
+  avatarInitial: {
+    fontSize: 14,
+    fontFamily: 'Pretendard-Bold',
+    fontWeight: '700',
+    color: PRIMARY[600],
+  },
+  avatarInitialMe: {
+    color: GREY.WHITE,
   },
   name: {
     fontSize: 14,

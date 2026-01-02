@@ -5,13 +5,12 @@ import { Alert, Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '~/features/auth/hooks/useAuth';
 import { Text } from '~/shared/components/typography';
-import { Icon } from '~/shared/components/ui';
 import { GREY, RED } from '~/shared/styles';
 import { userService } from '../services/userService';
 
 /**
  * 설정 화면
- * 로그아웃, 회원 탈퇴 등 계정 관련 설정
+ * 고객센터, 로그아웃, 회원 탈퇴 등 계정 관련 설정
  */
 export const SettingsView: React.FC = () => {
   const router = useRouter();
@@ -22,6 +21,20 @@ export const SettingsView: React.FC = () => {
   const [isWithdrawing, setIsWithdrawing] = useState(false);
 
   /**
+   * 고객센터 이동 핸들러
+   */
+  const handleCustomerService = () => {
+    router.push('/user/customer-service');
+  };
+
+  /**
+   * 앱 버전 정보 이동 핸들러
+   */
+  const handleAppVersion = () => {
+    router.push('/user/app-version');
+  };
+
+  /**
    * 로그아웃 핸들러
    */
   const handleLogout = async () => {
@@ -29,16 +42,16 @@ export const SettingsView: React.FC = () => {
 
     try {
       setIsLoggingOut(true);
-      console.log('🚪 [SettingsView] 로그아웃 시작...');
+      console.log('[SettingsView] 로그아웃 시작...');
 
       await logout();
 
-      console.log('✅ [SettingsView] 로그아웃 완료');
+      console.log('[SettingsView] 로그아웃 완료');
       setShowLogoutAlert(false);
 
       router.replace('/auth/login');
     } catch (error) {
-      console.error('❌ [SettingsView] 로그아웃 실패:', error);
+      console.error('[SettingsView] 로그아웃 실패:', error);
       setShowLogoutAlert(false);
 
       Alert.alert(
@@ -59,17 +72,17 @@ export const SettingsView: React.FC = () => {
 
     try {
       setIsWithdrawing(true);
-      console.log('🗑️ [SettingsView] 회원 탈퇴 시작...');
+      console.log('[SettingsView] 회원 탈퇴 시작...');
 
       await userService.withdraw();
       await logout();
 
-      console.log('✅ [SettingsView] 회원 탈퇴 완료');
+      console.log('[SettingsView] 회원 탈퇴 완료');
       setShowWithdrawAlert(false);
 
       router.replace('/auth/login');
     } catch (error) {
-      console.error('❌ [SettingsView] 회원 탈퇴 실패:', error);
+      console.error('[SettingsView] 회원 탈퇴 실패:', error);
       setShowWithdrawAlert(false);
 
       Alert.alert(
@@ -99,26 +112,49 @@ export const SettingsView: React.FC = () => {
 
       {/* 설정 메뉴 */}
       <View style={styles.content}>
+        {/* 고객센터 섹션 */}
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={handleCustomerService}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.menuItemText}>고객센터</Text>
+            <Ionicons name="chevron-forward" size={20} color={GREY[300]} />
+          </TouchableOpacity>
+        </View>
+
         {/* 계정 섹션 */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>계정</Text>
-          <View style={styles.menuItemsContainer}>
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => setShowLogoutAlert(true)}
-            >
-              <Text style={styles.menuItemText}>로그아웃</Text>
-              <Icon name="chevron" size={16} />
-            </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.menuItem, styles.menuItemBorder]}
+            onPress={() => setShowLogoutAlert(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.menuItemText}>로그아웃</Text>
+            <Ionicons name="chevron-forward" size={20} color={GREY[300]} />
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => setShowWithdrawAlert(true)}
-            >
-              <Text style={[styles.menuItemText, styles.dangerText]}>회원 탈퇴</Text>
-              <Icon name="chevron" size={16} />
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => setShowWithdrawAlert(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.menuItemText, styles.dangerText]}>회원 탈퇴</Text>
+            <Ionicons name="chevron-forward" size={20} color={GREY[300]} />
+          </TouchableOpacity>
+        </View>
+
+        {/* 앱 버전 섹션 */}
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={handleAppVersion}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.menuItemText}>앱 버전</Text>
+            <Ionicons name="chevron-forward" size={20} color={GREY[300]} />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -203,16 +239,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: GREY[100],
+    backgroundColor: GREY.WHITE,
   },
   backButton: {
     padding: 4,
   },
   headerTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
     fontFamily: 'Pretendard',
     color: GREY[900],
   },
@@ -221,34 +255,30 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingTop: 20,
+    paddingTop: 16,
+    paddingHorizontal: 20,
+    gap: 12,
   },
   section: {
-    marginHorizontal: 20,
-    padding: 16,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    gap: 20,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: 'Pretendard',
-    color: GREY[900],
-  },
-  menuItemsContainer: {
-    gap: 20,
+    backgroundColor: GREY.WHITE,
+    borderRadius: 16,
+    paddingHorizontal: 16,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingVertical: 16,
+  },
+  menuItemBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: GREY[100],
   },
   menuItemText: {
     fontSize: 14,
     fontWeight: '500',
     fontFamily: 'Pretendard',
-    color: GREY[800],
+    color: GREY[900],
   },
   dangerText: {
     color: RED[400],
@@ -268,14 +298,17 @@ const styles = StyleSheet.create({
   alertTitle: {
     fontSize: 18,
     fontWeight: 'bold',
+    fontFamily: 'Pretendard',
     marginBottom: 10,
     textAlign: 'center',
+    color: GREY[900],
   },
   alertMessage: {
     fontSize: 16,
+    fontFamily: 'Pretendard',
     marginBottom: 20,
     textAlign: 'center',
-    color: '#666',
+    color: GREY[600],
   },
   alertButtons: {
     flexDirection: 'row',
@@ -291,8 +324,9 @@ const styles = StyleSheet.create({
     backgroundColor: GREY[100],
   },
   cancelButtonText: {
-    color: '#666',
+    color: GREY[600],
     fontSize: 16,
+    fontFamily: 'Pretendard',
   },
   confirmButton: {
     backgroundColor: RED[400],
@@ -304,5 +338,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'Pretendard',
   },
 });

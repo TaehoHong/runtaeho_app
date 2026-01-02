@@ -64,6 +64,7 @@ export interface LeagueParticipant {
   id: number;
   rank: number;
   nickname: string | null;
+  profileImageUrl: string | null;
   distance: number; // 미터 단위
   isMe: boolean;
   isBot: boolean;

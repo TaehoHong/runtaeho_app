@@ -172,7 +172,6 @@ interface MenuSettingsCardProps {
 
 /**
  * 메뉴 설정 카드
- * iOS MenuSettingsCard 대응
  */
 const MenuSettingsCard: React.FC<MenuSettingsCardProps> = ({ items }) => {
   const router = useRouter();
@@ -197,10 +196,7 @@ const MenuSettingsCard: React.FC<MenuSettingsCardProps> = ({ items }) => {
   );
 };
 
-/**
- * 모달 컴포넌트들
- * iOS fullScreenCover 대응
- */
+
 interface ModalProps {
   visible: boolean;
   onClose: () => void;
@@ -323,7 +319,8 @@ const styles = StyleSheet.create({
   profileImage: {
       width: 60,
       borderRadius: 60,
-      height: 60
+      height: 60,
+      backgroundColor: GREY[300],
   },
   usernameContainer: {
       alignItems: "flex-end",
