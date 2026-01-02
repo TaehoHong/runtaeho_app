@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useLeagueViewModel } from '../viewmodels';
@@ -141,34 +141,13 @@ export const LeagueView = () => {
             progressPosition={formattedData.progressPosition}
           />
 
-          {/* 순위표 */}
+          {/* 순위표 (스크롤 가능 영역) */}
           <RankingSection
             participants={formattedData.participants}
             previousRank={previousLeagueRank ?? undefined}
+            isRefreshing={isRefreshing}
+            onRefresh={handleRefresh}
           />
-
-          {/* 개발용 애니메이션 테스트 버튼 */}
-          {__DEV__ && (
-            <TouchableOpacity
-              style={styles.devTestButton}
-              onPress={() => {
-                // 현재 순위보다 5위 낮은 순위(숫자가 큼)에서 시작하는 애니메이션 테스트
-                const testPreviousRank = formattedData.myRank + 5;
-                console.log(`🧪 [DEV] 애니메이션 테스트 시작: ${testPreviousRank} → ${formattedData.myRank}`);
-
-                // 먼저 previousRank를 초기화하여 새 애니메이션 트리거 준비
-                setPreviousLeagueRank(null);
-
-                // 다음 렌더 사이클에서 새 previousRank 설정
-                setTimeout(() => {
-                  setPreviousLeagueRank(testPreviousRank);
-                  console.log(`🧪 [DEV] previousLeagueRank 설정됨: ${testPreviousRank}`);
-                }, 50);
-              }}
-            >
-              <Text style={styles.devTestButtonText}>🧪 순위 상승 애니메이션 테스트</Text>
-            </TouchableOpacity>
-          )}
         </>
       );
     }
@@ -178,15 +157,9 @@ export const LeagueView = () => {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
-        }
-      >
+      <View style={styles.container}>
         {renderContent()}
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 };
@@ -199,10 +172,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: GREY[50],
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingBottom: 100, // 탭바 영역 확보
   },
   centerContainer: {
     flex: 1,
@@ -233,19 +202,5 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: GREY[500],
     textAlign: 'center',
-  },
-  devTestButton: {
-    marginHorizontal: 14,
-    marginTop: 16,
-    padding: 12,
-    backgroundColor: GREY[200],
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  devTestButtonText: {
-    fontSize: 14,
-    fontFamily: 'Pretendard-Medium',
-    fontWeight: '500',
-    color: GREY[700],
   },
 });

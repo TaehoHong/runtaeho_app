@@ -137,13 +137,18 @@ export const usePointViewModel = (pointOverride?: number) => {
    * Swift refreshPointHistory 메서드 대응
    */
   const refreshPointHistory = useCallback(async () => {
-    setAllRecentHistories([]);
     setOlderHistories([]);
-    setLastPointHistoryId(undefined);
 
-    await Promise.all([
-      refetchRecent(),
-    ]);
+    const result = await refetchRecent();
+
+    if (result.data?.content) {
+      const viewModels = result.data.content.map(createPointHistoryViewModel);
+      setAllRecentHistories(viewModels);
+      setLastPointHistoryId(result.data.cursor);
+    } else {
+      setAllRecentHistories([]);
+      setLastPointHistoryId(undefined);
+    }
   }, [refetchRecent]);
 
   /**
