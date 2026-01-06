@@ -20,7 +20,9 @@ import { userService } from '~/features/user/services/userService';
 import { useUserStore } from '~/stores/user/userStore';
 import { tokenStorage } from '~/utils/storage';
 import { useAuthStore } from '../stores/authStore';
-import { setUserContext, clearUserContext } from '~/config/sentry';
+import { setUserContext } from '~/config/sentry';
+import { resetAllAppData } from '~/shared/services/AppResetService';
+import { queryClient } from '~/services/queryClient';
 
 /**
  * 통합 인증 Hook
@@ -45,10 +47,8 @@ export const useAuth = () => {
   const setError = useAuthStore((state) => state.setError);
   const setAccessToken = useAuthStore((state) => state.setAccessToken);
   const setRefreshToken = useAuthStore((state) => state.setRefreshToken);
-  const authStoreLogout = useAuthStore((state) => state.logout);
 
   const setLoginData = useUserStore((state) => state.setLoginData);
-  const userStoreLogout = useUserStore((state) => state.logout);
 
   /**
    * EquippedItemDataDto를 EquippedItemsMap으로 변환
@@ -133,22 +133,14 @@ export const useAuth = () => {
     try {
       console.log('🚪 [useAuth] Starting logout process...');
 
-      // 1. 토큰 삭제 (SecureStore)
-      await tokenStorage.clearTokens();
-
-      // 2. Store 초기화
-      authStoreLogout();
-      userStoreLogout();
-
-      // 3. Sentry 사용자 컨텍스트 제거
-      clearUserContext();
+      await resetAllAppData(queryClient);
 
       console.log('✅ [useAuth] Logout successful');
     } catch (error) {
       console.error('❌ [useAuth] Logout failed:', error);
       throw error;
     }
-  }, [authStoreLogout, userStoreLogout]);
+  }, []);
 
   /**
    * 토큰 검증 및 자동 갱신

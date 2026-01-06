@@ -38,46 +38,6 @@ export const Login: React.FC = () => {
     };
   }, []);
   const { isLoading, signInWithGoogle, signInWithApple } = useAuthSignIn();
-  const resetUserStore = useUserStore((state) => state.resetAppState);
-  const resetAuthStore = useAuthStore((state) => state.logout);
-  const resetAppStore = useAppStore((state) => state.resetAppState);
-
-  const handleClearAllData = async () => {
-    Alert.alert(
-      '⚠️ 모든 데이터 삭제',
-      'AsyncStorage와 Zustand의 모든 persist 데이터를 삭제합니다.\n계속하시겠습니까?',
-      [
-        {
-          text: '취소',
-          style: 'cancel',
-        },
-        {
-          text: '삭제',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              console.log('🗑️ [DEBUG] AsyncStorage 전체 삭제 시작');
-
-              // 1. AsyncStorage 전체 삭제
-              await AsyncStorage.clear();
-              console.log('✅ [DEBUG] AsyncStorage 삭제 완료');
-
-              // 2. Zustand 스토어 초기화
-              resetUserStore();
-              resetAuthStore();
-              resetAppStore();
-              console.log('✅ [DEBUG] Zustand 스토어 초기화 완료');
-
-              Alert.alert('✅ 완료', '모든 데이터가 삭제되었습니다.');
-            } catch (error) {
-              console.error('❌ [DEBUG] 데이터 삭제 실패:', error);
-              Alert.alert('❌ 오류', '데이터 삭제 중 오류가 발생했습니다.');
-            }
-          },
-        },
-      ]
-    );
-  };
 
   return (
     <View style={styles.container}>
@@ -174,12 +134,6 @@ export const Login: React.FC = () => {
           </TouchableOpacity>
         )}
 
-        {/* 디버그 버튼: 모든 persist 데이터 삭제 */}
-        {__DEV__ && (
-          <TouchableOpacity style={styles.debugButton} onPress={handleClearAllData}>
-            <Text style={styles.debugButtonText}>🗑️ 모든 데이터 삭제 (DEBUG)</Text>
-          </TouchableOpacity>
-        )}
       </View>
     </View>
   );
@@ -264,7 +218,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     paddingHorizontal: 24,
-    paddingBottom: 40,
+    paddingBottom: 104,
     gap: 16,
   },
   googleButton: {
@@ -326,20 +280,6 @@ const styles = StyleSheet.create({
   unityTestButtonText: {
     color: 'white',
     fontSize: 16,
-    fontWeight: 'bold',
-  },
-  debugButton: {
-    width: '100%',
-    height: 38,
-    backgroundColor: '#F44336',
-    borderRadius: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  debugButtonText: {
-    color: 'white',
-    fontSize: 14,
     fontWeight: 'bold',
   },
 });
