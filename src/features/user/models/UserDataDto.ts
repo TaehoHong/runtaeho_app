@@ -45,7 +45,7 @@ export interface EquippedItemDataDto {
  * 프로필 이미지 URL을 전체 URL로 변환
  * 서버에서 상대 경로(/profile-images/...)로 내려오면 S3 버킷 URL과 결합
  */
-const buildFullImageUrl = (imageUrl: string | undefined): string | undefined => {
+export const buildFullImageUrl = (imageUrl: string | undefined | null): string | undefined => {
   if (!imageUrl) {
     return undefined;
   }

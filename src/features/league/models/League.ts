@@ -139,6 +139,7 @@ export interface LeagueResult {
   totalParticipants: number;
   totalDistance: number;       // 미터 단위
   rewardPoints: number | null; // 승급 시에만 존재
+  participants: LeagueParticipant[]; // 순위표
 }
 
 /**

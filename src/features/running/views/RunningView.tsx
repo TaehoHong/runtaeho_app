@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { AppState, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import { GREY } from '~/shared/styles';
 import type { Item } from '~/features/avatar';
 import { UnityView } from '~/features/unity/components/UnityView';
@@ -9,6 +10,7 @@ import { LoadingView } from '~/shared/components';
 import { ViewState, useAppStore } from '~/stores';
 import { useAuthStore } from '~/features';
 import { useUserStore } from '~/stores/user/userStore';
+import { useGetUncheckedResult } from '~/features/league/services';
 import { RunningProvider } from '../contexts/RunningContext';
 import { RunningDebugView } from './RunningDebugView';
 import { ControlPanelView } from './components/ControlPanelView';
@@ -20,6 +22,7 @@ import { ControlPanelView } from './components/ControlPanelView';
  * Unity 컴포넌트 + 상태별 컴트롤 패널
  */
 export const RunningView: React.FC = () => {
+  const router = useRouter();
   const viewState = useAppStore((state) => state.viewState);
   const runningState = useAppStore((state) => state.runningState);
   const setViewState = useAppStore((state) => state.setViewState);
@@ -29,10 +32,30 @@ export const RunningView: React.FC = () => {
   const [unityStarted, setUnityStarted] = useState(false);
   const [isUnityReady, setIsUnityReady] = useState(false);
   const [isDebugVisible, setIsDebugVisible] = useState(false);
+  const [hasCheckedLeagueResult, setHasCheckedLeagueResult] = useState(false);
   const isInitialMount = useRef(true);
   const hasInitializedAvatar = useRef(false);
 
   console.log('🏃 [RunningView] 렌더링, viewState:', viewState, 'runningState:', runningState, 'isLoggedIn:', isLoggedIn, 'isUnityReady:', isUnityReady);
+
+  // 미확인 리그 결과 조회
+  const { data: uncheckedLeagueResult, isLoading: isCheckingLeagueResult } = useGetUncheckedResult({
+    enabled: isLoggedIn && !hasCheckedLeagueResult,
+  });
+
+  // 미확인 리그 결과가 있으면 결과 화면으로 리다이렉트
+  useEffect(() => {
+    if (!isCheckingLeagueResult && uncheckedLeagueResult && !hasCheckedLeagueResult) {
+      setHasCheckedLeagueResult(true);
+      console.log('🏃 [RunningView] 미확인 리그 결과 발견, 결과 화면으로 이동');
+      router.push({
+        pathname: '/league/result' as const,
+        params: { resultData: JSON.stringify(uncheckedLeagueResult) },
+      } as any);
+    } else if (!isCheckingLeagueResult && !uncheckedLeagueResult) {
+      setHasCheckedLeagueResult(true);
+    }
+  }, [isCheckingLeagueResult, uncheckedLeagueResult, hasCheckedLeagueResult, router]);
 
   useEffect(() => {
     console.log('🔄 [RunningView] 컴포넌트 마운트');

@@ -111,6 +111,7 @@ class UnityBridgeImpl implements UnityBridgeInterface {
 
   /**
    * Ready 상태 리셋 (Unity View 재마운트 시)
+   * Reset 후 즉시 실제 상태 동기화하여 Unity 재사용 시 문제 해결
    */
   async resetGameObjectReady(): Promise<void> {
     console.log('[UnityBridge] Resetting Ready state');
@@ -119,6 +120,10 @@ class UnityBridgeImpl implements UnityBridgeInterface {
     if (NativeUnityBridge?.resetCharactorReady) {
       try {
         await NativeUnityBridge.resetCharactorReady();
+
+        // ★ 핵심: Reset 후 즉시 실제 상태 동기화
+        // Unity가 이미 준비된 상태라면 다시 true로 동기화되어 콜백 실행
+        await this.syncReadyState();
       } catch (error) {
         console.error('[UnityBridge] resetCharactorReady error:', error);
       }

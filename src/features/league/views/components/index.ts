@@ -7,3 +7,4 @@ export { MyRankCard } from './MyRankCard';
 export { RankingSection } from './RankingSection';
 export { RankItem } from './RankItem';
 export { LeagueNotJoinedView } from './LeagueNotJoinedView';
+export { LeagueResultCharacterView } from './LeagueResultCharacterView';

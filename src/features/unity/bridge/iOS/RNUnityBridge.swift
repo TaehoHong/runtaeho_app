@@ -117,7 +117,22 @@ class RNUnityBridge: RCTEventEmitter {
         print("[RNUnityBridge] 🔄 Reset Ready state")
         _isCharactorReady = false
         pendingEvents.removeAll()
-        resolve(nil)
+
+        // ★ 핵심: 실제 Unity 상태 확인 후 동기화
+        // Unity가 이미 준비되어 있으면 상태 유지 (View가 존재하면 준비된 것으로 간주)
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else {
+                resolve(nil)
+                return
+            }
+
+            if Unity.shared.view != nil {
+                self._isCharactorReady = true
+                print("[RNUnityBridge] ⚠️ Unity already ready, keeping state true")
+            }
+
+            resolve(nil)
+        }
     }
 
     // MARK: - React Native에서 호출할 수 있는 메서드들

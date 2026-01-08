@@ -7,7 +7,6 @@
 
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useMutation } from '@tanstack/react-query';
 import {
@@ -16,6 +15,7 @@ import {
   formatDistance,
 } from '../models';
 import { leagueService } from '../services';
+import { LeagueResultCharacterView, RankingSection } from './components';
 import { PRIMARY, GREY } from '~/shared/styles';
 
 interface LeagueResultDetailViewProps {
@@ -55,13 +55,8 @@ export const LeagueResultDetailView = ({ result }: LeagueResultDetailViewProps) 
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      {/* 상단 캐릭터 영역 (플레이스홀더) */}
-      <View style={styles.characterArea}>
-        {/* TODO: Unity 캐릭터 또는 이미지로 교체 */}
-        <View style={styles.characterPlaceholder}>
-          <Text style={styles.characterPlaceholderText}>캐릭터 영역</Text>
-        </View>
-      </View>
+      {/* 상단 캐릭터 영역 (Unity) */}
+      <LeagueResultCharacterView resultStatus={result.resultStatus} />
 
       {/* 결과 콘텐츠 */}
       <View style={styles.contentContainer}>
@@ -92,6 +87,17 @@ export const LeagueResultDetailView = ({ result }: LeagueResultDetailViewProps) 
           </View>
         )}
 
+        {/* 순위표 */}
+        {result.participants.length > 0 && (
+          <View style={styles.rankingSectionWrapper}>
+            <RankingSection
+              participants={result.participants}
+              previousRank={undefined}
+              isRefreshing={false}
+            />
+          </View>
+        )}
+
         {/* 확인 버튼 */}
         <TouchableOpacity
           style={styles.confirmButton}
@@ -111,24 +117,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: GREY[50],
-  },
-  characterArea: {
-    height: 280,
-    backgroundColor: GREY[100],
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  characterPlaceholder: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  characterPlaceholderText: {
-    fontSize: 16,
-    fontFamily: 'Pretendard-Medium',
-    fontWeight: '500',
-    color: GREY[400],
   },
   contentContainer: {
     flex: 1,
@@ -182,6 +170,11 @@ const styles = StyleSheet.create({
     fontFamily: 'Pretendard-Bold',
     fontWeight: '700',
     color: PRIMARY[600],
+  },
+  rankingSectionWrapper: {
+    flex: 1,
+    marginHorizontal: -16, // contentContainer의 paddingHorizontal 상쇄
+    minHeight: 200,
   },
   confirmButton: {
     backgroundColor: PRIMARY[600],

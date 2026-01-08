@@ -7,6 +7,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { PRIMARY, GREY } from '~/shared/styles';
 import { formatDistance, type LeagueParticipant } from '../../models';
+import { buildFullImageUrl } from '~/features/user/models/UserDataDto';
 
 interface RankItemProps {
   participant: LeagueParticipant;
@@ -18,8 +19,9 @@ export const RankItem = ({ participant }: RankItemProps) => {
   const isMe = participant.isMe;
   const displayName = isMe ? '나' : (participant.nickname ?? '익명');
   const distanceFormatted = formatDistance(participant.distance);
-  const imageSource = participant?.profileImageUrl
-    ? { uri: participant.profileImageUrl }  // URL인 경우 객체로 감싸기
+  const fullImageUrl = buildFullImageUrl(participant?.profileImageUrl);
+  const imageSource = fullImageUrl
+    ? { uri: fullImageUrl }  // 전체 URL로 변환 후 사용
     : require('assets/images/default-profile-image.png');  // 로컬 파일
 
   return (
