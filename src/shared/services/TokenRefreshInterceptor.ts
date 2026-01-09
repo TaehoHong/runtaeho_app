@@ -10,6 +10,7 @@ import { tokenUtils } from '~/features';
 import { apiClient } from '../../services/api/client';
 import { tokenStorage } from '../../utils/storage';
 import { useAuthStore } from '~/features/auth/stores/authStore';
+import { queryClient } from '../../services/queryClient';
 
 export interface TokenRefreshResult {
   success: boolean;
@@ -159,20 +160,28 @@ export class TokenRefreshInterceptor {
       const tokenPair = await this.silentTokenRefreshService.performSilentRefresh();
 
       if (tokenPair) {
-        // tokenStorage에 새 토큰 저장
-        await tokenStorage.saveTokens(tokenPair.accessToken, tokenPair.refreshToken);
+        // 토큰 저장 (원자성 보장: 실패 시 롤백)
+        try {
+          // 1. SecureStore에 새 토큰 저장
+          await tokenStorage.saveTokens(tokenPair.accessToken, tokenPair.refreshToken);
 
-        // Zustand Store 동기화
-        useAuthStore.getState().setAccessToken(tokenPair.accessToken);
-        useAuthStore.getState().setRefreshToken(tokenPair.refreshToken);
+          // 2. Zustand Store 동기화
+          useAuthStore.getState().setAccessToken(tokenPair.accessToken);
+          useAuthStore.getState().setRefreshToken(tokenPair.refreshToken);
 
-        console.log('✅ [TokenInterceptor] 토큰 갱신 및 저장 성공');
+          console.log('✅ [TokenInterceptor] 토큰 갱신 및 저장 성공');
 
-        return {
-          success: true,
-          accessToken: tokenPair.accessToken,
-          refreshToken: tokenPair.refreshToken
-        };
+          return {
+            success: true,
+            accessToken: tokenPair.accessToken,
+            refreshToken: tokenPair.refreshToken
+          };
+        } catch (saveError) {
+          console.error('❌ [TokenInterceptor] 토큰 저장 실패, 롤백 진행:', saveError);
+          // 부분 저장된 토큰 삭제 (원자성 보장)
+          await tokenStorage.clearTokens();
+          return { success: false, error: 'Token save failed' };
+        }
       } else {
         console.log('❌ [TokenInterceptor] 토큰 갱신 실패');
         return { success: false, error: 'Refresh failed' };
@@ -270,12 +279,13 @@ export class TokenRefreshInterceptor {
     try {
       console.log('🚪 [TokenInterceptor] 인증 실패, 로그아웃 처리');
 
-      // tokenStorage 및 Zustand Store 초기화
+      // 1. React Query 캐시 클리어 (이전 사용자 데이터 노출 방지)
+      queryClient.clear();
+      console.log('✅ [TokenInterceptor] React Query 캐시 클리어 완료');
+
+      // 2. tokenStorage 및 Zustand Store 초기화
       await tokenStorage.clearTokens();
       useAuthStore.getState().logout();
-
-      // 추가적인 로그아웃 후 처리가 필요하면 여기에 추가
-      // 예: 로그인 화면으로 리다이렉트, 알림 표시 등
 
     } catch (error) {
       console.error('❌ [TokenInterceptor] 로그아웃 처리 중 오류:', error);

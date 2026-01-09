@@ -263,8 +263,6 @@ export interface UseRunningViewModelReturn {
   resumeRunning: () => void;
   endRunning: () => Promise<EndRunningRecord | null>;
   updateCurrentRecord: () => Promise<void>;
-  updateDistance: (newDistance: number) => void;
-  addLocation: (location: Location) => void;
   resetRunning: () => void;
   setUseBackgroundMode: React.Dispatch<React.SetStateAction<boolean>>;
 

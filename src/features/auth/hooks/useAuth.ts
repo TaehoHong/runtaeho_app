@@ -157,7 +157,7 @@ export const useAuth = () => {
       }
 
       // 토큰 상태 확인
-      const { tokenUtils, TokenStatus } = await import('../utils/tokenUtils');
+      const { tokenUtils, TokenStatus } = await import('../utils/jwtUtils');
       const tokenStatus = tokenUtils.verifyToken(accessToken);
 
       if (tokenStatus === TokenStatus.EXPIRED) {

@@ -10,6 +10,7 @@ import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import { Platform } from 'react-native';
 import { RED } from '~/shared/styles';
+import { calculateHaversineDistance } from '~/shared/utils/DistanceUtils';
 
 /**
  * Task 이름 상수
@@ -46,29 +47,6 @@ interface BackgroundLocationData {
   speed: number;
   altitude: number;
   accuracy: number;
-}
-
-/**
- * 거리 계산 (Haversine formula)
- */
-function calculateDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
-  const R = 6371e3; // Earth's radius in meters
-  const φ1 = (lat1 * Math.PI) / 180;
-  const φ2 = (lat2 * Math.PI) / 180;
-  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-
-  const a =
-    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return R * c; // Distance in meters
 }
 
 /**
@@ -132,7 +110,7 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
         if (previousLocation) {
           // 유효성 검증
           if (newLocation.accuracy <= 20) { // 20m 이하 정확도만 사용
-            const distance = calculateDistance(
+            const distance = calculateHaversineDistance(
               previousLocation.latitude,
               previousLocation.longitude,
               newLocation.latitude,

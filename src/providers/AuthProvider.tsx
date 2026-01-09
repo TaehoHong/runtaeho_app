@@ -2,9 +2,11 @@ import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from '../features/auth/hooks/useAuth';
 import { useAuthStore } from '../features/auth/stores/authStore';
-import { ViewState, useAppStore, useLeagueCheckStore } from '../stores';
+import { ViewState, useAppStore } from '../stores';
 import { isAgreedOnTermsFromToken } from '~/features/auth/utils/jwtUtils';
-import { leagueService } from '../features/league/services/leagueService';
+import { useLeagueCheck } from '../features/league/hooks/useLeagueCheck';
+import { useOfflineSync } from '../features/running/hooks/useOfflineSync';
+import { usePermissionRequest } from '../shared/hooks/usePermissionRequest';
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -23,14 +25,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const accessToken = useAuthStore((state) => state.accessToken);
   const { verifyAndRefreshToken } = useAuth();
-  const [hasRequestedPermissions, setHasRequestedPermissions] = useState(false);
+  const { syncOfflineData } = useOfflineSync();
+  const { requestPermissionsOnFirstLogin } = usePermissionRequest();
+  const { checkUncheckedLeagueResult, skipLeagueCheck, checkStatus } = useLeagueCheck();
   const [isNavigationReady, setIsNavigationReady] = useState(false);
-
-  // 리그 결과 확인 상태 (Zustand Store)
-  // 주의: pendingResult와 clearPendingResult는 의존성 재트리거 방지를 위해 getState()로 직접 접근
-  const checkStatus = useLeagueCheckStore((state) => state.checkStatus);
-  const startCheck = useLeagueCheckStore((state) => state.startCheck);
-  const setChecked = useLeagueCheckStore((state) => state.setChecked);
 
   /**
    * 앱 시작 시 저장된 인증 상태 복원 및 오프라인 데이터 동기화
@@ -54,139 +52,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // 3. 로그인 상태이고 토큰이 유효하면 오프라인 데이터 동기화 및 리그 결과 확인
       if (isTokenValid && useAuthStore.getState().isLoggedIn) {
-        await syncOfflineRunningData();
+        await syncOfflineData();
 
         // 4. 미확인 리그 결과 확인 (앱 첫 진입 시 결과 화면 표시용)
         await checkUncheckedLeagueResult();
       } else {
         // 로그인 안 된 상태면 리그 결과 확인 스킵 (checked 상태로 설정)
-        setChecked(null);
+        skipLeagueCheck();
       }
 
       console.log('✅ [AuthProvider] 인증 상태 복원 완료');
     } catch (error) {
       console.error('⚠️ [AuthProvider] 인증 상태 초기화 실패:', error);
     }
-  }, [verifyAndRefreshToken]);
-
-  /**
-   * 미확인 리그 결과 확인
-   *
-   * 앱 첫 진입 시 리그 결과가 있으면 결과 화면으로 바로 이동하기 위해
-   * 미리 확인하여 상태에 저장해둠
-   *
-   * Race Condition 방지: startCheck()가 false를 반환하면 이미 확인 중이므로 스킵
-   */
-  const checkUncheckedLeagueResult = async () => {
-    // 이미 확인 중이거나 완료된 경우 스킵 (Race Condition 방지)
-    if (!startCheck()) {
-      console.log('🏆 [AuthProvider] 리그 결과 확인 스킵 (이미 진행 중)');
-      return;
-    }
-
-    try {
-      console.log('🏆 [AuthProvider] 미확인 리그 결과 확인 중...');
-      const uncheckedResult = await leagueService.getUncheckedResult();
-
-      if (uncheckedResult) {
-        console.log('🏆 [AuthProvider] 미확인 리그 결과 발견:', uncheckedResult.resultStatus);
-      } else {
-        console.log('🏆 [AuthProvider] 미확인 리그 결과 없음');
-      }
-
-      setChecked(uncheckedResult);
-    } catch (error) {
-      console.log('⚠️ [AuthProvider] 리그 결과 확인 실패 (무시):', error);
-      // 리그 미참가 또는 네트워크 오류 시 무시하고 계속 진행
-      setChecked(null);
-    }
-  };
-
-  /**
-   * 오프라인 러닝 데이터 동기화
-   *
-   * 현재: 앱 시작 시 자동 동기화 (Option 1)
-   * TODO: 네트워크 상태 감지 후 즉시 동기화로 업그레이드 (Option 2)
-   * - @react-native-community/netinfo 설치
-   * - NetInfo.addEventListener('connectionChange', syncOfflineRunningData)
-   * - 실시간 네트워크 복구 감지 및 자동 업로드
-   */
-  const syncOfflineRunningData = async () => {
-    try {
-      const { offlineStorageService } = await import('../features/running/services/OfflineStorageService');
-      const { runningService } = await import('../features/running/services/runningService');
-
-      const pendingCount = await offlineStorageService.getPendingCount();
-      const pendingSegmentCount = await offlineStorageService.getPendingSegmentCount();
-
-      if (pendingCount === 0 && pendingSegmentCount === 0) {
-        console.log('⚪ [AuthProvider] 동기화할 오프라인 데이터 없음');
-        return;
-      }
-
-      // 1. 러닝 메인 기록 동기화
-      if (pendingCount > 0) {
-        console.log(`🔄 [AuthProvider] ${pendingCount}개의 오프라인 러닝 데이터 동기화 시작...`);
-
-        const result = await offlineStorageService.retryAllPendingUploads(
-          async (record) => {
-            await runningService.endRunning(record);
-          }
-        );
-
-        console.log(`✅ [AuthProvider] 오프라인 동기화 완료: 성공 ${result.success}, 실패 ${result.failed}`);
-
-        if (result.failed > 0) {
-          console.warn(`⚠️ [AuthProvider] ${result.failed}개의 데이터 동기화 실패 (재시도 대기 중)`);
-        }
-      }
-
-      // 2. 세그먼트 동기화
-      if (pendingSegmentCount > 0) {
-        console.log(`🔄 [AuthProvider] ${pendingSegmentCount}개의 오프라인 세그먼트 동기화 시작...`);
-
-        const segmentResult = await offlineStorageService.retryAllPendingSegmentUploads(
-          async (runningRecordId, segments) => {
-            const itemsForServer = segments.map(segment => ({
-              distance: segment.distance,
-              durationSec: segment.durationSec,
-              cadence: segment.cadence,
-              heartRate: segment.heartRate,
-              minHeartRate: segment.heartRate,
-              maxHeartRate: segment.heartRate,
-              orderIndex: segment.orderIndex,
-              startTimeStamp: segment.startTimestamp,
-              endTimeStamp: segment.startTimestamp + segment.durationSec,
-            }));
-
-            await runningService.saveRunningRecordItems({
-              runningRecordId,
-              items: itemsForServer,
-            });
-          }
-        );
-
-        console.log(`✅ [AuthProvider] 세그먼트 동기화 완료: 성공 ${segmentResult.success}, 실패 ${segmentResult.failed}`);
-
-        if (segmentResult.failed > 0) {
-          console.warn(`⚠️ [AuthProvider] ${segmentResult.failed}개의 세그먼트 동기화 실패 (재시도 대기 중)`);
-        }
-      }
-    } catch (error) {
-      console.error('❌ [AuthProvider] 오프라인 데이터 동기화 실패:', error);
-    }
-  };
+  }, [verifyAndRefreshToken, syncOfflineData, checkUncheckedLeagueResult, skipLeagueCheck]);
 
   useEffect(() => {
-    console.log('🔐 [AuthProvider] 인증 상태 초기화 시작');
-    initializeAuthState();
-
-    // 네비게이션 준비 완료 표시 (Root Layout 마운트 대기)
-    const timer = setTimeout(() => {
+    const init = async () => {
+      console.log('🔐 [AuthProvider] 인증 상태 초기화 시작');
+      await initializeAuthState();
+      // 토큰 초기화 완료 후 네비게이션 준비 완료 표시
+      // 기존 100ms setTimeout 제거 → Race Condition 방지
       setIsNavigationReady(true);
-    }, 100);
-
-    return () => clearTimeout(timer);
+    };
+    init();
   }, [initializeAuthState]);
 
   /**
@@ -266,12 +155,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         router.replace('/(tabs)/running');
         console.log('✅ [AuthProvider] 네비게이션 성공: /(tabs)');
 
-        // iOS와 동일한 권한 요청 (로그인 완료 후 한 번만)
-        // hasRequestedPermissions는 의존성 배열에서 제외하여 무한 루프 방지
-        if (!hasRequestedPermissions) {
-          requestPermissionsOnFirstLogin();
-          setHasRequestedPermissions(true);
-        }
+        // iOS와 동일한 권한 요청 (로그인 완료 후 한 번만, Hook 내부에서 중복 방지)
+        requestPermissionsOnFirstLogin();
       } else {
         console.log('❌ [AuthProvider] 로그아웃 상태 - 로그인 화면으로 이동');
         router.replace('/auth/login');
@@ -285,47 +170,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }, 500);
     }
   }, [isLoggedIn, accessToken, isNavigationReady, checkStatus, setViewState]);
-
-  /**
-   * 로그인 완료 후 권한 요청 (v3.0 PermissionManager 사용)
-   *
-   * v3.0 개선 사항:
-   * - 단순화된 권한 관리 (복잡도 80% 감소)
-   * - 최초 요청 여부 추적 (AsyncStorage)
-   * - 로그인 직후 바로 권한 요청 (모달 없이)
-   * - 순서: Location(Foreground) → Location(Background) → Motion/Fitness
-   * - 이미 권한이 있으면 재요청 안함
-   */
-  const requestPermissionsOnFirstLogin = async () => {
-    try {
-      console.log('🔐 [AuthProvider] 로그인 후 권한 확인 시작');
-
-      // v3.0 PermissionManager 사용
-      const { permissionManager } = await import('../services/PermissionManager');
-
-      // 1. 최초 권한 요청 완료 여부 확인
-      const hasCompleted = await permissionManager.hasCompletedInitialRequest();
-
-      if (hasCompleted) {
-        console.log('✅ [AuthProvider] 권한 요청 이미 완료됨 (설정에서 변경 가능)');
-        return;
-      }
-
-      // 2. 권한 직접 요청 (모달 없이)
-      console.log('📋 [AuthProvider] 권한 직접 요청 시작...');
-      const result = await permissionManager.requestAllPermissions();
-
-      if (result.success) {
-        console.log('✅ [AuthProvider] 모든 권한 허용됨');
-      } else {
-        console.warn('⚠️ [AuthProvider] 일부 권한 거부됨:', result.granted);
-        console.log('💡 [AuthProvider] 러닝 시작 버튼 클릭시 설정으로 이동 가능');
-      }
-    } catch (error) {
-      console.error('⚠️ [AuthProvider] 권한 확인 실패:', error);
-    }
-  };
-
 
   return <>{children}</>;
 };

@@ -142,13 +142,25 @@ export function usePurchaseItems(): UseMutationResult<
     mutationFn: (request: PurchaseItemsRequest) =>
       avatarService.purchaseItems(request),
     onSuccess: async () => {
-      // 서버에서 최신 포인트 조회하여 전역 상태 동기화
-      try {
-        const { point } = await pointService.getUserPoint();
-        setTotalPoint(point);
-        console.log(`💰 [usePurchaseItems] 포인트 동기화: ${point}`);
-      } catch (error) {
-        console.error('❌ [usePurchaseItems] 포인트 동기화 실패:', error);
+      // 포인트 동기화 (재시도 로직: 실패 시 최대 3회 재시도)
+      const MAX_RETRIES = 3;
+      const RETRY_DELAY_MS = 1000;
+
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          const { point } = await pointService.getUserPoint();
+          setTotalPoint(point);
+          console.log(`💰 [usePurchaseItems] 포인트 동기화 성공: ${point}`);
+          break; // 성공 시 루프 종료
+        } catch (error) {
+          console.warn(`⚠️ [usePurchaseItems] 포인트 동기화 실패 (${attempt}/${MAX_RETRIES}):`, error);
+          if (attempt === MAX_RETRIES) {
+            console.error('❌ [usePurchaseItems] 포인트 동기화 최종 실패 - 새로고침 필요');
+            // TODO: Toast 연동 후 사용자 알림 추가
+          } else {
+            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+          }
+        }
       }
 
       // 모든 아이템 목록 캐시 무효화

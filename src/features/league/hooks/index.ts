@@ -3,3 +3,4 @@
  */
 
 export { useLeagueResultAnimation } from './useLeagueResultAnimation';
+export { useLeagueCheck } from './useLeagueCheck';

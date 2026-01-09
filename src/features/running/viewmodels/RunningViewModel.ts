@@ -181,27 +181,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
   }, [resetLifecycle, resetGpsTracking]);
 
   // ============================================
-  // Additional Actions (기존 API 호환)
-  // ============================================
-
-  /**
-   * 거리 업데이트 (GPS 트래킹)
-   */
-  const updateDistance = useCallback((newDistance: number) => {
-    // GPS hook에서 직접 관리하므로 현재는 no-op
-    console.log('[useRunningViewModel] updateDistance called:', newDistance);
-  }, []);
-
-  /**
-   * 위치 추가
-   */
-  const addLocation = useCallback((location: Location) => {
-    // GPS hook에서 직접 관리하므로 현재는 no-op
-    console.log('[useRunningViewModel] addLocation called');
-  }, []);
-
-  // ============================================
-  // Return (기존 API 100% 호환)
+  // Return
   // ============================================
   return {
     // State
@@ -225,8 +205,6 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     resumeRunning,
     endRunning,
     updateCurrentRecord,
-    updateDistance,
-    addLocation,
     resetRunning,
     setUseBackgroundMode,
 

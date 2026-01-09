@@ -1,3 +1,5 @@
+import { calculateHaversineDistance } from '~/shared/utils/DistanceUtils';
+
 /**
  * 위치 데이터 모델
  * Swift Location struct에서 마이그레이션
@@ -57,18 +59,12 @@ export const createLocationFromPosition = (position: {
  * 두 Location 간의 거리 계산 (Haversine formula)
  */
 export const calculateDistance = (loc1: Location, loc2: Location): number => {
-  const R = 6371e3; // Earth's radius in meters
-  const φ1 = (loc1.latitude * Math.PI) / 180;
-  const φ2 = (loc2.latitude * Math.PI) / 180;
-  const Δφ = ((loc2.latitude - loc1.latitude) * Math.PI) / 180;
-  const Δλ = ((loc2.longitude - loc1.longitude) * Math.PI) / 180;
-
-  const a =
-    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return R * c; // Distance in meters
+  return calculateHaversineDistance(
+    loc1.latitude,
+    loc1.longitude,
+    loc2.latitude,
+    loc2.longitude
+  );
 };
 
 /**
