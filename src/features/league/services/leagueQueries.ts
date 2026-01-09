@@ -55,9 +55,9 @@ export const useConfirmResult = () => {
   return useMutation({
     mutationFn: () => leagueService.confirmResult(),
     onSuccess: () => {
-      // 결과 확인 완료 시 결과 쿼리 무효화
-      queryClient.invalidateQueries({ queryKey: queryKeys.league.result });
-      // 현재 리그 정보도 리프레시
+      // 캐시를 즉시 null로 설정 (Race Condition 방지)
+      queryClient.setQueryData(queryKeys.league.result, null);
+      // 현재 리그 정보 리프레시
       queryClient.invalidateQueries({ queryKey: queryKeys.league.current });
     },
   });

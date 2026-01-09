@@ -1,20 +1,12 @@
-/**
- * LeagueResultDetailView
- * 리그 결과 상세 화면 (순위, 거리, 보상 포인트)
- *
- * 피그마: #리그_결과_상세
- */
-
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useMutation } from '@tanstack/react-query';
+import { router } from 'expo-router';
 import {
   type LeagueResult,
   LeagueResultStatus,
   formatDistance,
 } from '../models';
-import { leagueService } from '../services';
+import { useConfirmResult } from '../services';
 import { LeagueResultCharacterView, RankingSection } from './components';
 import { PRIMARY, GREY } from '~/shared/styles';
 
@@ -23,25 +15,24 @@ interface LeagueResultDetailViewProps {
 }
 
 export const LeagueResultDetailView = ({ result }: LeagueResultDetailViewProps) => {
-  const router = useRouter();
-
-  // 결과 확인 완료 API
-  const confirmMutation = useMutation({
-    mutationFn: leagueService.confirmResult,
-    onSuccess: () => {
-      // 메인 리그 화면으로 이동
-      router.replace('/(tabs)/league' as any);
-    },
-    onError: (error) => {
-      console.error('결과 확인 실패:', error);
-      // 에러가 나도 메인으로 이동
-      router.replace('/(tabs)/league' as any);
-    },
-  });
+  // 결과 확인 완료 API (캐시 무효화 포함)
+  const confirmMutation = useConfirmResult();
 
   // 확인 버튼 클릭
   const handleConfirm = () => {
-    confirmMutation.mutate();
+    confirmMutation.mutate(undefined, {
+      onSuccess: () => {
+        // /league 스택을 완전히 빠져나가기: 2번 back
+        router.back(); // result-detail → result
+        router.back(); // result → 탭(원래 위치)
+      },
+      onError: (error) => {
+        console.error('결과 확인 실패:', error);
+        // 에러가 나도 메인으로 이동
+        router.back();
+        router.back();
+      },
+    });
   };
 
   // 거리 포맷팅

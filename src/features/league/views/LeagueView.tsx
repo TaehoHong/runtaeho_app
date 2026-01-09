@@ -15,8 +15,8 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useLeagueViewModel } from '../viewmodels';
-import { useGetUncheckedResult } from '../services';
 import { useAppStore } from '~/stores/app/appStore';
+import { useLeagueCheckStore } from '~/stores';
 import { LeagueHeader } from './components/LeagueHeader';
 import { MyRankCard } from './components/MyRankCard';
 import { RankingSection } from './components/RankingSection';
@@ -31,24 +31,23 @@ export const LeagueView = () => {
   const previousLeagueRank = useAppStore((state) => state.previousLeagueRank);
   const setPreviousLeagueRank = useAppStore((state) => state.setPreviousLeagueRank);
 
-  // 미확인 결과 조회
-  const { data: uncheckedResult, isLoading: isCheckingResult } = useGetUncheckedResult({
-    enabled: !hasCheckedResult,
-  });
+  // 미확인 결과 (Single Point of Truth: AuthProvider에서 API 호출, Store에서 상태 참조)
+  const pendingResult = useLeagueCheckStore((state) => state.pendingResult);
+  const clearPendingResult = useLeagueCheckStore((state) => state.clearPendingResult);
 
   // 미확인 결과가 있으면 결과 화면으로 리다이렉트
   useEffect(() => {
-    if (!isCheckingResult && uncheckedResult && !hasCheckedResult) {
+    if (pendingResult && !hasCheckedResult) {
       setHasCheckedResult(true);
-      console.log('🏆 [LEAGUE_VIEW] 미확인 결과 발견, 결과 화면으로 이동');
       router.push({
         pathname: '/league/result' as const,
-        params: { resultData: JSON.stringify(uncheckedResult) },
+        params: { resultData: JSON.stringify(pendingResult) },
       } as any);
-    } else if (!isCheckingResult && !uncheckedResult) {
+      clearPendingResult();
+    } else if (!pendingResult && !hasCheckedResult) {
       setHasCheckedResult(true);
     }
-  }, [isCheckingResult, uncheckedResult, hasCheckedResult, router]);
+  }, [pendingResult, hasCheckedResult, router, clearPendingResult]);
 
   const {
     formattedData,
@@ -64,7 +63,6 @@ export const LeagueView = () => {
   // 탭 포커스 시 데이터 새로고침
   useFocusEffect(
     useCallback(() => {
-      console.log('🏆 [LEAGUE_VIEW] 탭 포커스 - 데이터 새로고침');
       handleRefresh();
     }, [handleRefresh])
   );
@@ -74,7 +72,6 @@ export const LeagueView = () => {
     if (formattedData?.myRank && previousLeagueRank !== null) {
       // 애니메이션 시간(1초) 후 초기화
       const timer = setTimeout(() => {
-        console.log('🏆 [LEAGUE_VIEW] 이전 순위 초기화');
         setPreviousLeagueRank(null);
       }, 1100);
 
@@ -84,20 +81,8 @@ export const LeagueView = () => {
 
   // 컨텐츠 렌더링 함수
   const renderContent = () => {
-    // 디버그 로그
-    console.log('🏆 [LEAGUE_VIEW] renderContent 상태:', {
-      isCheckingResult,
-      hasCheckedResult,
-      isLoading,
-      hasValidData,
-      hasError,
-      isNotJoined,
-      formattedData: formattedData ? 'exists' : 'null',
-      error: error?.message ?? 'none',
-    });
-
-    // 결과 체크 중이거나 로딩 상태
-    if ((isCheckingResult && !hasCheckedResult) || (isLoading && !hasValidData)) {
+    // 로딩 상태
+    if (isLoading && !hasValidData) {
       return (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={PRIMARY[600]} />

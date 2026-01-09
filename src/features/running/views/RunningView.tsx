@@ -7,10 +7,9 @@ import type { Item } from '~/features/avatar';
 import { UnityView } from '~/features/unity/components/UnityView';
 import { unityService } from '~/features/unity/services/UnityService';
 import { LoadingView } from '~/shared/components';
-import { ViewState, useAppStore } from '~/stores';
+import { ViewState, useAppStore, useLeagueCheckStore } from '~/stores';
 import { useAuthStore } from '~/features';
 import { useUserStore } from '~/stores/user/userStore';
-import { useGetUncheckedResult } from '~/features/league/services';
 import { RunningProvider } from '../contexts/RunningContext';
 import { RunningDebugView } from './RunningDebugView';
 import { ControlPanelView } from './components/ControlPanelView';
@@ -29,33 +28,31 @@ export const RunningView: React.FC = () => {
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const equippedItems = useUserStore((state) => state.equippedItems);
   const hairColor = useUserStore((state) => state.hairColor);
+
+  // 리그 결과 확인용 상태
+  const pendingResult = useLeagueCheckStore((state) => state.pendingResult);
+  const clearPendingResult = useLeagueCheckStore((state) => state.clearPendingResult);
+
   const [unityStarted, setUnityStarted] = useState(false);
   const [isUnityReady, setIsUnityReady] = useState(false);
   const [isDebugVisible, setIsDebugVisible] = useState(false);
-  const [hasCheckedLeagueResult, setHasCheckedLeagueResult] = useState(false);
   const isInitialMount = useRef(true);
   const hasInitializedAvatar = useRef(false);
 
   console.log('🏃 [RunningView] 렌더링, viewState:', viewState, 'runningState:', runningState, 'isLoggedIn:', isLoggedIn, 'isUnityReady:', isUnityReady);
 
-  // 미확인 리그 결과 조회
-  const { data: uncheckedLeagueResult, isLoading: isCheckingLeagueResult } = useGetUncheckedResult({
-    enabled: isLoggedIn && !hasCheckedLeagueResult,
-  });
-
-  // 미확인 리그 결과가 있으면 결과 화면으로 리다이렉트
+  // 리그 결과 확인 - pendingResult가 있으면 결과 화면으로 이동
+  // 정책: 러닝탭 진입 시 결과 확인 화면 표시 → 확인 후 러닝탭으로 복귀
   useEffect(() => {
-    if (!isCheckingLeagueResult && uncheckedLeagueResult && !hasCheckedLeagueResult) {
-      setHasCheckedLeagueResult(true);
-      console.log('🏃 [RunningView] 미확인 리그 결과 발견, 결과 화면으로 이동');
+    if (pendingResult) {
+      console.log('🏆 [RunningView] 미확인 리그 결과 있음 → 결과 화면으로 이동');
       router.push({
         pathname: '/league/result' as const,
-        params: { resultData: JSON.stringify(uncheckedLeagueResult) },
+        params: { resultData: JSON.stringify(pendingResult) },
       } as any);
-    } else if (!isCheckingLeagueResult && !uncheckedLeagueResult) {
-      setHasCheckedLeagueResult(true);
+      clearPendingResult();
     }
-  }, [isCheckingLeagueResult, uncheckedLeagueResult, hasCheckedLeagueResult, router]);
+  }, [pendingResult, router, clearPendingResult]);
 
   useEffect(() => {
     console.log('🔄 [RunningView] 컴포넌트 마운트');
@@ -94,7 +91,6 @@ export const RunningView: React.FC = () => {
 
       console.log('🔄 [RunningView] 화면 포커스 - 아바타 동기화');
 
-      // onReady는 Push + Pull 패턴으로 안전하게 처리
       const unsubscribe = unityService.onReady(async () => {
         try {
           const items = Object.values(equippedItems).filter((item): item is Item => !!item);

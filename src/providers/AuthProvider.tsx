@@ -2,10 +2,9 @@ import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from '../features/auth/hooks/useAuth';
 import { useAuthStore } from '../features/auth/stores/authStore';
-import { ViewState, useAppStore } from '../stores/app/appStore';
+import { ViewState, useAppStore, useLeagueCheckStore } from '../stores';
 import { isAgreedOnTermsFromToken } from '~/features/auth/utils/jwtUtils';
 import { leagueService } from '../features/league/services/leagueService';
-import type { LeagueResult } from '../features/league/models';
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -26,8 +25,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const { verifyAndRefreshToken } = useAuth();
   const [hasRequestedPermissions, setHasRequestedPermissions] = useState(false);
   const [isNavigationReady, setIsNavigationReady] = useState(false);
-  const [hasCheckedLeagueResult, setHasCheckedLeagueResult] = useState(false);
-  const [pendingLeagueResult, setPendingLeagueResult] = useState<LeagueResult | null>(null);
+
+  // 리그 결과 확인 상태 (Zustand Store)
+  // 주의: pendingResult와 clearPendingResult는 의존성 재트리거 방지를 위해 getState()로 직접 접근
+  const checkStatus = useLeagueCheckStore((state) => state.checkStatus);
+  const startCheck = useLeagueCheckStore((state) => state.startCheck);
+  const setChecked = useLeagueCheckStore((state) => state.setChecked);
 
   /**
    * 앱 시작 시 저장된 인증 상태 복원 및 오프라인 데이터 동기화
@@ -56,8 +59,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // 4. 미확인 리그 결과 확인 (앱 첫 진입 시 결과 화면 표시용)
         await checkUncheckedLeagueResult();
       } else {
-        // 로그인 안 된 상태면 리그 결과 확인 스킵
-        setHasCheckedLeagueResult(true);
+        // 로그인 안 된 상태면 리그 결과 확인 스킵 (checked 상태로 설정)
+        setChecked(null);
       }
 
       console.log('✅ [AuthProvider] 인증 상태 복원 완료');
@@ -71,24 +74,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
    *
    * 앱 첫 진입 시 리그 결과가 있으면 결과 화면으로 바로 이동하기 위해
    * 미리 확인하여 상태에 저장해둠
+   *
+   * Race Condition 방지: startCheck()가 false를 반환하면 이미 확인 중이므로 스킵
    */
   const checkUncheckedLeagueResult = async () => {
+    // 이미 확인 중이거나 완료된 경우 스킵 (Race Condition 방지)
+    if (!startCheck()) {
+      console.log('🏆 [AuthProvider] 리그 결과 확인 스킵 (이미 진행 중)');
+      return;
+    }
+
     try {
       console.log('🏆 [AuthProvider] 미확인 리그 결과 확인 중...');
       const uncheckedResult = await leagueService.getUncheckedResult();
 
       if (uncheckedResult) {
         console.log('🏆 [AuthProvider] 미확인 리그 결과 발견:', uncheckedResult.resultStatus);
-        setPendingLeagueResult(uncheckedResult);
       } else {
         console.log('🏆 [AuthProvider] 미확인 리그 결과 없음');
       }
 
-      setHasCheckedLeagueResult(true);
+      setChecked(uncheckedResult);
     } catch (error) {
       console.log('⚠️ [AuthProvider] 리그 결과 확인 실패 (무시):', error);
       // 리그 미참가 또는 네트워크 오류 시 무시하고 계속 진행
-      setHasCheckedLeagueResult(true);
+      setChecked(null);
     }
   };
 
@@ -186,14 +196,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const checkLeagueResultOnLogin = async () => {
       // 로그인 상태이고 아직 리그 결과를 확인하지 않았으면 확인
-      if (isLoggedIn && !hasCheckedLeagueResult) {
+      if (isLoggedIn && checkStatus === 'idle') {
         console.log('🏆 [AuthProvider] 로그인 상태 변경 감지 → 리그 결과 확인');
         await checkUncheckedLeagueResult();
       }
     };
 
     checkLeagueResultOnLogin();
-  }, [isLoggedIn, hasCheckedLeagueResult]);
+  }, [isLoggedIn, checkStatus]);
 
   /**
    * 인증 상태에 따른 네비게이션 제어
@@ -202,8 +212,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
    * - isLoggedIn: 로그인 여부
    * - accessToken: 토큰 변경 감지 (약관 동의 후 토큰 재발행 시 필수)
    * - isNavigationReady: 네비게이션 준비 완료 여부
-   * - hasCheckedLeagueResult: 리그 결과 확인 완료 여부
-   * - pendingLeagueResult: 미확인 리그 결과
+   * - checkStatus: 리그 결과 확인 상태 (idle/checking/checked)
+   * - pendingResult: 미확인 리그 결과
    *
    * 플로우:
    * 1. 로그인 → isLoggedIn=true, 약관 미동의 토큰 → /auth/terms-agreement
@@ -213,7 +223,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
    * 5. 미확인 리그 결과 없으면 → /(tabs)/running
    */
   useEffect(() => {
-    console.log('🔄 [AuthProvider] useEffect 실행 - isLoggedIn:', isLoggedIn, 'hasToken:', !!accessToken, 'isNavigationReady:', isNavigationReady, 'hasCheckedLeagueResult:', hasCheckedLeagueResult);
+    console.log('🔄 [AuthProvider] useEffect 실행 - isLoggedIn:', isLoggedIn, 'hasToken:', !!accessToken, 'isNavigationReady:', isNavigationReady, 'checkStatus:', checkStatus);
 
     // 네비게이션이 준비되지 않았으면 대기
     if (!isNavigationReady) {
@@ -241,28 +251,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
 
         // 리그 결과 확인이 완료될 때까지 대기
-        if (!hasCheckedLeagueResult) {
-          console.log('⏳ [AuthProvider] 리그 결과 확인 대기 중...');
+        if (checkStatus !== 'checked') {
+          console.log('⏳ [AuthProvider] 리그 결과 확인 대기 중... (checkStatus:', checkStatus, ')');
           return;
         }
 
         // ViewState를 Loaded로 설정하여 탭바 표시 보장
         setViewState(ViewState.Loaded);
 
-        // 미확인 리그 결과가 있으면 결과 화면으로 먼저 이동
-        if (pendingLeagueResult) {
-          console.log('🏆 [AuthProvider] 미확인 리그 결과 있음 → 결과 화면으로 이동');
-          router.replace({
-            pathname: '/league/result' as const,
-            params: { resultData: JSON.stringify(pendingLeagueResult) },
-          } as any);
-          // 한 번 이동 후 상태 초기화 (중복 이동 방지)
-          setPendingLeagueResult(null);
-        } else {
-          console.log('✅ [AuthProvider] 로그인 상태 - 메인 화면으로 이동');
-          router.replace('/(tabs)/running');
-          console.log('✅ [AuthProvider] 네비게이션 성공: /(tabs)');
-        }
+        // 미확인 리그 결과가 있어도 러닝 탭으로 이동
+        // RunningView/LeagueView에서 pendingResult 감지하여 결과 화면으로 push
+        // 이렇게 하면 back 스택에 탭이 유지되어 확인 후 해당 탭으로 정상 복귀
+        console.log('✅ [AuthProvider] 로그인 상태 - 메인 화면으로 이동');
+        router.replace('/(tabs)/running');
+        console.log('✅ [AuthProvider] 네비게이션 성공: /(tabs)');
 
         // iOS와 동일한 권한 요청 (로그인 완료 후 한 번만)
         // hasRequestedPermissions는 의존성 배열에서 제외하여 무한 루프 방지
@@ -282,7 +284,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setTimeout(() => setIsNavigationReady(true), 200);
       }, 500);
     }
-  }, [isLoggedIn, accessToken, isNavigationReady, hasCheckedLeagueResult, pendingLeagueResult, setViewState]);
+  }, [isLoggedIn, accessToken, isNavigationReady, checkStatus, setViewState]);
 
   /**
    * 로그인 완료 후 권한 요청 (v3.0 PermissionManager 사용)

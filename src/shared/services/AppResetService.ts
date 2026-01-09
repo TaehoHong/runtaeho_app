@@ -14,6 +14,7 @@ import { useAuthStore } from '~/features/auth/stores/authStore';
 import { useUserStore } from '~/stores/user/userStore';
 import { useUnityStore } from '~/stores/unity/unityStore';
 import { useTermsStore } from '~/features/terms/stores/termsStore';
+import { useLeagueCheckStore } from '~/stores/league/leagueCheckStore';
 import { clearUserContext } from '~/config/sentry';
 
 /**
@@ -35,6 +36,7 @@ const resetAllStores = (): void => {
   useUserStore.getState().logout();
   useUnityStore.getState().resetUnityState();
   useTermsStore.getState().reset();
+  useLeagueCheckStore.getState().reset();
 
   console.log('✅ [AppReset] Zustand 스토어 초기화 완료');
 };

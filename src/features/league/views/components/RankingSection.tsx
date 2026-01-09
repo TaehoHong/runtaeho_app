@@ -103,13 +103,12 @@ export const RankingSection = ({
     highestMeasuredFrameIndex: number;
     averageItemLength: number;
   }) => {
-    console.log('🏆 [RankingSection] scrollToIndex failed:', info);
     // 약간의 딜레이 후 재시도
     setTimeout(() => {
       flatListRef.current?.scrollToIndex({
         index: info.index,
         animated: false,
-        viewPosition: 0.5, // 중앙 배치
+        viewPosition: 0.5,
       });
     }, 100);
   }, []);
@@ -131,8 +130,6 @@ export const RankingSection = ({
     myAnimatedY.setValue(0);
     myAnimatedScale.setValue(1);
     displacedAnimations.forEach(anim => anim.setValue(0));
-
-    console.log(`🏆 [RankingSection] 연속 밀어내기 애니메이션 시작: ${effectiveStartRank}위 → ${myCurrentRank}위 (${totalSteps}칸)`);
 
     // 각 스텝당 시간 (전체 시간을 스텝 수로 나눔)
     const stepDuration = TOTAL_ANIMATION_DURATION / totalSteps;
@@ -187,7 +184,6 @@ export const RankingSection = ({
       ]),
       scaleDownAnimation,
     ]).start(() => {
-      console.log(`🏆 [RankingSection] 애니메이션 완료`);
       setIsAnimating(false);
       setDisplayOrder([...participants]);
     });
@@ -339,8 +335,6 @@ function createInitialOrder(
       }
     }
   }
-
-  console.log(`🏆 [createInitialOrder] 결과:`, result.map((p, idx) => `${idx + 1}: ${p.isMe ? '나' : p.nickname ?? '익명'}`).join(', '));
 
   return result;
 }
