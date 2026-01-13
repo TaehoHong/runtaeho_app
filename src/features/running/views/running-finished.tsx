@@ -68,17 +68,16 @@ export const RunningFinishedView: React.FC = () => {
       setIsUpdating(true);
 
       // 선택된 신발이 있으면 runningRecord 업데이트
-      if (selectedShoeId !== null && currentRecord) {
-        console.log(`👟 [RunningFinishedView] 선택된 신발 ID: ${selectedShoeId}로 업데이트 중...`);
+      console.log(`👟 [RunningFinishedView] 선택된 신발 ID: ${selectedShoeId}로 업데이트 중...`);
 
-        const updatedRecord: RunningRecord = {
-          ...currentRecord,
-          shoeId: selectedShoeId,
-        };
+      const newShoeId = selectedShoeId ?? currentRecord.shoeId;
+      const updatedRecord: RunningRecord = {
+        ...currentRecord,
+        ...(newShoeId != null && { shoeId: newShoeId }),
+      };
 
-        await runningService.updateRunningRecord(updatedRecord);
-        console.log('✅ [RunningFinishedView] 신발 정보 업데이트 완료');
-      }
+      await runningService.updateRunningRecord(updatedRecord);
+      console.log('✅ [RunningFinishedView] 신발 정보 업데이트 완료');
 
       // 리그 거리 업데이트 (순위 애니메이션을 위한 처리)
       try {
@@ -165,7 +164,7 @@ export const RunningFinishedView: React.FC = () => {
           <AddShoeCard />
         )}
 
-        {/* 완료 버튼 - iOS의 [저장] */}
+        {/* 완료 버튼 */}
         <CompleteButton
           onPress={handleComplete}
           disabled={isUpdating}

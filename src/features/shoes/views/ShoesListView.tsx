@@ -774,13 +774,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   modalButton: {
-    flexDirection: "row",
-    width: 292,
+    flex: 1,
     alignItems: "center",
     borderRadius: 8,
     backgroundColor: PRIMARY[600],
     justifyContent: "center",
-    paddingHorizontal: 40,
+    paddingHorizontal: 16,
     paddingVertical: 14
   },
   modalButtonCancel: {

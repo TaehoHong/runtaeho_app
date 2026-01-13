@@ -244,7 +244,7 @@ export const RunningView: React.FC = () => {
         {/* <View style={styles.verticalGuide}/> */}
 
         {/* DEBUG 토글 버튼 및 오버레이 (개발 모드에서만) */}
-        {__DEV__ && (
+        {/* {__DEV__ && (
           <>
             <TouchableOpacity
               style={styles.debugToggleButton}
@@ -263,7 +263,7 @@ export const RunningView: React.FC = () => {
               </View>
             )}
           </>
-        )}
+        )} */}
 
         {/* 컴트롤 패널 - Finished 상태일 때는 전체 화면 사용 */}
         <View style={styles.controlPanelContainer}>

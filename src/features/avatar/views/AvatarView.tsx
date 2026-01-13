@@ -45,7 +45,7 @@ export const AvatarView: React.FC<AvatarViewProps> = ({ onClose }) => {
       {/* Header */}
       <AvatarHeader onClose={handleClose} points={viewModel.totalPoint} />
       {/* Unity Character Preview */}
-      <AvatarPreview equippedItems={viewModel.previewItems} />
+      <AvatarPreview equippedItems={viewModel.previewItems} hairColor={viewModel.pendingHairColor} />
 
       <ScrollView
         style={styles.scrollView}

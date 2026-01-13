@@ -302,6 +302,7 @@ export function useAvatarViewModel(): AvatarViewModel {
 
   /**
    * 헤어 색상 선택
+   * Unity 동기화는 AvatarPreview에서 처리 (SPOT 원칙)
    */
   const selectHairColor = useCallback(
     (color: HairColor) => {
@@ -310,22 +311,19 @@ export function useAvatarViewModel(): AvatarViewModel {
         return;
       }
 
-      // Pending 상태 업데이트
+      // Pending 상태 업데이트 - Unity 동기화는 AvatarPreview에서 처리
       setPendingHairColor(color.hex);
-
-      // Unity 프리뷰 즉시 업데이트 (현재 장착된 아이템과 함께)
-      const items = Object.values(pendingEquippedItems).filter((item): item is Item => !!item);
-      unityService.changeAvatar(items, color.hex);
 
       if (__DEV__) {
         console.log(`🎨 [AvatarViewModel] Hair color selected: ${color.name} (${color.hex})`);
       }
     },
-    [pendingHairColor, pendingEquippedItems]
+    [pendingHairColor]
   );
 
   /**
    * 아이템 선택
+   * Unity 동기화는 AvatarPreview에서 처리 (SPOT 원칙)
    */
   const selectItem = useCallback(
     (item: Item) => {
@@ -334,16 +332,13 @@ export function useAvatarViewModel(): AvatarViewModel {
         return;
       }
 
-      // Unity 프리뷰 즉시 업데이트 (헤어 색상 포함)
-      unityService.changeAvatar([item], pendingHairColor);
-
-      // Pending 상태 업데이트 (Record 불변 업데이트)
+      // Pending 상태 업데이트 - Unity 동기화는 AvatarPreview에서 처리
       setPendingEquippedItems((prev) => ({
         ...prev,
         [item.itemType.id]: item,
       }));
     },
-    [pendingEquippedItems, pendingHairColor]
+    [pendingEquippedItems]
   );
 
   /**
