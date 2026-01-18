@@ -5,21 +5,185 @@ import com.facebook.react.bridge.*
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import org.json.JSONArray
 import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.*
 
 /**
  * React Native Unity Bridge Module
  * React Native와 Unity 간의 통신을 담당하는 네이티브 모듈
  * iOS의 RNUnityBridge.swift와 동일한 기능 제공
+ *
+ * Architecture: Push + Pull Pattern
+ * - Push: 이벤트 발생 시 즉시 알림 (리스너 있을 때)
+ * - Pull: 언제든 현재 상태 조회 가능
+ * - Buffer: 리스너 없을 때 이벤트 보관 후 나중에 발송
  */
 class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
-    ReactContextBaseJavaModule(reactContext) {
+    ReactContextBaseJavaModule(reactContext),
+    LifecycleEventListener {
 
     companion object {
         private const val TAG = "RNUnityBridge"
         const val MODULE_NAME = "RNUnityBridge"
+
+        // Event names
+        private const val EVENT_ON_UNITY_ERROR = "onUnityError"
+        private const val EVENT_ON_CHARACTOR_READY = "onCharactorReady"
+    }
+
+    // MARK: - State
+
+    /** 리스너 등록 여부 */
+    @Volatile
+    private var hasListeners: Boolean = false
+
+    /** 리스너 등록 전 대기 중인 이벤트들 */
+    private val pendingEvents = mutableListOf<WritableMap>()
+
+    /** 동기화 락 */
+    private val eventsLock = Any()
+
+    init {
+        // Lifecycle 리스너 등록
+        reactContext.addLifecycleEventListener(this)
+
+        // UnityHolder에 콜백 리스너 등록
+        UnityHolder.onCharactorReadyListener = {
+            handleCharactorReady()
+        }
+
+        Log.d(TAG, "RNUnityBridgeModule initialized")
     }
 
     override fun getName(): String = MODULE_NAME
+
+    // MARK: - React Native Event Emitter
+
+    /**
+     * 지원하는 이벤트 목록 반환
+     * RCTEventEmitter 패턴에 필요
+     */
+    private fun getSupportedEvents(): List<String> {
+        return listOf(EVENT_ON_UNITY_ERROR, EVENT_ON_CHARACTOR_READY)
+    }
+
+    /**
+     * 리스너 등록 시 호출됨 (JS에서 addListener 호출 시)
+     * iOS의 startObserving()과 동일
+     */
+    @ReactMethod
+    fun addListener(eventName: String) {
+        Log.d(TAG, "addListener: $eventName")
+
+        if (!hasListeners) {
+            hasListeners = true
+            Log.d(TAG, "Listeners started, pending events: ${pendingEvents.size}")
+
+            // 대기 중인 이벤트 발송
+            flushPendingEvents()
+        }
+    }
+
+    /**
+     * 리스너 해제 시 호출됨 (JS에서 removeListeners 호출 시)
+     * iOS의 stopObserving()과 동일
+     */
+    @ReactMethod
+    fun removeListeners(count: Int) {
+        Log.d(TAG, "removeListeners: $count")
+
+        // 모든 리스너가 제거되면 hasListeners를 false로 설정
+        if (count == 0) {
+            hasListeners = false
+            Log.d(TAG, "Listeners stopped")
+        }
+    }
+
+    // MARK: - Event Handling
+
+    /**
+     * Charactor Ready 이벤트 처리
+     * UnityHolder에서 콜백으로 호출됨
+     */
+    private fun handleCharactorReady() {
+        Log.d(TAG, "handleCharactorReady() called")
+
+        val eventBody = Arguments.createMap().apply {
+            putBoolean("ready", true)
+            putString("timestamp", getISO8601Timestamp())
+        }
+
+        synchronized(eventsLock) {
+            if (hasListeners) {
+                Log.d(TAG, "Sending onCharactorReady event immediately")
+                sendEvent(EVENT_ON_CHARACTOR_READY, eventBody)
+            } else {
+                Log.d(TAG, "Buffering onCharactorReady event (no listeners)")
+                pendingEvents.add(eventBody)
+            }
+        }
+    }
+
+    /**
+     * 대기 중인 이벤트 발송
+     */
+    private fun flushPendingEvents() {
+        synchronized(eventsLock) {
+            if (pendingEvents.isEmpty()) return
+
+            Log.d(TAG, "Flushing ${pendingEvents.size} pending events")
+
+            pendingEvents.forEach { event ->
+                Log.d(TAG, "Flushing buffered event")
+                sendEvent(EVENT_ON_CHARACTOR_READY, event)
+            }
+
+            pendingEvents.clear()
+        }
+    }
+
+    // MARK: - State Query (Pull Pattern)
+
+    /**
+     * Charactor Ready 상태 조회
+     * iOS의 isCharactorReady와 동일
+     *
+     * @param promise React Native Promise
+     */
+    @ReactMethod
+    fun isCharactorReady(promise: Promise) {
+        val isReady = UnityHolder.isCharactorReady
+        Log.d(TAG, "isCharactorReady: $isReady")
+        promise.resolve(isReady)
+    }
+
+    /**
+     * Ready 상태 리셋
+     * iOS의 resetCharactorReady와 동일
+     *
+     * @param promise React Native Promise
+     */
+    @ReactMethod
+    fun resetCharactorReady(promise: Promise) {
+        Log.d(TAG, "resetCharactorReady()")
+
+        try {
+            // 상태 리셋
+            UnityHolder.resetCharactorReady()
+
+            // 대기 중인 이벤트 클리어
+            synchronized(eventsLock) {
+                pendingEvents.clear()
+            }
+
+            promise.resolve(null)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error resetting charactor ready: ${e.message}", e)
+            promise.reject("RESET_ERROR", "Failed to reset charactor ready state", e)
+        }
+    }
+
+    // MARK: - Unity Message Methods
 
     /**
      * Unity에 일반 메시지 전송 (순수 브리지)
@@ -87,6 +251,26 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
             sendErrorEvent("JSON_CONVERSION_ERROR", "Failed to convert data to JSON", e.message ?: "Unknown error")
         }
     }
+
+    // MARK: - Lifecycle Event Listener
+
+    override fun onHostResume() {
+        Log.d(TAG, "onHostResume()")
+        UnityHolder.onResume()
+    }
+
+    override fun onHostPause() {
+        Log.d(TAG, "onHostPause()")
+        UnityHolder.onPause()
+    }
+
+    override fun onHostDestroy() {
+        Log.d(TAG, "onHostDestroy()")
+        // 리스너 정리
+        UnityHolder.onCharactorReadyListener = null
+    }
+
+    // MARK: - Helper Methods
 
     /**
      * ReadableArray를 JSONArray로 변환
@@ -168,6 +352,15 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
             putString("message", message)
             putString("error", error)
         }
-        sendEvent("onUnityError", params)
+        sendEvent(EVENT_ON_UNITY_ERROR, params)
+    }
+
+    /**
+     * ISO 8601 형식의 현재 시간 문자열 반환
+     */
+    private fun getISO8601Timestamp(): String {
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
+        dateFormat.timeZone = TimeZone.getTimeZone("UTC")
+        return dateFormat.format(Date())
     }
 }

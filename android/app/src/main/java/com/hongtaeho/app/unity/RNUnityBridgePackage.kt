@@ -7,7 +7,7 @@ import com.facebook.react.uimanager.ViewManager
 
 /**
  * React Native Unity Bridge Package
- * RNUnityBridgeModule을 React Native에 등록하는 패키지
+ * RNUnityBridgeModule과 UnityViewManager를 React Native에 등록하는 패키지
  */
 class RNUnityBridgePackage : ReactPackage {
 
@@ -16,6 +16,6 @@ class RNUnityBridgePackage : ReactPackage {
     }
 
     override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> {
-        return emptyList()
+        return listOf(UnityViewManager(reactContext))
     }
 }

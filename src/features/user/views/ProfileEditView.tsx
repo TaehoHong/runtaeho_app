@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   ScrollView,
   StyleSheet,
@@ -17,7 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '~/features/auth/hooks/useAuth';
 import { Text } from '~/shared/components/typography';
-import { GREY, PRIMARY, RED } from '~/shared/styles';
+import { GREY, PRIMARY } from '~/shared/styles';
 import { userService } from '../services/userService';
 
 /**
@@ -67,7 +68,18 @@ export const ProfileEditView: React.FC = () => {
   const openCamera = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('권한 필요', '카메라 사용을 위해 권한이 필요합니다.');
+      if (!permission.canAskAgain) {
+        Alert.alert(
+          '권한 필요',
+          '카메라 권한이 거부되었습니다. 설정에서 권한을 허용해주세요.',
+          [
+            { text: '취소', style: 'cancel' },
+            { text: '설정으로 이동', onPress: () => Linking.openSettings() },
+          ]
+        );
+      } else {
+        Alert.alert('권한 필요', '카메라 사용을 위해 권한이 필요합니다.');
+      }
       return;
     }
 
@@ -88,7 +100,18 @@ export const ProfileEditView: React.FC = () => {
   const openGallery = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('권한 필요', '갤러리 접근을 위해 권한이 필요합니다.');
+      if (!permission.canAskAgain) {
+        Alert.alert(
+          '권한 필요',
+          '갤러리 권한이 거부되었습니다. 설정에서 권한을 허용해주세요.',
+          [
+            { text: '취소', style: 'cancel' },
+            { text: '설정으로 이동', onPress: () => Linking.openSettings() },
+          ]
+        );
+      } else {
+        Alert.alert('권한 필요', '갤러리 접근을 위해 권한이 필요합니다.');
+      }
       return;
     }
 
