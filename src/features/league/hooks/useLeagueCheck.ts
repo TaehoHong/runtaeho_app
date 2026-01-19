@@ -9,7 +9,8 @@
 
 import { useCallback } from 'react';
 import { useLeagueCheckStore } from '../../../stores';
-
+import { leagueService } from '../services/leagueService';
+      
 /**
  * 리그 결과 확인 Hook
  *
@@ -44,7 +45,6 @@ export const useLeagueCheck = () => {
     try {
       console.log('🏆 [useLeagueCheck] 미확인 리그 결과 확인 중...');
 
-      const { leagueService } = await import('../services/leagueService');
       const uncheckedResult = await leagueService.getUncheckedResult();
 
       if (uncheckedResult) {
