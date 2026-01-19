@@ -7,9 +7,10 @@ import type { Item } from '~/features/avatar';
 import { UnityView } from '~/features/unity/components/UnityView';
 import { unityService } from '~/features/unity/services/UnityService';
 import { LoadingView } from '~/shared/components';
-import { ViewState, useAppStore, useLeagueCheckStore } from '~/stores';
+import { ViewState, RunningState, useAppStore, useLeagueCheckStore } from '~/stores';
 import { useAuthStore } from '~/features';
 import { useUserStore } from '~/stores/user/userStore';
+import { useLeagueCheck } from '~/features/league/hooks/useLeagueCheck';
 import { RunningProvider } from '../contexts/RunningContext';
 import { RunningDebugView } from './RunningDebugView';
 import { ControlPanelView } from './components/ControlPanelView';
@@ -32,6 +33,7 @@ export const RunningView: React.FC = () => {
   // 리그 결과 확인용 상태
   const pendingResult = useLeagueCheckStore((state) => state.pendingResult);
   const clearPendingResult = useLeagueCheckStore((state) => state.clearPendingResult);
+  const { checkUncheckedLeagueResult } = useLeagueCheck();
 
   const [unityStarted, setUnityStarted] = useState(false);
   const [isUnityReady, setIsUnityReady] = useState(false);
@@ -41,9 +43,19 @@ export const RunningView: React.FC = () => {
 
   console.log('🏃 [RunningView] 렌더링, viewState:', viewState, 'runningState:', runningState, 'isLoggedIn:', isLoggedIn, 'isUnityReady:', isUnityReady);
 
-  // 리그 결과 확인 - pendingResult가 있으면 결과 화면으로 이동
-  // 정책: 러닝탭 진입 시 결과 확인 화면 표시 → 확인 후 러닝탭으로 복귀
+  /**
+   * 리그 결과 확인 - pendingResult가 있으면 결과 화면으로 이동
+   *
+   * 정책:
+   * - 러닝탭 진입 시 결과 확인 화면 표시 → 확인 후 러닝탭으로 복귀
+   * - 러닝 중이면 결과 화면 표시 안 함 (러닝 중단 방지)
+   */
   useEffect(() => {
+    // 러닝 중이면 결과 화면 표시 안 함
+    if (runningState !== RunningState.Stopped) {
+      return;
+    }
+
     if (pendingResult) {
       console.log('🏆 [RunningView] 미확인 리그 결과 있음 → 결과 화면으로 이동');
       router.push({
@@ -52,7 +64,7 @@ export const RunningView: React.FC = () => {
       } as any);
       clearPendingResult();
     }
-  }, [pendingResult, router, clearPendingResult]);
+  }, [pendingResult, runningState, router, clearPendingResult]);
 
   useEffect(() => {
     console.log('🔄 [RunningView] 컴포넌트 마운트');
@@ -77,18 +89,34 @@ export const RunningView: React.FC = () => {
   }, [viewState, isLoggedIn, unityStarted, setViewState]);
 
   /**
-   * 화면 포커스 시 Unity 캐릭터 동기화
+   * 화면 포커스 시 Unity 캐릭터 동기화 및 리그 결과 재확인
    * Tabs 네비게이션에서 다른 화면(아바타 등)에서 돌아올 때 호출됨
    */
   useFocusEffect(
     useCallback(() => {
-      // 최초 마운트 시에는 handleUnityReady에서 초기화하므로 스킵
+      // 최초 마운트 시에도 리그 결과 확인
       if (isInitialMount.current) {
-        console.log('🔄 [RunningView] 최초 포커스 - 스킵');
+        console.log('🔄 [RunningView] 최초 포커스 - 리그 결과 확인');
         isInitialMount.current = false;
+
+        // 최초 마운트 시 리그 결과 확인 (러닝 중이 아닐 때만)
+        if (runningState === RunningState.Stopped) {
+          useLeagueCheckStore.getState().allowRecheck();
+          checkUncheckedLeagueResult();
+        }
         return;
       }
 
+      // 러닝 중이면 리그 결과 재확인 스킵
+      if (runningState !== RunningState.Stopped) {
+        console.log('🔄 [RunningView] 러닝 중 - 리그 결과 재확인 스킵');
+      } else {
+        console.log('🔄 [RunningView] 화면 포커스 - 리그 결과 재확인');
+        useLeagueCheckStore.getState().allowRecheck();
+        checkUncheckedLeagueResult();
+      }
+
+      // 아바타 동기화
       console.log('🔄 [RunningView] 화면 포커스 - 아바타 동기화');
 
       const unsubscribe = unityService.onReady(async () => {
@@ -104,7 +132,7 @@ export const RunningView: React.FC = () => {
       });
 
       return () => unsubscribe();
-    }, [equippedItems])
+    }, [equippedItems, runningState, checkUncheckedLeagueResult])
   );
 
   /**

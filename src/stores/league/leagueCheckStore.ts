@@ -29,6 +29,7 @@ interface LeagueCheckState {
   setChecked: (result: LeagueResult | null) => void;
   clearPendingResult: () => void;
   reset: () => void;
+  allowRecheck: () => void;
 }
 
 /**
@@ -102,5 +103,17 @@ export const useLeagueCheckStore = create<LeagueCheckState>((set, get) => ({
   reset: () => {
     console.log('🏆 [LeagueCheckStore] reset');
     set(initialState);
+  },
+
+  /**
+   * 재확인 허용
+   * 탭 이동 시 호출 - pendingResult가 없고 checked 상태면 idle로 리셋
+   */
+  allowRecheck: () => {
+    const { pendingResult, checkStatus } = get();
+    if (!pendingResult && checkStatus === 'checked') {
+      console.log('🏆 [LeagueCheckStore] allowRecheck → idle');
+      set({ checkStatus: 'idle' });
+    }
   },
 }));

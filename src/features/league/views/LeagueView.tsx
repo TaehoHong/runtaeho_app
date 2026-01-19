@@ -15,6 +15,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useLeagueViewModel } from '../viewmodels';
+import { useLeagueCheck } from '../hooks';
 import { useAppStore } from '~/stores/app/appStore';
 import { useLeagueCheckStore } from '~/stores';
 import { LeagueHeader } from './components/LeagueHeader';
@@ -34,6 +35,9 @@ export const LeagueView = () => {
   // 미확인 결과 (Single Point of Truth: AuthProvider에서 API 호출, Store에서 상태 참조)
   const pendingResult = useLeagueCheckStore((state) => state.pendingResult);
   const clearPendingResult = useLeagueCheckStore((state) => state.clearPendingResult);
+
+  // 리그 결과 체크 함수
+  const { checkUncheckedLeagueResult } = useLeagueCheck();
 
   // 미확인 결과가 있으면 결과 화면으로 리다이렉트
   useEffect(() => {
@@ -60,11 +64,16 @@ export const LeagueView = () => {
     handleRefresh,
   } = useLeagueViewModel();
 
-  // 탭 포커스 시 데이터 새로고침
+  // 탭 포커스 시 데이터 새로고침 및 리그 결과 재확인
   useFocusEffect(
     useCallback(() => {
+      // 현재 리그 정보 갱신
       handleRefresh();
-    }, [handleRefresh])
+
+      // 리그 결과 재확인 (포그라운드 정산 감지용)
+      useLeagueCheckStore.getState().allowRecheck();
+      checkUncheckedLeagueResult();
+    }, [handleRefresh, checkUncheckedLeagueResult])
   );
 
   // 순위가 변경되면 애니메이션 후 previousLeagueRank 초기화
