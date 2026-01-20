@@ -11,7 +11,7 @@ import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.ReactContext
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.uimanager.events.RCTEventEmitter
-import com.unity3d.player.UnityPlayer
+import com.unity3d.player.UnityPlayerForActivityOrService
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -37,7 +37,7 @@ class UnityView(context: Context) : FrameLayout(context) {
 
     // MARK: - Properties
 
-    private var unityPlayer: UnityPlayer? = null
+    private var unityPlayer: UnityPlayerForActivityOrService? = null
     private var isUnityLoaded = false
     private var pendingReattach = false
 
@@ -85,7 +85,7 @@ class UnityView(context: Context) : FrameLayout(context) {
 
                 // Unity Player 생성 또는 기존 인스턴스 사용
                 unityPlayer = try {
-                    UnityPlayer(activity)
+                    UnityPlayerForActivityOrService(activity)
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to create UnityPlayer: ${e.message}", e)
                     sendErrorEvent("UNITY_INIT_ERROR", "Failed to create UnityPlayer: ${e.message}")
@@ -93,14 +93,19 @@ class UnityView(context: Context) : FrameLayout(context) {
                 }
 
                 unityPlayer?.let { player ->
+                    // Unity View 가져오기
+                    val unityView = player.view
+
                     // 기존 부모에서 제거
-                    (player.parent as? ViewGroup)?.removeView(player)
+                    (unityView?.parent as? ViewGroup)?.removeView(unityView)
 
                     // 현재 View에 추가
-                    addView(player, LayoutParams(
-                        LayoutParams.MATCH_PARENT,
-                        LayoutParams.MATCH_PARENT
-                    ))
+                    unityView?.let {
+                        addView(it, LayoutParams(
+                            LayoutParams.MATCH_PARENT,
+                            LayoutParams.MATCH_PARENT
+                        ))
+                    }
 
                     // Unity 시작
                     player.resume()
@@ -128,6 +133,7 @@ class UnityView(context: Context) : FrameLayout(context) {
         super.onLayout(changed, left, top, right, bottom)
 
         val player = unityPlayer ?: return
+        val unityView = player.view ?: return
 
         // 앱이 활성 상태가 아니면 레이아웃 업데이트 스킵
         if (!UnityHolder.isAppActive) {
@@ -161,7 +167,7 @@ class UnityView(context: Context) : FrameLayout(context) {
         val y = (containerHeight - scaledHeight).toInt()
 
         // Frame 설정 (clipChildren으로 넘치는 부분 자름)
-        player.layout(x, y, x + scaledWidth, y + scaledHeight)
+        unityView.layout(x, y, x + scaledWidth, y + scaledHeight)
 
         Log.d(TAG, "Aspect Fill: container=${containerWidth}x${containerHeight}, " +
                 "unity=${scaledWidth}x${scaledHeight}, scale=$fillScale")
@@ -216,20 +222,21 @@ class UnityView(context: Context) : FrameLayout(context) {
 
         mainHandler.post {
             val player = unityPlayer ?: return@post
+            val unityView = player.view ?: return@post
 
             // 이미 현재 view에 붙어있으면 스킵
-            if (player.parent == this) {
+            if (unityView.parent == this) {
                 Log.d(TAG, "Unity view already attached to this view, skipping reattach")
                 return@post
             }
 
-            val wasAttachedElsewhere = player.parent != null
+            val wasAttachedElsewhere = unityView.parent != null
 
             // 다른 superview에서 제거
-            (player.parent as? ViewGroup)?.removeView(player)
+            (unityView.parent as? ViewGroup)?.removeView(unityView)
 
             // 현재 view에 추가
-            addView(player, LayoutParams(
+            addView(unityView, LayoutParams(
                 LayoutParams.MATCH_PARENT,
                 LayoutParams.MATCH_PARENT
             ))

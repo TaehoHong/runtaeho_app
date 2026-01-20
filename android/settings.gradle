@@ -44,6 +44,9 @@ includeBuild(expoAutolinking.reactNativeGradlePlugin)
 include ':unityLibrary'
 project(':unityLibrary').projectDir = new File('/Users/hongtaeho/running/unity/RunTaehoUnity/Builds/Android/unityLibrary')
 
+include ':unityLibrary:mobilenotifications.androidlib'
+project(':unityLibrary:mobilenotifications.androidlib').projectDir = new File('/Users/hongtaeho/running/unity/RunTaehoUnity/Builds/Android/unityLibrary/mobilenotifications.androidlib')
+
 dependencyResolutionManagement {
     repositories {
         mavenCentral()
