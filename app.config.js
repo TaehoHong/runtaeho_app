@@ -31,16 +31,13 @@ export default {
     },
     android: {
       adaptiveIcon: {
-        backgroundColor: "#E6F4FE",
-        foregroundImage: "./assets/images/android-icon-foreground.png",
-        backgroundImage: "./assets/images/android-icon-background.png",
-        monochromeImage: "./assets/images/android-icon-monochrome.png"
+        foregroundImage: "./assets/images/icon.png"
       },
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
       package: ENV === 'production'
         ? "com.runtaeho.runtaeho"
-        : `com.runtaeho.runtaeho.${ENV}`,
+        : `com.runtaeho.runtaeho`,
       permissions: [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
