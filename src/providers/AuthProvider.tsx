@@ -2,10 +2,10 @@ import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from '../features/auth/hooks/useAuth';
 import { useAuthStore } from '../features/auth/stores/authStore';
-import { ViewState, useAppStore } from '../stores';
 import { isAgreedOnTermsFromToken } from '~/features/auth/utils/jwtUtils';
 import { useOfflineSync } from '../features/running/hooks/useOfflineSync';
 import { usePermissionRequest } from '../shared/hooks/usePermissionRequest';
+import { useAppStore, ViewState } from '~/stores';
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -20,7 +20,6 @@ interface AuthProviderProps {
  * - Zustand persist 자동 복원
  */
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const setViewState = useAppStore((state) => state.setViewState);
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const accessToken = useAuthStore((state) => state.accessToken);
   const { verifyAndRefreshToken } = useAuth();
@@ -120,19 +119,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           }
         }
 
-        // ViewState를 Loaded로 설정하여 탭바 표시 보장
-        setViewState(ViewState.Loaded);
-
         // 러닝 탭으로 이동 (리그 결과 확인은 RunningView에서 처리)
         console.log('✅ [AuthProvider] 로그인 상태 - 러닝 탭으로 이동');
         router.replace('/(tabs)/running');
-        console.log('✅ [AuthProvider] 네비게이션 성공: /(tabs)/running');
+
+        // ✅ 네비게이션 성공 후 Loaded로 전환 (단일 책임: AuthProvider에서만 관리)
+        useAppStore.getState().setViewState(ViewState.Loaded);
+        console.log('✅ [AuthProvider] 네비게이션 성공: /(tabs)/running - Loaded 상태로 전환');
 
         // iOS와 동일한 권한 요청 (로그인 완료 후 한 번만, Hook 내부에서 중복 방지)
         requestPermissionsOnFirstLogin();
       } else {
         console.log('❌ [AuthProvider] 로그아웃 상태 - 로그인 화면으로 이동');
         router.replace('/auth/login');
+
+        // ✅ 로그인 화면 이동 후에도 Loaded로 전환
+        useAppStore.getState().setViewState(ViewState.Loaded);
+        console.log('✅ [AuthProvider] 로그인 화면 이동 - Loaded 상태로 전환');
       }
     } catch (error) {
       console.warn('⚠️ [AuthProvider] 네비게이션 실패, 재시도 예약:', error);
@@ -142,7 +145,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setTimeout(() => setIsNavigationReady(true), 200);
       }, 500);
     }
-  }, [isLoggedIn, accessToken, isNavigationReady, setViewState]);
+  }, [isLoggedIn, accessToken, isNavigationReady, requestPermissionsOnFirstLogin]);
 
   return <>{children}</>;
 };

@@ -4,6 +4,7 @@ import { queryClient } from '~/services/queryClient';
 import { AuthProvider } from '~/providers/AuthProvider';
 import { AppStateProvider } from '~/providers/AppStateProvider';
 import { UpdateProvider } from '~/features/updates';
+import { ForceUpdateProvider } from '~/features/forceUpdate';
 import { initializeSentry, Sentry } from '~/config/sentry';
 import { ErrorBoundary } from '~/shared/components/ErrorBoundary';
 
@@ -25,9 +26,10 @@ function RootLayout() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <AppStateProvider>
-            <UpdateProvider
+        <ForceUpdateProvider checkOnLaunch={true} checkOnForeground={true}>
+          <AuthProvider>
+            <AppStateProvider>
+              <UpdateProvider
               checkOnLaunch={true}
               checkOnForeground={true}
               showBanner={true}
@@ -73,9 +75,10 @@ function RootLayout() {
                 }}
               />
               </Stack>
-            </UpdateProvider>
-          </AppStateProvider>
-        </AuthProvider>
+              </UpdateProvider>
+            </AppStateProvider>
+          </AuthProvider>
+        </ForceUpdateProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );

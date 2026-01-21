@@ -39,15 +39,7 @@ npm run update:prod "메시지"
 npm run update:rollback
 ```
 
-### 점진적 배포
 
-```bash
-# 10% 사용자에게 배포
-eas update --branch production --rollout-percentage 10 --message "메시지"
-
-# 비율 확대
-eas update:edit --rollout-percentage 100
-```
 
 ### 상태 확인
 

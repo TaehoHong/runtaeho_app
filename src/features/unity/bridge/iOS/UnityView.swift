@@ -174,6 +174,14 @@ class UnityView: UIView {
 
     /// Unity View 안전한 재연결 (CATransaction 충돌 방지)
     private func safeReattachUnityView() {
+        // ✅ 메인 스레드 보장
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in
+                self?.safeReattachUnityView()
+            }
+            return
+        }
+
         guard isUnityLoaded else {
             print("[UnityView] Unity not loaded, cannot reattach")
             return
@@ -197,6 +205,9 @@ class UnityView: UIView {
             print("[UnityView] Unity view already attached to this view, skipping reattach")
             return
         }
+
+        // ✅ 기존 CATransaction 완료 대기
+        CATransaction.flush()
 
         // CATransaction을 사용하여 안전하게 view 조작
         CATransaction.begin()
@@ -270,8 +281,11 @@ class UnityView: UIView {
         // NotificationCenter 구독 해제
         NotificationCenter.default.removeObserver(self)
 
-        // Unity View는 제거하지 않음 - 다른 화면에서 사용할 수 있음
-        // unityView?.removeFromSuperview()
+        // ✅ 메인 스레드에서 안전하게 정리 - View hierarchy 손상 방지
+        let viewToRemove = self.unityView
+        DispatchQueue.main.async {
+            viewToRemove?.removeFromSuperview()
+        }
     }
 
     // MARK: - Unity 제어 메서드들

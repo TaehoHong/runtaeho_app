@@ -117,7 +117,7 @@ class Unity: ObservableObject  {
     }
 
     @objc private func handleAppWillResignActive() {
-        print("[Unity] 📱 App will resign active (loaded: \(loaded), frameworkInit: \(isFrameworkInitialized))")
+        print("[Unity] 📱 App will resign active - starting safe cleanup (loaded: \(loaded), frameworkInit: \(isFrameworkInitialized))")
         isAppActive = false
 
         // Unity가 로드되지 않았으면 아무것도 하지 않음
@@ -126,9 +126,21 @@ class Unity: ObservableObject  {
             return
         }
 
-        // Unity 일시정지 - CATransaction이 완료될 때까지 대기
+        // ✅ CATransaction 기반 안전한 pause
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        CATransaction.setCompletionBlock { [weak self] in
+            guard let self = self else { return }
+            print("[Unity] ✅ Background CATransaction completed")
+        }
+
+        // Pending 작업 완료
         CATransaction.flush()
-        pause()
+
+        // Unity pause
+        self.pause()
+
+        CATransaction.commit()
     }
 
     @objc private func handleAppDidEnterBackground() {
@@ -172,22 +184,25 @@ class Unity: ObservableObject  {
                 return
             }
 
-            // 먼저 pending CATransaction 완료 대기
+            // ✅ 기존 pending CATransaction 완료 대기
+            CATransaction.flush()
+
             CATransaction.begin()
-            CATransaction.setCompletionBlock {
-                print("[Unity] ✅ CATransaction completed, safe to resume")
+            CATransaction.setCompletionBlock { [weak self] in
+                guard let self = self else { return }
+                print("[Unity] ✅ CATransaction completed, now resuming")
+
+                // ✅ CATransaction 완료 후에만 Unity resume
+                self.resume()
+                self.isAppActive = true
+
+                // Unity View 재연결 알림
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("UnityDidBecomeActive"),
+                    object: nil
+                )
             }
             CATransaction.commit()
-
-            // Unity 재개
-            self.resume()
-            self.isAppActive = true
-
-            // Unity View 재연결 알림
-            NotificationCenter.default.post(
-                name: NSNotification.Name("UnityDidBecomeActive"),
-                object: nil
-            )
         }
     }
 
@@ -248,9 +263,62 @@ class Unity: ObservableObject  {
         messageQueue.removeAll()
         queueLock.unlock()
 
-        NotificationCenter.default.removeObserver(self, name: NSNotification.Name("UnityCharactorReady"), object: nil)
+        // ✅ 모든 옵저버 한번에 제거 - 좀비 옵저버로 인한 메모리 오염 방지
+        NotificationCenter.default.removeObserver(self)
 
         print("[Unity] ⏹️ Unity stopped")
+    }
+
+    // MARK: - State Validation
+
+    /// Unity 싱글톤 상태 유효성 검사
+    /// 앱 업데이트 후 stale 상태 감지
+    func validateState() -> Bool {
+        // Framework가 로드되었지만 view가 없으면 stale 상태
+        if loaded && _framework?.appController()?.rootView == nil {
+            print("[Unity] ⚠️ Stale state detected: loaded but no view")
+            return false
+        }
+
+        // 앱이 active인데 Unity가 paused면 불일치
+        if isAppActive && isPaused && loaded {
+            print("[Unity] ⚠️ State mismatch: app active but Unity paused")
+            return false
+        }
+
+        return true
+    }
+
+    /// Stale 상태 강제 리셋
+    func forceReset() {
+        print("[Unity] 🔄 Force resetting stale Unity state")
+
+        // 1. 모든 옵저버 제거
+        NotificationCenter.default.removeObserver(self)
+
+        // 2. 상태 초기화
+        loaded = false
+        isPaused = false
+        isAppActive = true
+
+        queueLock.lock()
+        isGameObjectReady = false
+        messageQueue.removeAll()
+        queueLock.unlock()
+
+        // 3. Framework 참조 해제 (다음 start()에서 재로드)
+        _framework = nil
+
+        // 4. 앱 라이프사이클 옵저버 재등록
+        setupAppLifecycleObservers()
+
+        print("[Unity] ✅ Force reset completed")
+    }
+
+    deinit {
+        // ✅ deinit 시에도 모든 옵저버 정리
+        NotificationCenter.default.removeObserver(self)
+        print("[Unity] 🗑️ Unity singleton deallocated")
     }
 
     var view: UIView? {

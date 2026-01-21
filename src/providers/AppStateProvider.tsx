@@ -1,10 +1,11 @@
 import React, { useEffect, type ReactNode, useCallback, useRef } from 'react';
-import { AppState, type AppStateStatus } from 'react-native';
+import { AppState, type AppStateStatus, Platform } from 'react-native';
 import { useAppStore, ViewState } from '~/stores';
 import { useAuthStore } from '~/features';
 import { useUserStore } from '~/stores/user/userStore';
 import { pointService } from '~/features/point/services/pointService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { UnityBridge } from '~/features/unity/bridge/UnityBridge';
 
 interface AppStateProviderProps {
   children: ReactNode;
@@ -62,6 +63,7 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
   const isLoggedInRef = useLatestRef(isLoggedIn);
   const fgInFlight = useRef(false); // 포그라운드 재진입 가드
   const tokenSetupDone = useRef(false); // 토큰 알림 1회 설정 가드
+  const hasInitialized = useRef(false); // ✅ 초기화 중복 방지 가드
 
   /**
    * 앱이 Foreground로 진입할 때 처리
@@ -91,16 +93,17 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
   }, []);
 
   useEffect(() => {
+    // ✅ 이미 초기화 완료 시 스킵 - 이중 상태 변경으로 인한 빠른 마운트/언마운트 방지
+    if (hasInitialized.current) {
+      console.log('🌍 [AppStateProvider] 이미 초기화됨, 스킵');
+      return;
+    }
+    hasInitialized.current = true;
+
     console.log('🌍 [AppStateProvider] 앱 상태 관리 시작');
 
-    // 초기화
+    // 초기화 - Loading 상태만 설정 (Loaded 전환은 AuthProvider에서 담당)
     setViewState(ViewState.Loading);
-
-    // 약간의 로딩 시간 후 Loaded 상태로 전환
-    const initTimer = setTimeout(() => {
-      console.log('✅ [AppStateProvider] 앱 초기화 완료 - Loaded 상태로 전환');
-      setViewState(ViewState.Loaded);
-    }, 100);
 
     // AppState 구독(단일 진입점)
     const unsubscribe = subscribeToAppLifecycle({
@@ -123,12 +126,10 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
     });
 
     return () => {
-      clearTimeout(initTimer);
       unsubscribe();
     };
-    // `isLoggedIn`으로 재구독이 발생하지 않도록 제외하고,
-    // 최신 값은 isLoggedInRef.current로 참조합니다.
-  }, [setViewState, handleAppForeground]);
+    // ✅ 의존성 배열 정리 - 초기화는 1회만 실행
+  }, []);
 
 
   /**
@@ -174,8 +175,8 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
     // 2. 시스템 권한 상태 재확인
     await checkSystemPermissions();
 
-    // 3. Unity 연동 상태 확인 (필요시)
-    checkUnityConnection();
+    // 3. Unity 연동 상태 확인 (앱 업데이트 후 stale 상태 감지/복구)
+    await checkUnityConnection();
 
     // 4. 네트워크 상태 확인 및 대기중인 작업 처리
     await handlePendingTasks();
@@ -215,10 +216,31 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
   /**
    * Unity 연동 상태 확인
    * iOS checkUnityConnection() 대응
+   * 앱 업데이트 후 stale Unity 상태 감지 및 복구
    */
-  const checkUnityConnection = () => {
-    console.log('🎮 [AppStateProvider] Unity connection status checked');
-    // TODO: Unity 관련 상태 확인 로직
+  const checkUnityConnection = async () => {
+    // iOS에서만 Unity 상태 확인
+    if (Platform.OS !== 'ios') {
+      console.log('🎮 [AppStateProvider] Unity check skipped (non-iOS)');
+      return;
+    }
+
+    console.log('🎮 [AppStateProvider] Checking Unity connection...');
+
+    try {
+      // Unity 상태 유효성 검사
+      const isValid = await UnityBridge.validateUnityState();
+
+      if (!isValid) {
+        console.warn('⚠️ [AppStateProvider] Stale Unity state detected, resetting...');
+        await UnityBridge.forceResetUnity();
+        console.log('✅ [AppStateProvider] Unity reset completed');
+      } else {
+        console.log('✅ [AppStateProvider] Unity state is valid');
+      }
+    } catch (error) {
+      console.error('❌ [AppStateProvider] Unity check failed:', error);
+    }
   };
 
   /**

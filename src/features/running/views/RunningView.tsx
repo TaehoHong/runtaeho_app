@@ -25,7 +25,7 @@ export const RunningView: React.FC = () => {
   const router = useRouter();
   const viewState = useAppStore((state) => state.viewState);
   const runningState = useAppStore((state) => state.runningState);
-  const setViewState = useAppStore((state) => state.setViewState);
+  // ✅ setViewState 제거 - AuthProvider에서 단일 관리 (Race Condition 방지)
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const equippedItems = useUserStore((state) => state.equippedItems);
   const hairColor = useUserStore((state) => state.hairColor);
@@ -69,24 +69,16 @@ export const RunningView: React.FC = () => {
   useEffect(() => {
     console.log('🔄 [RunningView] 컴포넌트 마운트');
 
-    // 로그인 완료 후에만 Loaded 상태로 전환
+    // ✅ Unity 시작 상태만 관리 (viewState 변경은 AuthProvider에서 담당)
     if (isLoggedIn && !unityStarted) {
-      console.log('🎮 [RunningView] 로그인 완료 - Loaded 상태로 전환');
+      console.log('🎮 [RunningView] 로그인 완료 - Unity 시작');
       setUnityStarted(true);
-
-      // 다음 프레임에서 Loaded 상태로 전환 (메인 스레드 위반 방지)
-      setTimeout(() => {
-        setViewState(ViewState.Loaded);
-      }, 0);
-    } else if (viewState === ViewState.Loading && !isLoggedIn) {
-      console.log('🔄 [RunningView] 로그인 대기 중');
     }
 
     return () => {
-      // 컴포넌트 언마운트 시 정리 작업
       console.log('🔄 [RunningView] 컴포넌트 언마운트');
     };
-  }, [viewState, isLoggedIn, unityStarted, setViewState]);
+  }, [isLoggedIn, unityStarted]);
 
   /**
    * 화면 포커스 시 Unity 캐릭터 동기화 및 리그 결과 재확인

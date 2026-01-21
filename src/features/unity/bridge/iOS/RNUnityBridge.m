@@ -20,4 +20,8 @@ RCT_EXTERN_METHOD(sendUnityJSON:(NSString *)objectName methodName:(NSString *)me
 RCT_EXTERN_METHOD(isCharactorReady:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 RCT_EXTERN_METHOD(resetCharactorReady:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 
+// Unity State Validation Methods
+RCT_EXTERN_METHOD(validateUnityState:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
+RCT_EXTERN_METHOD(forceResetUnity:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
+
 @end

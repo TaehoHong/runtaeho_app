@@ -183,6 +183,46 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
         }
     }
 
+    // MARK: - Unity State Validation
+
+    /**
+     * Unity 상태 유효성 검사
+     * iOS의 validateUnityState와 동일
+     * 앱 업데이트 후 stale 상태 감지에 사용
+     *
+     * @param promise React Native Promise (Boolean 반환)
+     */
+    @ReactMethod
+    fun validateUnityState(promise: Promise) {
+        val isValid = UnityHolder.validateState()
+        Log.d(TAG, "validateUnityState: $isValid")
+        promise.resolve(isValid)
+    }
+
+    /**
+     * Unity 강제 리셋 (stale 상태 복구용)
+     * iOS의 forceResetUnity와 동일
+     *
+     * @param promise React Native Promise
+     */
+    @ReactMethod
+    fun forceResetUnity(promise: Promise) {
+        Log.d(TAG, "🔄 Force reset requested")
+        try {
+            UnityHolder.forceReset()
+
+            // Bridge 상태도 리셋
+            synchronized(eventsLock) {
+                pendingEvents.clear()
+            }
+
+            promise.resolve(null)
+        } catch (e: Exception) {
+            Log.e(TAG, "Force reset failed: ${e.message}", e)
+            promise.reject("RESET_ERROR", e.message, e)
+        }
+    }
+
     // MARK: - Unity Message Methods
 
     /**

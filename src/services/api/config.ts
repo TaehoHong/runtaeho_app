@@ -126,4 +126,8 @@ export const API_ENDPOINTS = {
   LEAGUE_PARTICIPANT: {
     UPDATE_DISTANCE: (participantId: number) => `/league-participants/${participantId}/distance`,
   },
+
+  APP: {
+    VERSION_CHECK: '/app/version-check',
+  },
 } as const;

@@ -21,6 +21,8 @@ export interface UnityBridgeInterface {
   isGameObjectReady(): boolean;
   syncReadyState(): Promise<boolean>;
   subscribeToGameObjectReady(callback: () => void): () => void;
+  validateUnityState(): Promise<boolean>;
+  forceResetUnity(): Promise<void>;
 }
 
 class UnityBridgeImpl implements UnityBridgeInterface {
@@ -190,6 +192,41 @@ class UnityBridgeImpl implements UnityBridgeInterface {
     } catch (error) {
       console.error('[UnityBridge] Failed to send Unity JSON:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Unity 상태 유효성 검사
+   * Stale 상태 감지 (앱 업데이트 후)
+   */
+  async validateUnityState(): Promise<boolean> {
+    if (!NativeUnityBridge?.validateUnityState) {
+      console.log('[UnityBridge] validateUnityState: Native method not available');
+      return true; // 네이티브 없으면 true 가정
+    }
+
+    try {
+      return await NativeUnityBridge.validateUnityState();
+    } catch (error) {
+      console.error('[UnityBridge] validateUnityState error:', error);
+      return true;
+    }
+  }
+
+  /**
+   * Unity 강제 리셋 (stale 상태 복구용)
+   */
+  async forceResetUnity(): Promise<void> {
+    if (!NativeUnityBridge?.forceResetUnity) {
+      console.log('[UnityBridge] forceResetUnity: Native method not available');
+      return;
+    }
+
+    try {
+      this._isCharactorReady = false;
+      await NativeUnityBridge.forceResetUnity();
+    } catch (error) {
+      console.error('[UnityBridge] forceResetUnity error:', error);
     }
   }
 }

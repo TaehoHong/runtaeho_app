@@ -24,8 +24,23 @@ class RNUnityBridge: RCTEventEmitter {
     // MARK: - State (Single Source of Truth)
 
     private var _isCharactorReady: Bool = false
-    private var _hasListeners: Bool = false
     private var pendingEvents: [[String: Any]] = []
+
+    // MARK: - Thread-Safe Listener Flag
+    private let listenerLock = NSLock()
+    private var _hasListenersInternal: Bool = false
+    private var _hasListeners: Bool {
+        get {
+            listenerLock.lock()
+            defer { listenerLock.unlock() }
+            return _hasListenersInternal
+        }
+        set {
+            listenerLock.lock()
+            _hasListenersInternal = newValue
+            listenerLock.unlock()
+        }
+    }
 
     // MARK: - React Native 모듈 설정
 
@@ -78,20 +93,25 @@ class RNUnityBridge: RCTEventEmitter {
 
     @objc
     private func handleCharactorReady() {
-        print("[RNUnityBridge] 🎉 Charactor Ready!")
-        _isCharactorReady = true
+        // ✅ 메인 스레드 보장 - EXC_BAD_ACCESS 크래시 방지
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
 
-        let eventBody: [String: Any] = [
-            "ready": true,
-            "timestamp": ISO8601DateFormatter().string(from: Date())
-        ]
+            print("[RNUnityBridge] 🎉 Charactor Ready!")
+            self._isCharactorReady = true
 
-        if _hasListeners {
-            print("[RNUnityBridge] 📤 Sending event immediately")
-            sendEvent(withName: "onCharactorReady", body: eventBody)
-        } else {
-            print("[RNUnityBridge] 📦 Buffering event (no listeners)")
-            pendingEvents.append(eventBody)
+            let eventBody: [String: Any] = [
+                "ready": true,
+                "timestamp": ISO8601DateFormatter().string(from: Date())
+            ]
+
+            if self._hasListeners {
+                print("[RNUnityBridge] 📤 Sending event immediately (main thread)")
+                self.sendEvent(withName: "onCharactorReady", body: eventBody)
+            } else {
+                print("[RNUnityBridge] 📦 Buffering event (no listeners)")
+                self.pendingEvents.append(eventBody)
+            }
         }
     }
 
@@ -173,6 +193,40 @@ class RNUnityBridge: RCTEventEmitter {
                 "message": "Failed to convert data to JSON",
                 "error": error.localizedDescription
             ])
+        }
+    }
+
+    // MARK: - Unity State Validation
+
+    /// Unity 상태 유효성 검사
+    @objc
+    func validateUnityState(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+        DispatchQueue.main.async {
+            let isValid = Unity.shared.validateState()
+            print("[RNUnityBridge] validateUnityState: \(isValid)")
+            resolve(isValid)
+        }
+    }
+
+    /// Unity 강제 리셋 (stale 상태 복구용)
+    @objc
+    func forceResetUnity(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else {
+                reject("SELF_NIL", "RNUnityBridge deallocated", nil)
+                return
+            }
+
+            print("[RNUnityBridge] 🔄 Force reset requested")
+
+            // Unity 리셋
+            Unity.shared.forceReset()
+
+            // Bridge 상태도 리셋
+            self._isCharactorReady = false
+            self.pendingEvents.removeAll()
+
+            resolve(nil)
         }
     }
 

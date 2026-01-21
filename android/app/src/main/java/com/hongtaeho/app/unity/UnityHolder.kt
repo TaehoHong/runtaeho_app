@@ -144,6 +144,51 @@ object UnityHolder {
         }
     }
 
+    // MARK: - State Validation
+
+    /**
+     * Unity 상태 유효성 검사
+     * 앱 업데이트 후 stale 상태 감지
+     * iOS의 Unity.validateState()와 동일한 기능
+     *
+     * @return 상태가 유효하면 true, stale 상태이면 false
+     */
+    fun validateState(): Boolean {
+        // Unity Player가 있는데 Activity가 없으면 stale
+        if (_unityPlayer != null && UnityPlayer.currentActivity == null) {
+            Log.w(TAG, "⚠️ Stale state detected: player exists but no activity")
+            return false
+        }
+
+        // 앱이 active인데 Unity가 초기화 안됨
+        if (_isAppActive && _unityPlayer == null) {
+            Log.w(TAG, "⚠️ State mismatch: app active but no Unity player")
+            return false
+        }
+
+        return true
+    }
+
+    /**
+     * Stale 상태 강제 리셋
+     * iOS의 Unity.forceReset()과 동일한 기능
+     * 앱 업데이트 후 stale 상태 복구에 사용
+     */
+    fun forceReset() {
+        Log.d(TAG, "🔄 Force resetting stale Unity state")
+
+        synchronized(queueLock) {
+            _isCharactorReady = false
+            _isGameObjectReady = false
+            messageQueue.clear()
+        }
+
+        _isAppActive = true
+        // Note: _unityPlayer는 null로 설정하지 않음 (재생성 필요시 getOrCreateUnityPlayer 호출)
+
+        Log.d(TAG, "✅ Force reset completed")
+    }
+
     // MARK: - Lifecycle Management
 
     /**

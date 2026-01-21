@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import { requireNativeComponent, type ViewProps } from 'react-native';
 import { unityService } from '../services/UnityService';
+import { UnityBridge } from '../bridge/UnityBridge';
 
 interface UnityViewProps extends ViewProps {
   // Unity Ready 이벤트
@@ -20,11 +21,23 @@ export const UnityView: React.FC<UnityViewProps> = (props) => {
   // ⚠️ 중요: UnityView 마운트 시 GameObject Ready 상태 리셋
   // 이전 UnityView의 상태를 초기화하여 새로운 UnityView의 GameObject Ready를 정확히 감지
   useEffect(() => {
-    console.log('[UnityView] Mounted - Resetting GameObject Ready state');
-    unityService.resetGameObjectReady();
+    let isMounted = true;
+
+    const initialize = async () => {
+      console.log('[UnityView] Mounted - Resetting GameObject Ready state');
+      await unityService.resetGameObjectReady();
+
+      // ✅ Native 정리와 React 마운트 사이클 동기화
+      if (isMounted) {
+        await UnityBridge.syncReadyState();
+      }
+    };
+
+    initialize();
 
     return () => {
-      console.log('[UnityView] Unmounted');
+      isMounted = false;
+      console.log('[UnityView] Unmounting - Native cleanup initiated');
     };
   }, []);
 
