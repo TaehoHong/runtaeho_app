@@ -57,6 +57,15 @@ export const RunningFinishedView: React.FC = () => {
   const handleComplete = async () => {
     console.log('🏁 [RunningFinishedView] 러닝 완료 확인 버튼 눌러짐');
 
+    // 10m 미만이면 API 호출 없이 초기화
+    if (distance < 10) {
+      console.log('🏁 [RunningFinishedView] 거리 10m 미만, API 호출 스킵');
+      resetRunning();
+      setRunningState(RunningState.Stopped);
+      router.replace('/(tabs)/league');
+      return;
+    }
+
     // currentRecord가 없으면 에러
     if (!currentRecord) {
       console.error('❌ [RunningFinishedView] currentRecord가 없습니다');

@@ -33,7 +33,7 @@ export const httpResponseLogging = (client: AxiosInstance) => {
       if (API_CONFIG.LOGGING.ENABLED && API_CONFIG.LOGGING.LOG_ERROR) {
         const timestamp = new Date().toISOString();
         console.log(`❌ [ERROR] ${timestamp}`);
-        console.log(`   ${error.config?.method?.toUpperCase()} ${error.config?.url}`);
+        console.log(`   ${error.config?.method?.toUpperCase()} ${error.config?.baseURL}${error.config?.url}`);
         console.log(`   Status: ${error.response?.status || 'Network Error'}`);
 
         if (error.response?.data) {

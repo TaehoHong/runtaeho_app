@@ -33,7 +33,7 @@ class UnityBridgeImpl implements UnityBridgeInterface {
     console.log('[UnityBridge] Initializing...');
     console.log('[UnityBridge] RNUnityBridge available:', !!NativeUnityBridge);
 
-    if (NativeUnityBridge && Platform.OS === 'ios') {
+    if (NativeUnityBridge) {
       this.eventEmitter = new NativeEventEmitter(NativeUnityBridge);
 
       // Push: 이벤트 리스너 등록
@@ -48,9 +48,9 @@ class UnityBridgeImpl implements UnityBridgeInterface {
         this.isInitialized = true;
       });
 
-      console.log('[UnityBridge] Event listeners registered');
+      console.log('[UnityBridge] Event listeners registered (Platform:', Platform.OS, ')');
     } else {
-      console.warn('[UnityBridge] Native module not available (Platform:', Platform.OS, ')');
+      console.warn('[UnityBridge] Native module not available');
       this.isInitialized = true;
     }
   }

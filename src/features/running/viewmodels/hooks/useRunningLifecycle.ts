@@ -217,7 +217,15 @@ export const useRunningLifecycle = ({
 
       setCurrentRecord(finalRecord);
 
-      // 4. 백엔드 API: 러닝 종료
+      // 4. 10m 미만이면 API 호출 없이 완료 화면으로 전환
+      if (finalDistance < 10) {
+        console.log('[useRunningLifecycle] 거리 10m 미만, API 호출 스킵');
+        setRunningState(RunningState.Finished);
+        await backgroundTaskService.clearBackgroundData();
+        return null;
+      }
+
+      // 5. 백엔드 API: 러닝 종료
       try {
         const endRecord = await endRunningMutation(finalRecord);
         setRunningState(RunningState.Finished);

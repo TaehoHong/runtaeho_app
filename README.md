@@ -1,50 +1,63 @@
-# Welcome to your Expo app 👋
+# RunTaeho App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
-
-## Get started
-
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## 개발
 
 ```bash
-npm run reset-project
+# 의존성 설치
+npm install
+
+# 개발 서버 실행
+npm run start:local
+
+# iOS 실행
+npm run ios:local
+
+# Android 실행
+npm run android:local
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## 배포
 
-## Learn more
+### 1. 앱 빌드 (앱스토어 심사 필요)
 
-To learn more about developing your project with Expo, look at the following resources:
+```bash
+# Xcode에서 빌드
+open ios/RunTaeho.xcworkspace
+# Product > Archive > Distribute App > App Store Connect
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+### 2. OTA 업데이트 (심사 불필요)
 
-## Join the community
+```bash
+# 스테이징 배포
+npm run update:staging "메시지"
 
-Join our community of developers creating universal apps.
+# 프로덕션 배포
+npm run update:prod "메시지"
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+# 롤백
+npm run update:rollback
+```
+
+### 점진적 배포
+
+```bash
+# 10% 사용자에게 배포
+eas update --branch production --rollout-percentage 10 --message "메시지"
+
+# 비율 확대
+eas update:edit --rollout-percentage 100
+```
+
+### 상태 확인
+
+```bash
+eas update:list --branch production
+```
+
+### 앱스토어 심사가 필요한 경우
+
+- 새 라이브러리 추가/삭제
+- Expo SDK 업그레이드
+- Unity 변경
+- `app.config.js` 네이티브 설정 변경

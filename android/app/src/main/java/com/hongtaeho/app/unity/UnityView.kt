@@ -75,7 +75,6 @@ class UnityView(context: Context) : FrameLayout(context) {
 
         mainHandler.post {
             try {
-                // UnityPlayer 인스턴스 가져오기
                 val activity = (context as? ReactContext)?.currentActivity
                 if (activity == null) {
                     Log.e(TAG, "Activity is null, cannot initialize Unity")
@@ -83,9 +82,9 @@ class UnityView(context: Context) : FrameLayout(context) {
                     return@post
                 }
 
-                // Unity Player 생성 또는 기존 인스턴스 사용
+                // 싱글톤 Unity Player 사용 (앱 전체에서 하나의 인스턴스만 유지)
                 unityPlayer = try {
-                    UnityPlayerForActivityOrService(activity)
+                    UnityHolder.getOrCreateUnityPlayer(activity)
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to create UnityPlayer: ${e.message}", e)
                     sendErrorEvent("UNITY_INIT_ERROR", "Failed to create UnityPlayer: ${e.message}")
@@ -93,7 +92,6 @@ class UnityView(context: Context) : FrameLayout(context) {
                 }
 
                 unityPlayer?.let { player ->
-                    // Unity View 가져오기
                     val unityView = player.view
 
                     // 기존 부모에서 제거
@@ -107,17 +105,15 @@ class UnityView(context: Context) : FrameLayout(context) {
                         ))
                     }
 
-                    // Unity 시작
-                    player.resume()
+                    // Unity 시작 - lifecycle 메서드 순서대로 호출
+                    player.onStart()   // Scene 실행 시작
+                    player.onResume()  // 렌더링 재개
+                    player.windowFocusChanged(true)  // Window Focus 부여 (렌더링 트리거)
 
                     isUnityLoaded = true
+                    Log.d(TAG, "Unity initialized successfully - onStart(), onResume(), windowFocusChanged(true) called")
 
-                    Log.d(TAG, "Unity initialized successfully")
-
-                    // 레이아웃 업데이트 요청
                     requestLayout()
-
-                    // React Native에 로드 완료 알림
                     sendUnityReadyEvent("Unity loaded successfully")
                 }
             } catch (e: Exception) {
@@ -135,11 +131,8 @@ class UnityView(context: Context) : FrameLayout(context) {
         val player = unityPlayer ?: return
         val unityView = player.view ?: return
 
-        // 앱이 활성 상태가 아니면 레이아웃 업데이트 스킵
-        if (!UnityHolder.isAppActive) {
-            Log.d(TAG, "App not active, skipping layout")
-            return
-        }
+        // 참고: 초기화 중에도 레이아웃은 적용되어야 함 (pause 체크 제거)
+        // Unity가 화면에 렌더링되려면 레이아웃이 필요함
 
         // Container 크기
         val containerWidth = (right - left).toFloat()

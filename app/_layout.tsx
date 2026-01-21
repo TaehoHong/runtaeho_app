@@ -1,9 +1,9 @@
-import { useEffect } from 'react';
 import { Stack } from 'expo-router/stack';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '~/services/queryClient';
 import { AuthProvider } from '~/providers/AuthProvider';
 import { AppStateProvider } from '~/providers/AppStateProvider';
+import { UpdateProvider } from '~/features/updates';
 import { initializeSentry, Sentry } from '~/config/sentry';
 import { ErrorBoundary } from '~/shared/components/ErrorBoundary';
 
@@ -27,7 +27,13 @@ function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <AppStateProvider>
-            <Stack>
+            <UpdateProvider
+              checkOnLaunch={true}
+              checkOnForeground={true}
+              showBanner={true}
+              autoDownload={false}
+            >
+              <Stack>
               <Stack.Screen
                 name="index"
                 options={{
@@ -66,7 +72,8 @@ function RootLayout() {
                   headerShown: false
                 }}
               />
-            </Stack>
+              </Stack>
+            </UpdateProvider>
           </AppStateProvider>
         </AuthProvider>
       </QueryClientProvider>

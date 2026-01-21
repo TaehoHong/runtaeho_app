@@ -2,17 +2,31 @@
 // .env.local (로컬 개발), .env.dev (개발 서버), .env.prod (운영)
 const ENV = process.env.EXPO_PUBLIC_ENV || 'local';
 
+// Version configuration from root package.json (SSOT)
+const rootPackageJson = require('../package.json');
+const appVersion = rootPackageJson.config.versions.app;
+const runtimeVersion = rootPackageJson.config.runtimeVersion;
+const buildNumbers = rootPackageJson.config.buildNumbers;
+
 export default {
   expo: {
     name: ENV === 'production' ? 'RunTaeho' : `RunTaeho (${ENV})`,
     slug: "runtaeho",
-    version: "1.0.0",
+    version: appVersion,
     orientation: "portrait",
     icon: "./assets/images/icon.png",
     scheme: "runtaeho",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
     assetBundlePatterns: ["**/*"],
+    // EAS Update 설정
+    updates: {
+      enabled: true,
+      checkAutomatically: "ON_LOAD",
+      fallbackToCacheTimeout: 0,
+      url: "https://u.expo.dev/daaffe2d-52cf-427d-ad87-2b05cde55f58",
+    },
+    runtimeVersion: runtimeVersion,
     ios: {
       icon: "./assets/images/icon.png",
       supportsTablet: true,
@@ -35,6 +49,8 @@ export default {
       },
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
+      // 개발 환경에서 HTTP (localhost) 요청 허용
+      usesCleartextTraffic: ENV !== 'production',
       package: ENV === 'production'
         ? "com.runtaeho.runtaeho"
         : `com.runtaeho.runtaeho`,
@@ -120,7 +136,10 @@ export default {
       googleServerClientId: process.env.EXPO_PUBLIC_GOOGLE_SERVER_CLIENT_ID,
       googleAndroidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
       enableDebug: process.env.EXPO_PUBLIC_ENABLE_DEBUG === 'true',
-      enableLogging: process.env.EXPO_PUBLIC_ENABLE_LOGGING === 'true'
+      enableLogging: process.env.EXPO_PUBLIC_ENABLE_LOGGING === 'true',
+      eas: {
+        projectId: "daaffe2d-52cf-427d-ad87-2b05cde55f58"
+      }
     }
   }
 };

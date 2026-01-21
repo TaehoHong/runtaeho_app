@@ -1,9 +1,12 @@
 package com.hongtaeho.app.unity
 
+import android.app.Activity
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.view.View
 import com.unity3d.player.UnityPlayer
+import com.unity3d.player.UnityPlayerForActivityOrService
 
 /**
  * Unity Holder Singleton
@@ -20,6 +23,28 @@ import com.unity3d.player.UnityPlayer
  */
 object UnityHolder {
     private const val TAG = "UnityHolder"
+
+    // MARK: - Singleton Unity Player
+
+    /** Unity Player 싱글톤 인스턴스 */
+    @Volatile
+    private var _unityPlayer: UnityPlayerForActivityOrService? = null
+
+    /** Unity Player 가져오기 (없으면 생성) */
+    fun getOrCreateUnityPlayer(activity: Activity): UnityPlayerForActivityOrService {
+        return _unityPlayer ?: synchronized(this) {
+            _unityPlayer ?: UnityPlayerForActivityOrService(activity).also {
+                _unityPlayer = it
+                Log.d(TAG, "Unity Player created")
+            }
+        }
+    }
+
+    /** Unity Player 인스턴스 가져오기 (없으면 null) */
+    fun getUnityPlayer(): UnityPlayerForActivityOrService? = _unityPlayer
+
+    /** Unity Player View 가져오기 */
+    fun getUnityView(): View? = _unityPlayer?.view
 
     // MARK: - State (Single Source of Truth)
 
@@ -123,18 +148,22 @@ object UnityHolder {
 
     /**
      * 앱이 Pause 상태로 전환될 때 호출
+     * Unity Player의 onPause()를 호출하여 렌더링을 중지함
      */
     fun onPause() {
         Log.d(TAG, "onPause()")
         _isAppActive = false
+        _unityPlayer?.onPause()  // Unity 렌더링 중지
     }
 
     /**
      * 앱이 Resume 상태로 전환될 때 호출
+     * Unity Player의 onResume()을 호출하여 렌더링을 재개함
      */
     fun onResume() {
         Log.d(TAG, "onResume()")
         _isAppActive = true
+        _unityPlayer?.onResume()  // Unity 렌더링 재개
 
         // Resume 시 대기 중인 메시지 처리
         synchronized(queueLock) {
@@ -219,7 +248,7 @@ object UnityHolder {
      */
     fun isUnityLoaded(): Boolean {
         return try {
-            UnityPlayer.currentActivity != null
+            _unityPlayer != null || UnityPlayer.currentActivity != null
         } catch (e: Exception) {
             Log.w(TAG, "Unity not loaded: ${e.message}")
             false
