@@ -30,45 +30,35 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
-.env*.local
+# Environment files
+# NODE_ENV 기반 자동 로딩 체계:
+# - .env.development: 개발 환경 (NODE_ENV=development)
+# - .env.production: 운영 환경 (NODE_ENV=production)
+# - .env.local: 개인 로컬 설정 (gitignored)
 .env
+.env.local
+.env.*.local
+.env.development
+.env.production
+.env.staging
+
+# Serena
 .serena/
 
 # sensitive config files
 GoogleService-Info.plist
 google-services.json
 *.keystore
-*.jks
-
-# environment files (keep templates, ignore actual config)
-.env
-.env.local
-.env.dev
-.env.prod
-.env.development
-.env.production
-.env.staging
 
 # secure storage and credentials
 credentials/
 secrets/
-*.p8
-*.p12
-*.key
-*.pem
-*.mobil₩provision
-
-# API keys and tokens
 api-keys.json
 tokens.json
 google-services-key.json
 
 # EAS
 .eas/
-
-/.serena
-.env
 
 # typescript
 *.tsbuildinfo
@@ -77,5 +67,3 @@ app-example
 # generated native folders
 # /ios
 # /android
-
-.env.local
