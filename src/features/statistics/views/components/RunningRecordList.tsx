@@ -10,6 +10,7 @@ import type { RunningRecord } from '../../../running/models';
 import { formatDuration, calculateAveragePace } from '../../../running/models';
 import { useRunningRecordList } from '../../viewmodels/useRunningRecordList';
 import { PRIMARY, GREY } from '~/shared/styles';
+import { formatPaceForUI } from '~/shared/utils/formatters';
 
 interface RunningRecordListProps {
 }
@@ -92,7 +93,7 @@ const RunningRecordCard: React.FC<RunningRecordCardProps> = ({ record }) => {
   // 통계 데이터
   const distance = `${(record.distance / 1000).toFixed(2)} km`;
   const pace = calculateAveragePace(record);
-  const paceFormatted = `${Math.floor(pace)}:${String(Math.floor((pace % 1) * 60)).padStart(2, '0')}"/km`;
+  const paceFormatted = `${formatPaceForUI(pace)}"/km`;
   const duration = formatDuration(record.durationSec);
 
   return (

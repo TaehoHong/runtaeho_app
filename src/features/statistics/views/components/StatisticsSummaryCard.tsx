@@ -11,6 +11,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { GREY } from '~/shared/styles';
+import { formatPaceForUI } from '~/shared/utils/formatters';
 
 interface StatisticsSummaryCardProps {
   runCount: number;
@@ -26,22 +27,6 @@ export const StatisticsSummaryCard: React.FC<StatisticsSummaryCardProps> = ({
   // 거리를 km로 변환
   const distanceInKm = (totalDistance / 1000).toFixed(2);
 
-  // 페이스 포맷팅 (시:분:초 형식)
-  const formatPace = (pace: number): string => {
-    if (pace === 0) return '00:00:00';
-
-    // pace가 초/미터 단위인 경우 분/km로 변환
-    const pacePerKm = pace < 100 ? pace * 1000 / 60 : pace / 60;
-
-    const totalSeconds = pacePerKm * 60;
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = Math.floor(totalSeconds % 60);
-
-    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-  };
-
-  const paceFormatted = formatPace(averagePace);
 
   return (
     <View style={styles.container}>
@@ -63,7 +48,7 @@ export const StatisticsSummaryCard: React.FC<StatisticsSummaryCardProps> = ({
       {/* 페이스 카드 */}
       <View style={styles.card}>
         <Text style={styles.cardLabel}>페이스</Text>
-        <Text style={styles.cardValue}>{paceFormatted}</Text>
+        <Text style={styles.cardValue}>{formatPaceForUI(averagePace)}"/km</Text>
       </View>
     </View>
   );
