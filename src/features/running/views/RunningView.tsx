@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
-import { AppState, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AppState, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { GREY } from '~/shared/styles';
 import type { Item } from '~/features/avatar';
 import { UnityView } from '~/features/unity/components/UnityView';
+import { UnityLoadingState } from '~/features/unity/components/UnityLoadingState';
 import { unityService } from '~/features/unity/services/UnityService';
 import { LoadingView } from '~/shared/components';
 import { ViewState, RunningState, useAppStore, useLeagueCheckStore } from '~/stores';
@@ -12,7 +13,6 @@ import { useAuthStore } from '~/features';
 import { useUserStore } from '~/stores/user/userStore';
 import { useLeagueCheck } from '~/features/league/hooks/useLeagueCheck';
 import { RunningProvider } from '../contexts/RunningContext';
-import { RunningDebugView } from './RunningDebugView';
 import { ControlPanelView } from './components/ControlPanelView';
 
 
@@ -37,7 +37,6 @@ export const RunningView: React.FC = () => {
 
   const [unityStarted, setUnityStarted] = useState(false);
   const [isUnityReady, setIsUnityReady] = useState(false);
-  const [isDebugVisible, setIsDebugVisible] = useState(false);
   const isInitialMount = useRef(true);
   const hasInitializedAvatar = useRef(false);
 
@@ -264,38 +263,21 @@ export const RunningView: React.FC = () => {
     <RunningProvider isUnityReady={isUnityReady}>
       <View style={styles.container}>
         {/* ✅ v9: Unity 컴포넌트 - unityStarted 후에만 마운트 */}
+        {/* UnityLoadingState: 로딩 중 placeholder 표시 + 부드러운 페이드 전환 */}
         {unityStarted && (
           <View style={[styles.unityContainer, isLoading && styles.hiddenContainer]}>
-            <UnityView
-              style={styles.unityView}
-              onUnityReady={handleUnityReady}
-            />
+            <UnityLoadingState
+              isLoading={!isUnityReady}
+              variant="running"
+              minDisplayTime={500}
+            >
+              <UnityView
+                style={styles.unityView}
+                onUnityReady={handleUnityReady}
+              />
+            </UnityLoadingState>
           </View>
         )}
-
-        {/* <View style={styles.verticalGuide}/> */}
-
-        {/* DEBUG 토글 버튼 및 오버레이 (개발 모드에서만) */}
-        {/* {__DEV__ && (
-          <>
-            <TouchableOpacity
-              style={styles.debugToggleButton}
-              onPress={() => setIsDebugVisible(!isDebugVisible)}
-            >
-              <Text style={styles.debugToggleText}>
-                {isDebugVisible ? '📋 닫기' : '🐛 디버그'}
-              </Text>
-            </TouchableOpacity>
-
-            {isDebugVisible && (
-              <View style={styles.debugOverlay}>
-                <View style={styles.debugContent}>
-                  <RunningDebugView />
-                </View>
-              </View>
-            )}
-          </>
-        )} */}
 
         {/* 컴트롤 패널 - Loading 상태일 때는 숨김 */}
         <View style={[styles.controlPanelContainer, isLoading && styles.hiddenContainer]}>
@@ -359,45 +341,4 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     zIndex: 100,
   },
-  debugToggleButton: {
-    position: 'absolute',
-    top: 50,
-    right: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    zIndex: 10000,
-    borderWidth: 1,
-    borderColor: '#00ff00',
-  },
-  debugToggleText: {
-    color: '#00ff00',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  debugOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
-    zIndex: 9998,
-    padding: 16,
-  },
-  debugContent: {
-    flex: 1,
-    marginTop: 100,
-  },
-  verticalGuide: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: '50%',
-    width: 1,
-    backgroundColor: 'red',
-    opacity: 0.3,
-    zIndex: 9999,
-  }
 });

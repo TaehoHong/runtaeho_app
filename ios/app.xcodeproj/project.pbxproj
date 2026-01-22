@@ -18,7 +18,6 @@
 		F730CDD52E925BF4002CDFCA /* RNUnityBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = F730CDCE2E925BF4002CDFCA /* RNUnityBridge.m */; };
 		F730CDD62E925BF4002CDFCA /* Unity.swift in Sources */ = {isa = PBXBuildFile; fileRef = F730CDD02E925BF4002CDFCA /* Unity.swift */; };
 		F730CDD72E925BF4002CDFCA /* RNUnityBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F730CDCF2E925BF4002CDFCA /* RNUnityBridge.swift */; };
-		F730CDD82E925BF4002CDFCA /* UnityBridgeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F730CDD12E925BF4002CDFCA /* UnityBridgeService.swift */; };
 		F730CDD92E925BF4002CDFCA /* UnityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F730CDD22E925BF4002CDFCA /* UnityView.swift */; };
 		F730CDDA2E925BF4002CDFCA /* UnityViewManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F730CDD42E925BF4002CDFCA /* UnityViewManager.swift */; };
 		F730CDDB2E925BF4002CDFCA /* UnityViewManager.m in Sources */ = {isa = PBXBuildFile; fileRef = F730CDD32E925BF4002CDFCA /* UnityViewManager.m */; };
@@ -58,7 +57,6 @@
 		F730CDCE2E925BF4002CDFCA /* RNUnityBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = RNUnityBridge.m; path = ../src/features/unity/bridge/iOS/RNUnityBridge.m; sourceTree = SOURCE_ROOT; };
 		F730CDCF2E925BF4002CDFCA /* RNUnityBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RNUnityBridge.swift; path = ../src/features/unity/bridge/iOS/RNUnityBridge.swift; sourceTree = SOURCE_ROOT; };
 		F730CDD02E925BF4002CDFCA /* Unity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Unity.swift; path = ../src/features/unity/bridge/iOS/Unity.swift; sourceTree = SOURCE_ROOT; };
-		F730CDD12E925BF4002CDFCA /* UnityBridgeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UnityBridgeService.swift; path = ../src/features/unity/bridge/iOS/UnityBridgeService.swift; sourceTree = SOURCE_ROOT; };
 		F730CDD22E925BF4002CDFCA /* UnityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UnityView.swift; path = ../src/features/unity/bridge/iOS/UnityView.swift; sourceTree = SOURCE_ROOT; };
 		F730CDD32E925BF4002CDFCA /* UnityViewManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = UnityViewManager.m; path = ../src/features/unity/bridge/iOS/UnityViewManager.m; sourceTree = SOURCE_ROOT; };
 		F730CDD42E925BF4002CDFCA /* UnityViewManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UnityViewManager.swift; path = ../src/features/unity/bridge/iOS/UnityViewManager.swift; sourceTree = SOURCE_ROOT; };
@@ -102,7 +100,6 @@
 				F730CDCF2E925BF4002CDFCA /* RNUnityBridge.swift */,
 				F7BE22F52F21245100B213D3 /* UnityViewContainer.swift */,
 				F730CDD02E925BF4002CDFCA /* Unity.swift */,
-				F730CDD12E925BF4002CDFCA /* UnityBridgeService.swift */,
 				F730CDD22E925BF4002CDFCA /* UnityView.swift */,
 				F730CDD32E925BF4002CDFCA /* UnityViewManager.m */,
 				F730CDD42E925BF4002CDFCA /* UnityViewManager.swift */,
@@ -430,7 +427,6 @@
 				F7BE22F62F21245100B213D3 /* UnityViewContainer.swift in Sources */,
 				F730CDD62E925BF4002CDFCA /* Unity.swift in Sources */,
 				F730CDD72E925BF4002CDFCA /* RNUnityBridge.swift in Sources */,
-				F730CDD82E925BF4002CDFCA /* UnityBridgeService.swift in Sources */,
 				F730CDD92E925BF4002CDFCA /* UnityView.swift in Sources */,
 				F730CDDA2E925BF4002CDFCA /* UnityViewManager.swift in Sources */,
 				F77F8FC22ED3E49E0077E3A1 /* UnityNativeBridge.mm in Sources */,

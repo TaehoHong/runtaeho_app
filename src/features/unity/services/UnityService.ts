@@ -109,14 +109,7 @@ export class UnityService {
     }
 
     try {
-      let clampedSpeed
-      if (speed >= UnityService.MAX_SPEED) {
-        clampedSpeed = UnityService.MAX_SPEED
-      } else if (speed <= UnityService.MIN_SPEED) {
-        clampedSpeed = UnityService.MIN_SPEED
-      } else {
-        clampedSpeed = UnityService.MIN_SPEED + (speed - UnityService.MAX_SPEED) * 0.4
-      }
+      const clampedSpeed = Math.max(UnityService.MIN_SPEED, Math.min(speed, UnityService.MAX_SPEED));
 
       const speedString = clampedSpeed.toString();
       await UnityBridge.sendUnityMessage(

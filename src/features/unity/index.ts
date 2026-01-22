@@ -24,3 +24,7 @@ export type {
 
 // Unity Bridge (현재는 주석 처리)
 export type { UnityBridgeInterface } from './bridge/UnityBridge';
+
+// Unity Loading State Components
+export { UnityLoadingState } from './components/UnityLoadingState';
+export { UnityPlaceholder, type UnityPlaceholderVariant } from './components/UnityPlaceholder';

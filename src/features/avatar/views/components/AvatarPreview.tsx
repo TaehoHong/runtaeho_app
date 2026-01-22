@@ -10,6 +10,7 @@ import { View, StyleSheet } from 'react-native';
 import type { EquippedItemsMap, Item } from '~/features/avatar';
 import { UNITY_PREVIEW } from '~/features/avatar';
 import { UnityView } from '~/features/unity/components/UnityView';
+import { UnityLoadingState } from '~/features/unity/components/UnityLoadingState';
 import { unityService } from '~/features/unity/services/UnityService';
 import { GREY } from '~/shared/styles';
 
@@ -71,10 +72,16 @@ export const AvatarPreview: React.FC<Props> = ({ equippedItems, hairColor }) => 
 
   return (
     <View style={styles.container}>
-      <UnityView
-        style={styles.unity}
-        onUnityReady={handleUnityReady}
-      />
+      <UnityLoadingState
+        isLoading={!isUnityReady}
+        variant="avatar"
+        minDisplayTime={300}
+      >
+        <UnityView
+          style={styles.unity}
+          onUnityReady={handleUnityReady}
+        />
+      </UnityLoadingState>
     </View>
   );
 };

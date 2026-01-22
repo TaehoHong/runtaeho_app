@@ -41,6 +41,9 @@ class Unity: ObservableObject  {
     private var messageQueue: [(objectName: String, methodName: String, parameter: String)] = []
     private var isGameObjectReady = false
 
+    /// 메시지 큐 최대 크기 (메모리 보호)
+    private let maxQueueSize = 50
+
     // MARK: - App Lifecycle State
     /// 앱이 활성 상태인지 여부 (Background/Foreground 추적)
     private(set) var isAppActive = true
@@ -297,11 +300,16 @@ class Unity: ObservableObject  {
 
     // MARK: - Metal Ready Detection
 
-    /// Metal context 준비 상태 확인 (polling 방식, non-blocking)
+    /// Metal context 준비 상태 확인 (적응형 polling 방식, non-blocking)
     /// - Parameters:
-    ///   - maxAttempts: 최대 시도 횟수 (기본값: 20회 = 1초)
+    ///   - maxAttempts: 최대 시도 횟수 (기본값: 15회 ≈ 800ms)
     ///   - completion: 준비 완료 시 호출
-    private func waitForMetalReady(maxAttempts: Int = 20, completion: @escaping (Bool) -> Void) {
+    ///
+    /// 폴링 전략 (성능 최적화):
+    /// - 초기 5회: 20ms 간격 (빠른 감지)
+    /// - 이후: 100ms 간격 (안정적 대기)
+    /// - 총 최대 시간: 5×20ms + 10×100ms = 1.1초 (여유 확보)
+    private func waitForMetalReady(maxAttempts: Int = 15, completion: @escaping (Bool) -> Void) {
         var attempts = 0
 
         func checkReady() {
@@ -324,8 +332,9 @@ class Unity: ObservableObject  {
                 return
             }
 
-            // 50ms 후 재시도 (최대 20회 = 1초)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            // 적응형 폴링 간격: 초기 5회는 20ms, 이후 100ms
+            let delay: Double = attempts <= 5 ? 0.02 : 0.1
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                 checkReady()
             }
         }
@@ -487,23 +496,41 @@ class Unity: ObservableObject  {
         // Background 상태에서는 메시지 큐잉
         if !isAppActive {
             print("[Unity] ⏳ App not active, queuing message")
-            queueLock.lock()
-            messageQueue.append((objectName, methodName, parameter))
-            queueLock.unlock()
+            enqueueMessage(objectName, methodName: methodName, parameter: parameter)
             return
         }
 
         queueLock.lock()
         let ready = isGameObjectReady
         if !ready {
-            messageQueue.append((objectName, methodName, parameter))
+            // 큐잉 전 중복 제거 및 크기 제한 적용
             queueLock.unlock()
+            enqueueMessage(objectName, methodName: methodName, parameter: parameter)
             print("[Unity] ⏳ Queuing message (GameObject not ready)")
             return
         }
         queueLock.unlock()
 
         sendMessageImmediate(objectName, methodName: methodName, parameter: parameter)
+    }
+
+    /// 메시지를 큐에 추가 (중복 제거 + 크기 제한)
+    /// - 동일한 objectName + methodName 조합의 이전 메시지는 제거 (최신 값만 유지)
+    /// - 큐 크기가 maxQueueSize를 초과하면 가장 오래된 메시지 제거
+    private func enqueueMessage(_ objectName: String, methodName: String, parameter: String) {
+        queueLock.lock()
+        defer { queueLock.unlock() }
+
+        // 동일 메시지 중복 제거 (objectName + methodName 기준)
+        messageQueue.removeAll { $0.objectName == objectName && $0.methodName == methodName }
+
+        // 큐 크기 제한 (FIFO - 가장 오래된 메시지 제거)
+        if messageQueue.count >= maxQueueSize {
+            let removed = messageQueue.removeFirst()
+            print("[Unity] ⚠️ Queue full, dropping oldest: \(removed.objectName).\(removed.methodName)")
+        }
+
+        messageQueue.append((objectName, methodName, parameter))
     }
 
     private func sendMessageImmediate(_ objectName: String, methodName: String, parameter: String) {

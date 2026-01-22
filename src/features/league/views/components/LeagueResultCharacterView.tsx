@@ -7,9 +7,10 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { UnityView } from '~/features/unity/components/UnityView';
-import { GREY, PRIMARY } from '~/shared/styles';
+import { UnityLoadingState } from '~/features/unity/components/UnityLoadingState';
+import { GREY } from '~/shared/styles';
 import { LeagueResultStatus } from '../../models';
 import { useLeagueResultAnimation } from '../../hooks/useLeagueResultAnimation';
 
@@ -77,20 +78,19 @@ export const LeagueResultCharacterView: React.FC<LeagueResultCharacterViewProps>
   // iOS: Unity 캐릭터 뷰
   return (
     <View style={styles.container}>
-      <UnityView
-        style={styles.unityView}
-        onUnityReady={handleUnityReady}
-        onUnityError={(event) => {
-          console.error('[LeagueResultCharacterView] Unity error:', event?.nativeEvent);
-        }}
-      />
-
-      {/* 로딩 오버레이 */}
-      {!isUnityReady && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color={PRIMARY[600]} />
-        </View>
-      )}
+      <UnityLoadingState
+        isLoading={!isUnityReady}
+        variant="league"
+        minDisplayTime={300}
+      >
+        <UnityView
+          style={styles.unityView}
+          onUnityReady={handleUnityReady}
+          onUnityError={(event) => {
+            console.error('[LeagueResultCharacterView] Unity error:', event?.nativeEvent);
+          }}
+        />
+      </UnityLoadingState>
     </View>
   );
 };
@@ -103,12 +103,6 @@ const styles = StyleSheet.create({
   unityView: {
     width: '100%',
     height: '100%',
-  },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   fallbackContainer: {
     flex: 1,

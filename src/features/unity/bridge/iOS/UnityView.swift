@@ -340,19 +340,6 @@ class RNUnityContainerView: UIView {
 
     // MARK: - Metal Layer Configuration
 
-    /// CAMetalLayer의 presentsWithTransaction 설정
-    /// CoreAnimation 트랜잭션과 Metal 렌더링 동기화 (크래시 방지)
-    private func configureMetalLayerSync() {
-        guard let unityView = self.unityView else { return }
-
-        var foundCount = 0
-        configureMetalLayersRecursively(in: unityView.layer, foundCount: &foundCount)
-
-        if foundCount > 0 {
-            print("[RNUnityContainerView] ✅ configureMetalLayerSync: \(foundCount)개 CAMetalLayer 설정 완료")
-        }
-    }
-
     /// 재귀적으로 모든 sublayer에서 CAMetalLayer 찾아 설정 (v8)
     private func configureMetalLayersRecursively(in layer: CALayer, foundCount: inout Int) {
         if let metalLayer = layer as? CAMetalLayer {
