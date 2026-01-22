@@ -13,6 +13,10 @@ class Unity: ObservableObject  {
        so we will do the same. Singleton init is lazy and thread safe. */
     static let shared = Unity()
 
+    // MARK: - Notifications
+    /// Unity Metal context 준비 완료 신호 (Event-Driven 패턴용)
+    static let UnityMetalReadyNotification = NSNotification.Name("UnityMetalReady")
+
     // MARK: Lifecycle
     private let frameworkPath: String = "/Frameworks/UnityFramework.framework"
 
@@ -206,11 +210,52 @@ class Unity: ObservableObject  {
         }
     }
 
+    // MARK: - App Termination
+
+    /// 앱 종료 시 호출 - blocking 없이 빠르게 정리
+    /// Watchdog 타임아웃 방지를 위해 동기 작업 최소화
+    func prepareForTermination() {
+        print("[Unity] 🛑 Preparing for termination...")
+
+        // 1. 상태 플래그만 업데이트 (blocking 작업 없음)
+        isAppActive = false
+        isPaused = true
+
+        // 2. 메시지 큐 정리
+        queueLock.lock()
+        messageQueue.removeAll()
+        isGameObjectReady = false
+        queueLock.unlock()
+
+        // 3. 옵저버 제거 (재시작 시 중복 등록 방지)
+        NotificationCenter.default.removeObserver(self)
+
+        // ⚠️ 중요: unloadApplication() 호출하지 않음
+        // - 이 작업이 main thread를 blocking하여 watchdog crash 유발
+        // - iOS가 프로세스 종료 시 자동으로 메모리 해제함
+
+        print("[Unity] ✅ Termination preparation completed")
+    }
+
     // MARK: - Unity Control
 
+    /// Unity 시작 (기존 동기 버전 - 하위 호환성 유지)
     func start() {
+        start(completion: nil)
+    }
+
+    /// Unity 시작 (completion handler 버전 - Event-Driven 패턴)
+    /// - Parameter completion: Metal context 준비 완료 시 호출 (nil이면 무시)
+    func start(completion: ((Bool) -> Void)?) {
+        // ✅ 기존 stale 상태 감지 및 정리
+        if _framework != nil && !validateState() {
+            print("[Unity] ⚠️ Stale state detected on start, forcing reset")
+            forceReset()
+        }
+
         guard !loaded else {
-            print("[Unity] ⚠️ Already loaded, skipping start")
+            print("[Unity] ⚠️ Already loaded")
+            completion?(true)
             return
         }
 
@@ -230,7 +275,70 @@ class Unity: ObservableObject  {
             object: nil
         )
 
-        print("[Unity] ✅ Framework started, waiting for GameObject ready signal...")
+        print("[Unity] ✅ Framework started, checking Metal readiness...")
+
+        // ✅ Metal 준비 확인 (Event-Driven)
+        waitForMetalReady { [weak self] ready in
+            guard let self = self else { return }
+
+            if ready {
+                print("[Unity] ✅ Metal context ready")
+                NotificationCenter.default.post(
+                    name: Unity.UnityMetalReadyNotification,
+                    object: nil
+                )
+            } else {
+                print("[Unity] ⚠️ Metal context not ready (timeout)")
+            }
+
+            completion?(ready)
+        }
+    }
+
+    // MARK: - Metal Ready Detection
+
+    /// Metal context 준비 상태 확인 (polling 방식, non-blocking)
+    /// - Parameters:
+    ///   - maxAttempts: 최대 시도 횟수 (기본값: 20회 = 1초)
+    ///   - completion: 준비 완료 시 호출
+    private func waitForMetalReady(maxAttempts: Int = 20, completion: @escaping (Bool) -> Void) {
+        var attempts = 0
+
+        func checkReady() {
+            attempts += 1
+
+            // Metal context 준비 확인: rootView와 layer 존재 여부
+            if let rootView = _framework?.appController()?.rootView,
+               rootView.layer.sublayers?.isEmpty == false {
+                // CAMetalLayer 존재 확인
+                if hasMetalLayer(in: rootView.layer) {
+                    print("[Unity] ✅ Metal layer found after \(attempts) attempts")
+                    DispatchQueue.main.async { completion(true) }
+                    return
+                }
+            }
+
+            if attempts >= maxAttempts {
+                print("[Unity] ⚠️ Metal ready timeout after \(attempts) attempts")
+                DispatchQueue.main.async { completion(false) }
+                return
+            }
+
+            // 50ms 후 재시도 (최대 20회 = 1초)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                checkReady()
+            }
+        }
+
+        checkReady()
+    }
+
+    /// CAMetalLayer 존재 여부 재귀 확인
+    private func hasMetalLayer(in layer: CALayer) -> Bool {
+        if layer is CAMetalLayer {
+            return true
+        }
+        return layer.sublayers?.contains { hasMetalLayer(in: $0) } ?? false
     }
 
     /// Unity 일시정지
@@ -272,12 +380,22 @@ class Unity: ObservableObject  {
     // MARK: - State Validation
 
     /// Unity 싱글톤 상태 유효성 검사
-    /// 앱 업데이트 후 stale 상태 감지
+    /// 앱 종료 후 재시작 시 stale 상태 감지
     func validateState() -> Bool {
-        // Framework가 로드되었지만 view가 없으면 stale 상태
-        if loaded && _framework?.appController()?.rootView == nil {
-            print("[Unity] ⚠️ Stale state detected: loaded but no view")
-            return false
+        // Framework 참조가 있지만 실제로 유효하지 않은 경우 감지
+        if _framework != nil {
+            // rootView가 없으면 stale
+            guard let controller = _framework?.appController(),
+                  let rootView = controller.rootView else {
+                print("[Unity] ⚠️ Stale: framework exists but no rootView")
+                return false
+            }
+
+            // rootView가 window hierarchy에 없으면 stale (로드 완료 후에만 체크)
+            if rootView.window == nil && loaded {
+                print("[Unity] ⚠️ Stale: rootView not in window hierarchy")
+                return false
+            }
         }
 
         // 앱이 active인데 Unity가 paused면 불일치
@@ -290,13 +408,20 @@ class Unity: ObservableObject  {
     }
 
     /// Stale 상태 강제 리셋
+    /// 앱 재시작 시 이전 인스턴스의 잔여 상태를 정리
     func forceReset() {
         print("[Unity] 🔄 Force resetting stale Unity state")
 
         // 1. 모든 옵저버 제거
         NotificationCenter.default.removeObserver(self)
 
-        // 2. 상태 초기화
+        // 2. CATransaction 정리 (pending 작업 완료 대기)
+        // 메인 스레드에서만 CATransaction 조작 가능
+        if Thread.isMainThread {
+            CATransaction.flush()
+        }
+
+        // 3. 상태 초기화
         loaded = false
         isPaused = false
         isAppActive = true
@@ -306,10 +431,11 @@ class Unity: ObservableObject  {
         messageQueue.removeAll()
         queueLock.unlock()
 
-        // 3. Framework 참조 해제 (다음 start()에서 재로드)
+        // 4. Framework 참조 해제 (다음 start()에서 재로드)
+        // ⚠️ unloadApplication()은 호출하지 않음 (이미 invalid 상태일 수 있음)
         _framework = nil
 
-        // 4. 앱 라이프사이클 옵저버 재등록
+        // 5. 앱 라이프사이클 옵저버 재등록
         setupAppLifecycleObservers()
 
         print("[Unity] ✅ Force reset completed")

@@ -71,8 +71,19 @@ export const RunningView: React.FC = () => {
 
     // ✅ Unity 시작 상태만 관리 (viewState 변경은 AuthProvider에서 담당)
     if (isLoggedIn && !unityStarted) {
-      console.log('🎮 [RunningView] 로그인 완료 - Unity 시작');
-      setUnityStarted(true);
+      console.log('🎮 [RunningView] 로그인 완료 - Unity 시작 예약 (500ms 지연)');
+
+      // ✅ Cold Start 크래시 방지: Unity 엔진 초기화 시간 확보
+      // 앱 스위처에서 강제 종료 후 재실행 시 React Native UI와 Unity 엔진 간 Race Condition 방지
+      const timer = setTimeout(() => {
+        console.log('🎮 [RunningView] Unity 시작');
+        setUnityStarted(true);
+      }, 500);
+
+      return () => {
+        console.log('🔄 [RunningView] 컴포넌트 언마운트 - Unity 시작 타이머 정리');
+        clearTimeout(timer);
+      };
     }
 
     return () => {
@@ -237,29 +248,30 @@ export const RunningView: React.FC = () => {
     return unsubscribe;
   }, []); // 의존성 제거 - getState() 사용으로 항상 최신 값 참조
 
-  if (viewState === ViewState.Loading) {
-    console.log('⏳ [RunningView] 로딩 화면 표시');
-    return (
-      <LoadingView 
-        onAppear={() => {
-          console.log('📎 [RunningView] 로딩 화면 나타나는 중...');
-        }}
-      />
-    );
+  const isLoading = viewState === ViewState.Loading;
+
+  if (isLoading) {
+    console.log('⏳ [RunningView] 로딩 상태');
+  } else {
+    console.log('✅ [RunningView] Loaded 상태 - Unity + 컴트롤 패널 표시');
   }
 
-  console.log('✅ [RunningView] Loaded 상태 - Unity + 컴트롤 패널 표시');
-
+  // ✅ v9: Unity Cold Start 크래시 방지
+  // - 500ms 지연: React Native UI 안정화 후 Unity 컴포넌트 마운트
+  // - Native 측 동기적 초기화: Metal context 준비 후에만 view 표시
+  // - presentsWithTransaction = true: GPU 렌더링과 CATransaction 동기화
   return (
     <RunningProvider isUnityReady={isUnityReady}>
       <View style={styles.container}>
-        {/* Unity 컴포넌트 */}
-        <View style={styles.unityContainer}>
-          <UnityView
-            style={styles.unityView}
-            onUnityReady={handleUnityReady}
-          />
-        </View>
+        {/* ✅ v9: Unity 컴포넌트 - unityStarted 후에만 마운트 */}
+        {unityStarted && (
+          <View style={[styles.unityContainer, isLoading && styles.hiddenContainer]}>
+            <UnityView
+              style={styles.unityView}
+              onUnityReady={handleUnityReady}
+            />
+          </View>
+        )}
 
         {/* <View style={styles.verticalGuide}/> */}
 
@@ -285,13 +297,24 @@ export const RunningView: React.FC = () => {
           </>
         )} */}
 
-        {/* 컴트롤 패널 - Finished 상태일 때는 전체 화면 사용 */}
-        <View style={styles.controlPanelContainer}>
+        {/* 컴트롤 패널 - Loading 상태일 때는 숨김 */}
+        <View style={[styles.controlPanelContainer, isLoading && styles.hiddenContainer]}>
           <ControlPanelView />
         </View>
 
         {/* 알림 들 (iOS alert 대응) */}
         <RunningAlerts />
+
+        {/* Loading 오버레이 - Unity가 백그라운드에서 초기화되는 동안 표시 */}
+        {isLoading && (
+          <View style={styles.loadingOverlay}>
+            <LoadingView
+              onAppear={() => {
+                console.log('📎 [RunningView] 로딩 화면 나타나는 중...');
+              }}
+            />
+          </View>
+        )}
       </View>
     </RunningProvider>
   );
@@ -325,6 +348,16 @@ const styles = StyleSheet.create({
     flex: 0.5, // 화면 하단 50%
     backgroundColor: GREY[50],
     borderTopColor: '#ddd',
+  },
+  // Loading 상태에서 Unity 컴포넌트 숨김 (opacity 기반)
+  hiddenContainer: {
+    opacity: 0,
+    pointerEvents: 'none',
+  },
+  // Loading 오버레이 - 전체 화면 덮기
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 100,
   },
   debugToggleButton: {
     position: 'absolute',

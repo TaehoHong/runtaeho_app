@@ -23,6 +23,7 @@
 		F730CDDA2E925BF4002CDFCA /* UnityViewManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F730CDD42E925BF4002CDFCA /* UnityViewManager.swift */; };
 		F730CDDB2E925BF4002CDFCA /* UnityViewManager.m in Sources */ = {isa = PBXBuildFile; fileRef = F730CDD32E925BF4002CDFCA /* UnityViewManager.m */; };
 		F77F8FC22ED3E49E0077E3A1 /* UnityNativeBridge.mm in Sources */ = {isa = PBXBuildFile; fileRef = F77F8FC12ED3E49E0077E3A1 /* UnityNativeBridge.mm */; };
+		F7BE22F62F21245100B213D3 /* UnityViewContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7BE22F52F21245100B213D3 /* UnityViewContainer.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -63,6 +64,7 @@
 		F730CDD42E925BF4002CDFCA /* UnityViewManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UnityViewManager.swift; path = ../src/features/unity/bridge/iOS/UnityViewManager.swift; sourceTree = SOURCE_ROOT; };
 		F73BCBDE2E8402E70087982B /* UnityFramework.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = UnityFramework.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		F77F8FC12ED3E49E0077E3A1 /* UnityNativeBridge.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = UnityNativeBridge.mm; path = app/UnityNativeBridge.mm; sourceTree = "<group>"; };
+		F7BE22F52F21245100B213D3 /* UnityViewContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UnityViewContainer.swift; path = ../src/features/unity/bridge/iOS/UnityViewContainer.swift; sourceTree = SOURCE_ROOT; };
 		FCEA5D850C2BAF9F99E234A4 /* Pods-app.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-app.release.xcconfig"; path = "Target Support Files/Pods-app/Pods-app.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -98,6 +100,7 @@
 				3EB4D8CB6799DC98CE183608 /* PrivacyInfo.xcprivacy */,
 				F730CDCE2E925BF4002CDFCA /* RNUnityBridge.m */,
 				F730CDCF2E925BF4002CDFCA /* RNUnityBridge.swift */,
+				F7BE22F52F21245100B213D3 /* UnityViewContainer.swift */,
 				F730CDD02E925BF4002CDFCA /* Unity.swift */,
 				F730CDD12E925BF4002CDFCA /* UnityBridgeService.swift */,
 				F730CDD22E925BF4002CDFCA /* UnityView.swift */,
@@ -424,6 +427,7 @@
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
 				F730CDD52E925BF4002CDFCA /* RNUnityBridge.m in Sources */,
+				F7BE22F62F21245100B213D3 /* UnityViewContainer.swift in Sources */,
 				F730CDD62E925BF4002CDFCA /* Unity.swift in Sources */,
 				F730CDD72E925BF4002CDFCA /* RNUnityBridge.swift in Sources */,
 				F730CDD82E925BF4002CDFCA /* UnityBridgeService.swift in Sources */,
@@ -463,7 +467,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.1;
+				MARKETING_VERSION = 1.0.2;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -501,7 +505,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.1;
+				MARKETING_VERSION = 1.0.2;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",

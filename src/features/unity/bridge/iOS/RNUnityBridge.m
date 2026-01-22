@@ -24,4 +24,8 @@ RCT_EXTERN_METHOD(resetCharactorReady:(RCTPromiseResolveBlock)resolve rejecter:(
 RCT_EXTERN_METHOD(validateUnityState:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 RCT_EXTERN_METHOD(forceResetUnity:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 
+// v8: Unity Engine Ready Methods
+RCT_EXTERN_METHOD(isEngineReady:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
+RCT_EXTERN_METHOD(initializeUnityEngine:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
+
 @end

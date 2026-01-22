@@ -51,7 +51,8 @@ class RNUnityBridge: RCTEventEmitter {
     override func supportedEvents() -> [String]! {
         return [
             "onUnityError",
-            "onCharactorReady"
+            "onCharactorReady",
+            "UnityEngineReady"  // ✅ v8: Metal context 준비 완료 이벤트
         ]
     }
 
@@ -65,6 +66,14 @@ class RNUnityBridge: RCTEventEmitter {
             self,
             selector: #selector(handleCharactorReady),
             name: NSNotification.Name("UnityCharactorReady"),
+            object: nil
+        )
+
+        // ✅ v8: Unity Metal Ready 알림 구독
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleUnityMetalReady),
+            name: Unity.UnityMetalReadyNotification,
             object: nil
         )
 
@@ -90,6 +99,26 @@ class RNUnityBridge: RCTEventEmitter {
     }
 
     // MARK: - Event Handling
+
+    // ✅ v8: Unity Metal Ready 핸들러
+    @objc
+    private func handleUnityMetalReady() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+
+            print("[RNUnityBridge] 📱 Unity Metal ready, sending event to JS")
+
+            guard self._hasListeners else {
+                print("[RNUnityBridge] ⚠️ No JS listeners for UnityEngineReady")
+                return
+            }
+
+            self.sendEvent(withName: "UnityEngineReady", body: [
+                "ready": true,
+                "timestamp": ISO8601DateFormatter().string(from: Date())
+            ])
+        }
+    }
 
     @objc
     private func handleCharactorReady() {
@@ -227,6 +256,36 @@ class RNUnityBridge: RCTEventEmitter {
             self.pendingEvents.removeAll()
 
             resolve(nil)
+        }
+    }
+
+    // MARK: - v8: Unity Engine Ready Methods
+
+    /// ✅ Unity Engine 준비 상태 확인
+    @objc
+    func isEngineReady(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+        DispatchQueue.main.async {
+            let ready = Unity.shared.loaded && Unity.shared.isAppActive
+            print("[RNUnityBridge] isEngineReady: \(ready)")
+            resolve(ready)
+        }
+    }
+
+    /// ✅ Unity Engine 초기화 요청 (JS에서 호출 가능)
+    @objc
+    func initializeUnityEngine(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+        print("[RNUnityBridge] initializeUnityEngine called")
+
+        DispatchQueue.main.async {
+            Unity.shared.start { ready in
+                if ready {
+                    print("[RNUnityBridge] ✅ Unity initialized successfully")
+                    resolve(true)
+                } else {
+                    print("[RNUnityBridge] ⚠️ Unity initialization timeout")
+                    resolve(false)  // 에러가 아닌 false 반환 (타임아웃)
+                }
+            }
         }
     }
 

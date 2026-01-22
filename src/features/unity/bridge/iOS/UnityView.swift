@@ -10,7 +10,7 @@ import UIKit
 import React
 import UnityFramework
 
-class UnityView: UIView {
+class RNUnityContainerView: UIView {
 
     // Unity 관련 속성들
     private var unityView: UIView?
@@ -56,46 +56,130 @@ class UnityView: UIView {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
 
-            do {
-                // Unity 시작
-                Unity.shared.start()
+            print("[RNUnityContainerView] === 동기적 초기화 시작 ===")
 
-                // Unity View 가져오기
-                if let unityView = Unity.shared.view {
-                    self.unityView = unityView
-
-                    // Frame 기반으로 배치 (Aspect Fill을 위해 Auto Layout 사용 안 함)
-                    unityView.translatesAutoresizingMaskIntoConstraints = true
-
-                    self.addSubview(unityView)
-
-                    // layoutSubviews에서 Aspect Fill 적용
-                    self.setNeedsLayout()
-
-                    self.isUnityLoaded = true
-
-                    // React Native에 로드 완료 알림
-                    self.onUnityReady?([
-                        "message": "Unity loaded successfully",
-                        "timestamp": ISO8601DateFormatter().string(from: Date())
-                    ])
-
-                    print("[UnityView] Unity initialized successfully")
-                } else {
-                    throw NSError(domain: "UnityView", code: 1, userInfo: [
-                        NSLocalizedDescriptionKey: "Failed to get Unity view"
-                    ])
+            // ✅ Step 1: Unity 시작 및 Metal 준비 대기
+            self.step1_startUnity { [weak self] success in
+                guard let self = self, success else {
+                    print("[RNUnityContainerView] ❌ Step 1 실패: Unity 시작 실패")
+                    self?.onUnityError?(["error": "Unity start failed"])
+                    return
                 }
-            } catch {
-                print("[UnityView] Failed to initialize Unity: \(error)")
 
-                // React Native에 에러 알림
-                self.onUnityError?([
-                    "error": error.localizedDescription,
-                    "timestamp": ISO8601DateFormatter().string(from: Date())
-                ])
+                // ✅ Step 2: Unity view를 hidden 상태로 attach
+                self.step2_attachUnityView { [weak self] success in
+                    guard let self = self, success else {
+                        print("[RNUnityContainerView] ❌ Step 2 실패: Attach 실패")
+                        self?.onUnityError?(["error": "Attach failed"])
+                        return
+                    }
+
+                    // ✅ Step 3: CAMetalLayer 설정
+                    self.step3_configureMetalLayer { [weak self] success in
+                        guard let self = self else { return }
+
+                        if !success {
+                            print("[RNUnityContainerView] ⚠️ Step 3 경고: Metal layer 설정 실패")
+                            // 계속 진행 (치명적이지 않음)
+                        }
+
+                        // ✅ Step 4: Unity view 표시
+                        self.step4_showUnityView()
+                    }
+                }
             }
         }
+    }
+
+    // MARK: - 초기화 단계별 메서드 (v8)
+
+    /// Step 1: Unity 시작 및 Metal 준비 대기
+    private func step1_startUnity(completion: @escaping (Bool) -> Void) {
+        print("[RNUnityContainerView] Step 1: Unity 시작 중...")
+
+        Unity.shared.start { ready in
+            if ready {
+                print("[RNUnityContainerView] Step 1: ✅ Unity 및 Metal 준비 완료")
+            } else {
+                print("[RNUnityContainerView] Step 1: ⚠️ Metal 준비 타임아웃, 계속 진행")
+            }
+            completion(true)  // Metal 타임아웃이어도 계속 진행
+        }
+    }
+
+    /// Step 2: Unity view를 hidden 상태로 attach
+    private func step2_attachUnityView(completion: @escaping (Bool) -> Void) {
+        print("[RNUnityContainerView] Step 2: Unity view attach 중...")
+
+        guard Unity.shared.isAppActive else {
+            print("[RNUnityContainerView] Step 2: ⚠️ App not active")
+            completion(false)
+            return
+        }
+
+        UnityViewContainer.shared.attachUnityView(to: self) { [weak self] success in
+            guard let self = self, success else {
+                completion(false)
+                return
+            }
+
+            // Unity view를 hidden 상태로 설정
+            self.unityView = Unity.shared.view
+            self.unityView?.isHidden = true
+            self.unityView?.layer.opacity = 0
+
+            print("[RNUnityContainerView] Step 2: ✅ Unity view attached (hidden)")
+            completion(true)
+        }
+    }
+
+    /// Step 3: CAMetalLayer 설정
+    private func step3_configureMetalLayer(completion: @escaping (Bool) -> Void) {
+        print("[RNUnityContainerView] Step 3: CAMetalLayer 설정 중...")
+
+        guard let unityView = self.unityView else {
+            completion(false)
+            return
+        }
+
+        var foundCount = 0
+        configureMetalLayersRecursively(in: unityView.layer, foundCount: &foundCount)
+
+        if foundCount > 0 {
+            print("[RNUnityContainerView] Step 3: ✅ \(foundCount)개 CAMetalLayer 설정 완료")
+            completion(true)
+        } else {
+            print("[RNUnityContainerView] Step 3: ⚠️ CAMetalLayer 없음")
+            completion(false)
+        }
+    }
+
+    /// Step 4: Unity view 표시
+    private func step4_showUnityView() {
+        print("[RNUnityContainerView] Step 4: Unity view 표시 중...")
+
+        guard Unity.shared.isAppActive else {
+            print("[RNUnityContainerView] Step 4: ⚠️ App not active, skipping show")
+            return
+        }
+
+        // 애니메이션 없이 표시
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        self.unityView?.isHidden = false
+        self.unityView?.layer.opacity = 1
+        CATransaction.commit()
+
+        self.isUnityLoaded = true
+        self.setNeedsLayout()
+
+        print("[RNUnityContainerView] Step 4: ✅ Unity view 표시 완료")
+        print("[RNUnityContainerView] === 동기적 초기화 완료 ===")
+
+        self.onUnityReady?([
+            "message": "Unity loaded successfully",
+            "timestamp": ISO8601DateFormatter().string(from: Date())
+        ])
     }
 
     // Unity View 크기 조정 - Aspect Fill 적용
@@ -106,7 +190,7 @@ class UnityView: UIView {
 
         // 앱이 활성 상태가 아니면 레이아웃 업데이트 스킵
         guard Unity.shared.isAppActive else {
-            print("[UnityView] App not active, skipping layout")
+            print("[RNUnityContainerView] App not active, skipping layout")
             return
         }
 
@@ -143,16 +227,16 @@ class UnityView: UIView {
         // Frame 설정 (clipsToBounds로 넘치는 부분 자름)
         unityView.frame = CGRect(x: x, y: y, width: scaledWidth, height: scaledHeight)
 
-        print("[UnityView] Aspect Fill: container=\(containerSize), unity=\(CGSize(width: scaledWidth, height: scaledHeight)), scale=\(fillScale)")
+        print("[RNUnityContainerView] Aspect Fill: container=\(containerSize), unity=\(CGSize(width: scaledWidth, height: scaledHeight)), scale=\(fillScale)")
     }
 
     // MARK: - App Lifecycle Handling
 
     @objc private func handleUnityDidBecomeActive() {
-        print("[UnityView] 📱 Unity did become active notification received (pendingReattach: \(pendingReattach), isUnityLoaded: \(isUnityLoaded))")
+        print("[RNUnityContainerView] 📱 Unity did become active notification received (pendingReattach: \(pendingReattach), isUnityLoaded: \(isUnityLoaded))")
 
         guard isUnityLoaded else {
-            print("[UnityView] Unity not loaded, skipping foreground handling")
+            print("[RNUnityContainerView] Unity not loaded, skipping foreground handling")
             return
         }
 
@@ -172,7 +256,7 @@ class UnityView: UIView {
 
     // MARK: - Safe View Reattachment
 
-    /// Unity View 안전한 재연결 (CATransaction 충돌 방지)
+    /// Unity View 안전한 재연결 (UnityViewContainer 사용)
     private func safeReattachUnityView() {
         // ✅ 메인 스레드 보장
         guard Thread.isMainThread else {
@@ -183,60 +267,40 @@ class UnityView: UIView {
         }
 
         guard isUnityLoaded else {
-            print("[UnityView] Unity not loaded, cannot reattach")
+            print("[RNUnityContainerView] Unity not loaded, cannot reattach")
             return
         }
 
         // 앱이 활성 상태가 아니면 reattach 대기
         guard Unity.shared.isSafeToReattach else {
-            print("[UnityView] ⏳ Not safe to reattach, queueing for later")
+            print("[RNUnityContainerView] ⏳ Not safe to reattach, queueing for later")
             pendingReattach = true
             return
         }
 
-        // Unity View 참조 확인
-        guard let unityView = Unity.shared.view else {
-            print("[UnityView] ⚠️ Unity view is nil, cannot reattach")
-            return
-        }
-
         // 이미 현재 view에 붙어있으면 스킵
-        if unityView.superview == self {
-            print("[UnityView] Unity view already attached to this view, skipping reattach")
+        if UnityViewContainer.shared.isAttached(to: self) {
+            print("[RNUnityContainerView] Unity view already attached to this view, skipping reattach")
             return
         }
 
-        // ✅ 기존 CATransaction 완료 대기
-        CATransaction.flush()
+        // ✅ UnityViewContainer를 통한 안전한 재연결 (CATransaction 제거)
+        UnityViewContainer.shared.attachUnityView(to: self) { [weak self] success in
+            guard let self = self, success else {
+                print("[RNUnityContainerView] ⚠️ Failed to reattach Unity view via Container")
+                return
+            }
 
-        // CATransaction을 사용하여 안전하게 view 조작
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)  // 암시적 애니메이션 비활성화
+            // Unity view 참조 업데이트
+            self.unityView = Unity.shared.view
 
-        // Unity View가 다른 곳에서 옮겨오는 경우인지 확인
-        let wasAttachedElsewhere = (unityView.superview != nil)
+            // 레이아웃 업데이트
+            self.setNeedsLayout()
+            self.layoutIfNeeded()
 
-        // 다른 superview에서 제거
-        unityView.removeFromSuperview()
+            print("[RNUnityContainerView] ✅ Unity view reattached via Container")
 
-        // 현재 view에 추가
-        self.addSubview(unityView)
-
-        // Frame 기반으로 배치 (layoutSubviews에서 Aspect Fill 적용)
-        unityView.translatesAutoresizingMaskIntoConstraints = true
-
-        CATransaction.commit()
-
-        // 레이아웃은 CATransaction 완료 후 별도로 처리
-        DispatchQueue.main.async { [weak self] in
-            self?.setNeedsLayout()
-            self?.layoutIfNeeded()
-        }
-
-        print("[UnityView] ✅ Unity view reattached safely (wasAttachedElsewhere: \(wasAttachedElsewhere))")
-
-        // 실제로 다른 곳에서 옮겨온 경우에만 React Native에 알림
-        if wasAttachedElsewhere {
+            // React Native에 알림
             self.onUnityReady?([
                 "message": "Unity reattached successfully",
                 "type": "reattach",
@@ -255,44 +319,70 @@ class UnityView: UIView {
         super.didMoveToWindow()
 
         guard window != nil else {
-            print("[UnityView] View removed from window")
+            print("[RNUnityContainerView] View removed from window")
             return
         }
 
         guard isUnityLoaded else {
-            print("[UnityView] Unity not loaded yet, skipping reattach")
+            print("[RNUnityContainerView] Unity not loaded yet, skipping reattach")
             return
         }
 
         // 앱이 활성 상태인지 확인 후 reattach
         if Unity.shared.isSafeToReattach {
-            print("[UnityView] View added to window, reattaching Unity view")
+            print("[RNUnityContainerView] View added to window, reattaching Unity view")
             safeReattachUnityView()
         } else {
-            print("[UnityView] ⏳ View added to window but app not active, queueing reattach")
+            print("[RNUnityContainerView] ⏳ View added to window but app not active, queueing reattach")
             pendingReattach = true
+        }
+    }
+
+    // MARK: - Metal Layer Configuration
+
+    /// CAMetalLayer의 presentsWithTransaction 설정
+    /// CoreAnimation 트랜잭션과 Metal 렌더링 동기화 (크래시 방지)
+    private func configureMetalLayerSync() {
+        guard let unityView = self.unityView else { return }
+
+        var foundCount = 0
+        configureMetalLayersRecursively(in: unityView.layer, foundCount: &foundCount)
+
+        if foundCount > 0 {
+            print("[RNUnityContainerView] ✅ configureMetalLayerSync: \(foundCount)개 CAMetalLayer 설정 완료")
+        }
+    }
+
+    /// 재귀적으로 모든 sublayer에서 CAMetalLayer 찾아 설정 (v8)
+    private func configureMetalLayersRecursively(in layer: CALayer, foundCount: inout Int) {
+        if let metalLayer = layer as? CAMetalLayer {
+            metalLayer.presentsWithTransaction = true
+            foundCount += 1
+            print("[RNUnityContainerView] CAMetalLayer configured at depth \(foundCount)")
+        }
+
+        layer.sublayers?.forEach { sublayer in
+            configureMetalLayersRecursively(in: sublayer, foundCount: &foundCount)
         }
     }
 
     // Unity 정리
     deinit {
-        print("[UnityView] Cleaning up Unity view")
+        print("[RNUnityContainerView] Cleaning up Unity view")
 
         // NotificationCenter 구독 해제
         NotificationCenter.default.removeObserver(self)
 
-        // ✅ 메인 스레드에서 안전하게 정리 - View hierarchy 손상 방지
-        let viewToRemove = self.unityView
-        DispatchQueue.main.async {
-            viewToRemove?.removeFromSuperview()
-        }
+        // ✅ Unity view 제거 안 함 - UnityViewContainer가 관리
+        // 다른 UnityView 인스턴스가 재사용할 수 있도록 Unity.shared.view는 유지
+        // Container가 소유권을 단일 지점에서 관리하므로 안전
     }
 
     // MARK: - Unity 제어 메서드들
 
     @objc func sendMessageToUnity(_ objectName: String, methodName: String, parameter: String) {
         guard isUnityLoaded else {
-            print("[UnityView] Unity not loaded yet")
+            print("[RNUnityContainerView] Unity not loaded yet")
             return
         }
 
@@ -300,12 +390,12 @@ class UnityView: UIView {
     }
 
     @objc func pauseUnity() {
-        print("[UnityView] Pausing Unity")
+        print("[RNUnityContainerView] Pausing Unity")
         Unity.shared.pause()
     }
 
     @objc func resumeUnity() {
-        print("[UnityView] Resuming Unity")
+        print("[RNUnityContainerView] Resuming Unity")
         Unity.shared.resume()
     }
 }

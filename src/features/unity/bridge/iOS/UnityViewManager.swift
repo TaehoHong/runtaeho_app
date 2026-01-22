@@ -21,7 +21,7 @@ class UnityViewManager: RCTViewManager {
     }
 
     override func view() -> UIView {
-        let unityView = UnityView()
+        let unityView = RNUnityContainerView()
         return unityView
     }
 
@@ -33,7 +33,7 @@ class UnityViewManager: RCTViewManager {
     // Unity에 메시지 전송
     @objc func sendMessageToUnity(_ node: NSNumber, objectName: NSString, methodName: NSString, parameter: NSString) {
         DispatchQueue.main.async {
-            guard let unityView = self.bridge.uiManager.view(forReactTag: node) as? UnityView else {
+            guard let unityView = self.bridge.uiManager.view(forReactTag: node) as? RNUnityContainerView else {
                 print("[UnityViewManager] Could not find UnityView for tag: \(node)")
                 return
             }
@@ -45,7 +45,7 @@ class UnityViewManager: RCTViewManager {
     // Unity 일시정지
     @objc func pauseUnity(_ node: NSNumber) {
         DispatchQueue.main.async {
-            guard let unityView = self.bridge.uiManager.view(forReactTag: node) as? UnityView else {
+            guard let unityView = self.bridge.uiManager.view(forReactTag: node) as? RNUnityContainerView else {
                 return
             }
 
@@ -56,7 +56,7 @@ class UnityViewManager: RCTViewManager {
     // Unity 재개
     @objc func resumeUnity(_ node: NSNumber) {
         DispatchQueue.main.async {
-            guard let unityView = self.bridge.uiManager.view(forReactTag: node) as? UnityView else {
+            guard let unityView = self.bridge.uiManager.view(forReactTag: node) as? RNUnityContainerView else {
                 return
             }
 
@@ -67,7 +67,7 @@ class UnityViewManager: RCTViewManager {
     // Unity View 재연결
     @objc func reattachUnityView(_ node: NSNumber) {
         DispatchQueue.main.async {
-            guard let unityView = self.bridge.uiManager.view(forReactTag: node) as? UnityView else {
+            guard let unityView = self.bridge.uiManager.view(forReactTag: node) as? RNUnityContainerView else {
                 print("[UnityViewManager] Could not find UnityView for tag: \(node)")
                 return
             }

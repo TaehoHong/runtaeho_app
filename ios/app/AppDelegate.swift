@@ -50,6 +50,15 @@ public class AppDelegate: ExpoAppDelegate {
     let result = RCTLinkingManager.application(application, continue: userActivity, restorationHandler: restorationHandler)
     return super.application(application, continue: userActivity, restorationHandler: restorationHandler) || result
   }
+
+  // MARK: - App Termination (Unity Cleanup)
+  public override func applicationWillTerminate(_ application: UIApplication) {
+    // Unity 리소스 빠르게 정리 (blocking 없이)
+    // Watchdog 타임아웃 방지를 위해 동기 작업 최소화
+    Unity.shared.prepareForTermination()
+
+    super.applicationWillTerminate(application)
+  }
 }
 
 class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
