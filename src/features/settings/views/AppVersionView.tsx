@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Application from 'expo-application';
+import Constants from 'expo-constants';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -18,7 +19,10 @@ export const AppVersionView: React.FC = () => {
   const router = useRouter();
 
   // 앱 버전 정보
-  const appVersion = Application.nativeApplicationVersion ?? '1.0.0';
+  // OTA 업데이트된 버전 (JS 버전)
+  const appVersion = Constants.expoConfig?.version ?? '1.0.0';
+  // 네이티브 빌드 버전 (스토어 버전)
+  const nativeVersion = Application.nativeApplicationVersion ?? '1.0.0';
   const buildNumber = Application.nativeBuildVersion ?? '1';
   const currentYear = new Date().getFullYear();
 
@@ -51,7 +55,7 @@ export const AppVersionView: React.FC = () => {
 
         {/* 버전 정보 */}
         <Text style={styles.versionText}>{appVersion} 버전</Text>
-        <Text style={styles.buildText}>빌드: {buildNumber}</Text>
+        <Text style={styles.buildText}>스토어 빌드: {nativeVersion} ({buildNumber})</Text>
 
         {/* 저작권 */}
         <View style={styles.copyrightContainer}>
