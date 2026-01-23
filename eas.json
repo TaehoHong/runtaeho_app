@@ -1,10 +1,15 @@
 {
   "cli": {
     "version": ">= 16.27.0",
-    "appVersionSource": "remote"
+    "appVersionSource": "remote",
+    "requireCommit": true
   },
   "build": {
+    "base": {
+      "node": "20.18.0"
+    },
     "development": {
+      "extends": "base",
       "developmentClient": true,
       "distribution": "internal",
       "channel": "development",
@@ -13,13 +18,16 @@
       }
     },
     "preview": {
+      "extends": "base",
       "distribution": "internal",
       "channel": "staging",
+      "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_ENV": "development"
       }
     },
     "production": {
+      "extends": "base",
       "autoIncrement": true,
       "channel": "production",
       "env": {
@@ -28,6 +36,16 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "${APPLE_ID}",
+        "ascAppId": "${ASC_APP_ID}",
+        "appleTeamId": "3F893P33SC"
+      },
+      "android": {
+        "track": "internal",
+        "releaseStatus": "draft"
+      }
+    }
   }
 }

@@ -1,7 +1,10 @@
 {
   "name": "app",
   "main": "expo-router/entry",
-  "version": "1.0.2",
+  "version": "1.0.3",
+  "config": {
+    "runtimeVersion": "1.0.2"
+  },
   "scripts": {
     "postinstall": "patch-package",
     "start": "expo start",
@@ -17,11 +20,20 @@
     "build:dev:android": "eas build --profile preview --platform android",
     "build:prod:ios": "eas build --profile production --platform ios",
     "build:prod:android": "eas build --profile production --platform android",
+    "build:prod:all": "eas build --profile production --platform all",
     "submit:ios": "eas submit --platform ios",
     "submit:android": "eas submit --platform android",
+    "submit:all": "eas submit --platform all",
     "update:staging": "eas update --branch staging --message",
     "update:prod": "eas update --branch production --message",
-    "update:rollback": "eas update:rollback"
+    "update:rollback": "eas update:rollback --branch production",
+    "version:patch": "npm version patch --no-git-tag-version",
+    "version:minor": "npm version minor --no-git-tag-version",
+    "version:major": "npm version major --no-git-tag-version",
+    "version:sync-runtime": "node ./scripts/sync-runtime-version.js",
+    "version:status": "node ./scripts/version-status.js",
+    "release:ota": "npm run version:patch && npm run update:prod",
+    "release:native": "npm run version:sync-runtime && npm run build:prod:all"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",

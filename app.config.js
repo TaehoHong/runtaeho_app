@@ -2,11 +2,10 @@
 // .env.local (로컬 개발), .env.dev (개발 서버), .env.prod (운영)
 const ENV = process.env.EXPO_PUBLIC_ENV || 'local';
 
-// Version configuration from root package.json (SSOT)
-const rootPackageJson = require('../package.json');
-const appVersion = rootPackageJson.config.versions.app;
-const runtimeVersion = rootPackageJson.config.runtimeVersion;
-const buildNumbers = rootPackageJson.config.buildNumbers;
+// Version configuration from local package.json
+const packageJson = require('./package.json');
+const appVersion = packageJson.version;
+const runtimeVersion = packageJson.config.runtimeVersion;
 
 export default {
   expo: {
