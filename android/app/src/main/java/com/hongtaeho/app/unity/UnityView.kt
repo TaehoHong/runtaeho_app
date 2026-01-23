@@ -114,6 +114,8 @@ class UnityView(context: Context) : FrameLayout(context) {
                     Log.d(TAG, "Unity initialized successfully - onStart(), onResume(), windowFocusChanged(true) called")
 
                     requestLayout()
+                    ensureUnityViewLayout()
+
                     sendUnityReadyEvent("Unity loaded successfully")
                 }
             } catch (e: Exception) {
@@ -123,11 +125,26 @@ class UnityView(context: Context) : FrameLayout(context) {
         }
     }
 
+    // MARK: - Measure (React Native 크기 수신)
+
+    /**
+     * React Native가 계산한 크기를 그대로 사용
+     * FrameLayout 기본 구현은 자식 뷰 기반으로 크기를 결정하는데,
+     * Unity 자식 뷰가 비동기로 추가되므로 크기가 0이 될 수 있음.
+     * 이 오버라이드로 React Native의 Yoga 레이아웃 크기를 직접 사용.
+     */
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val width = MeasureSpec.getSize(widthMeasureSpec)
+        val height = MeasureSpec.getSize(heightMeasureSpec)
+
+        setMeasuredDimension(width, height)
+
+        Log.d(TAG, "onMeasure: width=$width, height=$height")
+    }
+
     // MARK: - Layout (Aspect Fill)
 
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
-        super.onLayout(changed, left, top, right, bottom)
-
         val player = unityPlayer ?: return
         val unityView = player.view ?: return
 
@@ -159,11 +176,68 @@ class UnityView(context: Context) : FrameLayout(context) {
         val x = ((containerWidth - scaledWidth) / 2).toInt()
         val y = (containerHeight - scaledHeight).toInt()
 
-        // Frame 설정 (clipChildren으로 넘치는 부분 자름)
+        // 자식 뷰 측정 후 배치
+        val childWidthSpec = MeasureSpec.makeMeasureSpec(scaledWidth, MeasureSpec.EXACTLY)
+        val childHeightSpec = MeasureSpec.makeMeasureSpec(scaledHeight, MeasureSpec.EXACTLY)
+        unityView.measure(childWidthSpec, childHeightSpec)
         unityView.layout(x, y, x + scaledWidth, y + scaledHeight)
 
-        Log.d(TAG, "Aspect Fill: container=${containerWidth}x${containerHeight}, " +
-                "unity=${scaledWidth}x${scaledHeight}, scale=$fillScale")
+        Log.d(TAG, "onLayout: container=${containerWidth}x${containerHeight}, " +
+                "unity=${scaledWidth}x${scaledHeight}, pos=($x,$y), scale=$fillScale")
+    }
+
+    // MARK: - Unity View Layout Helpers
+
+    /**
+     * Unity view에 명시적으로 레이아웃 적용
+     * onLayout이 early return된 경우를 보완
+     */
+    private fun applyUnityViewLayout() {
+        val w = width
+        val h = height
+        if (w <= 0 || h <= 0) {
+            Log.d(TAG, "applyUnityViewLayout: size not ready ($w x $h)")
+            return
+        }
+
+        val uView = unityPlayer?.view ?: return
+
+        val widthScale = w.toFloat() / UNITY_RENDER_WIDTH
+        val heightScale = h.toFloat() / UNITY_RENDER_HEIGHT
+        val fillScale = if (w >= h) widthScale else heightScale
+
+        val scaledWidth = (UNITY_RENDER_WIDTH * fillScale).toInt()
+        val scaledHeight = (UNITY_RENDER_HEIGHT * fillScale).toInt()
+        val x = (w - scaledWidth) / 2
+        val y = h - scaledHeight
+
+        val childWidthSpec = MeasureSpec.makeMeasureSpec(scaledWidth, MeasureSpec.EXACTLY)
+        val childHeightSpec = MeasureSpec.makeMeasureSpec(scaledHeight, MeasureSpec.EXACTLY)
+        uView.measure(childWidthSpec, childHeightSpec)
+        uView.layout(x, y, x + scaledWidth, y + scaledHeight)
+
+        Log.d(TAG, "applyUnityViewLayout: ${scaledWidth}x${scaledHeight} at ($x,$y)")
+    }
+
+    /**
+     * 레이아웃 완료 후 Unity view 레이아웃 적용을 보장
+     * post를 사용하여 다음 프레임에서 실행
+     */
+    private fun ensureUnityViewLayout() {
+        post {
+            if (width > 0 && height > 0 && unityPlayer?.view != null) {
+                applyUnityViewLayout()
+                Log.d(TAG, "ensureUnityViewLayout: applied via post")
+            } else {
+                // 아직 준비되지 않았으면 다시 시도
+                postDelayed({
+                    if (width > 0 && height > 0 && unityPlayer?.view != null) {
+                        applyUnityViewLayout()
+                        Log.d(TAG, "ensureUnityViewLayout: applied via postDelayed")
+                    }
+                }, 100)
+            }
+        }
     }
 
     // MARK: - View Lifecycle
@@ -177,10 +251,12 @@ class UnityView(context: Context) : FrameLayout(context) {
         super.onAttachedToWindow()
         Log.d(TAG, "onAttachedToWindow")
 
-        if (isUnityLoaded && pendingReattach) {
-            pendingReattach = false
+        // Unity가 로드되었으면 항상 재연결 시도
+        // 화면 전환 후 복귀 시 Unity view가 다른 컨테이너에 있을 수 있음
+        if (isUnityLoaded) {
             safeReattachUnityView()
         }
+        pendingReattach = false
     }
 
     override fun onDetachedFromWindow() {
@@ -236,6 +312,7 @@ class UnityView(context: Context) : FrameLayout(context) {
 
             // 레이아웃 업데이트
             requestLayout()
+            ensureUnityViewLayout()
 
             Log.d(TAG, "Unity view reattached safely (wasAttachedElsewhere: $wasAttachedElsewhere)")
 

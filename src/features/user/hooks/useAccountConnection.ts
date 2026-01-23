@@ -11,7 +11,6 @@
  * - 사용자 데이터 자동 갱신
  */
 
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, Platform } from 'react-native';
 
@@ -22,7 +21,9 @@ if (Platform.OS === 'ios') {
   appleAuth = mod.appleAuth;
 }
 import { useAuth } from '~/features/auth/hooks/useAuth';
+import { AuthError, AuthErrorType } from '~/features/auth/models/AuthError';
 import { AuthProviderType, getAuthProviderInfo } from '~/features/auth/models';
+import { GoogleAuthStrategy } from '~/features/auth/strategies/GoogleAuthStrategy';
 import { userService } from '~/features/user/services/userService';
 import type { UserAccount } from '../models';
 
@@ -85,16 +86,13 @@ export const useAccountConnection = () => {
       setIsConnecting(true);
       console.log('🔗 [useAccountConnection] Google 계정 연결 시작');
 
-      // Google Sign-In
-      await GoogleSignin.hasPlayServices();
-      const userInfo = await GoogleSignin.signIn();
-
-      if (!userInfo.data?.serverAuthCode) {
-        throw new Error('Google 인증 코드를 받을 수 없습니다.');
-      }
+      // GoogleAuthStrategy 사용 (SPOT - configure() 호출로 offlineAccess 설정 보장)
+      const googleStrategy = new GoogleAuthStrategy();
+      googleStrategy.configure();
+      const authResult = await googleStrategy.getAuthorizationCode();
 
       // 계정 연결 API 호출
-      await userService.connectAccount(user.id, 'GOOGLE', userInfo.data?.serverAuthCode);
+      await userService.connectAccount(user.id, 'GOOGLE', authResult.authorizationCode);
 
       // 사용자 데이터 갱신
       await refreshUserData();
@@ -104,6 +102,17 @@ export const useAccountConnection = () => {
     } catch (error: any) {
       console.error('❌ [useAccountConnection] Google 계정 연결 실패:', error);
 
+      // AuthError 처리 (GoogleAuthStrategy에서 발생)
+      if (error instanceof AuthError) {
+        if (error.type === AuthErrorType.CANCELLED) {
+          // 사용자가 취소한 경우 - 아무것도 안 함
+          return;
+        }
+        Alert.alert('오류', 'Google 계정 연결에 실패했습니다. 다시 시도해주세요.');
+        return;
+      }
+
+      // API 에러 처리
       if (error.code === 'ACCOUNT_ALREADY_CONNECTED') {
         Alert.alert('알림', '이미 연결된 계정입니다.');
       } else if (error.code === 'ACCOUNT_ALREADY_IN_USE') {

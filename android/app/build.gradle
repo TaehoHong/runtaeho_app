@@ -90,6 +90,15 @@ android {
     compileSdk rootProject.ext.compileSdkVersion
 
     namespace 'com.hongtaeho.app'
+
+    // Java 17 compatibility for Unity JNI integration
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
     defaultConfig {
         applicationId 'com.runtaeho.runtaeho'
         minSdkVersion rootProject.ext.minSdkVersion

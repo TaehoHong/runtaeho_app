@@ -66,4 +66,14 @@ export class GoogleAuthStrategy implements AuthProviderStrategy {
   isAvailable(): boolean {
     return true;
   }
+
+  async logout(): Promise<void> {
+    try {
+      await GoogleSignin.signOut();
+      console.log('✅ [GoogleAuthStrategy] Google Sign-Out 완료');
+    } catch (error) {
+      console.error('❌ [GoogleAuthStrategy] Google Sign-Out 실패:', error);
+      // 실패해도 앱 로그아웃은 진행되어야 하므로 에러를 throw하지 않음
+    }
+  }
 }

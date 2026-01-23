@@ -8,6 +8,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import type { QueryClient } from '@tanstack/react-query';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 import { useAppStore } from '~/stores/app/appStore';
 import { useAuthStore } from '~/features/auth/stores/authStore';
@@ -89,16 +90,25 @@ export const resetAllAppData = async (queryClient: QueryClient): Promise<void> =
     queryClient.clear();
     console.log('✅ [AppReset] React Query 캐시 클리어 완료');
 
-    // 2. Zustand 스토어 초기화
+    // 2. Google Sign-Out (다음 로그인 시 계정 선택 화면 표시를 위해)
+    try {
+      await GoogleSignin.signOut();
+      console.log('✅ [AppReset] Google Sign-Out 완료');
+    } catch (error) {
+      console.warn('⚠️ [AppReset] Google Sign-Out 실패 (무시됨):', error);
+      // Google signOut 실패해도 앱 로그아웃은 계속 진행
+    }
+
+    // 3. Zustand 스토어 초기화
     resetAllStores();
 
-    // 3. AsyncStorage 삭제
+    // 4. AsyncStorage 삭제
     await clearAsyncStorage();
 
-    // 4. SecureStore 토큰 삭제
+    // 5. SecureStore 토큰 삭제
     await clearSecureStore();
 
-    // 5. Sentry 사용자 컨텍스트 제거
+    // 6. Sentry 사용자 컨텍스트 제거
     clearUserContext();
     console.log('✅ [AppReset] Sentry 컨텍스트 제거 완료');
 

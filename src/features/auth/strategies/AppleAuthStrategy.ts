@@ -56,4 +56,9 @@ export class AppleAuthStrategy implements AuthProviderStrategy {
   isAvailable(): boolean {
     return Platform.OS === 'ios' && appleAuth !== null;
   }
+
+  async logout(): Promise<void> {
+    // Apple Sign-In은 별도의 signOut이 필요하지 않음
+    console.log('ℹ️ [AppleAuthStrategy] Apple Sign-Out (no-op)');
+  }
 }

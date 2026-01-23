@@ -15,4 +15,9 @@ export interface AuthProviderStrategy {
    * 사용 가능 여부 확인
    */
   isAvailable(): boolean;
+
+  /**
+   * 로그아웃 (인증 제공자 세션 정리)
+   */
+  logout(): Promise<void>;
 }

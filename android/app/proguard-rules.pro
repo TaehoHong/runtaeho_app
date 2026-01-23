@@ -12,3 +12,21 @@
 -keep class com.facebook.react.turbomodule.** { *; }
 
 # Add any project specific keep options here:
+
+# Unity JNI Bridge - Keep all classes called from Unity C# via AndroidJavaClass
+# These classes are accessed via JNI from Unity and must not be obfuscated or stripped
+-keep class com.hongtaeho.app.unity.** { *; }
+-keepclassmembers class com.hongtaeho.app.unity.** {
+    public static <methods>;
+}
+
+# Specifically keep UnityNativeBridge for JNI access from Unity C#
+-keep class com.hongtaeho.app.unity.UnityNativeBridge {
+    public static void notifyCharactorReady();
+    public static void onCharactorReady();
+}
+
+# Keep UnityHolder for message passing between React Native and Unity
+-keep class com.hongtaeho.app.unity.UnityHolder {
+    public static *** *;
+}
