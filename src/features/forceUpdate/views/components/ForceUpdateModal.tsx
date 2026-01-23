@@ -11,7 +11,6 @@ import {
 import { PRIMARY, GREY, RED } from '~/shared/styles/colors';
 import { ForceUpdateStatus } from '../../models/ForceUpdateState';
 import { getStoreUrl } from '../../constants';
-import { getAppVersion } from '../../services/forceUpdateService';
 
 interface ForceUpdateModalProps {
   /** 모달 표시 여부 */
@@ -31,13 +30,11 @@ interface ForceUpdateModalProps {
 export function ForceUpdateModal({
   visible,
   status,
-  minimumVersion,
+  minimumVersion: _minimumVersion,
   message,
   error,
   onRetry,
 }: ForceUpdateModalProps) {
-  const currentVersion = getAppVersion();
-
   /**
    * 앱스토어 열기
    */
@@ -79,14 +76,6 @@ export function ForceUpdateModal({
       <Text style={styles.message}>
         {message ?? '더 나은 러닝 경험을 위해 업데이트해 주세요.'}
       </Text>
-      <View style={styles.versionContainer}>
-        <Text style={styles.versionLabel}>현재 버전</Text>
-        <Text style={styles.versionValue}>{currentVersion}</Text>
-      </View>
-      <View style={styles.versionContainer}>
-        <Text style={styles.versionLabel}>최소 요구 버전</Text>
-        <Text style={styles.versionValue}>{minimumVersion}</Text>
-      </View>
       <TouchableOpacity
         style={[styles.button, styles.primaryButton]}
         onPress={handleOpenStore}
@@ -204,25 +193,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 16,
     fontFamily: 'monospace',
-  },
-  versionContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: GREY[50],
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  versionLabel: {
-    fontSize: 14,
-    color: GREY[600],
-  },
-  versionValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: GREY[800],
   },
   button: {
     width: '100%',

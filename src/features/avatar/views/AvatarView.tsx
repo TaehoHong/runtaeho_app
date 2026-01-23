@@ -1,5 +1,9 @@
 /**
  * 아바타 화면 (메인)
+ *
+ * 이 컴포넌트는 Modal 내부에서 렌더링됩니다.
+ * Modal은 새로운 React Native 뷰 계층에서 렌더링되어 부모의 SafeAreaProvider Context가 전파되지 않습니다.
+ * 따라서 자체 SafeAreaProvider를 포함해야 합니다.
  */
 
 import React, { useCallback } from 'react';
@@ -13,18 +17,30 @@ import { HairColorPicker } from './components/HairColorPicker';
 import { InsufficientPointsAlert } from './components/InsufficientPointsAlert';
 import { ItemsGrid } from './components/ItemsGrid';
 import { PurchaseModal } from './components/PurchaseModal';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GREY } from '~/shared/styles';
-
-/**
- * 아바타 메인 화면
- */
 
 interface AvatarViewProps {
   onClose: () => void;
 }
 
+/**
+ * 아바타 메인 화면
+ * Modal 내부에서 SafeAreaContext가 끊기므로 자체 SafeAreaProvider로 감쌈
+ */
 export const AvatarView: React.FC<AvatarViewProps> = ({ onClose }) => {
+  return (
+    <SafeAreaProvider>
+      <AvatarViewContent onClose={onClose} />
+    </SafeAreaProvider>
+  );
+};
+
+/**
+ * 아바타 화면 내부 컨텐츠
+ * useSafeAreaInsets()가 SafeAreaProvider 내부에서 호출되어야 정상 동작
+ */
+const AvatarViewContent: React.FC<AvatarViewProps> = ({ onClose }) => {
   const viewModel = useAvatarViewModel();
   const insets = useSafeAreaInsets();
 

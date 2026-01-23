@@ -3,10 +3,9 @@ import type { Platform } from './models/ForceUpdateState';
 
 /**
  * 앱스토어/플레이스토어 URL
- * 실제 앱 ID로 교체 필요
  */
 export const STORE_URLS = {
-  IOS: 'https://apps.apple.com/app/runtaeho/id0000000000',
+  IOS: 'https://apps.apple.com/app/runtaeho/id6755414468',
   ANDROID: 'https://play.google.com/store/apps/details?id=com.hongtaeho.app',
 } as const;
 
