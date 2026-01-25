@@ -4,7 +4,6 @@ import { useAuth } from '../features/auth/hooks/useAuth';
 import { useAuthStore } from '../features/auth/stores/authStore';
 import { isAgreedOnTermsFromToken } from '~/features/auth/utils/jwtUtils';
 import { useOfflineSync } from '../features/running/hooks/useOfflineSync';
-import { usePermissionRequest } from '../shared/hooks/usePermissionRequest';
 import { useAppStore, ViewState } from '~/stores';
 
 interface AuthProviderProps {
@@ -24,7 +23,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const accessToken = useAuthStore((state) => state.accessToken);
   const { verifyAndRefreshToken } = useAuth();
   const { syncOfflineData } = useOfflineSync();
-  const { requestPermissionsOnFirstLogin } = usePermissionRequest();
   const [isNavigationReady, setIsNavigationReady] = useState(false);
 
   /**
@@ -127,8 +125,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         useAppStore.getState().setViewState(ViewState.Loaded);
         console.log('✅ [AuthProvider] 네비게이션 성공: /(tabs)/running - Loaded 상태로 전환');
 
-        // iOS와 동일한 권한 요청 (로그인 완료 후 한 번만, Hook 내부에서 중복 방지)
-        requestPermissionsOnFirstLogin();
+        // ⚠️ 권한 요청은 RunningView에서 Unity 로딩 완료 후 실행
+        // (권한 팝업이 앱을 inactive 상태로 만들어 Unity 초기화 실패 방지)
       } else {
         console.log('❌ [AuthProvider] 로그아웃 상태 - 로그인 화면으로 이동');
         router.replace('/auth/login');
@@ -145,7 +143,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setTimeout(() => setIsNavigationReady(true), 200);
       }, 500);
     }
-  }, [isLoggedIn, accessToken, isNavigationReady, requestPermissionsOnFirstLogin]);
+  }, [isLoggedIn, accessToken, isNavigationReady]);
 
   return <>{children}</>;
 };

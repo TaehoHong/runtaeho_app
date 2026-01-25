@@ -8,6 +8,7 @@ import { UnityView } from '~/features/unity/components/UnityView';
 import { UnityLoadingState } from '~/features/unity/components/UnityLoadingState';
 import { unityService } from '~/features/unity/services/UnityService';
 import { LoadingView } from '~/shared/components';
+import { usePermissionRequest } from '~/shared/hooks/usePermissionRequest';
 import { ViewState, RunningState, useAppStore, useLeagueCheckStore } from '~/stores';
 import { useAuthStore } from '~/features';
 import { useUserStore } from '~/stores/user/userStore';
@@ -34,6 +35,9 @@ export const RunningView: React.FC = () => {
   const pendingResult = useLeagueCheckStore((state) => state.pendingResult);
   const clearPendingResult = useLeagueCheckStore((state) => state.clearPendingResult);
   const { checkUncheckedLeagueResult } = useLeagueCheck();
+
+  // ✅ 권한 요청 (Unity 로딩 완료 후 실행)
+  const { requestPermissionsOnFirstLogin } = usePermissionRequest();
 
   const [unityStarted, setUnityStarted] = useState(false);
   const [isUnityReady, setIsUnityReady] = useState(false);
@@ -235,17 +239,26 @@ export const RunningView: React.FC = () => {
 
         console.log(`✅ [RunningView] 초기화 완료 (${items.length}개 아이템)`);
         setIsUnityReady(true);
+
+        // ✅ Unity 로딩 완료 후 권한 요청
+        // (권한 팝업이 앱을 inactive 상태로 만들어 Unity 초기화 실패하는 문제 방지)
+        console.log('📱 [RunningView] Unity 로딩 완료 → 권한 요청 시작');
+        requestPermissionsOnFirstLogin();
       } catch (error) {
         console.error('❌ [RunningView] 초기화 실패:', error);
         // 에러가 발생해도 isUnityReady를 true로 설정하여 UI가 진행되도록 함
         setIsUnityReady(true);
+
+        // ✅ 에러 발생해도 권한 요청 실행 (Unity와 무관하게 권한은 필요)
+        console.log('📱 [RunningView] Unity 초기화 실패해도 권한 요청 시작');
+        requestPermissionsOnFirstLogin();
       }
     });
 
     // 컴포넌트 리렌더링 시 이전 구독 정리를 위해 반환
     // (useCallback이므로 실제로 정리되지 않지만, 향후 useEffect로 전환 시 활용 가능)
     return unsubscribe;
-  }, []); // 의존성 제거 - getState() 사용으로 항상 최신 값 참조
+  }, [requestPermissionsOnFirstLogin]); // ✅ 의존성 추가
 
   const isLoading = viewState === ViewState.Loading;
 
