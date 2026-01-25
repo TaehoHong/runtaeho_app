@@ -1,5 +1,35 @@
 # RunTaeho 버전 관리 가이드
 
+## ⚠️ 중요: 빌드 제약사항
+
+**이 프로젝트는 React Native + Native Code + Unity 구조입니다.**
+
+| 명령어 | 사용 가능 | 이유 |
+|--------|----------|------|
+| `expo prebuild --clean` | ❌ **절대 불가** | 커스텀 네이티브 코드 + Unity 통합 코드 삭제됨 |
+| `eas build` | ❌ **불가** | Unity Framework 통합으로 EAS 서버 빌드 불가 |
+| Xcode 직접 빌드 | ✅ **유일한 방법** | Archive → App Store Connect 업로드 |
+
+### iOS 빌드 시 필수 체크리스트
+
+**Xcode 빌드 전 반드시 `ios/app/Supporting/Expo.plist` 확인:**
+
+```bash
+# 1. Expo.plist의 runtimeVersion 확인
+cat ios/app/Supporting/Expo.plist | grep -A1 EXUpdatesRuntimeVersion
+
+# 2. package.json의 runtimeVersion과 일치해야 함
+cat package.json | grep runtimeVersion
+
+# 3. 불일치 시 Expo.plist 직접 수정 필요!
+```
+
+**Expo.plist 필수 설정:**
+- `EXUpdatesRuntimeVersion`: package.json의 `config.runtimeVersion`과 동일
+- `EXUpdatesRequestHeaders`: `expo-channel-name: production` (채널 설정)
+
+---
+
 ## 개요
 
 RunTaeho 앱은 **OTA(Over-The-Air) 업데이트**를 중심으로 버전을 관리합니다.

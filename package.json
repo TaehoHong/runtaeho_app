@@ -1,9 +1,9 @@
 {
   "name": "app",
   "main": "expo-router/entry",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "config": {
-    "runtimeVersion": "1.0.2"
+    "runtimeVersion": "1.1"
   },
   "scripts": {
     "postinstall": "patch-package",
@@ -33,7 +33,9 @@
     "version:sync-runtime": "node ./scripts/sync-runtime-version.js",
     "version:status": "node ./scripts/version-status.js",
     "release:ota": "npm run version:patch && npm run update:prod",
-    "release:native": "npm run version:sync-runtime && npm run build:prod:all"
+    "release:native": "npm run version:sync-runtime && npm run build:prod:all",
+    "deploy:ota": "node ./scripts/deploy-ota.js",
+    "prepare:native": "node ./scripts/prepare-native-build.js"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
