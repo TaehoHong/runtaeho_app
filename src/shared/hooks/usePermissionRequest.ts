@@ -6,7 +6,7 @@
  * - PermissionManager 서비스 활용
  */
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 /**
  * 권한 요청 Hook
@@ -23,6 +23,7 @@ import { useCallback, useRef } from 'react';
  */
 export const usePermissionRequest = () => {
   const hasRequested = useRef(false);
+  const [isPermissionChecked, setIsPermissionChecked] = useState(false);
 
   /**
    * 로그인 완료 후 권한 요청 (v3.0 PermissionManager 사용)
@@ -53,6 +54,7 @@ export const usePermissionRequest = () => {
       if (hasCompleted) {
         console.log('✅ [usePermissionRequest] 권한 요청 이미 완료됨 (설정에서 변경 가능)');
         hasRequested.current = true;
+        setIsPermissionChecked(true);
         return true;
       }
 
@@ -61,6 +63,7 @@ export const usePermissionRequest = () => {
       const result = await permissionManager.requestAllPermissions();
 
       hasRequested.current = true;
+      setIsPermissionChecked(true);
 
       if (result.success) {
         console.log('✅ [usePermissionRequest] 모든 권한 허용됨');
@@ -72,9 +75,10 @@ export const usePermissionRequest = () => {
       }
     } catch (error) {
       console.error('⚠️ [usePermissionRequest] 권한 확인 실패:', error);
+      setIsPermissionChecked(true); // 에러 시에도 완료로 표시 (재시도 방지)
       return false;
     }
   }, []);
 
-  return { requestPermissionsOnFirstLogin };
+  return { requestPermissionsOnFirstLogin, isPermissionChecked };
 };

@@ -37,7 +37,7 @@ export const RunningView: React.FC = () => {
   const { checkUncheckedLeagueResult } = useLeagueCheck();
 
   // ✅ 권한 요청 (Unity 로딩 완료 후 실행)
-  const { requestPermissionsOnFirstLogin } = usePermissionRequest();
+  const { requestPermissionsOnFirstLogin, isPermissionChecked } = usePermissionRequest();
 
   const [unityStarted, setUnityStarted] = useState(false);
   const [isUnityReady, setIsUnityReady] = useState(false);
@@ -97,19 +97,16 @@ export const RunningView: React.FC = () => {
   /**
    * 화면 포커스 시 Unity 캐릭터 동기화 및 리그 결과 재확인
    * Tabs 네비게이션에서 다른 화면(아바타 등)에서 돌아올 때 호출됨
+   *
+   * 🔑 최초 마운트 시 리그 결과 확인은 제거됨 (Unity + 권한 완료 후 별도 useEffect에서 처리)
+   * Unity 초기화 전에 리그 결과 화면으로 이동하면 두 개의 UnityView가 충돌하여 크래시 발생
    */
   useFocusEffect(
     useCallback(() => {
-      // 최초 마운트 시에도 리그 결과 확인
+      // 최초 마운트 시에는 아바타 동기화만 (리그 결과 확인은 별도 useEffect에서)
       if (isInitialMount.current) {
-        console.log('🔄 [RunningView] 최초 포커스 - 리그 결과 확인');
+        console.log('🔄 [RunningView] 최초 포커스 - 리그 결과 확인은 Unity 로딩 완료 후 실행');
         isInitialMount.current = false;
-
-        // 최초 마운트 시 리그 결과 확인 (러닝 중이 아닐 때만)
-        if (runningState === RunningState.Stopped) {
-          useLeagueCheckStore.getState().allowRecheck();
-          checkUncheckedLeagueResult();
-        }
         return;
       }
 
@@ -117,7 +114,8 @@ export const RunningView: React.FC = () => {
       if (runningState !== RunningState.Stopped) {
         console.log('🔄 [RunningView] 러닝 중 - 리그 결과 재확인 스킵');
       } else {
-        console.log('🔄 [RunningView] 화면 포커스 - 리그 결과 재확인');
+        // 탭 전환 시에만 리그 결과 재확인 (최초 마운트는 별도 useEffect에서 처리)
+        console.log('🔄 [RunningView] 화면 포커스 (탭 전환) - 리그 결과 재확인');
         useLeagueCheckStore.getState().allowRecheck();
         checkUncheckedLeagueResult();
       }
@@ -140,6 +138,35 @@ export const RunningView: React.FC = () => {
       return () => unsubscribe();
     }, [equippedItems, runningState, checkUncheckedLeagueResult])
   );
+
+  /**
+   * 🔑 리그 결과 확인 - Unity 로딩 완료 + 권한 체크 완료 후 실행
+   *
+   * 타이밍 문제 해결:
+   * - 기존: 앱 시작 → 리그 결과 API 호출 (Unity 초기화 전)
+   *   → RunningView의 UnityView와 LeagueResultView의 UnityView 충돌 → 크래시
+   * - 변경: Unity 준비됨 + 권한 체크 완료 → 리그 결과 확인
+   *   → 안전하게 리그 결과 화면으로 이동
+   *
+   * hasCheckedLeagueRef: 최초 1회만 실행 (의존성 변경에 의한 재실행 방지)
+   */
+  const hasCheckedLeagueRef = useRef(false);
+  useEffect(() => {
+    // 조건: Unity 준비됨 + 권한 체크 완료 + 러닝 중 아님 + 최초 1회만
+    if (!isUnityReady || !isPermissionChecked || runningState !== RunningState.Stopped) {
+      return;
+    }
+
+    if (hasCheckedLeagueRef.current) {
+      return;
+    }
+    hasCheckedLeagueRef.current = true;
+
+    // 리그 결과 확인 (맨 마지막)
+    console.log('🏆 [RunningView] Unity + 권한 준비 완료 → 리그 결과 확인');
+    useLeagueCheckStore.getState().allowRecheck();
+    checkUncheckedLeagueResult();
+  }, [isUnityReady, isPermissionChecked, runningState, checkUncheckedLeagueResult]);
 
   /**
    * 백그라운드 ↔ 포그라운드 전환 감지 및 Unity 재초기화
