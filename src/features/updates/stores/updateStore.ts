@@ -14,6 +14,8 @@ interface UpdateState {
   lastCheckedAt: Date | null;
   /** 사용 가능한 업데이트 매니페스트 */
   availableManifest: UpdateManifest | null;
+  /** 자동 업데이트 완료 여부 (done/skipped/idle) - AuthProvider 네비게이션 제어용 */
+  isAutoUpdateCompleted: boolean;
 
   // Actions
   setStatus: (status: UpdateStatus) => void;
@@ -22,6 +24,7 @@ interface UpdateState {
   setUpdateReady: (isReady: boolean) => void;
   setLastCheckedAt: (date: Date | null) => void;
   setAvailableManifest: (manifest: UpdateManifest | null) => void;
+  setAutoUpdateCompleted: (completed: boolean) => void;
   reset: () => void;
 }
 
@@ -32,6 +35,7 @@ const initialState = {
   isUpdateReady: false,
   lastCheckedAt: null,
   availableManifest: null,
+  isAutoUpdateCompleted: false,
 };
 
 export const useUpdateStore = create<UpdateState>((set) => ({
@@ -54,6 +58,8 @@ export const useUpdateStore = create<UpdateState>((set) => ({
   setLastCheckedAt: (date) => set({ lastCheckedAt: date }),
 
   setAvailableManifest: (manifest) => set({ availableManifest: manifest }),
+
+  setAutoUpdateCompleted: (completed) => set({ isAutoUpdateCompleted: completed }),
 
   reset: () => set(initialState),
 }));

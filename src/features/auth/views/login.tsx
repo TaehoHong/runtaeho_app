@@ -1,7 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useMemo } from 'react';
 import {
-  Alert,
   Dimensions,
   Platform,
   StyleSheet,
@@ -11,10 +9,8 @@ import {
 import { Text } from '~/shared/components/typography';
 import { Icon } from '~/shared/components/ui';
 import { GREY, PRIMARY } from '~/shared/styles';
-import { useAppStore } from '~/stores/app/appStore';
-import { useUserStore } from '~/stores/user/userStore';
-import { useAuthStore } from '..';
 import { useAuthSignIn } from '../hooks/useAuthSignIn';
+import { useAutoUpdate, UpdateOverlay } from '~/features/updates';
 
 const DESIGN_WIDTH = 375;
 const DESIGN_HEIGHT = 812;
@@ -37,7 +33,30 @@ export const Login: React.FC = () => {
       sh: (size: number) => Math.round(size * boundedHeightScale),
     };
   }, []);
+
   const { isLoading, signInWithGoogle, signInWithApple } = useAuthSignIn();
+
+  // OTA 자동 업데이트
+  const {
+    status: updateStatus,
+    progress: updateProgress,
+    error: updateError,
+    retryCount,
+    maxRetries,
+    retry: retryUpdate,
+    skip: skipUpdate,
+  } = useAutoUpdate({ autoStart: true });
+
+  // 업데이트 진행 중 여부 (오버레이 표시 조건)
+  const isUpdating = updateStatus === 'checking' ||
+    updateStatus === 'downloading' ||
+    updateStatus === 'applying' ||
+    updateStatus === 'error';
+
+  // 로그인 버튼 표시 조건 (업데이트 완료/없음/건너뛰기)
+  const showLoginButtons = updateStatus === 'done' ||
+    updateStatus === 'skipped' ||
+    updateStatus === 'idle';
 
   return (
     <View style={styles.container}>
@@ -106,35 +125,49 @@ export const Login: React.FC = () => {
         />
       </View>
 
-      {/* 로그인 버튼들 */}
-      <View style={styles.buttonContainer}>
-        {/* Google 로그인 버튼 */}
-        <TouchableOpacity
-          style={styles.googleButton}
-          onPress={signInWithGoogle}
-          disabled={isLoading}
-        >
-          <Icon name="google" style={styles.buttonIcon} />
-          <Text style={styles.googleButtonText}>
-            {isLoading ? '로그인 중...' : 'Google로 시작하기'}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Apple 로그인 버튼 - iOS 전용 */}
-        {Platform.OS === 'ios' && (
+      {/* 로그인 버튼들 - 업데이트 완료 후에만 표시 */}
+      {showLoginButtons && (
+        <View style={styles.buttonContainer}>
+          {/* Google 로그인 버튼 */}
           <TouchableOpacity
-            style={styles.appleButton}
-            onPress={signInWithApple}
+            style={styles.googleButton}
+            onPress={signInWithGoogle}
             disabled={isLoading}
           >
-            <Icon name="apple" style={styles.buttonIcon}/>
-            <Text style={styles.appleButtonText}>
-              Apple로 시작하기
+            <Icon name="google" style={styles.buttonIcon} />
+            <Text style={styles.googleButtonText}>
+              {isLoading ? '로그인 중...' : 'Google로 시작하기'}
             </Text>
           </TouchableOpacity>
-        )}
 
-      </View>
+          {/* Apple 로그인 버튼 - iOS 전용 */}
+          {Platform.OS === 'ios' && (
+            <TouchableOpacity
+              style={styles.appleButton}
+              onPress={signInWithApple}
+              disabled={isLoading}
+            >
+              <Icon name="apple" style={styles.buttonIcon}/>
+              <Text style={styles.appleButtonText}>
+                Apple로 시작하기
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      {/* 업데이트 오버레이 */}
+      {isUpdating && (
+        <UpdateOverlay
+          status={updateStatus as 'checking' | 'downloading' | 'applying' | 'error'}
+          progress={updateProgress}
+          error={updateError}
+          retryCount={retryCount}
+          maxRetries={maxRetries}
+          onRetry={retryUpdate}
+          onSkip={skipUpdate}
+        />
+      )}
     </View>
   );
 };

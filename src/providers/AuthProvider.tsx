@@ -5,6 +5,7 @@ import { useAuthStore } from '../features/auth/stores/authStore';
 import { isAgreedOnTermsFromToken } from '~/features/auth/utils/jwtUtils';
 import { useOfflineSync } from '../features/running/hooks/useOfflineSync';
 import { useAppStore, ViewState } from '~/stores';
+import { useUpdateStore } from '~/features/updates';
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -24,6 +25,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const { verifyAndRefreshToken } = useAuth();
   const { syncOfflineData } = useOfflineSync();
   const [isNavigationReady, setIsNavigationReady] = useState(false);
+
+  // OTA 자동 업데이트 완료 여부 확인
+  const isAutoUpdateCompleted = useUpdateStore((state) => state.isAutoUpdateCompleted);
 
   /**
    * 앱 시작 시 저장된 인증 상태 복원 및 오프라인 데이터 동기화
@@ -83,18 +87,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
    * - isLoggedIn: 로그인 여부
    * - accessToken: 토큰 변경 감지 (약관 동의 후 토큰 재발행 시 필수)
    * - isNavigationReady: 네비게이션 준비 완료 여부
+   * - isAutoUpdateCompleted: OTA 자동 업데이트 완료 여부
    *
    * 플로우:
-   * 1. 로그인 → isLoggedIn=true, 약관 미동의 토큰 → /auth/terms-agreement
-   * 2. 약관 동의 완료 → 토큰 재발행 (isAgreedOnTerms=true) → accessToken 변경 → useEffect 재실행
-   * 3. 새 토큰 확인 → isAgreedOnTerms=true → /(tabs)/running
+   * 1. 앱 시작 → 로그인 화면으로 이동 (업데이트 처리)
+   * 2. 업데이트 완료 (isAutoUpdateCompleted=true)
+   * 3. 로그인 상태 확인 → 러닝 탭 또는 로그인 화면
+   * 4. 약관 미동의 → /auth/terms-agreement
    */
   useEffect(() => {
-    console.log('🔄 [AuthProvider] useEffect 실행 - isLoggedIn:', isLoggedIn, 'hasToken:', !!accessToken, 'isNavigationReady:', isNavigationReady);
+    console.log('🔄 [AuthProvider] useEffect 실행 - isLoggedIn:', isLoggedIn, 'hasToken:', !!accessToken, 'isNavigationReady:', isNavigationReady, 'isAutoUpdateCompleted:', isAutoUpdateCompleted);
 
     // 네비게이션이 준비되지 않았으면 대기
     if (!isNavigationReady) {
       console.log('⏳ [AuthProvider] 네비게이션 준비 대기 중...');
+      return;
+    }
+
+    // OTA 자동 업데이트가 완료되지 않았으면 대기 (로그인 화면에서 업데이트 처리)
+    if (!isAutoUpdateCompleted) {
+      console.log('⏳ [AuthProvider] OTA 업데이트 완료 대기 중... 로그인 화면 유지');
+      // 로그인 화면으로 이동하여 업데이트 처리
+      router.replace('/auth/login');
       return;
     }
 
@@ -143,7 +157,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setTimeout(() => setIsNavigationReady(true), 200);
       }, 500);
     }
-  }, [isLoggedIn, accessToken, isNavigationReady]);
+  }, [isLoggedIn, accessToken, isNavigationReady, isAutoUpdateCompleted]);
 
   return <>{children}</>;
 };

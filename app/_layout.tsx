@@ -30,9 +30,9 @@ function RootLayout() {
           <AuthProvider>
             <AppStateProvider>
               <UpdateProvider
-              checkOnLaunch={true}
+              checkOnLaunch={false}
               checkOnForeground={true}
-              showBanner={true}
+              showBanner={false}
               autoDownload={false}
             >
               <Stack>
