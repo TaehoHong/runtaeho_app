@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
+  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Text } from '~/shared/components/typography';
@@ -45,15 +45,68 @@ export function UpdateOverlay({
   onRetry,
   onSkip,
 }: UpdateOverlayProps) {
+  // 점 애니메이션 상태
+  const [dots, setDots] = useState(1);
+
+  // shimmer 애니메이션
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
+
+  // 점 애니메이션: checking 상태에서 "." -> ".." -> "..." 반복
+  useEffect(() => {
+    if (status !== 'checking') return;
+    const interval = setInterval(() => {
+      setDots((prev) => (prev % 3) + 1);
+    }, 500);
+    return () => clearInterval(interval);
+  }, [status]);
+
+  // shimmer 애니메이션: 다운로드 중일 때 반짝임 효과
+  useEffect(() => {
+    if (status !== 'downloading' || progress >= 100) {
+      shimmerAnim.setValue(0);
+      return;
+    }
+
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmerAnim, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shimmerAnim, {
+          toValue: 0,
+          duration: 0,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    animation.start();
+
+    return () => animation.stop();
+  }, [status, progress, shimmerAnim]);
+
+  // shimmer 스타일
+  const shimmerStyle = {
+    transform: [
+      {
+        translateX: shimmerAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [-100, 300],
+        }),
+      },
+    ],
+  };
+
   // 상태별 메시지
   const getStatusMessage = (): string => {
     switch (status) {
       case 'checking':
-        return '업데이트 확인 중...';
+        return `업데이트 확인중${'.'.repeat(dots)}`;
       case 'downloading':
-        return `업데이트 다운로드 중... ${Math.round(progress)}%`;
+        return `다운로드 중... ${Math.round(progress)}%`;
       case 'applying':
-        return '업데이트 적용 중...';
+        return '업데이트 완료 앱을 재실행합니다.';
       case 'error':
         return '업데이트 실패';
       default:
@@ -106,34 +159,36 @@ export function UpdateOverlay({
   return (
     <View style={styles.overlay}>
       <View style={styles.contentContainer}>
-        {/* 로딩 인디케이터 */}
-        {(status === 'checking' || status === 'applying') && (
-          <ActivityIndicator
-            size="large"
-            color={GREY.WHITE}
-            style={styles.spinner}
-          />
-        )}
+        {/* 1. 프로그레스바 */}
+        <View style={styles.progressContainer}>
+          <View style={styles.progressBackground}>
+            {/* 진행률 채움 (그라데이션) */}
+            <LinearGradient
+              colors={['#B5F9A3', '#92F579', '#59EC3A']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[
+                styles.progressFill,
+                { width: `${Math.min(100, Math.max(0, progress))}%` },
+              ]}
+            >
+              {/* 하이라이트 효과 (상단 50%) */}
+              <View style={styles.highlight} />
 
-        {/* 상태 텍스트 */}
-        <Text style={styles.statusText}>{getStatusMessage()}</Text>
+              {/* shimmer 애니메이션 (다운로드 중일 때) */}
+              {status === 'downloading' && progress < 100 && (
+                <Animated.View style={[styles.shimmer, shimmerStyle]} />
+              )}
+            </LinearGradient>
 
-        {/* 픽셀 스타일 프로그레스 바 (다운로드 중일 때만) */}
-        {status === 'downloading' && (
-          <View style={styles.progressContainer}>
-            <View style={styles.progressBackground}>
-              <LinearGradient
-                colors={['#B5F9A3', '#92F579', '#59EC3A']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={[
-                  styles.progressFill,
-                  { width: `${Math.min(100, Math.max(0, progress))}%` },
-                ]}
-              />
-            </View>
+            {/* 픽셀 테두리 효과 */}
+            <View style={styles.pixelBorderTop} />
+            <View style={styles.pixelBorderBottom} />
           </View>
-        )}
+        </View>
+
+        {/* 2. 상태 텍스트 (중앙 정렬) */}
+        <Text style={styles.statusText}>{getStatusMessage()}</Text>
 
         {/* 재시도 횟수 표시 */}
         {retryCount > 0 && (
@@ -164,25 +219,10 @@ const styles = StyleSheet.create({
     width: '100%',
   },
 
-  spinner: {
-    marginBottom: 16,
-  },
-
-  statusText: {
-    fontSize: 18,
-    fontFamily: 'Pretendard-Bold',
-    color: GREY.WHITE,
-    textAlign: 'center',
-    marginBottom: 16,
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
-  },
-
   // 픽셀 스타일 프로그레스 바
   progressContainer: {
     width: '100%',
-    marginBottom: 8,
+    marginBottom: 16,
   },
 
   progressBackground: {
@@ -192,16 +232,71 @@ const styles = StyleSheet.create({
     borderWidth: 4,
     borderColor: GREY.WHITE,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+    // glow shadow
+    shadowColor: GREY.WHITE,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
     elevation: 4,
   },
 
   progressFill: {
     height: '100%',
     borderRadius: 0,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+
+  // 하이라이트 효과 (상단 50%에 흰색→투명 그라데이션 효과)
+  highlight: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '50%',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
+
+  // shimmer 애니메이션 (반짝이는 효과)
+  shimmer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 60,
+    height: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    transform: [{ skewX: '-20deg' }],
+  },
+
+  // 픽셀 테두리 효과 - 상단 (밝은 흰색)
+  pixelBorderTop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+  },
+
+  // 픽셀 테두리 효과 - 하단 (어두운 검정)
+  pixelBorderBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+  },
+
+  // 상태 텍스트
+  statusText: {
+    fontSize: 18,
+    fontFamily: 'Pretendard-Bold',
+    color: GREY.WHITE,
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
 
   // 재시도 텍스트
