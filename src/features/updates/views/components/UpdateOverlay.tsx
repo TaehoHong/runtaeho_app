@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Text } from '~/shared/components/typography';
 import { GREY, PRIMARY } from '~/shared/styles';
 
@@ -60,16 +61,16 @@ export function UpdateOverlay({
     }
   };
 
-  // 에러 상태 UI
+  // 에러 상태 UI (기존 카드 모달 유지)
   if (status === 'error') {
     return (
-      <View style={styles.overlay}>
-        <View style={styles.contentContainer}>
+      <View style={styles.errorOverlay}>
+        <View style={styles.errorContentContainer}>
           <View style={styles.errorIcon}>
             <Text style={styles.errorIconText}>!</Text>
           </View>
 
-          <Text style={styles.statusText}>{getStatusMessage()}</Text>
+          <Text style={styles.errorStatusText}>{getStatusMessage()}</Text>
 
           {error && (
             <Text style={styles.errorMessage} numberOfLines={2}>
@@ -101,7 +102,7 @@ export function UpdateOverlay({
     );
   }
 
-  // 진행 중 상태 UI (checking, downloading, applying)
+  // 진행 중 상태 UI (checking, downloading, applying) - 픽셀 스타일
   return (
     <View style={styles.overlay}>
       <View style={styles.contentContainer}>
@@ -109,7 +110,7 @@ export function UpdateOverlay({
         {(status === 'checking' || status === 'applying') && (
           <ActivityIndicator
             size="large"
-            color={PRIMARY[500]}
+            color={GREY.WHITE}
             style={styles.spinner}
           />
         )}
@@ -117,11 +118,14 @@ export function UpdateOverlay({
         {/* 상태 텍스트 */}
         <Text style={styles.statusText}>{getStatusMessage()}</Text>
 
-        {/* 프로그레스 바 (다운로드 중일 때만) */}
+        {/* 픽셀 스타일 프로그레스 바 (다운로드 중일 때만) */}
         {status === 'downloading' && (
           <View style={styles.progressContainer}>
             <View style={styles.progressBackground}>
-              <View
+              <LinearGradient
+                colors={['#B5F9A3', '#92F579', '#59EC3A']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
                 style={[
                   styles.progressFill,
                   { width: `${Math.min(100, Math.max(0, progress))}%` },
@@ -131,7 +135,7 @@ export function UpdateOverlay({
           </View>
         )}
 
-        {/* 재시도 횟수 표시 (에러 상태가 아닐 때만 - 에러 상태는 위에서 early return) */}
+        {/* 재시도 횟수 표시 */}
         {retryCount > 0 && (
           <Text style={styles.retryText}>
             재시도 중... ({retryCount}/{maxRetries})
@@ -143,7 +147,76 @@ export function UpdateOverlay({
 }
 
 const styles = StyleSheet.create({
+  // 진행 중 상태 오버레이 (투명 배경, 하단 배치)
   overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    zIndex: 9999,
+  },
+
+  contentContainer: {
+    backgroundColor: 'transparent',
+    paddingHorizontal: 24,
+    paddingBottom: 80,
+    alignItems: 'center',
+    width: '100%',
+  },
+
+  spinner: {
+    marginBottom: 16,
+  },
+
+  statusText: {
+    fontSize: 18,
+    fontFamily: 'Pretendard-Bold',
+    color: GREY.WHITE,
+    textAlign: 'center',
+    marginBottom: 16,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+
+  // 픽셀 스타일 프로그레스 바
+  progressContainer: {
+    width: '100%',
+    marginBottom: 8,
+  },
+
+  progressBackground: {
+    height: 32,
+    backgroundColor: '#1a4d26',
+    borderRadius: 4,
+    borderWidth: 4,
+    borderColor: GREY.WHITE,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+
+  progressFill: {
+    height: '100%',
+    borderRadius: 0,
+  },
+
+  // 재시도 텍스트
+  retryText: {
+    fontSize: 14,
+    fontFamily: 'Pretendard-SemiBold',
+    color: GREY.WHITE,
+    marginTop: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+
+  // 에러 상태 오버레이 (기존 스타일 유지)
+  errorOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
@@ -151,7 +224,7 @@ const styles = StyleSheet.create({
     zIndex: 9999,
   },
 
-  contentContainer: {
+  errorContentContainer: {
     backgroundColor: GREY.WHITE,
     borderRadius: 16,
     padding: 32,
@@ -165,43 +238,12 @@ const styles = StyleSheet.create({
     minWidth: 280,
   },
 
-  spinner: {
-    marginBottom: 16,
-  },
-
-  statusText: {
+  errorStatusText: {
     fontSize: 16,
     fontFamily: 'Pretendard-SemiBold',
     color: GREY[900],
     textAlign: 'center',
     marginBottom: 16,
-  },
-
-  // 프로그레스 바
-  progressContainer: {
-    width: '100%',
-    marginBottom: 8,
-  },
-
-  progressBackground: {
-    height: 8,
-    backgroundColor: GREY[200],
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-
-  progressFill: {
-    height: '100%',
-    backgroundColor: PRIMARY[500],
-    borderRadius: 4,
-  },
-
-  // 재시도 텍스트
-  retryText: {
-    fontSize: 12,
-    fontFamily: 'Pretendard-Regular',
-    color: GREY[500],
-    marginTop: 8,
   },
 
   // 에러 상태
