@@ -112,10 +112,9 @@ export const queryKeys = {
   // Statistics 관련 Query Keys
   statistics: {
     all: ['statistics'] as const,
-    summary: (params: {
-      statisticType: string;
-      timezone?: string;
-    }) => ['statistics', 'summary', params] as const,
+    // 객체 대신 개별 primitive 값으로 분리하여 캐시 키 안정화
+    summary: (statisticType: string, startDateTime: string, endDateTime: string) =>
+      ['statistics', 'summary', statisticType, startDateTime, endDateTime] as const,
     chart: (filters: {
       period: string;
       startDate?: string;

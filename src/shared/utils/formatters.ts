@@ -15,3 +15,7 @@ export const formatPaceForUI = (paceMinPerKm: number): string => {
   const seconds = Math.floor((paceMinPerKm % 1) * 60);
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 };
+
+// Re-export from utility modules
+export { calculatePace, calculatePaceSecPerMeter, convertPaceSecToMinPerKm } from './paceUtils';
+export { formatDateString, formatToLocalDateTime, formatRecordDate } from './dateUtils';

@@ -1,93 +1,12 @@
 /**
- * Statistics 모델
+ * Statistics Calculator
+ * 통계 계산 함수 모음
  */
 
 import type { RunningRecord } from '../../running/models';
-
-/**
- * 통계 기간 enum
- */
-export enum Period {
-  WEEK = 'WEEKLY',
-  MONTH = 'MONTHLY',
-  YEAR = 'YEARLY',
-}
-
-/**
- * 백엔드 차트 데이터 포인트
- * 백엔드 API Response의 chartData 배열 항목
- */
-export interface RunningChartDto {
-  datetime: string;      // 날짜 문자열 (예: "2024-01-01")
-  paceSec: number;       // 페이스 (초/미터)
-  distance: number;      // 거리 (미터)
-  durationSec: number;   // 시간 (초)
-}
-
-/**
- * 통계 기본 정보 (백엔드 응답)
- * GET /api/v1/running/statistics API Response
- */
-export interface StatisticsSummary {
-  statisticType: Period;
-  chartData: RunningChartDto[];  // 백엔드에서 제공하는 차트 데이터
-  runningCount: number;
-  totalDistance: number;         // 미터 단위
-  totalDurationSec: number;      // 초 단위
-  averageDistance: number;       // 미터 단위
-  averagePaceSec: number;        // 초/미터 단위
-}
-
-/**
- * 확장된 통계 정보 (로컬 계산 포함)
- */
-export interface ExtendedStatisticsSummary extends StatisticsSummary {
-  runCount: number; // runningCount 별칭
-  totalDuration: number; // totalDurationSec 별칭 (초)
-  averageDuration: number; // 로컬 계산
-  averagePace: number; // 분/km (averagePaceSec 변환)
-  averageSpeed: number; // km/h (로컬 계산)
-  totalCalories: number; // 로컬 계산
-  averageCalories: number; // 로컬 계산
-}
-
-/**
- * 차트 데이터 포인트 (UI용, 백엔드 응답에 추가 필드 포함)
- */
-export interface ChartDataPoint {
-  datetime: string;      // 백엔드와 일치 (date -> datetime)
-  distance: number;      // 미터 단위
-  durationSec: number;   // 백엔드와 일치 (duration -> durationSec), 초 단위
-  paceSec: number;       // 백엔드와 일치 (pace -> paceSec), 초/미터 단위
-  speed: number;         // km/h (로컬 계산)
-  calories: number;      // 칼로리 (로컬 계산)
-}
-
-/**
- * 로컬 통계 계산 결과 (백엔드 형식이 아님)
- */
-export interface LocalStatistics {
-  runCount: number;
-  totalDistance: number;
-  totalDuration: number;
-  averageDistance: number;
-  averageDuration: number;
-  averagePace: number; // 분/km
-  averageSpeed: number; // km/h
-  totalCalories: number;
-  averageCalories: number;
-}
-
-/**
- * 개인 기록 타입
- */
-export interface PersonalRecords {
-  longestDistance: { record: RunningRecord | null; value: number; date: string };
-  longestDuration: { record: RunningRecord | null; value: number; date: string };
-  fastestPace: { record: RunningRecord | null; value: number; date: string };
-  mostCalories: { record: RunningRecord | null; value: number; date: string };
-  mostRuns: { period: string; count: number; date: string };
-}
+import { calculatePace } from '~/shared/utils/paceUtils';
+import type { Period, LocalStatistics, ChartDataPoint, PersonalRecords } from './types';
+import { getStartOfWeek, getStartOfMonth, getStartOfYear, formatDate } from './dateHelpers';
 
 /**
  * 통계 계산 헬퍼 함수
@@ -115,11 +34,7 @@ export const calculateStatistics = (records: RunningRecord[]): LocalStatistics =
   const averageDistance = totalDistance / runCount;
   const averageDuration = totalDuration / runCount;
   const averageCalories = totalCalories / runCount;
-
-  // 평균 페이스 계산 (분/km)
-  const averagePace = averageDistance > 0 ? (averageDuration / 60) / (averageDistance / 1000) : 0;
-
-  // 평균 속도 계산 (km/h)
+  const averagePace = calculatePace(averageDistance, averageDuration);
   const averageSpeed = averageDuration > 0 ? (averageDistance / 1000) / (averageDuration / 3600) : 0;
 
   return {
@@ -138,18 +53,22 @@ export const calculateStatistics = (records: RunningRecord[]): LocalStatistics =
 /**
  * 기간별 레코드 필터링
  */
-export const filterRecordsByPeriod = (records: RunningRecord[], period: Period, referenceDate: Date = new Date()): RunningRecord[] => {
+export const filterRecordsByPeriod = (
+  records: RunningRecord[],
+  period: Period,
+  referenceDate: Date = new Date()
+): RunningRecord[] => {
   const now = referenceDate;
   let startDate: Date;
 
   switch (period) {
-    case Period.WEEK:
+    case 'WEEKLY':
       startDate = getStartOfWeek(now);
       break;
-    case Period.MONTH:
+    case 'MONTHLY':
       startDate = getStartOfMonth(now);
       break;
-    case Period.YEAR:
+    case 'YEARLY':
       startDate = getStartOfYear(now);
       break;
     default:
@@ -163,41 +82,26 @@ export const filterRecordsByPeriod = (records: RunningRecord[], period: Period, 
 };
 
 /**
- * 차트 데이터 생성 (로컬 계산용)
- */
-export const generateChartData = (records: RunningRecord[], period: Period): ChartDataPoint[] => {
-  const groupedData = groupRecordsByPeriod(records, period);
-
-  return Object.entries(groupedData).map(([dateKey, periodRecords]) => {
-    const stats = calculateStatistics(periodRecords);
-    return {
-      datetime: dateKey,
-      distance: stats.totalDistance,
-      durationSec: stats.totalDuration,
-      calories: stats.totalCalories,
-      paceSec: stats.totalDuration > 0 ? stats.totalDuration / stats.totalDistance : 0, // 초/미터
-      speed: stats.averageSpeed,
-    };
-  }).sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
-};
-
-/**
  * 기간별 레코드 그룹화
  */
-export const groupRecordsByPeriod = (records: RunningRecord[], period: Period): Record<string, RunningRecord[]> => {
+export const groupRecordsByPeriod = (
+  records: RunningRecord[],
+  period: Period
+): Record<string, RunningRecord[]> => {
   return records.reduce((groups, record) => {
     const recordDate = new Date(record.startTimestamp * 1000);
     let groupKey: string;
 
     switch (period) {
-      case Period.WEEK:
+      case 'WEEKLY': {
         const weekStart = getStartOfWeek(recordDate);
         groupKey = formatDate(weekStart, 'YYYY-MM-DD');
         break;
-      case Period.MONTH:
+      }
+      case 'MONTHLY':
         groupKey = formatDate(recordDate, 'YYYY-MM');
         break;
-      case Period.YEAR:
+      case 'YEARLY':
         groupKey = formatDate(recordDate, 'YYYY');
         break;
       default:
@@ -214,18 +118,37 @@ export const groupRecordsByPeriod = (records: RunningRecord[], period: Period): 
 };
 
 /**
+ * 차트 데이터 생성 (로컬 계산용)
+ */
+export const generateChartData = (records: RunningRecord[], period: Period): ChartDataPoint[] => {
+  const groupedData = groupRecordsByPeriod(records, period);
+
+  return Object.entries(groupedData).map(([dateKey, periodRecords]) => {
+    const stats = calculateStatistics(periodRecords);
+    return {
+      datetime: dateKey,
+      distance: stats.totalDistance,
+      durationSec: stats.totalDuration,
+      calories: stats.totalCalories,
+      paceSec: stats.totalDuration > 0 ? stats.totalDuration / stats.totalDistance : 0,
+      speed: stats.averageSpeed,
+    };
+  }).sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
+};
+
+/**
  * 개인 기록 계산
  */
 export const calculatePersonalRecords = (records: RunningRecord[]): PersonalRecords => {
-  if (records.length === 0) {
-    return {
-      longestDistance: { record: null, value: 0, date: '' },
-      longestDuration: { record: null, value: 0, date: '' },
-      fastestPace: { record: null, value: 0, date: '' },
-      mostCalories: { record: null, value: 0, date: '' },
-      mostRuns: { period: '', count: 0, date: '' },
-    };
-  }
+  const emptyRecords: PersonalRecords = {
+    longestDistance: { record: null, value: 0, date: '' },
+    longestDuration: { record: null, value: 0, date: '' },
+    fastestPace: { record: null, value: 0, date: '' },
+    mostCalories: { record: null, value: 0, date: '' },
+    mostRuns: { period: '', count: 0, date: '' },
+  };
+
+  if (records.length === 0) return emptyRecords;
 
   // 최장 거리
   const longestDistanceRecord = records.reduce((max, record) =>
@@ -238,11 +161,11 @@ export const calculatePersonalRecords = (records: RunningRecord[]): PersonalReco
   );
 
   // 최고 페이스 (가장 빠른)
-  const validPaceRecords = records.filter(record => record.distance > 0 && record.durationSec > 0);
+  const validPaceRecords = records.filter(r => r.distance > 0 && r.durationSec > 0);
   const fastestPaceRecord = validPaceRecords.length > 0
     ? validPaceRecords.reduce((fastest, record) => {
-        const recordPace = (record.durationSec / 60) / (record.distance / 1000);
-        const fastestPace = (fastest.durationSec / 60) / (fastest.distance / 1000);
+        const recordPace = calculatePace(record.distance, record.durationSec);
+        const fastestPace = calculatePace(fastest.distance, fastest.durationSec);
         return recordPace < fastestPace ? record : fastest;
       })
     : null;
@@ -260,9 +183,10 @@ export const calculatePersonalRecords = (records: RunningRecord[]): PersonalReco
     return counts;
   }, {} as Record<string, number>);
 
-  const mostRunsMonth = Object.entries(monthlyRunCounts).reduce((max, [month, count]) =>
-    count > max.count ? { period: month, count, date: month } : max
-  , { period: '', count: 0, date: '' });
+  const mostRunsMonth = Object.entries(monthlyRunCounts).reduce(
+    (max, [month, count]) => count > max.count ? { period: month, count, date: month } : max,
+    { period: '', count: 0, date: '' }
+  );
 
   return {
     longestDistance: {
@@ -277,7 +201,7 @@ export const calculatePersonalRecords = (records: RunningRecord[]): PersonalReco
     },
     fastestPace: {
       record: fastestPaceRecord ?? null,
-      value: fastestPaceRecord ? (fastestPaceRecord.durationSec / 60) / (fastestPaceRecord.distance / 1000) : 0,
+      value: fastestPaceRecord ? calculatePace(fastestPaceRecord.distance, fastestPaceRecord.durationSec) : 0,
       date: fastestPaceRecord ? new Date(fastestPaceRecord.startTimestamp * 1000).toISOString() : '',
     },
     mostCalories: {
@@ -287,41 +211,6 @@ export const calculatePersonalRecords = (records: RunningRecord[]): PersonalReco
     },
     mostRuns: mostRunsMonth,
   };
-};
-
-/**
- * 날짜 헬퍼 함수들
- */
-export const getStartOfWeek = (date: Date): Date => {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day;
-  return new Date(d.setDate(diff));
-};
-
-export const getStartOfMonth = (date: Date): Date => {
-  return new Date(date.getFullYear(), date.getMonth(), 1);
-};
-
-export const getStartOfYear = (date: Date): Date => {
-  return new Date(date.getFullYear(), 0, 1);
-};
-
-export const formatDate = (date: Date, format: string): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-
-  switch (format) {
-    case 'YYYY-MM-DD':
-      return `${year}-${month}-${day}`;
-    case 'YYYY-MM':
-      return `${year}-${month}`;
-    case 'YYYY':
-      return `${year}`;
-    default:
-      return date.toISOString().split('T')[0] ?? '';
-  }
 };
 
 /**
@@ -374,9 +263,9 @@ export const calculateGoalProgress = (
   monthlyRunsProgress: number;
 } => {
   const now = new Date();
-  const weekRecords = filterRecordsByPeriod(records, Period.WEEK, now);
-  const monthRecords = filterRecordsByPeriod(records, Period.MONTH, now);
-  const yearRecords = filterRecordsByPeriod(records, Period.YEAR, now);
+  const weekRecords = filterRecordsByPeriod(records, 'WEEKLY' as Period, now);
+  const monthRecords = filterRecordsByPeriod(records, 'MONTHLY' as Period, now);
+  const yearRecords = filterRecordsByPeriod(records, 'YEARLY' as Period, now);
 
   const weekStats = calculateStatistics(weekRecords);
   const monthStats = calculateStatistics(monthRecords);

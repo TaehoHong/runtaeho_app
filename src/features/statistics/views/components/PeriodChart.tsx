@@ -11,13 +11,14 @@ import React, { useMemo } from 'react';
 import { StyleSheet, View, Dimensions } from 'react-native';
 import Svg, { Line, Path, Text as SvgText } from 'react-native-svg';
 import type { ChartDataPoint } from '../../models';
-import { Period } from '../../models';
+import { Period, formatPeriodLabel, getLastDayOfPeriod } from '../../models';
 import { PRIMARY, GREY } from '~/shared/styles';
 
 interface PeriodChartProps {
   data: ChartDataPoint[];
   period: Period;
   isEmpty?: boolean;
+  referenceDate?: Date; // 기준 날짜 (스와이프 기간 전환용)
 }
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -26,10 +27,15 @@ const CHART_HEIGHT = 315;
 const CHART_PADDING = { top: 56, right: 16, bottom: 40, left: 35 };
 const X_AXIS_MARGIN = 10; // X축 양 끝 마진
 
-export const PeriodChart: React.FC<PeriodChartProps> = ({
+// X축 라벨 상수 (배열 재생성 방지)
+const WEEK_LABELS = ['월', '화', '수', '목', '금', '토', '일'] as const;
+const YEAR_LABELS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'] as const;
+
+const PeriodChartComponent: React.FC<PeriodChartProps> = ({
   data,
   period,
   isEmpty = false,
+  referenceDate = new Date(),
 }) => {
   // 기간별 막대 너비 (Figma 디자인)
   const barWidth = useMemo(() => {
@@ -45,20 +51,17 @@ export const PeriodChart: React.FC<PeriodChartProps> = ({
     }
   }, [period]);
 
-  // 현재 월의 마지막 날 계산
+  // 해당 월의 마지막 날 계산 (referenceDate 기준)
   const lastDayOfMonth = useMemo(() => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
-    // 다음 달의 0일 = 이번 달의 마지막 날
-    return new Date(year, month + 1, 0).getDate();
-  }, []);
+    return getLastDayOfPeriod(referenceDate, Period.MONTH);
+  }, [referenceDate]);
 
   // X축 라벨 (기간에 따라 다름)
-  const xAxisLabels = useMemo(() => {
+  // WEEK/YEAR는 상수 배열 참조 (재생성 방지)
+  const xAxisLabels = useMemo((): readonly string[] => {
     switch (period) {
       case Period.WEEK:
-        return ['월', '화', '수', '목', '금', '토', '일'];
+        return WEEK_LABELS;
       case Period.MONTH: {
         // 3일 간격으로 표시 (1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 마지막날)
         const labels: string[] = [];
@@ -73,57 +76,20 @@ export const PeriodChart: React.FC<PeriodChartProps> = ({
         return labels;
       }
       case Period.YEAR:
-        return ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
+        return YEAR_LABELS;
       default:
         return [];
     }
   }, [period, lastDayOfMonth]);
 
-  // 기간 라벨
+  // 기간 라벨 (referenceDate 기준)
   const periodLabel = useMemo(() => {
-    const now = new Date();
-    switch (period) {
-      case Period.WEEK: {
-        // 이번 주의 월요일 구하기
-        const dayOfWeek = now.getDay();
-        const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // 일요일이면 -6, 아니면 월요일까지의 차이
-        const monday = new Date(now);
-        monday.setDate(now.getDate() + diff);
-
-        // 이번 주의 일요일 구하기
-        const sunday = new Date(monday);
-        sunday.setDate(monday.getDate() + 6);
-
-        // 날짜 포맷팅
-        const startMonth = monday.getMonth() + 1;
-        const startDay = monday.getDate();
-        const endMonth = sunday.getMonth() + 1;
-        const endDay = sunday.getDate();
-
-        // 같은 달이면 "24일~30일", 다른 달이면 "27일~11월1일"
-        const dateRange = startMonth === endMonth
-          ? `${startDay}일~${endDay}일`
-          : `${startDay}일~${endMonth}월${endDay}일`;
-
-        return {
-          left: `${now.getMonth() + 1}월`,
-          right: dateRange,
-        };
-      }
-      case Period.MONTH:
-        return {
-          left: `${now.getMonth() + 1}월`,
-          right: null,
-        };
-      case Period.YEAR:
-        return {
-          left: `${now.getFullYear()}년`,
-          right: null,
-        };
-      default:
-        return { left: '', right: null };
-    }
-  }, [period]);
+    const formatted = formatPeriodLabel(referenceDate, period);
+    return {
+      left: formatted.primary,
+      right: formatted.secondary || null,
+    };
+  }, [period, referenceDate]);
 
   // 차트 데이터 정규화 (거리를 km로 변환)
   const normalizedData = useMemo(() => {
@@ -276,7 +242,7 @@ export const PeriodChart: React.FC<PeriodChartProps> = ({
 
         {/* 바 차트 */}
         {!isEmpty &&
-          normalizedData.map((point, index) => {
+          normalizedData.map((point) => {
             const barHeight = getBarHeight(point.distanceKm);
             const barX = getBarXPosition(point);
             const barY = CHART_PADDING.top + chartInnerHeight - barHeight;
@@ -286,7 +252,7 @@ export const PeriodChart: React.FC<PeriodChartProps> = ({
 
             return (
               <Path
-                key={`bar-${index}`}
+                key={`bar-${point.datetime}`}
                 d={pathData}
                 fill={PRIMARY[600]}
               />
@@ -319,6 +285,38 @@ export const PeriodChart: React.FC<PeriodChartProps> = ({
     </View>
   );
 };
+
+/**
+ * React.memo로 감싸서 불필요한 SVG 재생성 방지
+ * 비교 조건:
+ * - period, isEmpty 값 비교
+ * - referenceDate 시간값 비교
+ * - data 배열 내용 비교 (길이 + 각 요소의 datetime, distance)
+ */
+export const PeriodChart = React.memo(PeriodChartComponent, (prevProps, nextProps) => {
+  // period 비교
+  if (prevProps.period !== nextProps.period) return false;
+
+  // isEmpty 비교
+  if (prevProps.isEmpty !== nextProps.isEmpty) return false;
+
+  // referenceDate 비교 (시간값)
+  const prevTime = prevProps.referenceDate?.getTime() ?? 0;
+  const nextTime = nextProps.referenceDate?.getTime() ?? 0;
+  if (prevTime !== nextTime) return false;
+
+  // data 배열 비교
+  if (prevProps.data.length !== nextProps.data.length) return false;
+  for (let i = 0; i < prevProps.data.length; i++) {
+    const prevItem = prevProps.data[i];
+    const nextItem = nextProps.data[i];
+    if (!prevItem || !nextItem) return false;
+    if (prevItem.datetime !== nextItem.datetime) return false;
+    if (prevItem.distance !== nextItem.distance) return false;
+  }
+
+  return true;
+});
 
 const styles = StyleSheet.create({
   container: {
