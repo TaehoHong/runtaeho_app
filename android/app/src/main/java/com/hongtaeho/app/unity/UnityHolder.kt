@@ -69,6 +69,9 @@ object UnityHolder {
     /** Charactor Ready 콜백 리스너 (RNUnityBridgeModule에서 설정) */
     var onCharactorReadyListener: (() -> Unit)? = null
 
+    /** Avatar Ready 콜백 리스너 (RNUnityBridgeModule에서 설정) */
+    var onAvatarReadyListener: (() -> Unit)? = null
+
     /** Main Thread Handler */
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -122,6 +125,26 @@ object UnityHolder {
         // 리스너에게 알림 (Push Pattern)
         Log.d(TAG, "Notifying Charactor Ready listener")
         onCharactorReadyListener?.invoke()
+    }
+
+    /**
+     * Unity에서 호출되는 Avatar Ready 알림
+     * SetSprites() 완료 시 UnityNativeBridge를 통해 호출됨
+     *
+     * Main Thread에서 실행되어야 함
+     */
+    fun notifyAvatarReady() {
+        Log.d(TAG, "notifyAvatarReady() called")
+
+        // Main Thread에서 실행 보장
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mainHandler.post { notifyAvatarReady() }
+            return
+        }
+
+        // 리스너에게 알림 (Push Pattern)
+        Log.d(TAG, "Notifying Avatar Ready listener")
+        onAvatarReadyListener?.invoke()
     }
 
     /**

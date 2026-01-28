@@ -48,6 +48,27 @@ object UnityNativeBridge {
     }
 
     /**
+     * Unity C#에서 호출되는 Avatar Ready 알림
+     * SetSprites() 완료 시 호출됨
+     *
+     * @JvmStatic - Java에서 정적 메서드로 호출 가능하게 함
+     * Unity의 AndroidJavaClass.CallStatic()에서 호출됨
+     */
+    @JvmStatic
+    fun notifyAvatarReady() {
+        Log.d(TAG, "notifyAvatarReady() called from Unity C#")
+
+        mainHandler.post {
+            try {
+                UnityHolder.notifyAvatarReady()
+                Log.d(TAG, "Successfully notified UnityHolder: Avatar Ready")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error notifying UnityHolder Avatar Ready: ${e.message}", e)
+            }
+        }
+    }
+
+    /**
      * Unity에서 캐릭터 상태 변경 시 호출
      * 확장 가능한 콜백 메서드
      *

@@ -11,15 +11,28 @@
 export { unityService } from '~/features/unity/services/UnityService';
 
 // Unity Store (Zustand)
-export { useUnityStore } from '~/stores/unity/unityStore';
+export {
+  useUnityStore,
+  selectIsFullyReady,
+  selectCanSendMessage,
+} from '~/stores/unity/unityStore';
 
 // Unity ViewModel (비즈니스 로직)
 export { useUnityViewModel } from '~/features/unity/viewmodels/UnityViewModel';
 
+// ★ Unity Hooks (통합 상태 관리)
+export { useUnityReadiness } from './hooks';
+export type {
+  UseUnityReadinessOptions,
+  UseUnityReadinessReturn,
+} from './hooks';
+
 // Unity Types and DTOs
 export type {
-  UnityAnimationType, UnityAvatarUpdateOptions, UnityBridgeMessage, UnityConfiguration, UnityEvent,
-  UnityEventType, UnityStatus
+  UnityAnimationType,
+  UnityEvent,
+  UnityEventType,
+  UnityStatus,
 } from './types/UnityTypes';
 
 // Unity Bridge (현재는 주석 처리)

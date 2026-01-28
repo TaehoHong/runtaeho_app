@@ -2,16 +2,22 @@
  * 아바타 프리뷰 (Unity View)
  * SRP: Unity 캐릭터 렌더링만 담당
  *
+ * ★ useUnityReadiness Hook 기반으로 리팩토링
+ * - 기존: 자체 useState + 개별 이벤트 관리
+ * - 변경: Store 기반 통합 상태 관리 (isGameObjectReady + isAvatarReady)
+ *
  * Push + Pull 패턴으로 Race Condition 없이 안정적으로 Unity 통신
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import type { EquippedItemsMap, Item } from '~/features/avatar';
 import { UNITY_PREVIEW } from '~/features/avatar';
 import { UnityView } from '~/features/unity/components/UnityView';
 import { UnityLoadingState } from '~/features/unity/components/UnityLoadingState';
 import { unityService } from '~/features/unity/services/UnityService';
+import { useUnityReadiness } from '~/features/unity/hooks';
+import { useUnityStore } from '~/stores/unity/unityStore';
 import { GREY } from '~/shared/styles';
 
 interface Props {
@@ -20,60 +26,129 @@ interface Props {
 }
 
 export const AvatarPreview: React.FC<Props> = ({ equippedItems, hairColor }) => {
-  const [isUnityReady, setIsUnityReady] = useState(false);
+  // ★ hasInitializedRef: handleUnityReady에서 이미 changeAvatar 호출했으면 useEffect에서 중복 호출 방지
+  const hasInitializedRef = useRef(false);
+  // ★ 이전 장착 아이템/색상 저장 (변경 감지용)
+  const prevEquippedItemsRef = useRef<EquippedItemsMap>(equippedItems);
+  const prevHairColorRef = useRef<string>(hairColor);
 
-  // 장착 아이템 또는 헤어 색상 변경 시 Unity 아바타 동기화 (SPOT: Unity 동기화는 여기서만!)
+  // ★ useUnityReadiness 훅 사용 (Store 기반 통합 상태 관리)
+  const { isReady, handleUnityReady: baseHandleUnityReady, canSendMessage } = useUnityReadiness({
+    waitForAvatar: true,  // isGameObjectReady && isAvatarReady 모두 체크
+    timeout: 5000,        // 5초 타임아웃
+  });
+
+  // Store 액션
+  const setAvatarReady = useUnityStore((state) => state.setAvatarReady);
+
+  /**
+   * 장착 아이템 또는 헤어 색상 변경 시 Unity 아바타 동기화
+   * ★ 첫 번째 실행(handleUnityReady 직후)은 스킵 - 이미 초기화됨
+   */
   useEffect(() => {
     // Unity가 아직 준비되지 않았으면 스킵 (handleUnityReady에서 처리)
-    if (!isUnityReady) return;
+    if (!canSendMessage) return;
 
-    console.log('🔄 [AvatarPreview] 아이템/색상 변경 - 동기화');
+    // ★ 첫 번째 실행(handleUnityReady 직후)은 스킵 - 이미 초기화됨
+    if (!hasInitializedRef.current) {
+      hasInitializedRef.current = true;
+      console.log('🔄 [AvatarPreview] 초기 동기화는 handleUnityReady에서 완료됨 - 스킵');
+      // 이전 값 저장
+      prevEquippedItemsRef.current = equippedItems;
+      prevHairColorRef.current = hairColor;
+      return;
+    }
 
-    const unsubscribe = unityService.onReady(async () => {
-      try {
-        const items = Object.values(equippedItems).filter((item): item is Item => !!item);
-        if (items.length > 0) {
-          await unityService.changeAvatar(items, hairColor);
-          console.log(`✅ [AvatarPreview] 동기화 완료 (${items.length}개, 색상: ${hairColor})`);
-        }
-      } catch (error) {
-        console.error('❌ [AvatarPreview] 동기화 실패:', error);
-      }
-    });
+    // ★ 실제 변경이 있는지 확인 (아이템 ID 비교)
+    const prevItemIds = Object.values(prevEquippedItemsRef.current)
+      .filter((item): item is Item => !!item)
+      .map((item) => item.id)
+      .sort()
+      .join(',');
+    const currentItemIds = Object.values(equippedItems)
+      .filter((item): item is Item => !!item)
+      .map((item) => item.id)
+      .sort()
+      .join(',');
+    const itemsChanged = prevItemIds !== currentItemIds;
+    const colorChanged = prevHairColorRef.current !== hairColor;
 
-    return () => unsubscribe();
-  }, [equippedItems, hairColor, isUnityReady]);
+    if (!itemsChanged && !colorChanged) {
+      return;
+    }
+
+    console.log('🔄 [AvatarPreview] 아이템/색상 변경 감지 - 동기화 시작');
+    console.log(`   - 아이템 변경: ${itemsChanged}, 색상 변경: ${colorChanged}`);
+
+    // 이전 값 업데이트
+    prevEquippedItemsRef.current = equippedItems;
+    prevHairColorRef.current = hairColor;
+
+    const items = Object.values(equippedItems).filter((item): item is Item => !!item);
+    if (items.length > 0) {
+      // ★ changeAvatar 호출 전 isAvatarReady를 false로 리셋
+      // Native에서 SetSprites 완료 후 onAvatarReady 이벤트 발생 → 자동으로 true
+      setAvatarReady(false);
+
+      unityService
+        .changeAvatar(items, hairColor)
+        .then(() => {
+          console.log(`✅ [AvatarPreview] 동기화 요청 완료 (${items.length}개, 색상: ${hairColor})`);
+          // ★ setIsUnityReady 제거! onAvatarReady 이벤트가 자동으로 처리
+        })
+        .catch((error) => {
+          console.error('❌ [AvatarPreview] 동기화 실패:', error);
+          // 에러 시 강제로 ready 처리 (UX 유지)
+          setAvatarReady(true);
+        });
+    }
+  }, [equippedItems, hairColor, canSendMessage, setAvatarReady]);
 
   /**
    * Unity 준비 완료 이벤트 핸들러
    * Push + Pull 패턴으로 Race Condition 없이 안정적으로 초기화
    */
-  const handleUnityReady = useCallback((event: any) => {
-    console.log('[AvatarPreview] Unity View Ready:', event.nativeEvent);
+  const handleUnityReady = useCallback(
+    (event: any) => {
+      console.log('[AvatarPreview] Unity View Ready:', event.nativeEvent);
 
-    const unsubscribe = unityService.onReady(async () => {
-      console.log('[AvatarPreview] ✅ GameObject Ready! 초기화 시작');
+      // ★ 기본 핸들러 호출 (Store 상태 업데이트)
+      baseHandleUnityReady(event);
 
-      try {
-        const items = Object.values(equippedItems).filter((item): item is Item => !!item);
-        if (items.length > 0) {
-          await unityService.changeAvatar(items, hairColor);
-          console.log(`✅ [AvatarPreview] 초기화 완료 (${items.length}개, 색상: ${hairColor})`);
+      const unsubscribe = unityService.onReady(async () => {
+        console.log('[AvatarPreview] ✅ GameObject Ready! 초기화 시작');
+
+        try {
+          const items = Object.values(equippedItems).filter((item): item is Item => !!item);
+          if (items.length > 0) {
+            await unityService.changeAvatar(items, hairColor);
+            console.log(`✅ [AvatarPreview] 초기화 완료 (${items.length}개, 색상: ${hairColor})`);
+            // ★ setIsUnityReady(true) 제거!
+            // Native에서 SetSprites 완료 후 onAvatarReady 이벤트 발생
+            // → UnityBridge가 자동으로 setAvatarReady(true) 호출
+            // → useUnityReadiness의 isReady가 true로 변경
+          } else {
+            // ★ 아이템이 없는 경우: changeAvatar() 호출 안 함 → onAvatarReady 이벤트 안 옴
+            // 수동으로 isAvatarReady를 true로 설정
+            console.log('[AvatarPreview] 장착 아이템 없음 - 수동으로 ready 처리');
+            setAvatarReady(true);
+          }
+        } catch (error) {
+          console.error('❌ [AvatarPreview] 초기화 실패:', error);
+          // 에러가 발생해도 진행 (UX 유지)
+          setAvatarReady(true);
         }
-        setIsUnityReady(true);
-      } catch (error) {
-        console.error('❌ [AvatarPreview] 초기화 실패:', error);
-        setIsUnityReady(true); // 에러가 발생해도 진행
-      }
-    });
+      });
 
-    return unsubscribe;
-  }, [equippedItems, hairColor]);
+      return unsubscribe;
+    },
+    [equippedItems, hairColor, baseHandleUnityReady, setAvatarReady]
+  );
 
   return (
     <View style={styles.container}>
       <UnityLoadingState
-        isLoading={!isUnityReady}
+        isLoading={!isReady}
         variant="avatar"
         minDisplayTime={300}
       >

@@ -2,13 +2,16 @@
  * useLeagueResultAnimation
  * 리그 결과 화면에서 Unity 캐릭터 애니메이션을 관리하는 훅
  *
- * Push + Pull 패턴으로 Race Condition 없이 안정적으로 Unity 통신
+ * ★ useUnityReadiness Hook 기반으로 리팩토링
+ * - 기존: 로컬 useState + 개별 이벤트 구독 + 타임아웃 관리
+ * - 변경: Store 기반 통합 상태 관리 + Hook의 타임아웃 기능 활용
  */
 
-import { useCallback, useState, useRef, useEffect } from 'react';
-import { Platform } from 'react-native';
+import { useCallback, useRef, useEffect } from 'react';
 import type { Item } from '~/features/avatar';
 import { unityService } from '~/features/unity/services/UnityService';
+import { useUnityReadiness } from '~/features/unity/hooks';
+import { useUnityStore } from '~/stores/unity/unityStore';
 import { useUserStore } from '~/stores/user/userStore';
 import { LeagueResultStatus } from '../models';
 import type { CharacterMotion } from '~/features/unity/types/UnityTypes';
@@ -53,42 +56,21 @@ interface UseLeagueResultAnimationReturn {
 export const useLeagueResultAnimation = ({
   resultStatus,
 }: UseLeagueResultAnimationProps): UseLeagueResultAnimationReturn => {
-  const [isUnityReady, setIsUnityReady] = useState(false);
   const equippedItems = useUserStore((state) => state.equippedItems);
   const hairColor = useUserStore((state) => state.hairColor);
 
-  // Unity는 iOS에서만 지원
-  const isUnityAvailable = Platform.OS === 'ios';
-
-  // 🔑 Cleanup 관리용 refs
-  // 문제: handleUnityReady는 이벤트 핸들러로 전달되어 반환값(cleanup 함수)이 무시됨
-  // 해결: useRef로 timeout/unsubscribe를 추적하고 useEffect로 cleanup
-  // Note: React Native의 setTimeout은 number를 반환 (Node.js의 Timeout과 다름)
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const unsubscribeRef = useRef<(() => void) | null>(null);
+  // 애니메이션 딜레이 타이머
   const animationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  /**
-   * 컴포넌트 언마운트 시 모든 타이머와 구독 정리
-   * 이 cleanup이 없으면 콜백이 언마운트된 컴포넌트를 참조하여 메모리 corruption 발생 가능
-   */
-  useEffect(() => {
-    return () => {
-      console.log('[LeagueResultAnimation] Cleanup on unmount');
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-      if (animationTimeoutRef.current) {
-        clearTimeout(animationTimeoutRef.current);
-        animationTimeoutRef.current = null;
-      }
-      if (unsubscribeRef.current) {
-        unsubscribeRef.current();
-        unsubscribeRef.current = null;
-      }
-    };
-  }, []);
+  // ★ 통합 Hook 사용
+  // Store 액션
+  const setAvatarReady = useUnityStore((state) => state.setAvatarReady);
+
+  const { isReady, isUnityAvailable, handleUnityReady: baseHandleUnityReady } = useUnityReadiness({
+    waitForAvatar: true, // ★ isGameObjectReady && isAvatarReady 모두 체크 (아바타 완성 후 표시)
+    timeout: 3000, // 3초 타임아웃 (아바타 로딩 고려)
+    startDelay: 0, // LeagueResult는 이미 앱이 실행 중이므로 지연 불필요
+  });
 
   /**
    * 결과에 맞는 애니메이션 실행
@@ -107,42 +89,22 @@ export const useLeagueResultAnimation = ({
 
   /**
    * Unity 준비 완료 이벤트 핸들러
-   * Push + Pull 패턴으로 Race Condition 방지
-   * + Timeout fallback: Unity 재사용 시 onCharactorReady가 다시 발생하지 않는 경우 처리
-   *
-   * 🔑 Cleanup 수정:
-   * - 이벤트 핸들러의 반환값은 무시되므로 useRef로 타이머/구독 관리
-   * - 컴포넌트 언마운트 시 useEffect에서 정리
+   * 기본 핸들러 + 아바타 로드 + 애니메이션 실행
    */
   const handleUnityReady = useCallback(
     (event: any) => {
       console.log('[LeagueResultAnimation] Unity View Ready:', event?.nativeEvent);
 
-      // 이전 타이머/구독 정리 (재호출 시 중복 방지)
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
+      // 이전 애니메이션 타이머 정리
       if (animationTimeoutRef.current) {
         clearTimeout(animationTimeoutRef.current);
       }
-      if (unsubscribeRef.current) {
-        unsubscribeRef.current();
-      }
 
-      // Timeout fallback: 2초 후에도 ready 아니면 강제로 true 설정
-      // Unity가 재사용될 때 onCharactorReady 이벤트가 다시 발생하지 않는 경우를 처리
-      timeoutRef.current = setTimeout(() => {
-        console.log('[LeagueResultAnimation] ⏰ Timeout - forcing ready state');
-        setIsUnityReady(true);
-        playResultAnimation();
-      }, 2000);
+      // 기본 핸들러 호출
+      baseHandleUnityReady(event);
 
-      unsubscribeRef.current = unityService.onReady(async () => {
-        // 정상 콜백 시 timeout 취소
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-          timeoutRef.current = null;
-        }
+      // 아바타 로드 및 애니메이션 실행
+      const unsubscribe = unityService.onReady(async () => {
         console.log('[LeagueResultAnimation] GameObject Ready! Initializing...');
 
         try {
@@ -154,27 +116,45 @@ export const useLeagueResultAnimation = ({
           if (items.length > 0) {
             await unityService.changeAvatar(items, hairColor);
             console.log(`[LeagueResultAnimation] Avatar loaded (${items.length} items)`);
+            // ★ onAvatarReady 이벤트가 자동으로 setAvatarReady(true) 처리
+          } else {
+            // ★ 아이템이 없는 경우: changeAvatar() 호출 안 함 → onAvatarReady 이벤트 안 옴
+            // 수동으로 isAvatarReady를 true로 설정
+            console.log('[LeagueResultAnimation] 장착 아이템 없음 - 수동으로 ready 처리');
+            setAvatarReady(true);
           }
 
           // 2. 결과에 맞는 애니메이션 실행 (약간의 딜레이 후)
           animationTimeoutRef.current = setTimeout(async () => {
             await playResultAnimation();
           }, 500);
-
-          setIsUnityReady(true);
         } catch (error) {
           console.error('[LeagueResultAnimation] Initialization failed:', error);
-          setIsUnityReady(true); // 에러가 발생해도 계속 진행
+          // ★ 에러 시 강제로 ready 처리 (UX 유지)
+          setAvatarReady(true);
         }
       });
 
-      // 이벤트 핸들러 반환값은 무시되므로 cleanup은 useEffect에서 처리
+      return unsubscribe;
     },
-    [equippedItems, hairColor, playResultAnimation]
+    [equippedItems, hairColor, playResultAnimation, baseHandleUnityReady, setAvatarReady]
   );
 
+  /**
+   * 컴포넌트 언마운트 시 타이머 정리
+   */
+  useEffect(() => {
+    return () => {
+      console.log('[LeagueResultAnimation] Cleanup on unmount');
+      if (animationTimeoutRef.current) {
+        clearTimeout(animationTimeoutRef.current);
+        animationTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   return {
-    isUnityReady,
+    isUnityReady: isReady,
     isUnityAvailable,
     handleUnityReady,
   };

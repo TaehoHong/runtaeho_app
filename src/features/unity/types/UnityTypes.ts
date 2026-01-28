@@ -47,36 +47,6 @@ export type UnityEventType =
   | 'UNITY_STATUS';         // Unity 상태
 
 /**
- * Unity Configuration
- * Unity 초기 설정 데이터
- */
-export interface UnityConfiguration {
-  // 그래픽 설정
-  quality: 'LOW' | 'MEDIUM' | 'HIGH' | 'ULTRA';
-  resolution: {
-    width: number;
-    height: number;
-  };
-  frameRate: number;
-
-  // 사운드 설정
-  masterVolume: number;
-  effectVolume: number;
-  musicVolume: number;
-
-  // 기본 설정
-  enableHapticFeedback: boolean;
-  enableParticleEffects: boolean;
-  enableShadows: boolean;
-  enablePostProcessing: boolean;
-
-  // 디버그 설정
-  debugMode: boolean;
-  showFPS: boolean;
-  logLevel: 'NONE' | 'ERROR' | 'WARNING' | 'INFO' | 'DEBUG';
-}
-
-/**
  * Unity Status (통합)
  * Unity 현재 상태 정보
  */
@@ -101,29 +71,6 @@ export interface UnityStatus {
   timestamp: string;
 }
 
-/**
- * Unity Bridge Message
- * Unity와 React Native 간 메시지 전달용
- */
-export interface UnityBridgeMessage {
-  id: string;
-  type: 'COMMAND' | 'QUERY' | 'EVENT' | 'RESPONSE';
-  method: string;
-  params?: any;
-  timestamp: number;
-}
-
-/**
- * Unity Avatar Update Options
- * 아바타 업데이트 시 사용할 옵션
- */
-export interface UnityAvatarUpdateOptions {
-  animateTransition: boolean;
-  transitionDuration: number;
-  playEquipSound: boolean;
-  showParticleEffect: boolean;
-  saveToPreferences: boolean;
-}
 
 // ==========================================
 // Unity Avatar DTO (Swift UnityAvatarDto 구조와 동일)
@@ -233,91 +180,4 @@ export interface RNUnityBridgeModule {
   removeListeners(count: number): void;
 }
 
-// ==========================================
-// Unity Bridge Configuration
-// ==========================================
 
-// export interface UnityBridgeConfig {
-//   enableDebugLogs?: boolean;
-//   autoConnect?: boolean;
-//   reconnectAttempts?: number;
-//   eventBufferSize?: number;
-// }
-
-// ==========================================
-// Unity Bridge Context (React Context용)
-// ==========================================
-
-export interface UnityBridgeContextValue {
-  // Connection Status
-  isConnected: boolean;
-  isLoading: boolean;
-  error: UnityError | null;
-
-  // Character State
-  characterState: CharacterState | null;
-
-  // Unity Control Methods
-  setCharacterSpeed: (speed: number) => Promise<void>;
-  stopCharacter: () => Promise<void>;
-  setCharacterMotion: (motion: CharacterMotion) => Promise<void>;
-  changeAvatar: (items: Item[]) => Promise<void>;
-
-  // Unity Status
-  getUnityStatus: () => Promise<void>;
-  unityStatus: UnityStatus | null;
-
-
-  // Configuration
-  // config: UnityBridgeConfig;
-  // updateConfig: (config: Partial<UnityBridgeConfig>) => void;
-}
-
-// ==========================================
-// Utility Types
-// ==========================================
-
-export type UnityBridgeAction =
-  | { type: 'SET_CONNECTED'; payload: boolean }
-  | { type: 'SET_LOADING'; payload: boolean }
-  | { type: 'SET_ERROR'; payload: UnityError | null }
-  | { type: 'SET_CHARACTER_STATE'; payload: CharacterState }
-  | { type: 'SET_UNITY_STATUS'; payload: UnityStatus };
-  // | { type: 'UPDATE_CONFIG'; payload: Partial<UnityBridgeConfig> };
-
-export interface UnityBridgeState {
-  isConnected: boolean;
-  isLoading: boolean;
-  error: UnityError | null;
-  characterState: CharacterState | null;
-  unityStatus: UnityStatus | null;
-  // config: UnityBridgeConfig;
-}
-
-// ==========================================
-// Default Values
-// ==========================================
-
-// export const DEFAULT_UNITY_BRIDGE_CONFIG: UnityBridgeConfig = {
-//   enableDebugLogs: __DEV__,
-//   autoConnect: true,
-//   reconnectAttempts: 3,
-//   eventBufferSize: 50,
-// };
-
-export const DEFAULT_CHARACTER_STATE: CharacterState = {
-  motion: 'IDLE',
-  speed: 0,
-  isMoving: false,
-  timestamp: new Date().toISOString(),
-};
-
-export const DEFAULT_UNITY_BRIDGE_STATE: UnityBridgeState = {
-  isConnected: false,
-  isLoading: false,
-  error: null,
-  characterState: DEFAULT_CHARACTER_STATE,
-  // currentAvatar: null,
-  unityStatus: null,
-  // config: DEFAULT_UNITY_BRIDGE_CONFIG,
-};

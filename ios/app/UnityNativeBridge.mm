@@ -30,5 +30,24 @@ extern "C" {
             NSLog(@"[UnityNativeBridge] ✅ NotificationCenter posted: UnityCharactorReady");
         });
     }
+
+    /// <summary>
+    /// Unity Avatar (SetSprites) 적용 완료 알림
+    /// Unity CharactorManager.cs의 SetSprites() 완료 시 호출됨
+    /// React Native에서 이 알림을 받고 UnityView를 표시함
+    /// </summary>
+    void _notifyAvatarReady() {
+        NSLog(@"[UnityNativeBridge] 🎨 Avatar Ready notification received from Unity!");
+
+        // 메인 스레드에서 NotificationCenter로 이벤트 발행
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [[NSNotificationCenter defaultCenter]
+                postNotificationName:@"UnityAvatarReady"
+                              object:nil
+                            userInfo:nil];
+
+            NSLog(@"[UnityNativeBridge] ✅ NotificationCenter posted: UnityAvatarReady");
+        });
+    }
 }
 

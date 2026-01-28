@@ -25,6 +25,10 @@ interface UnityState {
   isLoading: boolean;
   error: UnityError | null;
 
+  // ★ Unity Ready 상태 (통합 관리)
+  isGameObjectReady: boolean; // onCharactorReady 이벤트 후 true
+  isAvatarReady: boolean; // onAvatarReady 이벤트 후 true
+
   // Character State
   characterState: CharacterState | null;
 
@@ -44,6 +48,11 @@ interface UnityState {
   updateUnityStatus: (unityStatus: UnityStatus) => void;
   setUnityViewVisible: (isVisible: boolean) => void;
   resetUnityState: () => void;
+
+  // ★ Unity Ready 상태 액션
+  setGameObjectReady: (ready: boolean) => void;
+  setAvatarReady: (ready: boolean) => void;
+  resetReadyStates: () => void;
 }
 
 /**
@@ -53,6 +62,9 @@ const initialState = {
   isConnected: false,
   isLoading: false,
   error: null,
+  // ★ Unity Ready 상태 초기값
+  isGameObjectReady: false,
+  isAvatarReady: false,
   characterState: {
     motion: 'IDLE' as CharacterMotion,
     speed: 0,
@@ -116,6 +128,26 @@ export const useUnityStore = create<UnityState>((set) => ({
     }),
 
   resetUnityState: () => set(initialState),
+
+  // ★ Unity Ready 상태 액션
+  setGameObjectReady: (isGameObjectReady) =>
+    set({
+      isGameObjectReady,
+      lastInteraction: new Date().toISOString(),
+    }),
+
+  setAvatarReady: (isAvatarReady) =>
+    set({
+      isAvatarReady,
+      lastInteraction: new Date().toISOString(),
+    }),
+
+  resetReadyStates: () =>
+    set({
+      isGameObjectReady: false,
+      isAvatarReady: false,
+      lastInteraction: new Date().toISOString(),
+    }),
 }));
 
 /**
@@ -131,3 +163,18 @@ export const selectCharacterSpeed = (state: UnityState) =>
 
 export const selectCharacterMotion = (state: UnityState) =>
   state.characterState?.motion ?? 'IDLE';
+
+/**
+ * ★ Unity 전체 준비 상태 Selector
+ * GameObject 준비 + Avatar 적용 + 에러 없음
+ * View에서 이 selector만 사용하면 됨
+ */
+export const selectIsFullyReady = (state: UnityState) =>
+  state.isGameObjectReady && state.isAvatarReady && !state.error;
+
+/**
+ * ★ GameObject만 준비된 상태 Selector
+ * 아바타 적용 전이지만 메시지 전송 가능
+ */
+export const selectCanSendMessage = (state: UnityState) =>
+  state.isGameObjectReady && !state.error;

@@ -42,15 +42,16 @@ export const UnityView: React.FC<UnityViewProps> = (props) => {
   }, []);
 
   // 디버깅용 이벤트 핸들러
+  // ★ 의존성을 props 전체가 아닌 특정 콜백으로 변경 (불필요한 재생성 방지)
   const handleUnityReady = useCallback((event: any) => {
     console.log('[UnityView] onUnityReady event received:', event.nativeEvent);
     props.onUnityReady?.(event);
-  }, [props]);
+  }, [props.onUnityReady]);
 
   const handleUnityError = useCallback((event: any) => {
     console.error('[UnityView] onUnityError event received:', event.nativeEvent);
     props.onUnityError?.(event);
-  }, [props]);
+  }, [props.onUnityError]);
 
   return (
     <NativeUnityView

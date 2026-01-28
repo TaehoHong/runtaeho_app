@@ -26,17 +26,14 @@ export const RunningView: React.FC = () => {
   const router = useRouter();
   const viewState = useAppStore((state) => state.viewState);
   const runningState = useAppStore((state) => state.runningState);
-  // ✅ setViewState 제거 - AuthProvider에서 단일 관리 (Race Condition 방지)
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const equippedItems = useUserStore((state) => state.equippedItems);
-  const hairColor = useUserStore((state) => state.hairColor);
 
   // 리그 결과 확인용 상태
   const pendingResult = useLeagueCheckStore((state) => state.pendingResult);
   const clearPendingResult = useLeagueCheckStore((state) => state.clearPendingResult);
   const { checkUncheckedLeagueResult } = useLeagueCheck();
 
-  // ✅ 권한 요청 (Unity 로딩 완료 후 실행)
   const { requestPermissionsOnFirstLogin, isPermissionChecked } = usePermissionRequest();
 
   const [unityStarted, setUnityStarted] = useState(false);
@@ -72,12 +69,9 @@ export const RunningView: React.FC = () => {
   useEffect(() => {
     console.log('🔄 [RunningView] 컴포넌트 마운트');
 
-    // ✅ Unity 시작 상태만 관리 (viewState 변경은 AuthProvider에서 담당)
     if (isLoggedIn && !unityStarted) {
       console.log('🎮 [RunningView] 로그인 완료 - Unity 시작 예약 (500ms 지연)');
 
-      // ✅ Cold Start 크래시 방지: Unity 엔진 초기화 시간 확보
-      // 앱 스위처에서 강제 종료 후 재실행 시 React Native UI와 Unity 엔진 간 Race Condition 방지
       const timer = setTimeout(() => {
         console.log('🎮 [RunningView] Unity 시작');
         setUnityStarted(true);
@@ -96,10 +90,6 @@ export const RunningView: React.FC = () => {
 
   /**
    * 화면 포커스 시 Unity 캐릭터 동기화 및 리그 결과 재확인
-   * Tabs 네비게이션에서 다른 화면(아바타 등)에서 돌아올 때 호출됨
-   *
-   * 🔑 최초 마운트 시 리그 결과 확인은 제거됨 (Unity + 권한 완료 후 별도 useEffect에서 처리)
-   * Unity 초기화 전에 리그 결과 화면으로 이동하면 두 개의 UnityView가 충돌하여 크래시 발생
    */
   useFocusEffect(
     useCallback(() => {
@@ -125,9 +115,11 @@ export const RunningView: React.FC = () => {
 
       const unsubscribe = unityService.onReady(async () => {
         try {
-          const items = Object.values(equippedItems).filter((item): item is Item => !!item);
+          // ★ getState()로 최신 값 조회 (stale closure 방지)
+          const currentState = useUserStore.getState();
+          const items = Object.values(currentState.equippedItems).filter((item): item is Item => !!item);
           if (items.length > 0) {
-            await unityService.changeAvatar(items, hairColor);
+            await unityService.changeAvatar(items, currentState.hairColor);
             console.log(`✅ [RunningView] 포커스 동기화 완료 (${items.length}개)`);
           }
         } catch (error) {
@@ -136,19 +128,11 @@ export const RunningView: React.FC = () => {
       });
 
       return () => unsubscribe();
-    }, [equippedItems, runningState, checkUncheckedLeagueResult])
+    }, [runningState, checkUncheckedLeagueResult])
   );
 
   /**
    * 🔑 리그 결과 확인 - Unity 로딩 완료 + 권한 체크 완료 후 실행
-   *
-   * 타이밍 문제 해결:
-   * - 기존: 앱 시작 → 리그 결과 API 호출 (Unity 초기화 전)
-   *   → RunningView의 UnityView와 LeagueResultView의 UnityView 충돌 → 크래시
-   * - 변경: Unity 준비됨 + 권한 체크 완료 → 리그 결과 확인
-   *   → 안전하게 리그 결과 화면으로 이동
-   *
-   * hasCheckedLeagueRef: 최초 1회만 실행 (의존성 변경에 의한 재실행 방지)
    */
   const hasCheckedLeagueRef = useRef(false);
   useEffect(() => {
@@ -187,9 +171,10 @@ export const RunningView: React.FC = () => {
         // onReady는 Push + Pull 패턴으로 안전하게 처리
         unsubscribe = unityService.onReady(async () => {
           try {
-            const currentEquippedItems = useUserStore.getState().equippedItems;
-            const items = Object.values(currentEquippedItems).filter((item): item is Item => !!item);
-            await unityService.initCharacter(items, hairColor);
+            // ★ getState()로 최신 값 조회 (stale closure 방지)
+            const currentState = useUserStore.getState();
+            const items = Object.values(currentState.equippedItems).filter((item): item is Item => !!item);
+            await unityService.initCharacter(items, currentState.hairColor);
             console.log(`✅ [RunningView] 포그라운드 재초기화 완료 (${items.length}개)`);
           } catch (error) {
             console.error('❌ [RunningView] 포그라운드 재초기화 실패:', error);
@@ -242,8 +227,6 @@ export const RunningView: React.FC = () => {
 
   /**
    * Unity 준비 완료 이벤트 핸들러
-   * Push + Pull 패턴으로 Race Condition 없이 안정적으로 초기화
-   * CRITICAL FIX: getState()를 사용하여 stale closure 문제 해결
    */
   const handleUnityReady = useCallback((event: any) => {
     console.log('[RunningView] Unity View Ready:', event.nativeEvent);
@@ -254,10 +237,9 @@ export const RunningView: React.FC = () => {
       console.log('[RunningView] ✅ GameObject Ready! 초기화 시작');
 
       try {
-        // CRITICAL FIX: 클로저 대신 스토어에서 직접 읽기 (stale closure 방지)
-        const currentEquippedItems = useUserStore.getState().equippedItems;
-        const items = Object.values(currentEquippedItems).filter((item): item is Item => !!item);
-        await unityService.initCharacter(items, hairColor);
+        const currentState = useUserStore.getState();
+        const items = Object.values(currentState.equippedItems).filter((item): item is Item => !!item);
+        await unityService.initCharacter(items, currentState.hairColor);
 
         // 아이템이 있었다면 초기화 완료로 표시
         if (items.length > 0) {
@@ -295,15 +277,9 @@ export const RunningView: React.FC = () => {
     console.log('✅ [RunningView] Loaded 상태 - Unity + 컴트롤 패널 표시');
   }
 
-  // ✅ v9: Unity Cold Start 크래시 방지
-  // - 500ms 지연: React Native UI 안정화 후 Unity 컴포넌트 마운트
-  // - Native 측 동기적 초기화: Metal context 준비 후에만 view 표시
-  // - presentsWithTransaction = true: GPU 렌더링과 CATransaction 동기화
   return (
     <RunningProvider isUnityReady={isUnityReady}>
       <View style={styles.container}>
-        {/* ✅ v9: Unity 컴포넌트 - unityStarted 후에만 마운트 */}
-        {/* UnityLoadingState: 로딩 중 placeholder 표시 + 부드러운 페이드 전환 */}
         {unityStarted && (
           <View style={[styles.unityContainer, isLoading && styles.hiddenContainer]}>
             <UnityLoadingState
@@ -344,7 +320,6 @@ export const RunningView: React.FC = () => {
 
 /**
  * 러닝 관련 알림들
- * iOS RunningView의 alert 들 대응
  */
 const RunningAlerts: React.FC = () => {
   // TODO: 이전 러닝 데이터 복구 알림

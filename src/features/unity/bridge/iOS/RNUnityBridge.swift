@@ -26,6 +26,12 @@ class RNUnityBridge: RCTEventEmitter {
     private var _isCharactorReady: Bool = false
     private var pendingEvents: [[String: Any]] = []
 
+    // MARK: - Avatar Promise Management (Native Promise Hold 방식)
+    private var pendingAvatarResolve: RCTPromiseResolveBlock?
+    private var pendingAvatarReject: RCTPromiseRejectBlock?
+    private var avatarTimeoutTimer: Timer?
+    private let AVATAR_TIMEOUT: TimeInterval = 5.0  // 5초 타임아웃
+
     // MARK: - Thread-Safe Listener Flag
     private let listenerLock = NSLock()
     private var _hasListenersInternal: Bool = false
@@ -52,6 +58,7 @@ class RNUnityBridge: RCTEventEmitter {
         return [
             "onUnityError",
             "onCharactorReady",
+            "onAvatarReady",    // ★ 아바타(SetSprites) 적용 완료 이벤트
             "UnityEngineReady"  // ✅ v8: Metal context 준비 완료 이벤트
         ]
     }
@@ -66,6 +73,14 @@ class RNUnityBridge: RCTEventEmitter {
             self,
             selector: #selector(handleCharactorReady),
             name: NSNotification.Name("UnityCharactorReady"),
+            object: nil
+        )
+
+        // ★ Avatar Ready (SetSprites 완료) 알림 구독
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAvatarReady),
+            name: NSNotification.Name("UnityAvatarReady"),
             object: nil
         )
 
@@ -141,6 +156,68 @@ class RNUnityBridge: RCTEventEmitter {
                 print("[RNUnityBridge] 📦 Buffering event (no listeners)")
                 self.pendingEvents.append(eventBody)
             }
+        }
+    }
+
+    // MARK: - Avatar Ready Handler
+
+    /// ★ Avatar(SetSprites) 적용 완료 핸들러
+    /// Unity에서 SetSprites() 완료 시 호출됨
+    /// Native Promise Hold 방식: pending Promise가 있으면 resolve
+    @objc
+    private func handleAvatarReady() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+
+            print("[RNUnityBridge] 🎨 Avatar Ready!")
+
+            // ★ Native Promise Hold: Pending Promise resolve
+            self.cancelAvatarTimeout()
+            if let resolve = self.pendingAvatarResolve {
+                print("[RNUnityBridge] ✅ Resolving pending avatar promise")
+                resolve(true)
+                self.pendingAvatarResolve = nil
+                self.pendingAvatarReject = nil
+            }
+
+            // 기존 이벤트 전송도 유지 (Store 업데이트용)
+            let eventBody: [String: Any] = [
+                "ready": true,
+                "timestamp": ISO8601DateFormatter().string(from: Date())
+            ]
+
+            if self._hasListeners {
+                print("[RNUnityBridge] 📤 Sending onAvatarReady event")
+                self.sendEvent(withName: "onAvatarReady", body: eventBody)
+            } else {
+                print("[RNUnityBridge] ⚠️ No listeners for onAvatarReady")
+            }
+        }
+    }
+
+    // MARK: - Avatar Timeout Helper Methods
+
+    private func cancelAvatarTimeout() {
+        avatarTimeoutTimer?.invalidate()
+        avatarTimeoutTimer = nil
+    }
+
+    private func handleAvatarTimeout() {
+        print("[RNUnityBridge] ⚠️ Avatar change timeout!")
+        if let resolve = pendingAvatarResolve {
+            // 타임아웃 시에도 resolve (에러가 아닌 경고)
+            resolve(false)
+            pendingAvatarResolve = nil
+            pendingAvatarReject = nil
+        }
+    }
+
+    private func rejectAvatar(_ code: String, _ message: String) {
+        cancelAvatarTimeout()
+        if let reject = pendingAvatarReject {
+            reject(code, message, nil)
+            pendingAvatarResolve = nil
+            pendingAvatarReject = nil
         }
     }
 
@@ -222,6 +299,40 @@ class RNUnityBridge: RCTEventEmitter {
                 "message": "Failed to convert data to JSON",
                 "error": error.localizedDescription
             ])
+        }
+    }
+
+    // MARK: - Native Promise Hold (Avatar Change And Wait)
+
+    /// ★ 아바타 변경 후 완료까지 대기 (Native Promise Hold 방식)
+    /// SetSprites 완료 시 Unity에서 _notifyAvatarReady() 호출 → handleAvatarReady에서 resolve
+    @objc
+    func changeAvatarAndWait(_ objectName: String, methodName: String, data: String,
+                             resolver resolve: @escaping RCTPromiseResolveBlock,
+                             rejecter reject: @escaping RCTPromiseRejectBlock) -> Void {
+        print("[RNUnityBridge] changeAvatarAndWait: \(objectName).\(methodName)")
+
+        // 이전 pending Promise 정리 (연속 호출 시)
+        if let prevReject = pendingAvatarReject {
+            print("[RNUnityBridge] ⚠️ Cancelling previous avatar change request")
+            prevReject("CANCELLED", "New avatar change request", nil)
+        }
+        cancelAvatarTimeout()
+
+        // 새 Promise 저장
+        pendingAvatarResolve = resolve
+        pendingAvatarReject = reject
+
+        // 타임아웃 설정 (5초)
+        avatarTimeoutTimer = Timer.scheduledTimer(withTimeInterval: AVATAR_TIMEOUT, repeats: false) { [weak self] _ in
+            self?.handleAvatarTimeout()
+        }
+
+        // Unity에 메시지 전송
+        DispatchQueue.main.async {
+            Unity.shared.sendMessage(objectName, methodName: methodName, parameter: data)
+            // ★ 여기서 resolve하지 않음! handleAvatarReady에서 resolve
+            print("[RNUnityBridge] 📤 SetSprites message sent, waiting for Avatar Ready...")
         }
     }
 

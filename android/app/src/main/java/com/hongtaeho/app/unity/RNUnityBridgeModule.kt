@@ -29,6 +29,7 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
         // Event names
         private const val EVENT_ON_UNITY_ERROR = "onUnityError"
         private const val EVENT_ON_CHARACTOR_READY = "onCharactorReady"
+        private const val EVENT_ON_AVATAR_READY = "onAvatarReady"
     }
 
     // MARK: - State
@@ -52,6 +53,11 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
             handleCharactorReady()
         }
 
+        // UnityHolder에 Avatar Ready 콜백 리스너 등록
+        UnityHolder.onAvatarReadyListener = {
+            handleAvatarReady()
+        }
+
         Log.d(TAG, "RNUnityBridgeModule initialized")
     }
 
@@ -64,7 +70,7 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
      * RCTEventEmitter 패턴에 필요
      */
     private fun getSupportedEvents(): List<String> {
-        return listOf(EVENT_ON_UNITY_ERROR, EVENT_ON_CHARACTOR_READY)
+        return listOf(EVENT_ON_UNITY_ERROR, EVENT_ON_CHARACTOR_READY, EVENT_ON_AVATAR_READY)
     }
 
     /**
@@ -120,6 +126,28 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
             } else {
                 Log.d(TAG, "Buffering onCharactorReady event (no listeners)")
                 pendingEvents.add(eventBody)
+            }
+        }
+    }
+
+    /**
+     * Avatar Ready 이벤트 처리
+     * UnityHolder에서 콜백으로 호출됨
+     */
+    private fun handleAvatarReady() {
+        Log.d(TAG, "handleAvatarReady() called")
+
+        val eventBody = Arguments.createMap().apply {
+            putBoolean("ready", true)
+            putString("timestamp", getISO8601Timestamp())
+        }
+
+        synchronized(eventsLock) {
+            if (hasListeners) {
+                Log.d(TAG, "Sending onAvatarReady event immediately")
+                sendEvent(EVENT_ON_AVATAR_READY, eventBody)
+            } else {
+                Log.d(TAG, "⚠️ No listeners for onAvatarReady")
             }
         }
     }
@@ -308,6 +336,7 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
         Log.d(TAG, "onHostDestroy()")
         // 리스너 정리
         UnityHolder.onCharactorReadyListener = null
+        UnityHolder.onAvatarReadyListener = null
     }
 
     // MARK: - Helper Methods

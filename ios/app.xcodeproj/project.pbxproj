@@ -21,7 +21,7 @@
 		F730CDD92E925BF4002CDFCA /* UnityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F730CDD22E925BF4002CDFCA /* UnityView.swift */; };
 		F730CDDA2E925BF4002CDFCA /* UnityViewManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F730CDD42E925BF4002CDFCA /* UnityViewManager.swift */; };
 		F730CDDB2E925BF4002CDFCA /* UnityViewManager.m in Sources */ = {isa = PBXBuildFile; fileRef = F730CDD32E925BF4002CDFCA /* UnityViewManager.m */; };
-		F77F8FC22ED3E49E0077E3A1 /* UnityNativeBridge.mm in Sources */ = {isa = PBXBuildFile; fileRef = F77F8FC12ED3E49E0077E3A1 /* UnityNativeBridge.mm */; };
+		F76332C72F29A2D100E4B48E /* UnityNativeBridge.mm in Sources */ = {isa = PBXBuildFile; fileRef = F77F8FC12ED3E49E0077E3A1 /* UnityNativeBridge.mm */; };
 		F7BE22F62F21245100B213D3 /* UnityViewContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7BE22F52F21245100B213D3 /* UnityViewContainer.swift */; };
 /* End PBXBuildFile section */
 
@@ -429,7 +429,7 @@
 				F730CDD72E925BF4002CDFCA /* RNUnityBridge.swift in Sources */,
 				F730CDD92E925BF4002CDFCA /* UnityView.swift in Sources */,
 				F730CDDA2E925BF4002CDFCA /* UnityViewManager.swift in Sources */,
-				F77F8FC22ED3E49E0077E3A1 /* UnityNativeBridge.mm in Sources */,
+				F76332C72F29A2D100E4B48E /* UnityNativeBridge.mm in Sources */,
 				F730CDDB2E925BF4002CDFCA /* UnityViewManager.m in Sources */,
 				D3ECE5C27DC205CBAEEC4ABE /* ExpoModulesProvider.swift in Sources */,
 			);

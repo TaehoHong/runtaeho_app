@@ -33,10 +33,11 @@ export const useUnityViewModel = () => {
   /**
    * 캐릭터 속도 설정
    * 기존 unityStore.setCharacterSpeed
+   * ★ 에러 정책: 시작 시 에러 유지, 성공 시에만 클리어
    */
   const setCharacterSpeed = useCallback(async (speed: number) => {
     setLoading(true);
-    setError(null);
+    // ★ setError(null) 제거 - 이전 에러 유지
 
     try {
       await unityService.setCharacterSpeed(speed);
@@ -50,6 +51,7 @@ export const useUnityViewModel = () => {
         });
       }
 
+      clearError(); // ★ 성공 시에만 에러 클리어
       setLoading(false);
     } catch (error) {
       setLoading(false);
@@ -60,15 +62,16 @@ export const useUnityViewModel = () => {
       });
       throw error;
     }
-  }, [characterState, setLoading, setError, updateCharacterState]);
+  }, [characterState, setLoading, setError, clearError, updateCharacterState]);
 
   /**
    * 캐릭터 정지
    * 기존 unityStore.stopCharacter
+   * ★ 에러 정책: 시작 시 에러 유지, 성공 시에만 클리어
    */
   const stopCharacter = useCallback(async () => {
     setLoading(true);
-    setError(null);
+    // ★ setError(null) 제거 - 이전 에러 유지
 
     try {
       await unityService.stopCharacter();
@@ -84,6 +87,7 @@ export const useUnityViewModel = () => {
         });
       }
 
+      clearError(); // ★ 성공 시에만 에러 클리어
       setLoading(false);
     } catch (error) {
       setLoading(false);
@@ -94,15 +98,16 @@ export const useUnityViewModel = () => {
       });
       throw error;
     }
-  }, [characterState, setLoading, setError, updateCharacterState]);
+  }, [characterState, setLoading, setError, clearError, updateCharacterState]);
 
   /**
    * 캐릭터 모션 설정
    * 기존 unityStore.setCharacterMotion
+   * ★ 에러 정책: 시작 시 에러 유지, 성공 시에만 클리어
    */
   const setCharacterMotion = useCallback(async (motion: CharacterMotion) => {
     setLoading(true);
-    setError(null);
+    // ★ setError(null) 제거 - 이전 에러 유지
 
     try {
       await unityService.setCharacterMotion(motion);
@@ -117,6 +122,7 @@ export const useUnityViewModel = () => {
         });
       }
 
+      clearError(); // ★ 성공 시에만 에러 클리어
       setLoading(false);
     } catch (error) {
       setLoading(false);
@@ -127,18 +133,20 @@ export const useUnityViewModel = () => {
       });
       throw error;
     }
-  }, [characterState, setLoading, setError, updateCharacterState]);
+  }, [characterState, setLoading, setError, clearError, updateCharacterState]);
 
   /**
    * 아바타 변경
    * 기존 unityStore.changeAvatar
+   * ★ 에러 정책: 시작 시 에러 유지, 성공 시에만 클리어
    */
   const changeAvatar = useCallback(async (items: Item[]) => {
     setLoading(true);
-    setError(null);
+    // ★ setError(null) 제거 - 이전 에러 유지
 
     try {
       await unityService.changeAvatar(items);
+      clearError(); // ★ 성공 시에만 에러 클리어
       setLoading(false);
     } catch (error) {
       setLoading(false);
@@ -149,7 +157,7 @@ export const useUnityViewModel = () => {
       });
       throw error;
     }
-  }, [setLoading, setError]);
+  }, [setLoading, setError, clearError]);
 
   return {
     // State (read-only)

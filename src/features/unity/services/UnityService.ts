@@ -26,6 +26,10 @@ export class UnityService {
   private static readonly MAX_SPEED = 7.0;
   private static readonly VALID_MOTIONS: CharacterMotion[] = ['IDLE', 'MOVE', 'ATTACK', 'DAMAGED'];
 
+  // Avatar 변경 Lock 메커니즘 - 동시 호출로 인한 CANCELLED 에러 방지
+  private isChangingAvatar: boolean = false;
+  private pendingAvatarChange: { items: Item[]; hairColor?: string } | null = null;
+
   static getInstance = (): UnityService => {
     if (!UnityService.instance) {
       UnityService.instance = new UnityService();
@@ -63,6 +67,15 @@ export class UnityService {
    */
   onReady(callback: () => void): () => void {
     return UnityBridge.subscribeToGameObjectReady(callback);
+  }
+
+  /**
+   * ★ Avatar Ready 시 콜백 실행
+   * Unity에서 SetSprites() 완료 후 호출됨
+   * 아바타 아이템이 완전히 적용된 후에 콜백 실행
+   */
+  onAvatarReady(callback: () => void): () => void {
+    return UnityBridge.subscribeToAvatarReady(callback);
   }
 
   /**
@@ -171,7 +184,44 @@ export class UnityService {
     }
   }
   
+  /**
+   * ★ 아바타 변경 (Native Promise Hold 방식 + Lock 메커니즘)
+   *
+   * Lock 메커니즘:
+   * - 동시에 여러 곳에서 changeAvatar가 호출되면 CANCELLED 에러 발생
+   * - 진행 중인 요청이 있으면 대기열에 추가하고 순차 처리
+   * - SetSprites 중복 실행 방지
+   */
   async changeAvatar(items: Item[], hairColor?: string): Promise<void> {
+    // 진행 중이면 대기열에 추가하고 리턴 (최신 요청만 유지)
+    if (this.isChangingAvatar) {
+      this.log('⏳ Avatar change in progress, queueing request');
+      this.pendingAvatarChange = { items, hairColor };
+      return;
+    }
+
+    this.isChangingAvatar = true;
+
+    try {
+      await this.executeChangeAvatar(items, hairColor);
+
+      // 대기 중인 요청 처리 (while loop로 연속 요청 처리)
+      while (this.pendingAvatarChange) {
+        const pending = this.pendingAvatarChange;
+        this.pendingAvatarChange = null;
+        this.log('📋 Processing queued avatar change request');
+        await this.executeChangeAvatar(pending.items, pending.hairColor);
+      }
+    } finally {
+      this.isChangingAvatar = false;
+    }
+  }
+
+  /**
+   * 실제 아바타 변경 로직 (내부 메서드)
+   * SetSprites 완료까지 대기 후 resolve되므로 깜빡임 없음
+   */
+  private async executeChangeAvatar(items: Item[], hairColor?: string): Promise<void> {
     this.log(`Changing avatar with ${items.length} items, hairColor: ${hairColor}`);
 
     if (!this.isReady()) {
@@ -192,13 +242,18 @@ export class UnityService {
 
       this.log('Unity Avatar Data:', jsonString);
 
-      await UnityBridge.sendUnityMessage(
+      // ★ Native Promise Hold: SetSprites 완료까지 대기
+      const success = await UnityBridge.changeAvatarAndWait(
         UnityService.UNITY_OBJECT_NAME,
         UnityService.CHANGE_AVATAR,
         jsonString
       );
 
-      this.log(`Avatar changed with ${validatedItems.length} items, hairColor: ${hairColor}`);
+      if (!success) {
+        this.log('⚠️ Avatar change timeout or failed (5s)');
+      }
+
+      this.log(`Avatar changed with ${validatedItems.length} items, hairColor: ${hairColor}, success: ${success}`);
     } catch (error) {
       this.logError('Failed to change avatar', error);
       throw error;
