@@ -33,7 +33,7 @@ export const AvatarPreview: React.FC<Props> = ({ equippedItems, hairColor }) => 
   const prevHairColorRef = useRef<string>(hairColor);
 
   // ★ useUnityReadiness 훅 사용 (Store 기반 통합 상태 관리)
-  const { isReady, handleUnityReady: baseHandleUnityReady, canSendMessage } = useUnityReadiness({
+  const { handleUnityReady: baseHandleUnityReady, canSendMessage } = useUnityReadiness({
     waitForAvatar: true,  // isGameObjectReady && isAvatarReady 모두 체크
     timeout: 5000,        // 5초 타임아웃
   });
@@ -87,18 +87,15 @@ export const AvatarPreview: React.FC<Props> = ({ equippedItems, hairColor }) => 
     const items = Object.values(equippedItems).filter((item): item is Item => !!item);
     if (items.length > 0) {
       // ★ changeAvatar 호출 전 isAvatarReady를 false로 리셋
-      // Native에서 SetSprites 완료 후 onAvatarReady 이벤트 발생 → 자동으로 true
       setAvatarReady(false);
 
       unityService
         .changeAvatar(items, hairColor)
         .then(() => {
           console.log(`✅ [AvatarPreview] 동기화 요청 완료 (${items.length}개, 색상: ${hairColor})`);
-          // ★ setIsUnityReady 제거! onAvatarReady 이벤트가 자동으로 처리
         })
         .catch((error) => {
           console.error('❌ [AvatarPreview] 동기화 실패:', error);
-          // 에러 시 강제로 ready 처리 (UX 유지)
           setAvatarReady(true);
         });
     }
@@ -106,13 +103,11 @@ export const AvatarPreview: React.FC<Props> = ({ equippedItems, hairColor }) => 
 
   /**
    * Unity 준비 완료 이벤트 핸들러
-   * Push + Pull 패턴으로 Race Condition 없이 안정적으로 초기화
    */
   const handleUnityReady = useCallback(
     (event: any) => {
       console.log('[AvatarPreview] Unity View Ready:', event.nativeEvent);
 
-      // ★ 기본 핸들러 호출 (Store 상태 업데이트)
       baseHandleUnityReady(event);
 
       const unsubscribe = unityService.onReady(async () => {
@@ -123,19 +118,12 @@ export const AvatarPreview: React.FC<Props> = ({ equippedItems, hairColor }) => 
           if (items.length > 0) {
             await unityService.changeAvatar(items, hairColor);
             console.log(`✅ [AvatarPreview] 초기화 완료 (${items.length}개, 색상: ${hairColor})`);
-            // ★ setIsUnityReady(true) 제거!
-            // Native에서 SetSprites 완료 후 onAvatarReady 이벤트 발생
-            // → UnityBridge가 자동으로 setAvatarReady(true) 호출
-            // → useUnityReadiness의 isReady가 true로 변경
           } else {
-            // ★ 아이템이 없는 경우: changeAvatar() 호출 안 함 → onAvatarReady 이벤트 안 옴
-            // 수동으로 isAvatarReady를 true로 설정
             console.log('[AvatarPreview] 장착 아이템 없음 - 수동으로 ready 처리');
             setAvatarReady(true);
           }
         } catch (error) {
           console.error('❌ [AvatarPreview] 초기화 실패:', error);
-          // 에러가 발생해도 진행 (UX 유지)
           setAvatarReady(true);
         }
       });
@@ -148,7 +136,7 @@ export const AvatarPreview: React.FC<Props> = ({ equippedItems, hairColor }) => 
   return (
     <View style={styles.container}>
       <UnityLoadingState
-        isLoading={!isReady}
+        isLoading={!canSendMessage}
         variant="avatar"
         minDisplayTime={300}
       >

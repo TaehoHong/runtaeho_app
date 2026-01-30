@@ -186,10 +186,14 @@ class UnityBridgeImpl implements UnityBridgeInterface {
    * Ready 상태 리셋 (Unity View 재마운트 시)
    * Reset 후 즉시 실제 상태 동기화하여 Unity 재사용 시 문제 해결
    * ★ Store를 통해 상태 리셋
+   * ★ isGameObjectReady와 isAvatarReady 모두 리셋하여 깜빡임 방지
    */
   async resetGameObjectReady(): Promise<void> {
-    console.log('[UnityBridge] Resetting Ready state');
+    console.log('[UnityBridge] Resetting Ready state (GameObject + Avatar)');
     useUnityStore.getState().setGameObjectReady(false);
+    // ★ 핵심 수정: isAvatarReady도 함께 리셋
+    // 이전에는 isAvatarReady가 리셋되지 않아 화면 전환 시 기본→착용 아바타 깜빡임 발생
+    useUnityStore.getState().setAvatarReady(false);
 
     if (NativeUnityBridge?.resetCharactorReady) {
       try {

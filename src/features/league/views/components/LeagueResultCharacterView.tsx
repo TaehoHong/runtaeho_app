@@ -1,11 +1,3 @@
-/**
- * LeagueResultCharacterView
- * 리그 결과 화면의 Unity 캐릭터 뷰
- *
- * iOS: Unity 캐릭터 렌더링 + 로딩 인디케이터
- * Android/Web: 이모지 기반 폴백 UI
- */
-
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { UnityView } from '~/features/unity/components/UnityView';
