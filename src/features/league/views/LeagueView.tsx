@@ -10,19 +10,19 @@
  * - 미확인 결과 체크 후 결과 화면으로 리다이렉트
  */
 
-import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useLeagueViewModel } from '../viewmodels';
-import { useLeagueCheck } from '../hooks';
-import { useAppStore } from '~/stores/app/appStore';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { GREY, PRIMARY } from '~/shared/styles';
 import { useLeagueCheckStore } from '~/stores';
+import { useAppStore } from '~/stores/app/appStore';
+import { useLeagueCheck } from '../hooks';
+import { useLeagueViewModel } from '../viewmodels';
 import { LeagueHeader } from './components/LeagueHeader';
+import { LeagueNotJoinedView } from './components/LeagueNotJoinedView';
 import { MyRankCard } from './components/MyRankCard';
 import { RankingSection } from './components/RankingSection';
-import { LeagueNotJoinedView } from './components/LeagueNotJoinedView';
-import { PRIMARY, GREY } from '~/shared/styles';
 
 export const LeagueView = () => {
   const router = useRouter();
@@ -152,6 +152,30 @@ export const LeagueView = () => {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.container}>
+        {/* 개발 모드 애니메이션 테스트 버튼 */}
+          <View style={styles.devTestContainer}>
+            <Text style={styles.devTestLabel}>🧪 애니메이션 테스트</Text>
+            <View style={styles.devTestButtons}>
+              <TouchableOpacity
+                style={styles.devButton}
+                onPress={() => setPreviousLeagueRank(5)}
+              >
+                <Text style={styles.devButtonText}>5→현재</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.devButton}
+                onPress={() => setPreviousLeagueRank(15)}
+              >
+                <Text style={styles.devButtonText}>15→현재</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.devButton, styles.devButtonReset]}
+                onPress={() => setPreviousLeagueRank(null)}
+              >
+                <Text style={styles.devButtonText}>Reset</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         {renderContent()}
       </View>
     </SafeAreaView>
@@ -196,5 +220,36 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: GREY[500],
     textAlign: 'center',
+  },
+  // 개발 모드 테스트 버튼 스타일
+  devTestContainer: {
+    backgroundColor: '#FFF3CD',
+    padding: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FFEEBA',
+  },
+  devTestLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#856404',
+    marginBottom: 6,
+  },
+  devTestButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  devButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 4,
+  },
+  devButtonReset: {
+    backgroundColor: '#FF3B30',
+  },
+  devButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

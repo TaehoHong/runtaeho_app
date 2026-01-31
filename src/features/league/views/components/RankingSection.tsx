@@ -151,13 +151,17 @@ export const RankingSection = ({
     });
 
     // 밀려나는 항목들의 애니메이션 (시차 적용)
+    // 배열 인덱스 초과 방지를 위해 최대 개수 제한
+    const maxDisplacedAnimations = Math.min(totalSteps, displacedAnimations.length);
     const displacedMoveAnimations: Animated.CompositeAnimation[] = [];
-    for (let i = 0; i < totalSteps; i++) {
+    for (let i = 0; i < maxDisplacedAnimations; i++) {
+      const animValue = displacedAnimations[i];
+      if (!animValue) continue;
       const delay = stepDuration * i;
       displacedMoveAnimations.push(
         Animated.sequence([
           Animated.delay(delay),
-          Animated.timing(displacedAnimations[i]!, {
+          Animated.timing(animValue, {
             toValue: RANK_ITEM_HEIGHT,
             duration: stepDuration,
             easing: Easing.inOut(Easing.cubic),
@@ -176,17 +180,24 @@ export const RankingSection = ({
     });
 
     // 전체 애니메이션 실행
-    Animated.sequence([
+    const animation = Animated.sequence([
       Animated.parallel([
         scaleUpAnimation,
         myMoveAnimation,
         ...displacedMoveAnimations,
       ]),
       scaleDownAnimation,
-    ]).start(() => {
+    ]);
+
+    animation.start(() => {
       setIsAnimating(false);
       setDisplayOrder([...participants]);
     });
+
+    // 컴포넌트 언마운트 시 애니메이션 정리
+    return () => {
+      animation.stop();
+    };
   }, [previousRank, myCurrentRank, totalSteps, participants]);
 
   // renderItem 함수
