@@ -4,6 +4,7 @@ import { useForceUpdateStore } from '../stores/forceUpdateStore';
 import { checkVersionFromServer } from '../services/forceUpdateService';
 import { FORCE_UPDATE_CONFIG } from '../constants';
 import { ForceUpdateStatus } from '../models/ForceUpdateState';
+import { useAppStore, RunningState } from '~/stores/app/appStore';
 
 interface UseForceUpdateCheckOptions {
   /** 앱 시작 시 체크 여부 */
@@ -29,6 +30,10 @@ export function useForceUpdateCheck(options: UseForceUpdateCheckOptions = {}) {
     setUpToDate,
     setError,
   } = useForceUpdateStore();
+
+  // 러닝 상태 구독 - Stopped이 아닌 모든 상태에서 체크 스킵
+  const runningState = useAppStore((state) => state.runningState);
+  const isRunning = runningState !== RunningState.Stopped;
 
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const isCheckingRef = useRef(false);
@@ -99,6 +104,15 @@ export function useForceUpdateCheck(options: UseForceUpdateCheckOptions = {}) {
         nextAppState === 'active' &&
         checkOnForeground
       ) {
+        // 러닝 중에는 체크 스킵
+        if (isRunning) {
+          if (__DEV__) {
+            console.log('[ForceUpdate] Skipping check - running in progress');
+          }
+          appStateRef.current = nextAppState;
+          return;
+        }
+
         if (__DEV__) {
           console.log('[ForceUpdate] App came to foreground, checking...');
         }
@@ -107,7 +121,7 @@ export function useForceUpdateCheck(options: UseForceUpdateCheckOptions = {}) {
 
       appStateRef.current = nextAppState;
     },
-    [checkOnForeground, checkForUpdate]
+    [checkOnForeground, checkForUpdate, isRunning]
   );
 
   // 앱 시작 시 체크

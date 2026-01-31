@@ -3,6 +3,7 @@ import { AppState, AppStateStatus } from 'react-native';
 import { useUpdateStore } from '../stores/updateStore';
 import { UpdateStatus } from '../models/UpdateState';
 import { checkForUpdate, isUpdatesEnabled } from '../services/updateService';
+import { useAppStore, RunningState } from '~/stores/app/appStore';
 
 interface UseUpdateCheckOptions {
   /** 앱 시작 시 자동 체크 */
@@ -42,6 +43,10 @@ export function useUpdateCheck(options: UseUpdateCheckOptions = {}): UseUpdateCh
     setAvailableManifest,
     setError,
   } = useUpdateStore();
+
+  // 러닝 상태 구독 - Stopped이 아닌 모든 상태에서 체크 스킵
+  const runningState = useAppStore((state) => state.runningState);
+  const isRunning = runningState !== RunningState.Stopped;
 
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const hasCheckedOnLaunch = useRef(false);
@@ -119,6 +124,13 @@ export function useUpdateCheck(options: UseUpdateCheckOptions = {}): UseUpdateCh
         appStateRef.current.match(/inactive|background/) &&
         nextAppState === 'active'
       ) {
+        // 러닝 중에는 체크 스킵
+        if (isRunning) {
+          console.log('[Updates] Skipping check - running in progress');
+          appStateRef.current = nextAppState;
+          return;
+        }
+
         console.log('[Updates] App came to foreground, checking for updates');
         performCheck();
       }
@@ -128,7 +140,7 @@ export function useUpdateCheck(options: UseUpdateCheckOptions = {}): UseUpdateCh
     return () => {
       subscription.remove();
     };
-  }, [checkOnForeground, performCheck]);
+  }, [checkOnForeground, performCheck, isRunning]);
 
   return {
     hasUpdate: status === UpdateStatus.AVAILABLE || availableManifest !== null,
