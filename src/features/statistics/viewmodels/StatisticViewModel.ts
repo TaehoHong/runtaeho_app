@@ -8,6 +8,7 @@ import {
   getStartOfWeek,
   getStartOfMonth,
   getStartOfYear,
+  getEndOfPeriod,
 } from '../models';
 import { useGetStatisticsSummary } from '../services';
 
@@ -15,8 +16,8 @@ import { useGetStatisticsSummary } from '../services';
  * Period에 따라 시작/종료 날짜 계산
  */
 const calculateDateRange = (period: Period, referenceDate: Date = new Date()): { startDateTime: Date; endDateTime: Date } => {
-  const endDateTime = new Date(referenceDate);
-  endDateTime.setHours(23, 59, 59, 999);
+  // 기간의 종료일 계산 (월: 월말, 주: 주 마지막 날, 연: 12/31)
+  const endDateTime = getEndOfPeriod(referenceDate, period);
 
   let startDateTime: Date;
 
