@@ -3,9 +3,12 @@ import { AppState, type AppStateStatus, Platform } from 'react-native';
 import { useAppStore, ViewState } from '~/stores';
 import { useAuthStore } from '~/features';
 import { useUserStore } from '~/stores/user/userStore';
+import { useUnityStore } from '~/stores/unity/unityStore';
 import { pointService } from '~/features/point/services/pointService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { UnityBridge } from '~/features/unity/bridge/UnityBridge';
+import { unityService } from '~/features/unity/services/UnityService';
+import type { Item } from '~/features/avatar';
 
 interface AppStateProviderProps {
   children: ReactNode;
@@ -167,9 +170,33 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
   const performForegroundTasks = async (backgroundDuration: number) => {
     console.log('📋 [AppStateProvider] Handling pending background tasks');
 
-    // 1. 사용자 데이터 동기화 (5분 이상 백그라운드시에만)
-    if (backgroundDuration > 300) {
+    // ★ 5분 이상 백그라운드 시 Unity 상태 강제 리셋 + 아바타 재적용
+    if (backgroundDuration > BACKGROUND_SYNC_THRESHOLD_SECONDS) {
+      console.log('🎮 [AppStateProvider] 5분 이상 백그라운드 - Unity 상태 리셋');
+
+      // 1. Store 상태 리셋 (isGameObjectReady, isAvatarReady 모두 false로)
+      useUnityStore.getState().resetReadyStates();
+
+      // 2. 사용자 데이터 동기화
       await syncUserDataFromServer();
+
+      // 3. ★ Unity 재초기화 완료 후 아바타 재적용
+      const unsubscribe = unityService.onReady(async () => {
+        try {
+          const currentState = useUserStore.getState();
+          const items = Object.values(currentState.equippedItems).filter(
+            (item): item is Item => !!item
+          );
+          if (items.length > 0) {
+            await unityService.changeAvatar(items, currentState.hairColor);
+            console.log(`✅ [AppStateProvider] 아바타 재적용 완료 (${items.length}개)`);
+          }
+        } catch (error) {
+          console.error('❌ [AppStateProvider] 아바타 재적용 실패:', error);
+        }
+        // 1회성 콜백이므로 구독 해제
+        unsubscribe();
+      });
     }
 
     // 2. 시스템 권한 상태 재확인
