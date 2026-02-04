@@ -26,7 +26,6 @@ interface AvatarViewProps {
 
 /**
  * 아바타 메인 화면
- * Modal 내부에서 SafeAreaContext가 끊기므로 자체 SafeAreaProvider로 감쌈
  */
 export const AvatarView: React.FC<AvatarViewProps> = ({ onClose }) => {
   return (
@@ -38,7 +37,6 @@ export const AvatarView: React.FC<AvatarViewProps> = ({ onClose }) => {
 
 /**
  * 아바타 화면 내부 컨텐츠
- * useSafeAreaInsets()가 SafeAreaProvider 내부에서 호출되어야 정상 동작
  */
 const AvatarViewContent: React.FC<AvatarViewProps> = ({ onClose }) => {
   const viewModel = useAvatarViewModel();

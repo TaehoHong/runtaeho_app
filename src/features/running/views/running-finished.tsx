@@ -7,6 +7,7 @@ import { MainDistanceCard } from './components/main-distance-card';
 import { DetailedStatisticsCard } from './detailed-statistics-card';
 import { ShoeSelectionArea } from './shoe-selection-area';
 import { CompleteButton } from './components/complete-button';
+import { ShareButton } from './components/share-button';
 import { PointInfoBar } from './components/point-info-bar';
 import { AddShoeCard } from './components/add-shoe-card';
 import { useRunning } from '../contexts';
@@ -26,7 +27,7 @@ const { width } = Dimensions.get('window');
 export const RunningFinishedView: React.FC = () => {
   const setRunningState = useAppStore((state) => state.setRunningState);
   const setPreviousLeagueRank = useAppStore((state) => state.setPreviousLeagueRank);
-  const { currentRecord, resetRunning, distance } = useRunning();
+  const { currentRecord, resetRunning, distance, stats, elapsedTime, formatPace } = useRunning();
 
   // 신발 데이터 가져오기
   const { shoes, isLoadingShoes } = useShoeViewModel();
@@ -53,6 +54,21 @@ export const RunningFinishedView: React.FC = () => {
 
   // 신발 추가 후 자동으로 React Query가 신발 목록을 갱신하고,
   // 첫 신발이므로 자동으로 메인 설정되어 ShoeSelectionArea가 표시됩니다.
+
+  // 공유 버튼 핸들러
+  const handleShare = () => {
+    // NOTE: /share/editor 라우트는 Expo Router 타입 생성 후 타입이 추가됨
+    router.push({
+      pathname: '/share/editor',
+      params: {
+        distance: distance.toString(),
+        durationSec: elapsedTime.toString(),
+        pace: formatPace(stats.pace.minutes, stats.pace.seconds),
+        startTimestamp: new Date().toISOString(),
+        earnedPoints: earnedPoints.toString(),
+      }
+    } as any);
+  };
 
   const handleComplete = async () => {
     console.log('🏁 [RunningFinishedView] 러닝 완료 확인 버튼 눌러짐');
@@ -173,11 +189,17 @@ export const RunningFinishedView: React.FC = () => {
           <AddShoeCard />
         )}
 
-        {/* 완료 버튼 */}
-        <CompleteButton
-          onPress={handleComplete}
-          disabled={isUpdating}
-        />
+        {/* 버튼 영역 */}
+        <View style={styles.buttonRow}>
+          <ShareButton
+            onPress={handleShare}
+            disabled={isUpdating}
+          />
+          <CompleteButton
+            onPress={handleComplete}
+            disabled={isUpdating}
+          />
+        </View>
       </ScrollView>
     </View>
   );
@@ -208,5 +230,9 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 12,
   },
 });

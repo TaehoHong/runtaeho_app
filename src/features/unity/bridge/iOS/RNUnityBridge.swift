@@ -32,6 +32,10 @@ class RNUnityBridge: RCTEventEmitter {
     private var avatarTimeoutTimer: Timer?
     private let AVATAR_TIMEOUT: TimeInterval = 5.0  // 5초 타임아웃
 
+    // MARK: - Character Capture Promise Management
+    private var pendingCaptureCallbacks: [String: (RCTPromiseResolveBlock, RCTPromiseRejectBlock)] = [:]
+    private let CAPTURE_TIMEOUT: TimeInterval = 5.0  // 5초 타임아웃
+
     // MARK: - Thread-Safe Listener Flag
     private let listenerLock = NSLock()
     private var _hasListenersInternal: Bool = false
@@ -89,6 +93,14 @@ class RNUnityBridge: RCTEventEmitter {
             self,
             selector: #selector(handleUnityMetalReady),
             name: Unity.UnityMetalReadyNotification,
+            object: nil
+        )
+
+        // ★ Character Image Captured 알림 구독 (공유 기능용)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleCharacterImageCaptured),
+            name: NSNotification.Name("UnityCharacterImageCaptured"),
             object: nil
         )
 
@@ -218,6 +230,35 @@ class RNUnityBridge: RCTEventEmitter {
             reject(code, message, nil)
             pendingAvatarResolve = nil
             pendingAvatarReject = nil
+        }
+    }
+
+    // MARK: - Character Image Capture Handler
+
+    /// ★ Character Image Captured 핸들러
+    /// Unity에서 CaptureCharacter() 완료 시 호출됨
+    @objc
+    private func handleCharacterImageCaptured(_ notification: Notification) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+
+            guard let userInfo = notification.userInfo,
+                  let callbackId = userInfo["callbackId"] as? String,
+                  let base64Image = userInfo["base64Image"] as? String else {
+                print("[RNUnityBridge] ⚠️ Invalid character image notification")
+                return
+            }
+
+            print("[RNUnityBridge] 📸 Character image received! callbackId: \(callbackId), imageLength: \(base64Image.count)")
+
+            // Pending Promise 찾아서 resolve
+            guard let callbacks = self.pendingCaptureCallbacks.removeValue(forKey: callbackId) else {
+                print("[RNUnityBridge] ⚠️ No pending callback for callbackId: \(callbackId)")
+                return
+            }
+
+            print("[RNUnityBridge] ✅ Resolving capture promise for callbackId: \(callbackId)")
+            callbacks.0(base64Image)
         }
     }
 
@@ -407,6 +448,89 @@ class RNUnityBridge: RCTEventEmitter {
                     print("[RNUnityBridge] ⚠️ Unity initialization timeout")
                     resolve(false)  // 에러가 아닌 false 반환 (타임아웃)
                 }
+            }
+        }
+    }
+
+    // MARK: - Background Control (공유 에디터용)
+
+    /// ★ Unity 배경 이미지 변경
+    /// BackgroundImage.SetBackground() 호출
+    @objc
+    func setBackground(_ backgroundId: String,
+                       resolver resolve: @escaping RCTPromiseResolveBlock,
+                       rejecter reject: @escaping RCTPromiseRejectBlock) {
+        print("[RNUnityBridge] setBackground: \(backgroundId)")
+
+        DispatchQueue.main.async {
+            Unity.shared.sendMessage("Background", methodName: "SetBackground", parameter: backgroundId)
+            resolve(nil)
+        }
+    }
+
+    /// ★ Unity 배경 색상 변경 (단색)
+    /// BackgroundImage.SetBackgroundColor() 호출
+    @objc
+    func setBackgroundColor(_ colorHex: String,
+                            resolver resolve: @escaping RCTPromiseResolveBlock,
+                            rejecter reject: @escaping RCTPromiseRejectBlock) {
+        print("[RNUnityBridge] setBackgroundColor: \(colorHex)")
+
+        DispatchQueue.main.async {
+            Unity.shared.sendMessage("Background", methodName: "SetBackgroundColor", parameter: colorHex)
+            resolve(nil)
+        }
+    }
+
+    /// ★ Unity 배경을 사용자 사진으로 변경
+    /// BackgroundImage.SetBackgroundFromBase64() 호출
+    /// @param base64Image Base64 인코딩된 이미지 문자열
+    @objc
+    func setBackgroundFromPhoto(_ base64Image: String,
+                                resolver resolve: @escaping RCTPromiseResolveBlock,
+                                rejecter reject: @escaping RCTPromiseRejectBlock) {
+        print("[RNUnityBridge] setBackgroundFromPhoto (length: \(base64Image.count))")
+
+        DispatchQueue.main.async {
+            Unity.shared.sendMessage("Background", methodName: "SetBackgroundFromBase64", parameter: base64Image)
+            resolve(nil)
+        }
+    }
+
+    // MARK: - Character Capture (공유 기능용)
+
+    /// ★ Unity 캐릭터 스크린샷 캡처
+    /// 현재 착용 중인 아이템이 반영된 캐릭터를 PNG로 캡처
+    /// @returns Base64 인코딩된 PNG 이미지
+    @objc
+    func captureCharacter(_ resolver: @escaping RCTPromiseResolveBlock,
+                         rejecter reject: @escaping RCTPromiseRejectBlock) {
+        print("[RNUnityBridge] captureCharacter called")
+
+        // 고유 callbackId 생성
+        let callbackId = UUID().uuidString
+
+        // Promise 저장
+        pendingCaptureCallbacks[callbackId] = (resolver, reject)
+
+        // Unity에 캡처 요청
+        DispatchQueue.main.async {
+            Unity.shared.sendMessage(
+                "Charactor",
+                methodName: "CaptureCharacter",
+                parameter: callbackId
+            )
+            print("[RNUnityBridge] 📤 CaptureCharacter message sent to Unity (callbackId: \(callbackId))")
+        }
+
+        // 5초 타임아웃 설정
+        DispatchQueue.main.asyncAfter(deadline: .now() + self.CAPTURE_TIMEOUT) { [weak self] in
+            guard let self = self else { return }
+
+            // 아직 pending 상태면 타임아웃 처리
+            if let callbacks = self.pendingCaptureCallbacks.removeValue(forKey: callbackId) {
+                print("[RNUnityBridge] ⚠️ Character capture timeout for callbackId: \(callbackId)")
+                callbacks.1("TIMEOUT", "Character capture timed out after \(self.CAPTURE_TIMEOUT) seconds", nil)
             }
         }
     }

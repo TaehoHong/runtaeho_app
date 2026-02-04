@@ -44,6 +44,11 @@ export interface UnityBridgeInterface {
   subscribeToAvatarReady(callback: () => void): () => void;
   validateUnityState(): Promise<boolean>;
   forceResetUnity(): Promise<void>;
+  captureCharacter(): Promise<string>;
+  // 배경 제어 (공유 에디터용)
+  setBackground(backgroundId: string): Promise<void>;
+  setBackgroundColor(colorHex: string): Promise<void>;
+  setBackgroundFromPhoto(base64Image: string): Promise<void>;
 }
 
 class UnityBridgeImpl implements UnityBridgeInterface {
@@ -362,6 +367,89 @@ class UnityBridgeImpl implements UnityBridgeInterface {
       await NativeUnityBridge.forceResetUnity();
     } catch (error) {
       console.error('[UnityBridge] forceResetUnity error:', error);
+    }
+  }
+
+  /**
+   * ★ Unity 배경 이미지 변경 (공유 에디터용)
+   * @param backgroundId 배경 ID (예: "bg_01", "bg_02")
+   */
+  async setBackground(backgroundId: string): Promise<void> {
+    if (!NativeUnityBridge?.setBackground) {
+      console.log('[UnityBridge] setBackground: Native method not available');
+      return;
+    }
+
+    try {
+      console.log(`[UnityBridge] setBackground: ${backgroundId}`);
+      await NativeUnityBridge.setBackground(backgroundId);
+    } catch (error) {
+      console.error('[UnityBridge] setBackground error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * ★ Unity 배경 색상 변경 (단색)
+   * @param colorHex 색상 Hex 값 (예: "#45DA31")
+   */
+  async setBackgroundColor(colorHex: string): Promise<void> {
+    if (!NativeUnityBridge?.setBackgroundColor) {
+      console.log('[UnityBridge] setBackgroundColor: Native method not available');
+      return;
+    }
+
+    try {
+      console.log(`[UnityBridge] setBackgroundColor: ${colorHex}`);
+      await NativeUnityBridge.setBackgroundColor(colorHex);
+    } catch (error) {
+      console.error('[UnityBridge] setBackgroundColor error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * ★ Unity 배경을 사용자 사진으로 변경
+   * @param base64Image Base64 인코딩된 이미지 문자열
+   */
+  async setBackgroundFromPhoto(base64Image: string): Promise<void> {
+    if (!NativeUnityBridge?.setBackgroundFromPhoto) {
+      console.log('[UnityBridge] setBackgroundFromPhoto: Native method not available');
+      return;
+    }
+
+    try {
+      console.log(`[UnityBridge] setBackgroundFromPhoto: Sending image (length: ${base64Image.length})`);
+      await NativeUnityBridge.setBackgroundFromPhoto(base64Image);
+    } catch (error) {
+      console.error('[UnityBridge] setBackgroundFromPhoto error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * ★ Unity 캐릭터 스크린샷 캡처 (공유 기능용)
+   * 현재 착용 중인 아이템이 반영된 캐릭터를 PNG로 캡처
+   * @returns Base64 인코딩된 PNG 이미지
+   */
+  async captureCharacter(): Promise<string> {
+    if (!NativeUnityBridge?.captureCharacter) {
+      console.log('[UnityBridge] captureCharacter: Native method not available');
+      throw new Error('captureCharacter is not available on this platform');
+    }
+
+    if (!useUnityStore.getState().isGameObjectReady) {
+      console.warn('[UnityBridge] ⚠️ GameObject not ready for capture');
+    }
+
+    try {
+      console.log('[UnityBridge] captureCharacter: Requesting character capture...');
+      const base64Image = await NativeUnityBridge.captureCharacter();
+      console.log(`[UnityBridge] captureCharacter: Received image (length: ${base64Image.length})`);
+      return base64Image;
+    } catch (error) {
+      console.error('[UnityBridge] captureCharacter error:', error);
+      throw error;
     }
   }
 }

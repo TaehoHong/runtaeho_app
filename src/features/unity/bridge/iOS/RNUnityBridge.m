@@ -31,4 +31,12 @@ RCT_EXTERN_METHOD(forceResetUnity:(RCTPromiseResolveBlock)resolve rejecter:(RCTP
 RCT_EXTERN_METHOD(isEngineReady:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 RCT_EXTERN_METHOD(initializeUnityEngine:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 
+// Character Capture (공유 기능용)
+RCT_EXTERN_METHOD(captureCharacter:(RCTPromiseResolveBlock)resolver rejecter:(RCTPromiseRejectBlock)reject)
+
+// Background Control (공유 에디터용)
+RCT_EXTERN_METHOD(setBackground:(NSString *)backgroundId resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
+RCT_EXTERN_METHOD(setBackgroundColor:(NSString *)colorHex resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
+RCT_EXTERN_METHOD(setBackgroundFromPhoto:(NSString *)base64Image resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
+
 @end

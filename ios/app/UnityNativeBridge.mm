@@ -49,5 +49,33 @@ extern "C" {
             NSLog(@"[UnityNativeBridge] ✅ NotificationCenter posted: UnityAvatarReady");
         });
     }
+
+    /// <summary>
+    /// Unity 캐릭터 스크린샷 캡처 완료 알림
+    /// Unity CharactorManager.cs의 CaptureCharacter() 완료 시 호출됨
+    /// Base64 인코딩된 PNG 이미지를 React Native에 전달
+    /// </summary>
+    /// @param callbackId 콜백 식별을 위한 고유 ID
+    /// @param base64Image Base64 인코딩된 PNG 이미지 데이터
+    void _sendCharacterImage(const char* callbackId, const char* base64Image) {
+        NSLog(@"[UnityNativeBridge] 📸 Character image captured from Unity!");
+
+        NSString *callbackIdStr = [NSString stringWithUTF8String:callbackId];
+        NSString *base64Str = [NSString stringWithUTF8String:base64Image];
+
+        // 메인 스레드에서 NotificationCenter로 이벤트 발행
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [[NSNotificationCenter defaultCenter]
+                postNotificationName:@"UnityCharacterImageCaptured"
+                              object:nil
+                            userInfo:@{
+                                @"callbackId": callbackIdStr,
+                                @"base64Image": base64Str
+                            }];
+
+            NSLog(@"[UnityNativeBridge] ✅ NotificationCenter posted: UnityCharacterImageCaptured (callbackId: %@, imageLength: %lu)",
+                  callbackIdStr, (unsigned long)base64Str.length);
+        });
+    }
 }
 

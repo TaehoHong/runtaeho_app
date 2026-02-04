@@ -295,16 +295,94 @@ export class UnityService {
     });
   }
   
+  // ==========================================
+  // 배경 제어 기능 (공유 에디터용)
+  // ==========================================
+
+  /**
+   * ★ Unity 배경 이미지 변경
+   * @param backgroundId 배경 ID (예: "bg_01", "bg_02")
+   */
+  async setBackground(backgroundId: string): Promise<void> {
+    this.log(`Setting background: ${backgroundId}`);
+
+    try {
+      await UnityBridge.setBackground(backgroundId);
+      this.log(`Background set to ${backgroundId}`);
+    } catch (error) {
+      this.logError('Failed to set background', error);
+      throw error;
+    }
+  }
+
+  /**
+   * ★ Unity 배경 색상 변경 (단색)
+   * @param colorHex 색상 Hex 값 (예: "#45DA31")
+   */
+  async setBackgroundColor(colorHex: string): Promise<void> {
+    this.log(`Setting background color: ${colorHex}`);
+
+    try {
+      await UnityBridge.setBackgroundColor(colorHex);
+      this.log(`Background color set to ${colorHex}`);
+    } catch (error) {
+      this.logError('Failed to set background color', error);
+      throw error;
+    }
+  }
+
+  /**
+   * ★ Unity 배경을 사용자 사진으로 변경
+   * @param base64Image Base64 인코딩된 이미지 문자열 (리사이즈 권장)
+   */
+  async setBackgroundFromPhoto(base64Image: string): Promise<void> {
+    this.log(`Setting background from photo (length: ${base64Image.length})`);
+
+    try {
+      await UnityBridge.setBackgroundFromPhoto(base64Image);
+      this.log('Background photo set successfully');
+    } catch (error) {
+      this.logError('Failed to set background from photo', error);
+      throw error;
+    }
+  }
+
+  // ==========================================
+  // 캐릭터 캡처 기능 (공유 기능용)
+  // ==========================================
+
+  /**
+   * ★ 현재 캐릭터를 PNG 이미지로 캡처
+   * 착용 중인 아이템이 반영된 상태로 캡처됨
+   * @returns Base64 인코딩된 PNG 이미지 문자열
+   */
+  async captureAvatar(): Promise<string> {
+    this.log('Capturing avatar image...');
+
+    if (!this.isReady()) {
+      this.log('⚠️ GameObject not ready, capture may fail');
+    }
+
+    try {
+      const base64Image = await UnityBridge.captureCharacter();
+      this.log(`Avatar captured successfully (length: ${base64Image.length})`);
+      return base64Image;
+    } catch (error) {
+      this.logError('Failed to capture avatar', error);
+      throw error;
+    }
+  }
+
   private log(message: string, ...args: any[]): void {
     if (__DEV__) {
       console.log(`[UnityBridgeService] ${message}`, ...args);
     }
   }
-  
+
   private logError(message: string, error: any): void {
     console.error(`[UnityBridgeService] ${message}`, error);
   }
-  
+
 }
 
 export const unityService = UnityService.getInstance();
