@@ -203,6 +203,21 @@ class Unity: ObservableObject  {
                 self.resume()
                 self.isAppActive = true
 
+                // ★★★ 핵심 수정: 큐에 쌓인 메시지 처리
+                self.queueLock.lock()
+                let pendingMessages = self.messageQueue
+                if self.isGameObjectReady {
+                    self.messageQueue.removeAll()
+                }
+                self.queueLock.unlock()
+
+                if self.isGameObjectReady && !pendingMessages.isEmpty {
+                    print("[Unity] 📤 Processing \(pendingMessages.count) queued messages after foreground")
+                    for msg in pendingMessages {
+                        self.sendMessageImmediate(msg.objectName, methodName: msg.methodName, parameter: msg.parameter)
+                    }
+                }
+
                 // Unity View 재연결 알림
                 NotificationCenter.default.post(
                     name: NSNotification.Name("UnityDidBecomeActive"),

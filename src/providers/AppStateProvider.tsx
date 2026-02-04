@@ -57,7 +57,6 @@ function subscribeToAppLifecycle(params: {
 
 /**
  * 앱 상태를 관리하는 Provider
- * iOS AppState.swift 대응
  */
 export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) => {
   const setViewState = useAppStore((state) => state.setViewState);
@@ -70,7 +69,6 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
 
   /**
    * 앱이 Foreground로 진입할 때 처리
-   * iOS UserStateManager.handleAppWillEnterForeground() 대응
    */
   const handleAppForeground = useCallback(async () => {
     if (fgInFlight.current) {
@@ -137,7 +135,6 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
 
   /**
    * 앱이 Background로 진입할 때 처리
-   * iOS UserStateManager.handleAppDidEnterBackground() 대응
    */
   const handleAppBackground = async () => {
     console.log('🌙 [AppStateProvider] App entering background, saving state');
@@ -148,7 +145,6 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
 
   /**
    * 백그라운드 시간 계산
-   * iOS calculateBackgroundDuration() 대응
    */
   const calculateBackgroundDuration = async (): Promise<number> => {
     try {
@@ -162,11 +158,6 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
       return 0;
     }
   };
-
-  /**
-   * 포그라운드 진입시 수행할 작업들
-   * iOS performForegroundTasks() 대응
-   */
   const performForegroundTasks = async (backgroundDuration: number) => {
     console.log('📋 [AppStateProvider] Handling pending background tasks');
 
@@ -174,8 +165,9 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
     if (backgroundDuration > BACKGROUND_SYNC_THRESHOLD_SECONDS) {
       console.log('🎮 [AppStateProvider] 5분 이상 백그라운드 - Unity 상태 리셋');
 
-      // 1. Store 상태 리셋 (isGameObjectReady, isAvatarReady 모두 false로)
-      useUnityStore.getState().resetReadyStates();
+      // 1. Store 상태 리셋 + Native 동기화 (isGameObjectReady, isAvatarReady 모두 false로)
+      // ★ 핵심 수정: Store만 리셋하는 대신 Native와 동기화하는 메서드 사용
+      await UnityBridge.resetGameObjectReady();
 
       // 2. 사용자 데이터 동기화
       await syncUserDataFromServer();
@@ -211,8 +203,6 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
 
   /**
    * 서버에서 최신 사용자 데이터 동기화
-   * iOS syncUserDataFromServer() 대응
-   *
    * 포인트 동기화: 다른 디바이스에서의 변경사항이나
    * 서버 측 보정을 반영하기 위해 서버 포인트로 동기화
    */
@@ -233,7 +223,6 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
 
   /**
    * 시스템 권한 상태 확인
-   * iOS checkSystemPermissions() 대응
    */
   const checkSystemPermissions = async () => {
     console.log('🔐 [AppStateProvider] Checking system permissions');
@@ -242,7 +231,6 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
 
   /**
    * Unity 연동 상태 확인
-   * iOS checkUnityConnection() 대응
    * 앱 업데이트 후 stale Unity 상태 감지 및 복구
    */
   const checkUnityConnection = async () => {
@@ -265,6 +253,11 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
       } else {
         console.log('✅ [AppStateProvider] Unity state is valid');
       }
+
+      // ★ 핵심 수정: Unity valid 여부와 관계없이 Store 동기화
+      // 포그라운드 복귀 시 Native와 JS Store 상태를 항상 동기화
+      await UnityBridge.syncReadyState();
+      console.log('✅ [AppStateProvider] Unity state synced');
     } catch (error) {
       console.error('❌ [AppStateProvider] Unity check failed:', error);
     }
@@ -272,7 +265,6 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
 
   /**
    * 대기중인 작업들 처리
-   * iOS handlePendingTasks() 대응
    */
   const handlePendingTasks = async () => {
     console.log('📋 [AppStateProvider] Handling pending background tasks');
