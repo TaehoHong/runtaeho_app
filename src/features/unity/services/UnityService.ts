@@ -348,6 +348,43 @@ export class UnityService {
   }
 
   // ==========================================
+  // 캐릭터 위치/스케일 제어 (공유 에디터용)
+  // ==========================================
+
+  /**
+   * ★ Unity 캐릭터 위치 설정 (정규화 좌표)
+   * @param x 0~1 범위 (0=좌측, 1=우측)
+   * @param y 0~1 범위 (0=상단, 1=하단)
+   */
+  async setCharacterPosition(x: number, y: number): Promise<void> {
+    this.log(`Setting character position: (${x}, ${y})`);
+
+    try {
+      await UnityBridge.setCharacterPosition(x, y);
+      this.log(`Character position set to (${x}, ${y})`);
+    } catch (error) {
+      this.logError('Failed to set character position', error);
+      throw error;
+    }
+  }
+
+  /**
+   * ★ Unity 캐릭터 스케일 설정
+   * @param scale 0.5~2.5 범위
+   */
+  async setCharacterScale(scale: number): Promise<void> {
+    this.log(`Setting character scale: ${scale}`);
+
+    try {
+      await UnityBridge.setCharacterScale(scale);
+      this.log(`Character scale set to ${scale}`);
+    } catch (error) {
+      this.logError('Failed to set character scale', error);
+      throw error;
+    }
+  }
+
+  // ==========================================
   // 캐릭터 캡처 기능 (공유 기능용)
   // ==========================================
 

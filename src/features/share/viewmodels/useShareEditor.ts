@@ -28,7 +28,19 @@ import {
 import { shareService } from '../services/shareService';
 import { unityService } from '~/features/unity/services/UnityService';
 import { useUnityReadiness } from '~/features/unity/hooks';
+
+// Unity Frustum 비율 보정 스케일 팩터 (SharePreviewCanvas와 동일)
+// RN PREVIEW 좌표계와 Unity Viewport 좌표계 간의 비율 차이 보정
+const UNITY_SCALE_FACTOR_X = 0.56;
+const UNITY_SCALE_FACTOR_Y = 0.60;
 import type { UnityReadyEvent } from '~/features/unity/bridge/UnityBridge';
+import type { CharacterTransform } from '../views/components/SharePreviewCanvas';
+
+// ★ 캐릭터 초기 위치/스케일 상수 (RN 좌표계 기준)
+// 모든 초기화 로직에서 동일한 값을 사용하여 빨간 박스와 Unity 캐릭터 위치 동기화
+const INITIAL_CHARACTER_X = 0.5;    // 화면 중앙
+const INITIAL_CHARACTER_Y = 0.9;    // 화면 하단 (RN: 0=상단, 1=하단)
+const INITIAL_CHARACTER_SCALE = 1;  // 기본 스케일
 
 interface UseShareEditorProps {
   runningData: ShareRunningData;
@@ -42,6 +54,7 @@ interface UseShareEditorReturn {
   isLoading: boolean;
   isCapturing: boolean;
   isUnityReady: boolean;
+  characterTransform: CharacterTransform;
 
   // Refs
   canvasRef: React.RefObject<View | null>;
@@ -55,6 +68,8 @@ interface UseShareEditorReturn {
   saveToGallery: () => Promise<boolean>;
   resetAll: () => void;
   handleUnityReady: (event: UnityReadyEvent) => void;
+  updateCharacterPosition: (x: number, y: number) => void;
+  updateCharacterScale: (scale: number) => void;
 }
 
 /**
@@ -120,6 +135,11 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
   const [isLoading, setIsLoading] = useState(Platform.OS === 'ios'); // iOS는 Unity Ready 대기
   const [isCapturing, setIsCapturing] = useState(false);
   const [hasInitializedUnity, setHasInitializedUnity] = useState(false);
+  const [characterTransform, setCharacterTransform] = useState<CharacterTransform>({
+    x: INITIAL_CHARACTER_X,
+    y: INITIAL_CHARACTER_Y,    // Unity 초기화와 동일한 값 (화면 하단)
+    scale: INITIAL_CHARACTER_SCALE,
+  });
 
   // 초기 배경/포즈 값을 ref로 저장 (초기화 시 최신 값 참조 방지)
   const initialBackgroundRef = useRef(getDefaultBackground());
@@ -161,6 +181,12 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
 
         // 기본 포즈 설정 (달리기)
         await unityService.setCharacterMotion(pose.trigger as any);
+
+        // ★ 초기 캐릭터 위치/스케일 설정 (RN 상태와 Unity 동기화)
+        // Y축 반전: RN(0=상단) → Unity(0=하단)
+        const unityY = 1 - INITIAL_CHARACTER_Y;
+        await unityService.setCharacterPosition(INITIAL_CHARACTER_X, unityY);
+        await unityService.setCharacterScale(INITIAL_CHARACTER_SCALE);
       } catch (error) {
         console.error('[useShareEditor] Failed to initialize Unity:', error);
       } finally {
@@ -226,6 +252,49 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
         } catch (error) {
           console.error('[useShareEditor] Failed to change pose:', error);
         }
+      }
+    },
+    [canSendMessage]
+  );
+
+  /**
+   * 캐릭터 위치 업데이트 (정규화 좌표)
+   * RN PREVIEW 좌표 → Unity Viewport 좌표 변환:
+   * 1. 스케일 보정: RN과 Unity의 Viewport 크기 차이 보정
+   * 2. Y축 반전: RN(0=상단, 1=하단) → Unity(0=하단, 1=상단)
+   */
+  const updateCharacterPosition = useCallback(
+    (x: number, y: number) => {
+      setCharacterTransform((prev) => ({ ...prev, x, y }));
+
+      if (Platform.OS === 'ios' && canSendMessage) {
+        // 중앙(0.5) 기준으로 스케일 보정 (RN PREVIEW → Unity Viewport)
+        const scaledX = 0.5 + (x - 0.5) * UNITY_SCALE_FACTOR_X;
+        const scaledY = 0.5 + (y - 0.5) * UNITY_SCALE_FACTOR_Y;
+
+        // Y축 반전: RN 좌표계(0=상단) → Unity Viewport 좌표계(0=하단)
+        const unityY = 1 - scaledY;
+
+        unityService.setCharacterPosition(scaledX, unityY).catch((error) => {
+          console.warn('[useShareEditor] Position update failed:', error);
+        });
+      }
+    },
+    [canSendMessage]
+  );
+
+  /**
+   * 캐릭터 스케일 업데이트
+   */
+  const updateCharacterScale = useCallback(
+    (scale: number) => {
+      const clampedScale = Math.max(0.5, Math.min(2.5, scale));
+      setCharacterTransform((prev) => ({ ...prev, scale: clampedScale }));
+
+      if (Platform.OS === 'ios' && canSendMessage) {
+        unityService.setCharacterScale(clampedScale).catch((error) => {
+          console.warn('[useShareEditor] Scale update failed:', error);
+        });
       }
     },
     [canSendMessage]
@@ -311,7 +380,24 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
 
     // 포즈 초기화
     await setSelectedPose(DEFAULT_POSE);
-  }, [setSelectedBackground, setSelectedPose]);
+
+    // 캐릭터 위치/스케일 초기화 (하단 중앙으로)
+    setCharacterTransform({
+      x: INITIAL_CHARACTER_X,
+      y: INITIAL_CHARACTER_Y,
+      scale: INITIAL_CHARACTER_SCALE,
+    });
+    if (Platform.OS === 'ios' && canSendMessage) {
+      try {
+        // Y축 반전: RN 좌표계(0=상단) → Unity Viewport 좌표계(0=하단)
+        const unityY = 1 - INITIAL_CHARACTER_Y;
+        await unityService.setCharacterPosition(INITIAL_CHARACTER_X, unityY);
+        await unityService.setCharacterScale(INITIAL_CHARACTER_SCALE);
+      } catch (error) {
+        console.error('[useShareEditor] Failed to reset character transform:', error);
+      }
+    }
+  }, [setSelectedBackground, setSelectedPose, canSendMessage]);
 
   return {
     // State
@@ -321,6 +407,7 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
     isLoading,
     isCapturing,
     isUnityReady,
+    characterTransform,
 
     // Refs
     canvasRef,
@@ -334,6 +421,8 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
     saveToGallery,
     resetAll,
     handleUnityReady,
+    updateCharacterPosition,
+    updateCharacterScale,
   };
 };
 

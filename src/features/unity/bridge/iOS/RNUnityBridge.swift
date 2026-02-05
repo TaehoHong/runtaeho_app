@@ -497,6 +497,49 @@ class RNUnityBridge: RCTEventEmitter {
         }
     }
 
+    // MARK: - Character Control (공유 에디터용)
+
+    /// ★ Unity 캐릭터 위치 설정 (정규화 좌표)
+    /// @param x 0~1 범위 (0=좌측, 1=우측)
+    /// @param y 0~1 범위 (0=상단, 1=하단)
+    @objc
+    func setCharacterPosition(_ x: NSNumber, y: NSNumber,
+                             resolver resolve: @escaping RCTPromiseResolveBlock,
+                             rejecter reject: @escaping RCTPromiseRejectBlock) {
+        print("[RNUnityBridge] setCharacterPosition: (\(x), \(y))")
+
+        DispatchQueue.main.async {
+            let positionData: [String: Any] = ["x": x.floatValue, "y": y.floatValue]
+            do {
+                let jsonData = try JSONSerialization.data(withJSONObject: positionData, options: [])
+                if let jsonString = String(data: jsonData, encoding: .utf8) {
+                    Unity.shared.sendMessage("Charactor",
+                                            methodName: "SetCharacterPosition",
+                                            parameter: jsonString)
+                    resolve(nil)
+                }
+            } catch {
+                reject("JSON_ENCODING_ERROR", "Failed to encode position", error)
+            }
+        }
+    }
+
+    /// ★ Unity 캐릭터 스케일 설정
+    /// @param scale 0.5~2.5 범위
+    @objc
+    func setCharacterScale(_ scale: NSNumber,
+                           resolver resolve: @escaping RCTPromiseResolveBlock,
+                           rejecter reject: @escaping RCTPromiseRejectBlock) {
+        print("[RNUnityBridge] setCharacterScale: \(scale)")
+
+        DispatchQueue.main.async {
+            Unity.shared.sendMessage("Charactor",
+                                    methodName: "SetCharacterScale",
+                                    parameter: "\(scale.floatValue)")
+            resolve(nil)
+        }
+    }
+
     // MARK: - Character Capture (공유 기능용)
 
     /// ★ Unity 캐릭터 스크린샷 캡처

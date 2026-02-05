@@ -47,6 +47,9 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
     saveToGallery,
     resetAll,
     handleUnityReady,
+    characterTransform,
+    updateCharacterPosition,
+    updateCharacterScale,
   } = useShareEditor({ runningData });
 
   // 공유 처리
@@ -111,6 +114,9 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
               onStatTransformChange={updateStatTransform}
               runningData={runningData}
               onUnityReady={handleUnityReady}
+              onCharacterPositionChange={updateCharacterPosition}
+              onCharacterScaleChange={updateCharacterScale}
+              characterTransform={characterTransform}
             />
 
             {/* 기록 항목 표시/숨김 토글 */}

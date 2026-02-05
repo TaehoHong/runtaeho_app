@@ -49,6 +49,9 @@ export interface UnityBridgeInterface {
   setBackground(backgroundId: string): Promise<void>;
   setBackgroundColor(colorHex: string): Promise<void>;
   setBackgroundFromPhoto(base64Image: string): Promise<void>;
+  // 캐릭터 위치/스케일 제어 (공유 에디터용)
+  setCharacterPosition(x: number, y: number): Promise<void>;
+  setCharacterScale(scale: number): Promise<void>;
 }
 
 class UnityBridgeImpl implements UnityBridgeInterface {
@@ -449,6 +452,47 @@ class UnityBridgeImpl implements UnityBridgeInterface {
       return base64Image;
     } catch (error) {
       console.error('[UnityBridge] captureCharacter error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * ★ Unity 캐릭터 위치 설정 (정규화 좌표)
+   * @param x 0~1 범위 (0=좌측, 1=우측)
+   * @param y 0~1 범위 (0=상단, 1=하단)
+   */
+  async setCharacterPosition(x: number, y: number): Promise<void> {
+    if (!NativeUnityBridge?.setCharacterPosition) {
+      console.log('[UnityBridge] setCharacterPosition: Native method not available');
+      return;
+    }
+
+    try {
+      console.log(`[UnityBridge] setCharacterPosition: (${x}, ${y})`);
+      await NativeUnityBridge.setCharacterPosition(x, y);
+    } catch (error) {
+      console.error('[UnityBridge] setCharacterPosition error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * ★ Unity 캐릭터 스케일 설정
+   * @param scale 0.5~2.5 범위
+   */
+  async setCharacterScale(scale: number): Promise<void> {
+    if (!NativeUnityBridge?.setCharacterScale) {
+      console.log('[UnityBridge] setCharacterScale: Native method not available');
+      return;
+    }
+
+    try {
+      // 클라이언트에서도 범위 체크
+      const clampedScale = Math.max(0.5, Math.min(2.5, scale));
+      console.log(`[UnityBridge] setCharacterScale: ${clampedScale}`);
+      await NativeUnityBridge.setCharacterScale(clampedScale);
+    } catch (error) {
+      console.error('[UnityBridge] setCharacterScale error:', error);
       throw error;
     }
   }
