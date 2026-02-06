@@ -191,6 +191,38 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
   }, []);
 
   /**
+   * 화면 언마운트 시 Unity 상태 초기화
+   * 공유 화면에서 변경된 배경/포즈/위치/스케일을 기본값으로 복원
+   */
+  useEffect(() => {
+    return () => {
+      // cleanup에서 Unity 상태 초기화
+      if (Platform.OS === 'ios') {
+        console.log('[useShareEditor] Cleanup: Resetting Unity state');
+
+        // 배경 초기화 (기본 배경으로)
+        const defaultBg = getDefaultBackground();
+        if (defaultBg.type === 'unity' && defaultBg.unityBackgroundId) {
+          unityService.setBackground(defaultBg.unityBackgroundId)
+            .catch(err => console.warn('[useShareEditor] Cleanup background failed:', err));
+        }
+
+        // 포즈 초기화 (달리기)
+        unityService.setCharacterMotion(DEFAULT_POSE.trigger as any)
+          .catch(err => console.warn('[useShareEditor] Cleanup motion failed:', err));
+
+        // 위치/스케일 초기화
+        // Y축 반전: RN(0=상단, 1=하단) → Unity(0=하단, 1=상단)
+        const unityY = 1 - INITIAL_CHARACTER_Y;
+        unityService.setCharacterPosition(INITIAL_CHARACTER_X, unityY)
+          .catch(err => console.warn('[useShareEditor] Cleanup position failed:', err));
+        unityService.setCharacterScale(INITIAL_CHARACTER_SCALE)
+          .catch(err => console.warn('[useShareEditor] Cleanup scale failed:', err));
+      }
+    };
+  }, []); // 빈 의존성 - 언마운트 시 한 번만 실행
+
+  /**
    * 배경 선택 (Unity 배경 변경 포함)
    */
   const setSelectedBackground = useCallback(
