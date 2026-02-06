@@ -72,8 +72,8 @@ export default {
       [
         "expo-image-picker",
         {
-          "cameraPermission": "프로필 사진 촬영을 위해 카메라 접근 권한이 필요합니다.",
-          "photosPermission": "프로필 사진 선택을 위해 사진 라이브러리 접근 권한이 필요합니다."
+          "cameraPermission": "프로필 사진 및 러닝 기록 공유 배경 촬영을 위해 카메라 접근 권한이 필요합니다.",
+          "photosPermission": "프로필 사진 및 러닝 기록 공유 배경 이미지 선택을 위해 사진 라이브러리 접근 권한이 필요합니다."
         }
       ],
       [

@@ -84,27 +84,28 @@ export const INITIAL_AVATAR_TRANSFORM: ElementTransform = {
 
 /**
  * 초기 통계 요소 설정 배열
+ * NOTE: 1:1 비율 캔버스에 맞게 y 좌표 조정됨 (9:16 → 1:1, 약 0.56배)
  */
 export const INITIAL_STAT_ELEMENTS: StatElementConfig[] = [
   {
     type: 'distance',
     visible: true,
-    transform: { x: 0, y: 80, scale: 1 },
+    transform: { x: 0, y: 45, scale: 1 },
   },
   {
     type: 'time',
     visible: true,
-    transform: { x: -60, y: 140, scale: 1 },
+    transform: { x: -60, y: 78, scale: 1 },
   },
   {
     type: 'pace',
     visible: true,
-    transform: { x: 60, y: 140, scale: 1 },
+    transform: { x: 60, y: 78, scale: 1 },
   },
   {
     type: 'points',
     visible: true,
-    transform: { x: 0, y: 190, scale: 1 },
+    transform: { x: 0, y: 106, scale: 1 },
   },
 ];
 
@@ -113,7 +114,7 @@ export const INITIAL_STAT_ELEMENTS: StatElementConfig[] = [
  */
 export const CANVAS_SIZE = {
   width: 1080,
-  height: 1920,
+  height: 1080,
 };
 
 /**

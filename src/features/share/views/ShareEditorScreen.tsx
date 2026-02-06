@@ -3,29 +3,29 @@
  * 러닝 기록 공유 편집 화면
  */
 
+import { router } from 'expo-router';
 import React from 'react';
 import {
-  StyleSheet,
-  View,
-  Text,
-  ScrollView,
   ActivityIndicator,
-  TouchableOpacity,
   Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { router } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GREY } from '~/shared/styles';
 import type { ShareRunningData } from '../models/types';
 import { useShareEditor } from '../viewmodels/useShareEditor';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
-  SharePreviewCanvas,
   BackgroundSelector,
   PoseSelector,
   ShareActions,
+  SharePreviewCanvas,
   StatVisibilityToggle,
 } from './components';
-import { GREY } from '~/shared/styles';
 
 interface ShareEditorScreenProps {
   runningData: ShareRunningData;
@@ -81,8 +81,8 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
   };
 
   return (
-    <GestureHandlerRootView style={styles.container}>
-      <SafeAreaProvider style={styles.safeArea}>
+    <SafeAreaProvider style={styles.safeArea}>
+      <GestureHandlerRootView style={styles.container}>
         {/* 헤더 */}
         <View style={styles.header}>
           <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
@@ -148,8 +148,8 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
             isLoading={isCapturing}
           />
         )}
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
   );
 };
 

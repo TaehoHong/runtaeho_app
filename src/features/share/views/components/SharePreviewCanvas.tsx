@@ -29,8 +29,8 @@ import { UnityView } from '~/features/unity/components/UnityView';
 import type { UnityReadyEvent } from '~/features/unity/bridge/UnityBridge';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const PREVIEW_WIDTH = SCREEN_WIDTH - 64;
-const PREVIEW_HEIGHT = PREVIEW_WIDTH * (16 / 9); // 9:16 비율
+const PREVIEW_WIDTH = SCREEN_WIDTH;
+const PREVIEW_HEIGHT = PREVIEW_WIDTH; // 1:1 비율
 
 // 캐릭터 스케일 범위
 const MIN_SCALE = 0.5;

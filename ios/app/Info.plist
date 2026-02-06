@@ -76,9 +76,11 @@
 	<key>NSMotionUsageDescription</key>
 	<string>걸음 수 측정 및 러닝 페이스 분석을 위해 동작 및 피트니스 데이터를 사용합니다.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>사용자 프로필 기능을 제공하기 위해 필요합니다.</string>
+	<string>프로필 사진 및 러닝 기록 공유 배경 이미지 선택을 위해 사진 라이브러리 접근 권한이 필요합니다.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>러닝 기록 공유 이미지를 갤러리에 저장하기 위해 사진 라이브러리 접근 권한이 필요합니다.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>프로필 사진 촬영을 위해 카메라 접근 권한이 필요합니다.</string>
+	<string>프로필 사진 및 러닝 기록 공유 배경 촬영을 위해 카메라 접근 권한이 필요합니다.</string>
 	<key>NSUserActivityTypes</key>
 	<array>
 		<string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>

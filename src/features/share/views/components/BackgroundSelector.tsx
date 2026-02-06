@@ -1,18 +1,18 @@
 /**
  * BackgroundSelector Component
- * 배경 선택 UI 컴포넌트 (Unity 배경 썸네일 + 단색 배경 + 사진 선택)
+ * 배경 선택 UI 컴포넌트 (Unity 배경 썸네일 + 단색 배경 + 사진 선택/촬영)
  *
  * Unity API 호출은 상위 viewmodel에서 처리하므로
  * 이 컴포넌트는 UI와 콜백만 담당
  */
 
 import React, { useState, useCallback } from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
-import * as ImagePicker from 'expo-image-picker';
 import type { BackgroundOption } from '../../models/types';
 import { BACKGROUND_OPTIONS } from '../../constants/shareOptions';
 import { BACKGROUND_THUMBNAILS, type BackgroundThumbnailKey } from '~/shared/constants/images';
+import { useMediaPicker } from '~/shared/hooks';
 import { GREY, PRIMARY } from '~/shared/styles';
 
 interface BackgroundSelectorProps {
@@ -34,53 +34,60 @@ export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
     onSelect(option);
   }, [onSelect]);
 
-  // 사진 선택 핸들러
-  const handleAddPhoto = useCallback(async () => {
-    try {
-      // 권한 확인
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  /**
+   * 사진 결과 처리 공통 함수
+   * 카메라 촬영 또는 갤러리 선택 후 호출
+   */
+  const handlePhotoResult = useCallback((uri: string) => {
+    const newPhotoOption: BackgroundOption = {
+      id: `photo_${Date.now()}`,
+      name: '사용자 사진',
+      source: uri,
+      type: 'photo',
+      photoUri: uri,
+    };
 
-      if (!permissionResult.granted) {
-        Alert.alert(
-          '권한 필요',
-          '사진을 선택하려면 갤러리 접근 권한이 필요합니다.',
-          [{ text: '확인' }]
-        );
-        return;
-      }
+    // 사진 목록에 추가 (최대 5개 유지)
+    setUserPhotos((prev) => {
+      const updated = [newPhotoOption, ...prev];
+      return updated.slice(0, 5);
+    });
 
-      // 이미지 선택
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [9, 16], // 9:16 비율
-        quality: 0.9,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
-        const newPhotoOption: BackgroundOption = {
-          id: `photo_${Date.now()}`,
-          name: '사용자 사진',
-          source: asset.uri,
-          type: 'photo',
-          photoUri: asset.uri,
-        };
-
-        // 사진 목록에 추가 (최대 5개 유지)
-        setUserPhotos((prev) => {
-          const updated = [newPhotoOption, ...prev];
-          return updated.slice(0, 5);
-        });
-
-        // 선택된 배경으로 설정
-        onSelect(newPhotoOption);
-      }
-    } catch (error) {
-      console.error('[BackgroundSelector] Photo selection failed:', error);
-      Alert.alert('오류', '사진을 불러오는 중 오류가 발생했습니다.');
-    }
+    // 선택된 배경으로 설정
+    onSelect(newPhotoOption);
   }, [onSelect]);
+
+  /**
+   * useMediaPicker 훅 사용 (SPOT 원칙)
+   * - 1:1 비율 (정사각형)
+   * - 0.9 품질
+   * - 성공 시 handlePhotoResult 호출
+   */
+  const { pickMedia } = useMediaPicker({
+    defaultOptions: {
+      aspect: [1, 1],
+      quality: 0.9,
+      allowsEditing: true,
+    },
+    messages: {
+      cameraRequest: '배경 사진 촬영을 위해 카메라 권한이 필요합니다.',
+      cameraDenied: '카메라 권한이 거부되었습니다. 설정에서 권한을 허용해주세요.',
+      galleryRequest: '배경 사진 선택을 위해 갤러리 권한이 필요합니다.',
+      galleryDenied: '갤러리 권한이 거부되었습니다. 설정에서 권한을 허용해주세요.',
+    },
+    onSuccess: (result) => {
+      if (result.uri) {
+        handlePhotoResult(result.uri);
+      }
+    },
+  });
+
+  /**
+   * 사진 추가 버튼 핸들러 (ActionSheet 표시)
+   */
+  const handleAddPhoto = useCallback(() => {
+    pickMedia();
+  }, [pickMedia]);
 
   // 배경 옵션 렌더링
   const renderBackgroundOption = (option: BackgroundOption) => {

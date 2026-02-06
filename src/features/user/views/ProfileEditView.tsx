@@ -1,13 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import * as ImagePicker from 'expo-image-picker';
+import type { ImagePickerAsset } from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
-  Linking,
   Platform,
   ScrollView,
   StyleSheet,
@@ -18,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '~/features/auth/hooks/useAuth';
 import { Text } from '~/shared/components/typography';
+import { useMediaPicker } from '~/shared/hooks';
 import { GREY, PRIMARY } from '~/shared/styles';
 import { userService } from '../services/userService';
 
@@ -30,7 +30,7 @@ export const ProfileEditView: React.FC = () => {
   const { user: currentUser, refreshUserData } = useAuth();
 
   const [nickname, setNickname] = useState(currentUser?.nickname || '');
-  const [selectedImage, setSelectedImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
+  const [selectedImage, setSelectedImage] = useState<ImagePickerAsset | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const currentProfileImage = currentUser?.profileImageURL;
@@ -43,89 +43,36 @@ export const ProfileEditView: React.FC = () => {
       : require('assets/images/default-profile-image.png');
 
   /**
+   * useMediaPicker 훅 사용 (SPOT 원칙)
+   * - 1:1 비율 (프로필 이미지)
+   * - 0.8 품질
+   * - 성공 시 selectedImage 상태 업데이트
+   */
+  const { pickMedia } = useMediaPicker({
+    defaultOptions: {
+      aspect: [1, 1],
+      quality: 0.8,
+      allowsEditing: true,
+    },
+    messages: {
+      cameraRequest: '프로필 사진 촬영을 위해 카메라 권한이 필요합니다.',
+      cameraDenied: '카메라 권한이 거부되었습니다. 설정에서 권한을 허용해주세요.',
+      galleryRequest: '프로필 사진 선택을 위해 갤러리 권한이 필요합니다.',
+      galleryDenied: '갤러리 권한이 거부되었습니다. 설정에서 권한을 허용해주세요.',
+    },
+    onSuccess: (result) => {
+      if (result.asset) {
+        setSelectedImage(result.asset);
+      }
+    },
+  });
+
+  /**
    * 이미지 선택 옵션 표시
    */
-  const handleImagePress = () => {
-    Alert.alert('프로필 사진 변경', '사진을 선택해주세요.', [
-      {
-        text: '카메라',
-        onPress: openCamera,
-      },
-      {
-        text: '갤러리',
-        onPress: openGallery,
-      },
-      {
-        text: '취소',
-        style: 'cancel',
-      },
-    ]);
-  };
-
-  /**
-   * 카메라 열기
-   */
-  const openCamera = async () => {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) {
-      if (!permission.canAskAgain) {
-        Alert.alert(
-          '권한 필요',
-          '카메라 권한이 거부되었습니다. 설정에서 권한을 허용해주세요.',
-          [
-            { text: '취소', style: 'cancel' },
-            { text: '설정으로 이동', onPress: () => Linking.openSettings() },
-          ]
-        );
-      } else {
-        Alert.alert('권한 필요', '카메라 사용을 위해 권한이 필요합니다.');
-      }
-      return;
-    }
-
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      setSelectedImage(result.assets[0]);
-    }
-  };
-
-  /**
-   * 갤러리 열기
-   */
-  const openGallery = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      if (!permission.canAskAgain) {
-        Alert.alert(
-          '권한 필요',
-          '갤러리 권한이 거부되었습니다. 설정에서 권한을 허용해주세요.',
-          [
-            { text: '취소', style: 'cancel' },
-            { text: '설정으로 이동', onPress: () => Linking.openSettings() },
-          ]
-        );
-      } else {
-        Alert.alert('권한 필요', '갤러리 접근을 위해 권한이 필요합니다.');
-      }
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      setSelectedImage(result.assets[0]);
-    }
-  };
+  const handleImagePress = useCallback(() => {
+    pickMedia();
+  }, [pickMedia]);
 
   /**
    * 변경 사항 저장
