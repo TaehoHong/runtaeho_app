@@ -74,12 +74,12 @@ function RootLayout() {
                   headerShown: false
                 }}
               />
-              {/* <Stack.Screen
-                name="share/editor"
+              <Stack.Screen
+                name="share"
                 options={{
                   headerShown: false
                 }}
-              /> */}
+              />
               </Stack>
               </UpdateProvider>
             </AppStateProvider>
