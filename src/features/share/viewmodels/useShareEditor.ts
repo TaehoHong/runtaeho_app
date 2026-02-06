@@ -32,7 +32,7 @@ import { useUnityReadiness } from '~/features/unity/hooks';
 // Unity Frustum 비율 보정 스케일 팩터 (SharePreviewCanvas와 동일)
 // RN PREVIEW 좌표계와 Unity Viewport 좌표계 간의 비율 차이 보정
 const UNITY_SCALE_FACTOR_X = 0.56;
-const UNITY_SCALE_FACTOR_Y = 0.60;
+const UNITY_SCALE_FACTOR_Y = 1.0;
 import type { UnityReadyEvent } from '~/features/unity/bridge/UnityBridge';
 import type { CharacterTransform } from '../views/components/SharePreviewCanvas';
 
@@ -101,22 +101,14 @@ const resizeImageToBase64 = async (
   }
 };
 
-/**
- * 기본 배경 설정 (iOS: Unity 배경, Android: 그라데이션)
- */
 const getDefaultBackground = (): BackgroundOption => {
-  if (Platform.OS === 'ios') {
-    // iOS: Unity 배경 사용
-    return {
-      id: DEFAULT_UNITY_BACKGROUND.id,
-      name: DEFAULT_UNITY_BACKGROUND.name,
-      source: DEFAULT_UNITY_BACKGROUND.previewColor,
-      type: 'unity',
-      unityBackgroundId: DEFAULT_UNITY_BACKGROUND.unityBackgroundId,
-    };
-  }
-  // Android: 기본 그라데이션 배경
-  return BACKGROUND_OPTIONS[0]!;
+  return {
+    id: DEFAULT_UNITY_BACKGROUND.id,
+    name: DEFAULT_UNITY_BACKGROUND.name,
+    source: DEFAULT_UNITY_BACKGROUND.previewColor,
+    type: 'unity',
+    unityBackgroundId: DEFAULT_UNITY_BACKGROUND.unityBackgroundId,
+  };
 };
 
 /**
