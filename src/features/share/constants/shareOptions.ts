@@ -3,72 +3,21 @@
  * 공유 에디터에서 사용되는 배경 및 포즈 옵션 정의
  */
 
-import type { BackgroundOption, PoseOption, ElementTransform, StatElementConfig, UnityBackgroundOption } from '../models/types';
-
-/**
- * Unity 배경 옵션 목록
- * Unity 씬의 배경 이미지를 변경하는데 사용
- * Unity의 BackgroundImage.cs의 BackgroundPaths 딕셔너리와 매핑됨
- */
-export const UNITY_BACKGROUND_OPTIONS: UnityBackgroundOption[] = [
-  {
-    id: 'unity_bg_01',
-    name: '배경 1',
-    unityBackgroundId: 'bg_01',
-    previewColor: '#2E7D32', // 녹색 계열
-  },
-  {
-    id: 'unity_bg_02',
-    name: '배경 2',
-    unityBackgroundId: 'bg_02',
-    previewColor: '#1565C0', // 파란색 계열
-  },
-];
-
-/**
- * 기본 Unity 배경
- */
-export const DEFAULT_UNITY_BACKGROUND: UnityBackgroundOption = UNITY_BACKGROUND_OPTIONS[0]!;
+import type { BackgroundOption, PoseOption, ElementTransform, StatElementConfig } from '../models/types';
 
 /**
  * 배경 옵션 목록
  */
 export const BACKGROUND_OPTIONS: BackgroundOption[] = [
+  // Unity 배경 (기본 선택)
   {
-    id: 'gradient_green',
-    name: '그린 그라데이션',
-    source: 'gradient',
-    type: 'gradient',
-    colors: ['#45DA31', '#2A8B1F'],
+    id: 'bg_river',
+    name: '강 배경',
+    source: 'bg_river',
+    type: 'unity',
+    unityBackgroundId: 'river',
   },
-  {
-    id: 'gradient_blue',
-    name: '블루 그라데이션',
-    source: 'gradient',
-    type: 'gradient',
-    colors: ['#66EAF1', '#3283ff'],
-  },
-  {
-    id: 'gradient_purple',
-    name: '퍼플 그라데이션',
-    source: 'gradient',
-    type: 'gradient',
-    colors: ['#9B59B6', '#8E44AD'],
-  },
-  {
-    id: 'gradient_orange',
-    name: '오렌지 그라데이션',
-    source: 'gradient',
-    type: 'gradient',
-    colors: ['#F39C12', '#E74C3C'],
-  },
-  {
-    id: 'gradient_dark',
-    name: '다크 그라데이션',
-    source: 'gradient',
-    type: 'gradient',
-    colors: ['#2C3E50', '#1A1A2E'],
-  },
+  // 단색 배경
   {
     id: 'solid_white',
     name: '화이트',

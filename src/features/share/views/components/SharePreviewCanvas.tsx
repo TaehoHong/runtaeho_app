@@ -10,7 +10,6 @@
 
 import React, { forwardRef, useMemo, useCallback, useRef } from 'react';
 import { StyleSheet, View, Text, Dimensions, Platform } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -305,31 +304,29 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
         );
       }
 
-      // 그라데이션 배경
-      if (background.type === 'gradient' && background.colors) {
+      // Unity 배경인 경우 투명 배경 (Unity가 실제 배경을 렌더링)
+      if (background.type === 'unity') {
         return (
-          <LinearGradient
-            colors={background.colors as [string, string, ...string[]]}
-            style={StyleSheet.absoluteFill}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              { backgroundColor: 'transparent' },
+            ]}
           />
         );
       }
 
-      // 단색 배경 또는 Unity 배경 미리보기 색상
+      // 단색 배경
       const bgColor =
-        background.type === 'unity'
-          ? background.source // Unity 배경의 previewColor
-          : typeof background.source === 'string'
-            ? background.source
-            : '#FFFFFF';
+        typeof background.source === 'string'
+          ? background.source
+          : '#FFFFFF';
 
       return (
         <View
           style={[
             StyleSheet.absoluteFill,
-            { backgroundColor: bgColor as string },
+            { backgroundColor: bgColor },
           ]}
         />
       );

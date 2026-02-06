@@ -9,28 +9,13 @@
 export interface BackgroundOption {
   id: string;
   name: string;
-  /** 로컬 이미지 또는 색상 */
+  /** 로컬 이미지, 색상, 또는 Unity 배경 ID */
   source: number | string;
-  type: 'image' | 'color' | 'gradient' | 'photo' | 'unity';
-  /** 그라데이션인 경우 색상 배열 */
-  colors?: string[];
+  type: 'image' | 'color' | 'photo' | 'unity';
   /** 사용자 사진 URI (type이 'photo'인 경우) */
   photoUri?: string;
   /** Unity 배경 ID (type이 'unity'인 경우) */
   unityBackgroundId?: string;
-}
-
-/**
- * Unity 배경 옵션 타입
- * Unity 씬의 배경 이미지를 변경하는데 사용
- */
-export interface UnityBackgroundOption {
-  id: string;
-  name: string;
-  /** Unity 배경 ID (Unity의 BackgroundPaths 딕셔너리 키) */
-  unityBackgroundId: string;
-  /** 미리보기용 썸네일 색상 */
-  previewColor: string;
 }
 
 /**

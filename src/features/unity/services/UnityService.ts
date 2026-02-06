@@ -301,7 +301,7 @@ export class UnityService {
 
   /**
    * ★ Unity 배경 이미지 변경
-   * @param backgroundId 배경 ID (예: "bg_01", "bg_02")
+   * @param backgroundId 배경 ID
    */
   async setBackground(backgroundId: string): Promise<void> {
     this.log(`Setting background: ${backgroundId}`);

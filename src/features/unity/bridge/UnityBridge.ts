@@ -375,7 +375,7 @@ class UnityBridgeImpl implements UnityBridgeInterface {
 
   /**
    * ★ Unity 배경 이미지 변경 (공유 에디터용)
-   * @param backgroundId 배경 ID (예: "bg_01", "bg_02")
+   * @param backgroundId 배경 ID
    */
   async setBackground(backgroundId: string): Promise<void> {
     if (!NativeUnityBridge?.setBackground) {

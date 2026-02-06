@@ -1,6 +1,6 @@
 /**
  * BackgroundSelector Component
- * 배경 선택 UI 컴포넌트 (Unity 배경 + 사진 선택 포함)
+ * 배경 선택 UI 컴포넌트 (Unity 배경 썸네일 + 단색 배경 + 사진 선택)
  *
  * Unity API 호출은 상위 viewmodel에서 처리하므로
  * 이 컴포넌트는 UI와 콜백만 담당
@@ -8,11 +8,11 @@
 
 import React, { useState, useCallback } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import type { BackgroundOption, UnityBackgroundOption } from '../../models/types';
-import { BACKGROUND_OPTIONS, UNITY_BACKGROUND_OPTIONS } from '../../constants/shareOptions';
+import type { BackgroundOption } from '../../models/types';
+import { BACKGROUND_OPTIONS } from '../../constants/shareOptions';
+import { BACKGROUND_THUMBNAILS, type BackgroundThumbnailKey } from '~/shared/constants/images';
 import { GREY, PRIMARY } from '~/shared/styles';
 
 interface BackgroundSelectorProps {
@@ -20,32 +20,16 @@ interface BackgroundSelectorProps {
   selectedBackground: BackgroundOption;
   /** 배경 선택 콜백 (async 가능) */
   onSelect: (background: BackgroundOption) => void | Promise<void>;
-  /** Unity 배경 사용 여부 (기본값: true) */
-  useUnityBackground?: boolean;
 }
 
 export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
   selectedBackground,
   onSelect,
-  useUnityBackground = true,
 }) => {
   // 사용자 사진 목록 (최근 선택한 사진들)
   const [userPhotos, setUserPhotos] = useState<BackgroundOption[]>([]);
 
-  // Unity 배경 선택 핸들러 (Unity API는 viewmodel에서 처리)
-  const handleUnityBackgroundSelect = useCallback((option: UnityBackgroundOption) => {
-    // BackgroundOption 형태로 변환하여 콜백 호출
-    const backgroundOption: BackgroundOption = {
-      id: option.id,
-      name: option.name,
-      source: option.previewColor,
-      type: 'unity',
-      unityBackgroundId: option.unityBackgroundId,
-    };
-    onSelect(backgroundOption);
-  }, [onSelect]);
-
-  // 단색/그라데이션 배경 선택 핸들러 (Unity API는 viewmodel에서 처리)
+  // 배경 선택 핸들러 (Unity API는 viewmodel에서 처리)
   const handleBackgroundSelect = useCallback((option: BackgroundOption) => {
     onSelect(option);
   }, [onSelect]);
@@ -98,36 +82,23 @@ export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
     }
   }, [onSelect]);
 
-  // Unity 배경 옵션 렌더링
-  const renderUnityBackgroundOption = (option: UnityBackgroundOption) => {
-    const isSelected = selectedBackground.id === option.id ||
-                       selectedBackground.unityBackgroundId === option.unityBackgroundId;
-
-    return (
-      <TouchableOpacity
-        key={option.id}
-        style={[styles.optionButton, isSelected && styles.optionButtonSelected]}
-        onPress={() => handleUnityBackgroundSelect(option)}
-        activeOpacity={0.7}
-      >
-        <View
-          style={[
-            styles.optionPreview,
-            { backgroundColor: option.previewColor },
-          ]}
-        />
-        {isSelected && (
-          <View style={styles.checkmark}>
-            <Text style={styles.checkmarkText}>✓</Text>
-          </View>
-        )}
-      </TouchableOpacity>
-    );
-  };
-
   // 배경 옵션 렌더링
   const renderBackgroundOption = (option: BackgroundOption) => {
     const isSelected = selectedBackground.id === option.id;
+
+    // Unity 배경인 경우 썸네일 이미지 사용
+    const isUnityBackground = option.type === 'unity' && option.id in BACKGROUND_THUMBNAILS;
+    const thumbnailSource = isUnityBackground
+      ? BACKGROUND_THUMBNAILS[option.id as BackgroundThumbnailKey]
+      : null;
+
+    // 접근성 레이블 생성
+    const getAccessibilityLabel = (): string => {
+      if (option.type === 'photo') {
+        return '사용자 사진 배경 선택';
+      }
+      return `${option.name} 배경 선택`;
+    };
 
     return (
       <TouchableOpacity
@@ -135,21 +106,31 @@ export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
         style={[styles.optionButton, isSelected && styles.optionButtonSelected]}
         onPress={() => handleBackgroundSelect(option)}
         activeOpacity={0.7}
+        accessible={true}
+        accessibilityLabel={getAccessibilityLabel()}
+        accessibilityRole="button"
+        accessibilityState={{ selected: isSelected }}
       >
-        {option.type === 'gradient' && option.colors ? (
-          <LinearGradient
-            colors={option.colors as [string, string, ...string[]]}
+        {isUnityBackground && thumbnailSource ? (
+          // Unity 배경: 썸네일 이미지 표시
+          <Image
+            source={thumbnailSource}
             style={styles.optionPreview}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            recyclingKey={option.id}
           />
         ) : option.type === 'photo' && option.photoUri ? (
+          // 사용자 사진 배경
           <Image
             source={{ uri: option.photoUri }}
             style={styles.optionPreview}
             contentFit="cover"
+            cachePolicy="memory-disk"
+            recyclingKey={option.id}
           />
         ) : (
+          // 단색 배경
           <View
             style={[
               styles.optionPreview,
@@ -179,6 +160,9 @@ export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
           style={styles.addPhotoButton}
           onPress={handleAddPhoto}
           activeOpacity={0.7}
+          accessible={true}
+          accessibilityLabel="사진 추가"
+          accessibilityRole="button"
         >
           <View style={styles.addPhotoContent}>
             <Text style={styles.addPhotoIcon}>+</Text>
@@ -189,10 +173,7 @@ export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
         {/* 사용자 선택 사진들 */}
         {userPhotos.map(renderBackgroundOption)}
 
-        {/* Unity 배경 옵션들 (Unity 사용 시) */}
-        {useUnityBackground && UNITY_BACKGROUND_OPTIONS.map(renderUnityBackgroundOption)}
-
-        {/* 기본 배경 옵션들 (그라데이션, 단색) */}
+        {/* 배경 옵션들 (Unity 배경 + 단색 배경) */}
         {BACKGROUND_OPTIONS.map(renderBackgroundOption)}
       </ScrollView>
     </View>

@@ -22,7 +22,6 @@ import type {
 import {
   DEFAULT_POSE,
   INITIAL_STAT_ELEMENTS,
-  DEFAULT_UNITY_BACKGROUND,
   BACKGROUND_OPTIONS,
 } from '../constants/shareOptions';
 import { shareService } from '../services/shareService';
@@ -102,13 +101,7 @@ const resizeImageToBase64 = async (
 };
 
 const getDefaultBackground = (): BackgroundOption => {
-  return {
-    id: DEFAULT_UNITY_BACKGROUND.id,
-    name: DEFAULT_UNITY_BACKGROUND.name,
-    source: DEFAULT_UNITY_BACKGROUND.previewColor,
-    type: 'unity',
-    unityBackgroundId: DEFAULT_UNITY_BACKGROUND.unityBackgroundId,
-  };
+  return BACKGROUND_OPTIONS[0]!;
 };
 
 /**
@@ -205,8 +198,7 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
     async (background: BackgroundOption) => {
       setSelectedBackgroundState(background);
 
-      // iOS Unity 배경 변경
-      if (Platform.OS === 'ios' && canSendMessage) {
+      if (canSendMessage) {
         try {
           if (background.type === 'unity' && background.unityBackgroundId) {
             // Unity 사전정의 배경
@@ -218,9 +210,6 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
           } else if (background.type === 'color' && typeof background.source === 'string') {
             // 단색 배경
             await unityService.setBackgroundColor(background.source);
-          } else if (background.type === 'gradient' && background.colors) {
-            // ★ 그라데이션은 시작색으로 Unity 배경 설정 (그라데이션 지원 X)
-            await unityService.setBackgroundColor(background.colors[0]!);
           }
         } catch (error) {
           console.error('[useShareEditor] Failed to change Unity background:', error);

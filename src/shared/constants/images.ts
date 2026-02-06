@@ -134,6 +134,15 @@ export const ITEM_IMAGE = {
   'New_Pant_12': require('#/assets/items/Pant/New_Pant_12.png'),
 } as const;
 
+/**
+ * 공유 에디터 배경 썸네일 이미지
+ */
+export const BACKGROUND_THUMBNAILS = {
+  bg_river: require('../../../assets/images/backgrounds/bg_river.jpg'),
+} as const;
+
+export type BackgroundThumbnailKey = keyof typeof BACKGROUND_THUMBNAILS;
+
 // 아이콘 이름 타입
 export type IconName = keyof typeof ICONS;
 
