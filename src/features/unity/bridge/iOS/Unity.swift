@@ -181,7 +181,6 @@ class Unity: ObservableObject  {
         }
 
         // Foreground 복귀 시 안전하게 Unity 재개
-        // RunLoop의 다음 사이클에서 실행하여 CATransaction 충돌 방지
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
 
@@ -195,36 +194,38 @@ class Unity: ObservableObject  {
             CATransaction.flush()
 
             CATransaction.begin()
-            CATransaction.setCompletionBlock { [weak self] in
-                guard let self = self else { return }
-                print("[Unity] ✅ CATransaction completed, now resuming")
-
-                // ✅ CATransaction 완료 후에만 Unity resume
-                self.resume()
-                self.isAppActive = true
-
-                // ★★★ 핵심 수정: 큐에 쌓인 메시지 처리
-                self.queueLock.lock()
-                let pendingMessages = self.messageQueue
-                if self.isGameObjectReady {
-                    self.messageQueue.removeAll()
-                }
-                self.queueLock.unlock()
-
-                if self.isGameObjectReady && !pendingMessages.isEmpty {
-                    print("[Unity] 📤 Processing \(pendingMessages.count) queued messages after foreground")
-                    for msg in pendingMessages {
-                        self.sendMessageImmediate(msg.objectName, methodName: msg.methodName, parameter: msg.parameter)
-                    }
-                }
-
-                // Unity View 재연결 알림
-                NotificationCenter.default.post(
-                    name: NSNotification.Name("UnityDidBecomeActive"),
-                    object: nil
-                )
+            CATransaction.setCompletionBlock {
+                print("[Unity] ✅ CATransaction completed")
             }
             CATransaction.commit()
+
+            // ✅ 핵심 수정: completionBlock 밖에서 즉시 실행
+            // 빈 CATransaction의 completionBlock은 호출 타이밍이 보장되지 않으므로
+            // resume()과 상태 업데이트는 즉시 실행해야 함
+            self.resume()
+            self.isAppActive = true
+            print("[Unity] ✅ Unity resumed and isAppActive set to true")
+
+            // 큐에 쌓인 메시지 처리
+            self.queueLock.lock()
+            let pendingMessages = self.messageQueue
+            if self.isGameObjectReady {
+                self.messageQueue.removeAll()
+            }
+            self.queueLock.unlock()
+
+            if self.isGameObjectReady && !pendingMessages.isEmpty {
+                print("[Unity] 📤 Processing \(pendingMessages.count) queued messages after foreground")
+                for msg in pendingMessages {
+                    self.sendMessageImmediate(msg.objectName, methodName: msg.methodName, parameter: msg.parameter)
+                }
+            }
+
+            // Unity View 재연결 알림
+            NotificationCenter.default.post(
+                name: NSNotification.Name("UnityDidBecomeActive"),
+                object: nil
+            )
         }
     }
 
