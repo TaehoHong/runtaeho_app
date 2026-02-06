@@ -117,6 +117,11 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
     /**
      * 터치 포인트가 캐릭터 영역 내에 있는지 확인 (worklet)
      * SharedValue를 통해 모듈 레벨 상수 참조 (SPOT 원칙 준수)
+     *
+     * SPUM 캐릭터는 anchor point(기준점)가 발(하단)에 위치합니다.
+     * 따라서 Y축 판정은 중심 기준이 아닌 하단 기준으로 계산합니다:
+     * - Y 상단: transformY - scaledHeight (머리 위치)
+     * - Y 하단: transformY (발 위치 = anchor point)
      */
     const isPointInCharacterArea = useCallback(
       (
@@ -130,13 +135,12 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
         const scaledWidth = characterWidth.value * transformScale;
         const scaledHeight = characterHeight.value * transformScale;
         const halfWidth = scaledWidth / 2;
-        const halfHeight = scaledHeight / 2;
 
         return (
           normalizedX >= transformX - halfWidth &&
           normalizedX <= transformX + halfWidth &&
-          normalizedY >= transformY - halfHeight &&
-          normalizedY <= transformY + halfHeight
+          normalizedY >= transformY - scaledHeight && // 전체 높이만큼 위로 (머리)
+          normalizedY <= transformY // y좌표가 하단 (발)
         );
       },
       [characterWidth, characterHeight]
@@ -353,7 +357,9 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
                   <Animated.View style={styles.gestureLayer} />
                 </GestureDetector>
               )}
-              {/* 디버그: 캐릭터 영역 표시 (빨간색 테두리) */}
+              {/* 디버그: 캐릭터 영역 표시 (빨간색 테두리)
+                  SPUM 캐릭터는 anchor point가 발(하단)에 있으므로,
+                  박스는 y좌표에서 전체 높이만큼 위로 그려야 함 */}
               {(onCharacterPositionChange || onCharacterScaleChange) && (
                 <View
                   style={{
@@ -363,7 +369,7 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
                       (CHARACTER_WIDTH * (characterTransform?.scale ?? 1) * PREVIEW_WIDTH) / 2,
                     top:
                       (characterTransform?.y ?? 0.5) * PREVIEW_HEIGHT -
-                      (CHARACTER_HEIGHT * (characterTransform?.scale ?? 1) * PREVIEW_HEIGHT) / 2,
+                      CHARACTER_HEIGHT * (characterTransform?.scale ?? 1) * PREVIEW_HEIGHT,
                     width: CHARACTER_WIDTH * (characterTransform?.scale ?? 1) * PREVIEW_WIDTH,
                     height: CHARACTER_HEIGHT * (characterTransform?.scale ?? 1) * PREVIEW_HEIGHT,
                     borderWidth: 2,
