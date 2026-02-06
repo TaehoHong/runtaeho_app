@@ -30,7 +30,7 @@ import { useUnityReadiness } from '~/features/unity/hooks';
 
 // Unity Frustum 비율 보정 스케일 팩터 (SharePreviewCanvas와 동일)
 // RN PREVIEW 좌표계와 Unity Viewport 좌표계 간의 비율 차이 보정
-const UNITY_SCALE_FACTOR_X = 0.50;
+const UNITY_SCALE_FACTOR_X = 1.0;
 const UNITY_SCALE_FACTOR_Y = 1.0;
 import type { UnityReadyEvent } from '~/features/unity/bridge/UnityBridge';
 import type { CharacterTransform } from '../views/components/SharePreviewCanvas';

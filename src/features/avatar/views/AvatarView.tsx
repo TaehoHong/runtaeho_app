@@ -1,9 +1,5 @@
 /**
  * 아바타 화면 (메인)
- *
- * 이 컴포넌트는 Modal 내부에서 렌더링됩니다.
- * Modal은 새로운 React Native 뷰 계층에서 렌더링되어 부모의 SafeAreaProvider Context가 전파되지 않습니다.
- * 따라서 자체 SafeAreaProvider를 포함해야 합니다.
  */
 
 import React, { useCallback } from 'react';

@@ -15,7 +15,7 @@ import {
   View,
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import { GREY } from '~/shared/styles';
 import type { ShareRunningData } from '../models/types';
 import { useShareEditor } from '../viewmodels/useShareEditor';
@@ -81,74 +81,76 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
   };
 
   return (
-    <SafeAreaProvider style={styles.safeArea}>
-      <GestureHandlerRootView style={styles.container}>
-        {/* 헤더 */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-            <Text style={styles.closeButtonText}>✕</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>기록 공유</Text>
-          <TouchableOpacity onPress={resetAll} style={styles.resetButton}>
-            <Text style={styles.resetButtonText}>초기화</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* 로딩 상태 */}
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={GREY[600]} />
-            <Text style={styles.loadingText}>캐릭터 준비 중...</Text>
+    <SafeAreaProvider>
+      <SafeAreaView style={styles.safeArea}>
+        <GestureHandlerRootView style={styles.container}>
+          {/* 헤더 */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+              <Text style={styles.closeButtonText}>✕</Text>
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>기록 공유</Text>
+            <TouchableOpacity onPress={resetAll} style={styles.resetButton}>
+              <Text style={styles.resetButtonText}>초기화</Text>
+            </TouchableOpacity>
           </View>
-        ) : (
-          <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* 미리보기 캔버스 (Unity 뷰 + RN 오버레이) */}
-            <SharePreviewCanvas
-              ref={canvasRef}
-              background={selectedBackground}
-              statElements={statElements}
-              onStatTransformChange={updateStatTransform}
-              runningData={runningData}
-              onUnityReady={handleUnityReady}
-              onCharacterPositionChange={updateCharacterPosition}
-              onCharacterScaleChange={updateCharacterScale}
-              characterTransform={characterTransform}
-            />
 
-            {/* 기록 항목 표시/숨김 토글 */}
-            <StatVisibilityToggle
-              statElements={statElements}
-              onToggle={toggleStatVisibility}
-            />
+          {/* 로딩 상태 */}
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={GREY[600]} />
+              <Text style={styles.loadingText}>캐릭터 준비 중...</Text>
+            </View>
+          ) : (
+            <ScrollView
+              style={styles.scrollView}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* 미리보기 캔버스 (Unity 뷰 + RN 오버레이) */}
+              <SharePreviewCanvas
+                ref={canvasRef}
+                background={selectedBackground}
+                statElements={statElements}
+                onStatTransformChange={updateStatTransform}
+                runningData={runningData}
+                onUnityReady={handleUnityReady}
+                onCharacterPositionChange={updateCharacterPosition}
+                onCharacterScaleChange={updateCharacterScale}
+                characterTransform={characterTransform}
+              />
 
-            {/* 배경 선택 */}
-            <BackgroundSelector
-              selectedBackground={selectedBackground}
-              onSelect={setSelectedBackground}
-            />
+              {/* 기록 항목 표시/숨김 토글 */}
+              <StatVisibilityToggle
+                statElements={statElements}
+                onToggle={toggleStatVisibility}
+              />
 
-            {/* 포즈 선택 */}
-            <PoseSelector
-              selectedPose={selectedPose}
-              onSelect={setSelectedPose}
-              disabled={isCapturing}
-            />
-          </ScrollView>
-        )}
+              {/* 배경 선택 */}
+              <BackgroundSelector
+                selectedBackground={selectedBackground}
+                onSelect={setSelectedBackground}
+              />
 
-        {/* 공유/저장 버튼 */}
-        {!isLoading && (
-          <ShareActions
-            onShare={handleShare}
-            onSave={handleSave}
-            isLoading={isCapturing}
-          />
-        )}
-      </GestureHandlerRootView>
+              {/* 포즈 선택 */}
+              <PoseSelector
+                selectedPose={selectedPose}
+                onSelect={setSelectedPose}
+                disabled={isCapturing}
+              />
+            </ScrollView>
+          )}
+
+          {/* 공유/저장 버튼 */}
+          {!isLoading && (
+            <ShareActions
+              onShare={handleShare}
+              onSave={handleSave}
+              isLoading={isCapturing}
+            />
+          )}
+        </GestureHandlerRootView>
+      </SafeAreaView>
     </SafeAreaProvider>
   );
 };
