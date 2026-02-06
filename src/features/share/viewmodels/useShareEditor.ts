@@ -77,14 +77,13 @@ interface UseShareEditorReturn {
  */
 const resizeImageToBase64 = async (
   uri: string,
-  maxWidth: number = 1080,
-  maxHeight: number = 1920
+  maxSize: number = 1080
 ): Promise<string> => {
   try {
     // 이미지 리사이즈
     const manipResult = await manipulateAsync(
       uri,
-      [{ resize: { width: maxWidth, height: maxHeight } }],
+      [{ resize: { width: maxSize, height: maxSize } }],
       { compress: 0.8, format: SaveFormat.JPEG }
     );
 

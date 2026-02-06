@@ -56,9 +56,10 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
   const handleShare = async () => {
     const result = await shareResult();
     if (result.success) {
-      Alert.alert('공유 완료', '러닝 기록이 공유되었습니다!');
+      // 공유 성공 시 이전 화면으로 자동 이동
+      router.back();
     } else if (result.message) {
-      // 취소가 아닌 경우에만 알림
+      // 취소가 아닌 경우에만 알림 (취소/실패 시 화면 유지)
       if (!result.message.includes('취소')) {
         Alert.alert('공유 실패', result.message);
       }
@@ -82,7 +83,7 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
 
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.container}>
         <GestureHandlerRootView style={styles.container}>
           {/* 헤더 */}
           <View style={styles.header}>
@@ -158,7 +159,7 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: GREY.WHITE,
   },
   safeArea: {
     flex: 1,
