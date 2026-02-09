@@ -1,29 +1,40 @@
 /**
  * Share Editor Route
  * 러닝 기록 공유 편집 화면 라우트
+ *
+ * GPS locations 배열은 URL params로 전달할 수 없어서
+ * shareStore에서 데이터를 읽어옵니다.
  */
 
-import React from 'react';
-import { useLocalSearchParams } from 'expo-router';
-import { ShareEditorScreen, type ShareRunningData } from '~/features/share';
+import React, { useEffect } from 'react';
+import { router } from 'expo-router';
+import { ShareEditorScreen } from '~/features/share';
+import { useShareStore } from '~/features/share/stores/shareStore';
 
 export default function ShareEditorPage() {
-  const params = useLocalSearchParams<{
-    distance: string;
-    durationSec: string;
-    pace: string;
-    startTimestamp: string;
-    earnedPoints: string;
-  }>();
+  const shareData = useShareStore((state) => state.shareData);
+  const clearShareData = useShareStore((state) => state.clearShareData);
 
-  // 파라미터 파싱
-  const runningData: ShareRunningData = {
-    distance: Number(params.distance) || 0,
-    durationSec: Number(params.durationSec) || 0,
-    pace: params.pace || '0\'00"',
-    startTimestamp: params.startTimestamp || new Date().toISOString(),
-    earnedPoints: Number(params.earnedPoints) || 0,
-  };
+  // 데이터가 없으면 뒤로 이동
+  // (직접 URL로 접근하거나, store가 비어있는 경우)
+  useEffect(() => {
+    if (!shareData) {
+      console.warn('⚠️ [ShareEditorPage] shareData가 없습니다. 뒤로 이동합니다.');
+      router.back();
+    }
+  }, [shareData]);
 
-  return <ShareEditorScreen runningData={runningData} />;
+  // 화면 언마운트 시 store 정리
+  useEffect(() => {
+    return () => {
+      clearShareData();
+    };
+  }, [clearShareData]);
+
+  // 데이터가 없으면 렌더링하지 않음
+  if (!shareData) {
+    return null;
+  }
+
+  return <ShareEditorScreen runningData={shareData} />;
 }

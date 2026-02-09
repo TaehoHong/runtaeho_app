@@ -13,6 +13,9 @@ export { useShareEditor } from './viewmodels/useShareEditor';
 // Services
 export { shareService, ShareService } from './services/shareService';
 
+// Stores
+export { useShareStore } from './stores/shareStore';
+
 // Types
 export type {
   BackgroundOption,

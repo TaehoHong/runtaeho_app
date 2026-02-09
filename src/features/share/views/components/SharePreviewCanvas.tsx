@@ -29,7 +29,8 @@ import { UnityView } from '~/features/unity/components/UnityView';
 import type { UnityReadyEvent } from '~/features/unity/bridge/UnityBridge';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const PREVIEW_WIDTH = SCREEN_WIDTH;
+const CANVAS_PADDING = 16; // container 좌우 패딩
+const PREVIEW_WIDTH = SCREEN_WIDTH - CANVAS_PADDING * 2;
 const PREVIEW_HEIGHT = PREVIEW_WIDTH; // 1:1 비율
 
 // 캐릭터 스케일 범위
@@ -288,6 +289,8 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
         time: { value: durationStr, label: '분' },
         pace: { value: runningData.pace, label: '/km' },
         points: { value: `+${runningData.earnedPoints}`, label: 'P' },
+        // 'map' 타입은 DraggableRouteMap으로 별도 렌더링 예정
+        map: { value: '', label: '' },
       };
     }, [runningData]);
 
@@ -417,7 +420,7 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 24,
   },
   canvas: {
     width: PREVIEW_WIDTH,
@@ -425,6 +428,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: '#F5F5F5',
+    // PRIMARY 색상 그림자 (프로토타입)
+    shadowColor: PRIMARY[500],
+    shadowOffset: { width: 0, height: 25 },
+    shadowOpacity: 0.2,
+    shadowRadius: 50,
+    elevation: 20, // Android
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,

@@ -1,6 +1,10 @@
 /**
  * ShareEditorScreen
  * 러닝 기록 공유 편집 화면
+ *
+ * Figma 프로토타입 351:6944 정확 반영
+ * - 섹션 배경: #f9fafb
+ * - 각 섹션은 흰색 카드로 래핑 (컴포넌트 내부에서 처리)
  */
 
 import { router } from 'expo-router';
@@ -16,6 +20,7 @@ import {
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { GREY } from '~/shared/styles';
 import type { ShareRunningData } from '../models/types';
 import { useShareEditor } from '../viewmodels/useShareEditor';
@@ -44,7 +49,6 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
     updateStatTransform,
     toggleStatVisibility,
     shareResult,
-    saveToGallery,
     resetAll,
     handleUnityReady,
     characterTransform,
@@ -66,16 +70,6 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
     }
   };
 
-  // 저장 처리
-  const handleSave = async () => {
-    const success = await saveToGallery();
-    if (success) {
-      Alert.alert('저장 완료', '이미지가 갤러리에 저장되었습니다!');
-    } else {
-      Alert.alert('저장 실패', '이미지 저장에 실패했습니다.');
-    }
-  };
-
   // 닫기 처리
   const handleClose = () => {
     router.back();
@@ -88,7 +82,7 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
           {/* 헤더 */}
           <View style={styles.header}>
             <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-              <Text style={styles.closeButtonText}>✕</Text>
+              <Ionicons name="close" size={24} color={GREY[600]} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>기록 공유</Text>
             <TouchableOpacity onPress={resetAll} style={styles.resetButton}>
@@ -109,31 +103,33 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
               showsVerticalScrollIndicator={false}
             >
               {/* 미리보기 캔버스 (Unity 뷰 + RN 오버레이) */}
-              <SharePreviewCanvas
-                ref={canvasRef}
-                background={selectedBackground}
-                statElements={statElements}
-                onStatTransformChange={updateStatTransform}
-                runningData={runningData}
-                onUnityReady={handleUnityReady}
-                onCharacterPositionChange={updateCharacterPosition}
-                onCharacterScaleChange={updateCharacterScale}
-                characterTransform={characterTransform}
-              />
+              <View style={styles.previewContainer}>
+                <SharePreviewCanvas
+                  ref={canvasRef}
+                  background={selectedBackground}
+                  statElements={statElements}
+                  onStatTransformChange={updateStatTransform}
+                  runningData={runningData}
+                  onUnityReady={handleUnityReady}
+                  onCharacterPositionChange={updateCharacterPosition}
+                  onCharacterScaleChange={updateCharacterScale}
+                  characterTransform={characterTransform}
+                />
+              </View>
 
-              {/* 기록 항목 표시/숨김 토글 */}
+              {/* 기록 항목 표시/숨김 토글 - 카드 래핑 포함 */}
               <StatVisibilityToggle
                 statElements={statElements}
                 onToggle={toggleStatVisibility}
               />
 
-              {/* 배경 선택 */}
+              {/* 배경 선택 - 카드 래핑 포함 */}
               <BackgroundSelector
                 selectedBackground={selectedBackground}
                 onSelect={setSelectedBackground}
               />
 
-              {/* 포즈 선택 */}
+              {/* 포즈 선택 - 카드 래핑 포함 */}
               <PoseSelector
                 selectedPose={selectedPose}
                 onSelect={setSelectedPose}
@@ -142,11 +138,11 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
             </ScrollView>
           )}
 
-          {/* 공유/저장 버튼 */}
+          {/* 취소/공유 버튼 */}
           {!isLoading && (
             <ShareActions
               onShare={handleShare}
-              onSave={handleSave}
+              onCancel={handleClose}
               isLoading={isCapturing}
             />
           )}
@@ -172,16 +168,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: GREY[100],
+    backgroundColor: GREY.WHITE,
   },
   closeButton: {
     width: 40,
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  closeButtonText: {
-    fontSize: 20,
-    color: GREY[600],
   },
   headerTitle: {
     fontSize: 18,
@@ -200,15 +193,21 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+    backgroundColor: '#f9fafb', // Figma 기준 섹션 배경색
   },
   scrollContent: {
+    paddingTop: 0,
     paddingBottom: 16,
+  },
+  previewContainer: {
+    marginBottom: 14,
   },
   loadingContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 16,
+    backgroundColor: '#f9fafb',
   },
   loadingText: {
     fontSize: 14,

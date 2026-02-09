@@ -17,49 +17,49 @@ export const BACKGROUND_OPTIONS: BackgroundOption[] = [
     type: 'unity',
     unityBackgroundId: 'river',
   },
-  // 단색 배경
-  {
-    id: 'solid_white',
-    name: '화이트',
-    source: '#FFFFFF',
-    type: 'color',
-  },
-  {
-    id: 'solid_black',
-    name: '블랙',
-    source: '#1A1A1A',
-    type: 'color',
-  },
 ];
 
 /**
  * 포즈 옵션 목록
  * Unity Animator trigger와 매핑
+ * icon: 이모지 (UI에 표시)
  */
 export const POSE_OPTIONS: PoseOption[] = [
   {
     id: 'idle',
     name: '기본',
     trigger: 'IDLE',
-    icon: 'person-standing',
+    icon: '🧍',
   },
   {
     id: 'move',
     name: '달리기',
     trigger: 'MOVE',
-    icon: 'running',
+    icon: '🏃',
   },
   {
     id: 'attack',
     name: '점프',
     trigger: 'ATTACK',
-    icon: 'jumping',
+    icon: '🤸',
   },
   {
     id: 'damaged',
     name: '지침',
     trigger: 'DAMAGED',
-    icon: 'tired',
+    icon: '😮‍💨',
+  },
+  {
+    id: 'rest',
+    name: '휴식',
+    trigger: 'REST',
+    icon: '🧘',
+  },
+  {
+    id: 'victory',
+    name: '승리',
+    trigger: 'VICTORY',
+    icon: '🙌',
   },
 ];
 
@@ -106,6 +106,11 @@ export const INITIAL_STAT_ELEMENTS: StatElementConfig[] = [
     type: 'points',
     visible: true,
     transform: { x: 0, y: 106, scale: 1 },
+  },
+  {
+    type: 'map',
+    visible: true,
+    transform: { x: 0, y: 140, scale: 1 },
   },
 ];
 

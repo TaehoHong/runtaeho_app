@@ -3,6 +3,8 @@
  * 러닝 기록 공유 기능에서 사용되는 타입 정의
  */
 
+import type { Location } from '~/features/running/models';
+
 /**
  * 배경 옵션 타입
  */
@@ -39,6 +41,8 @@ export interface ShareRunningData {
   startTimestamp: string;
   /** 획득 포인트 (100m당 1포인트) */
   earnedPoints: number;
+  /** GPS 좌표 배열 (지도 표시용) */
+  locations?: Location[];
 }
 
 /**
@@ -61,7 +65,7 @@ export interface ElementTransform {
 /**
  * 통계 항목 타입
  */
-export type StatType = 'distance' | 'time' | 'pace' | 'points';
+export type StatType = 'distance' | 'time' | 'pace' | 'points' | 'map';
 
 /**
  * 개별 통계 요소 설정

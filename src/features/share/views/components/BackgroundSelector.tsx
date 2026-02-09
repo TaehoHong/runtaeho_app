@@ -1,14 +1,7 @@
-/**
- * BackgroundSelector Component
- * 배경 선택 UI 컴포넌트 (Unity 배경 썸네일 + 단색 배경 + 사진 선택/촬영)
- *
- * Unity API 호출은 상위 viewmodel에서 처리하므로
- * 이 컴포넌트는 UI와 콜백만 담당
- */
-
 import React, { useState, useCallback } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
 import type { BackgroundOption } from '../../models/types';
 import { BACKGROUND_OPTIONS } from '../../constants/shareOptions';
 import { BACKGROUND_THUMBNAILS, type BackgroundThumbnailKey } from '~/shared/constants/images';
@@ -57,12 +50,6 @@ export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
     onSelect(newPhotoOption);
   }, [onSelect]);
 
-  /**
-   * useMediaPicker 훅 사용 (SPOT 원칙)
-   * - 1:1 비율 (정사각형)
-   * - 0.9 품질
-   * - 성공 시 handlePhotoResult 호출
-   */
   const { pickMedia } = useMediaPicker({
     defaultOptions: {
       aspect: [1, 1],
@@ -147,7 +134,7 @@ export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
         )}
         {isSelected && (
           <View style={styles.checkmark}>
-            <Text style={styles.checkmarkText}>✓</Text>
+            <Ionicons name="checkmark" size={12} color="#FFFFFF" />
           </View>
         )}
       </TouchableOpacity>
@@ -155,7 +142,7 @@ export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={styles.sectionCard}>
       <Text style={styles.title}>배경</Text>
       <ScrollView
         horizontal
@@ -172,7 +159,7 @@ export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
           accessibilityRole="button"
         >
           <View style={styles.addPhotoContent}>
-            <Text style={styles.addPhotoIcon}>+</Text>
+            <Ionicons name="add" size={24} color={GREY[500]} />
             <Text style={styles.addPhotoText}>사진</Text>
           </View>
         </TouchableOpacity>
@@ -188,13 +175,25 @@ export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
-    paddingVertical: 12,
+  sectionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#f3f4f6',
+    marginHorizontal: 16,
+    marginBottom: 14,
+    paddingVertical: 16,
+    // 카드 그림자
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
   title: {
     fontSize: 14,
     fontWeight: '600',
-    color: GREY[800],
+    color: '#364153',
     marginBottom: 12,
     paddingHorizontal: 16,
     fontFamily: 'Pretendard-SemiBold',
@@ -204,9 +203,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   addPhotoButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 64,
+    height: 64,
+    borderRadius: 14,
     backgroundColor: GREY[100],
     borderWidth: 2,
     borderColor: GREY[300],
@@ -217,26 +216,22 @@ const styles = StyleSheet.create({
   addPhotoContent: {
     alignItems: 'center',
   },
-  addPhotoIcon: {
-    fontSize: 18,
-    color: GREY[500],
-    fontWeight: '300',
-  },
   addPhotoText: {
-    fontSize: 8,
+    fontSize: 10,
     color: GREY[500],
     marginTop: 2,
     fontFamily: 'Pretendard-Regular',
   },
   optionButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 64,
+    height: 64,
+    borderRadius: 14,
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: 'transparent',
   },
   optionButtonSelected: {
+    borderWidth: 3,
     borderColor: PRIMARY[500],
   },
   optionPreview: {
@@ -245,19 +240,14 @@ const styles = StyleSheet.create({
   },
   checkmark: {
     position: 'absolute',
-    top: 2,
-    right: 2,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    top: 4,
+    right: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     backgroundColor: PRIMARY[500],
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  checkmarkText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '700',
   },
 });
 

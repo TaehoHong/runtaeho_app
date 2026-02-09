@@ -15,6 +15,7 @@ import { runningService } from '../services/runningService';
 import { type RunningRecord } from '../models';
 import { useShoeViewModel } from '~/features/shoes/viewmodels';
 import { leagueService } from '~/features/league/services/leagueService';
+import { useShareStore } from '~/features/share/stores/shareStore';
 import { GREY } from '~/shared/styles';
 
 const { width } = Dimensions.get('window');
@@ -27,7 +28,7 @@ const { width } = Dimensions.get('window');
 export const RunningFinishedView: React.FC = () => {
   const setRunningState = useAppStore((state) => state.setRunningState);
   const setPreviousLeagueRank = useAppStore((state) => state.setPreviousLeagueRank);
-  const { currentRecord, resetRunning, distance, stats, elapsedTime, formatPace } = useRunning();
+  const { currentRecord, resetRunning, distance, stats, elapsedTime, formatPace, locations } = useRunning();
 
   // 신발 데이터 가져오기
   const { shoes, isLoadingShoes } = useShoeViewModel();
@@ -57,17 +58,19 @@ export const RunningFinishedView: React.FC = () => {
 
   // 공유 버튼 핸들러
   const handleShare = () => {
-    // NOTE: /share/editor 라우트는 Expo Router 타입 생성 후 타입이 추가됨
-    router.push({
-      pathname: '/share/editor',
-      params: {
-        distance: distance.toString(),
-        durationSec: elapsedTime.toString(),
-        pace: formatPace(stats.pace.minutes, stats.pace.seconds),
-        startTimestamp: new Date().toISOString(),
-        earnedPoints: earnedPoints.toString(),
-      }
-    } as any);
+    // Store에 공유 데이터 저장 (GPS locations 포함)
+    // URL params로는 배열 전달이 불가능하므로 Zustand store 사용
+    useShareStore.getState().setShareData({
+      distance,
+      durationSec: elapsedTime,
+      pace: formatPace(stats.pace.minutes, stats.pace.seconds),
+      startTimestamp: new Date().toISOString(),
+      earnedPoints,
+      locations,
+    });
+
+    // 공유 에디터 화면으로 이동 (params 불필요)
+    router.push('/share/editor' as any);
   };
 
   const handleComplete = async () => {

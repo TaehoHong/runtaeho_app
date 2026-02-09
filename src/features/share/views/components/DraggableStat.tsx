@@ -138,6 +138,13 @@ export const DraggableStat: React.FC<DraggableStatProps> = ({
           valueStyle: styles.pointsValue,
           labelStyle: styles.pointsLabel,
         };
+      case 'map':
+        // 'map' 타입은 DraggableRouteMap으로 별도 렌더링됨
+        // DraggableStat에서는 렌더링하지 않음
+        return {
+          valueStyle: { fontSize: 0 },
+          labelStyle: { fontSize: 0 },
+        };
     }
   };
 

@@ -1,54 +1,69 @@
 /**
  * ShareActions Component
- * 공유/저장 버튼 컴포넌트
+ * 취소/공유 버튼 컴포넌트
+ *
+ * Figma 프로토타입 351:6944 정확 반영
+ * - 버튼 높이: 60px
+ * - 취소 버튼: X 아이콘 + "취소"
+ * - 공유 버튼: 공유 아이콘 + "공유하기"
+ * - borderRadius: 14
  */
 
 import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { GREY, PRIMARY } from '~/shared/styles';
 
 interface ShareActionsProps {
   /** 공유 버튼 클릭 콜백 */
   onShare: () => void;
-  /** 저장 버튼 클릭 콜백 */
-  onSave: () => void;
+  /** 취소 버튼 클릭 콜백 */
+  onCancel: () => void;
   /** 로딩 상태 */
   isLoading?: boolean;
 }
 
 export const ShareActions: React.FC<ShareActionsProps> = ({
   onShare,
-  onSave,
+  onCancel,
   isLoading = false,
 }) => {
   return (
     <View style={styles.container}>
-      {/* 저장 버튼 */}
+      {/* 취소 버튼 - X 아이콘 + 텍스트 */}
       <TouchableOpacity
-        style={[styles.button, styles.saveButton, isLoading && styles.buttonDisabled]}
-        onPress={onSave}
+        style={[styles.cancelButton, isLoading && styles.buttonDisabled]}
+        onPress={onCancel}
         disabled={isLoading}
         activeOpacity={0.8}
       >
-        {isLoading ? (
-          <ActivityIndicator size="small" color={GREY[700]} />
-        ) : (
-          <Text style={styles.saveButtonText}>저장</Text>
-        )}
+        <Ionicons name="close" size={20} color={GREY[700]} style={styles.buttonIcon} />
+        <Text style={styles.cancelButtonText}>취소</Text>
       </TouchableOpacity>
 
-      {/* 공유 버튼 */}
+      {/* 공유 버튼 - 그라데이션 + 공유 아이콘 */}
       <TouchableOpacity
-        style={[styles.button, styles.shareButton, isLoading && styles.buttonDisabled]}
         onPress={onShare}
         disabled={isLoading}
         activeOpacity={0.8}
+        style={[styles.shareButtonWrapper, isLoading && styles.buttonDisabled]}
       >
-        {isLoading ? (
-          <ActivityIndicator size="small" color="#FFFFFF" />
-        ) : (
-          <Text style={styles.shareButtonText}>공유하기</Text>
-        )}
+        <LinearGradient
+          colors={['#59ec3a', '#45da31']}
+          style={styles.shareButton}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          {isLoading ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <>
+              <Ionicons name="share-social" size={20} color="#FFFFFF" style={styles.buttonIcon} />
+              <Text style={styles.shareButtonText}>공유하기</Text>
+            </>
+          )}
+        </LinearGradient>
       </TouchableOpacity>
     </View>
   );
@@ -61,36 +76,50 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
   },
-  button: {
+  cancelButton: {
     flex: 1,
-    height: 52,
-    borderRadius: 12,
+    height: 60,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
+    borderRadius: 14,
+    backgroundColor: '#f3f4f6',
   },
-  buttonDisabled: {
-    opacity: 0.6,
+  buttonIcon: {
+    // 아이콘 스타일
   },
-  saveButton: {
-    backgroundColor: GREY[100],
-    borderWidth: 1,
-    borderColor: GREY[200],
-  },
-  shareButton: {
-    backgroundColor: PRIMARY[500],
-    flex: 2,
-  },
-  saveButtonText: {
+  cancelButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: GREY[800],
+    color: GREY[700],
     fontFamily: 'Pretendard-SemiBold',
+  },
+  shareButtonWrapper: {
+    flex: 2,
+  },
+  shareButton: {
+    height: 60,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: 14,
+    // PRIMARY 색상 그림자 (Figma 기준)
+    shadowColor: '#59ec3a',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 15,
+    elevation: 8,
   },
   shareButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
     fontFamily: 'Pretendard-SemiBold',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
 });
 
