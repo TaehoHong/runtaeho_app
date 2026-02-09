@@ -15,13 +15,16 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import type { StatType, StatElementConfig } from '../../models/types';
 import { GREY, PRIMARY } from '~/shared/styles';
-import { PointIcon } from '~/shared/components/icons';
 
 interface StatVisibilityToggleProps {
   /** 통계 요소 설정 배열 */
   statElements: StatElementConfig[];
   /** 가시성 토글 콜백 */
   onToggle: (type: StatType) => void;
+  /** 아바타 표시 여부 */
+  avatarVisible: boolean;
+  /** 아바타 토글 콜백 */
+  onAvatarToggle: () => void;
 }
 
 // 통계 항목 메타데이터 - Figma 기준 Ionicons
@@ -29,13 +32,20 @@ const STAT_METADATA: Record<StatType, { label: string; icon: keyof typeof Ionico
   distance: { label: '거리', icon: 'location-outline' },
   time: { label: '시간', icon: 'time-outline' },
   pace: { label: '페이스', icon: 'flash-outline' },
-  points: { label: '포인트', icon: 'sparkles-outline' },
   map: { label: '지도', icon: 'map-outline' },
+};
+
+// 아바타 메타데이터
+const AVATAR_METADATA = {
+  label: '아바타',
+  icon: 'person-outline' as keyof typeof Ionicons.glyphMap,
 };
 
 export const StatVisibilityToggle: React.FC<StatVisibilityToggleProps> = ({
   statElements,
   onToggle,
+  avatarVisible,
+  onAvatarToggle,
 }) => {
   return (
     <View style={styles.sectionCard}>
@@ -45,6 +55,37 @@ export const StatVisibilityToggle: React.FC<StatVisibilityToggleProps> = ({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.toggleContainer}
       >
+        {/* 아바타 토글 버튼 (첫 번째) */}
+        <TouchableOpacity
+          onPress={onAvatarToggle}
+          activeOpacity={0.7}
+          style={styles.toggleButtonWrapper}
+        >
+          {avatarVisible ? (
+            <LinearGradient
+              colors={[PRIMARY[50], 'rgba(212, 251, 200, 0.8)']}
+              style={[styles.toggleButton, styles.toggleButtonActive]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <View style={styles.toggleIcon}>
+                <Ionicons name={AVATAR_METADATA.icon} size={24} color={PRIMARY[600]} />
+              </View>
+              <Text style={[styles.toggleLabel, styles.toggleLabelActive]}>
+                {AVATAR_METADATA.label}
+              </Text>
+            </LinearGradient>
+          ) : (
+            <View style={styles.toggleButton}>
+              <View style={styles.toggleIcon}>
+                <Ionicons name={AVATAR_METADATA.icon} size={24} color={GREY[500]} />
+              </View>
+              <Text style={styles.toggleLabel}>{AVATAR_METADATA.label}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+
+        {/* 통계 항목 토글 버튼들 */}
         {statElements.map((element) => {
           const metadata = STAT_METADATA[element.type];
           const isVisible = element.visible;
@@ -65,11 +106,7 @@ export const StatVisibilityToggle: React.FC<StatVisibilityToggleProps> = ({
                   end={{ x: 1, y: 1 }}
                 >
                   <View style={styles.toggleIcon}>
-                    {element.type === 'points' ? (
-                      <PointIcon size={24} color={PRIMARY[600]} />
-                    ) : (
-                      <Ionicons name={metadata.icon} size={24} color={PRIMARY[600]} />
-                    )}
+                    <Ionicons name={metadata.icon} size={24} color={PRIMARY[600]} />
                   </View>
                   <Text style={[styles.toggleLabel, styles.toggleLabelActive]}>
                     {metadata.label}
@@ -79,11 +116,7 @@ export const StatVisibilityToggle: React.FC<StatVisibilityToggleProps> = ({
                 // 비활성 상태: 일반 배경
                 <View style={styles.toggleButton}>
                   <View style={styles.toggleIcon}>
-                    {element.type === 'points' ? (
-                      <PointIcon size={24} color={GREY[500]} />
-                    ) : (
-                      <Ionicons name={metadata.icon} size={24} color={GREY[500]} />
-                    )}
+                    <Ionicons name={metadata.icon} size={24} color={GREY[500]} />
                   </View>
                   <Text style={styles.toggleLabel}>
                     {metadata.label}

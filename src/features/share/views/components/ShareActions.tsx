@@ -1,14 +1,3 @@
-/**
- * ShareActions Component
- * 취소/공유 버튼 컴포넌트
- *
- * Figma 프로토타입 351:6944 정확 반영
- * - 버튼 높이: 60px
- * - 취소 버튼: X 아이콘 + "취소"
- * - 공유 버튼: 공유 아이콘 + "공유하기"
- * - borderRadius: 14
- */
-
 import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';

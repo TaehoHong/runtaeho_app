@@ -65,7 +65,7 @@ export interface ElementTransform {
 /**
  * 통계 항목 타입
  */
-export type StatType = 'distance' | 'time' | 'pace' | 'points' | 'map';
+export type StatType = 'distance' | 'time' | 'pace' | 'map';
 
 /**
  * 개별 통계 요소 설정
@@ -94,6 +94,8 @@ export interface ShareEditorState {
   isLoading: boolean;
   /** 캡처 중 상태 */
   isCapturing: boolean;
+  /** 아바타 표시 여부 (공유 에디터 토글용) */
+  avatarVisible: boolean;
 }
 
 /**

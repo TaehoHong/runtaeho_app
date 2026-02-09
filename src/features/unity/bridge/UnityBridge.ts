@@ -49,9 +49,10 @@ export interface UnityBridgeInterface {
   setBackground(backgroundId: string): Promise<void>;
   setBackgroundColor(colorHex: string): Promise<void>;
   setBackgroundFromPhoto(base64Image: string): Promise<void>;
-  // 캐릭터 위치/스케일 제어 (공유 에디터용)
+  // 캐릭터 위치/스케일/표시 제어 (공유 에디터용)
   setCharacterPosition(x: number, y: number): Promise<void>;
   setCharacterScale(scale: number): Promise<void>;
+  setCharacterVisible(visible: boolean): Promise<void>;
 }
 
 class UnityBridgeImpl implements UnityBridgeInterface {
@@ -493,6 +494,25 @@ class UnityBridgeImpl implements UnityBridgeInterface {
       await NativeUnityBridge.setCharacterScale(clampedScale);
     } catch (error) {
       console.error('[UnityBridge] setCharacterScale error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * ★ Unity 캐릭터 표시/숨김 설정 (공유 에디터용)
+   * @param visible true=표시, false=숨김
+   */
+  async setCharacterVisible(visible: boolean): Promise<void> {
+    if (!NativeUnityBridge?.setCharacterVisible) {
+      console.log('[UnityBridge] setCharacterVisible: Native method not available');
+      return;
+    }
+
+    try {
+      console.log(`[UnityBridge] setCharacterVisible: ${visible}`);
+      await NativeUnityBridge.setCharacterVisible(visible);
+    } catch (error) {
+      console.error('[UnityBridge] setCharacterVisible error:', error);
       throw error;
     }
   }

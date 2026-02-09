@@ -24,6 +24,7 @@ import type {
   StatType,
 } from '../../models/types';
 import { DraggableStat } from './DraggableStat';
+import { DraggableRouteMap } from './DraggableRouteMap';
 import { PRIMARY } from '~/shared/styles';
 import { UnityView } from '~/features/unity/components/UnityView';
 import type { UnityReadyEvent } from '~/features/unity/bridge/UnityBridge';
@@ -76,6 +77,8 @@ interface SharePreviewCanvasProps {
   onCharacterScaleChange?: (scale: number) => void;
   /** 현재 캐릭터 변환 정보 (제어용) */
   characterTransform?: CharacterTransform;
+  /** 아바타 표시 여부 (토글 OFF 시 제스처 비활성화) */
+  avatarVisible?: boolean;
 }
 
 export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
@@ -90,6 +93,7 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
       onCharacterPositionChange,
       onCharacterScaleChange,
       characterTransform,
+      avatarVisible = true,
     },
     ref
   ) => {
@@ -277,17 +281,21 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
     // 드래그 + 핀치 동시 제스처
     const combinedGesture = Gesture.Simultaneous(panGesture, pinchGesture);
 
-    // 통계 데이터를 타입별로 포맷팅
+    // 통계 데이터를 타입별로 포맷팅 (Figma 프로토타입 기준)
     const formattedStats = useMemo(() => {
       const distanceKm = (runningData.distance / 1000).toFixed(2);
       const minutes = Math.floor(runningData.durationSec / 60);
       const seconds = runningData.durationSec % 60;
-      const durationStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      // 분도 2자리 패딩 (Figma: 32:45 형식)
+      const durationStr = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
+      // 페이스 포맷 변환: "5:30" → "5'30""
+      const paceFormatted = runningData.pace.replace(':', "'") + '"';
 
       return {
         distance: { value: distanceKm, label: 'km' },
-        time: { value: durationStr, label: '분' },
-        pace: { value: runningData.pace, label: '/km' },
+        time: { value: durationStr, label: '시간' },
+        pace: { value: paceFormatted, label: '평균 페이스' },
         points: { value: `+${runningData.earnedPoints}`, label: 'P' },
         // 'map' 타입은 DraggableRouteMap으로 별도 렌더링 예정
         map: { value: '', label: '' },
@@ -351,16 +359,16 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
                 style={StyleSheet.absoluteFill}
                 {...(onUnityReady && { onUnityReady })}
               />
-              {/* 투명 제스처 레이어 (캐릭터 조작용) */}
-              {(onCharacterPositionChange || onCharacterScaleChange) && (
+              {/* 투명 제스처 레이어 (캐릭터 조작용) - 아바타 visible일 때만 */}
+              {avatarVisible && (onCharacterPositionChange || onCharacterScaleChange) && (
                 <GestureDetector gesture={combinedGesture}>
                   <Animated.View style={styles.gestureLayer} />
                 </GestureDetector>
               )}
-              {/* 디버그: 캐릭터 영역 표시 (빨간색 테두리)
+              {/* 디버그: 캐릭터 영역 표시 (빨간색 테두리) - 아바타 visible일 때만
                   SPUM 캐릭터는 anchor point가 발(하단)에 있으므로,
                   박스는 y좌표에서 전체 높이만큼 위로 그려야 함 */}
-              {(onCharacterPositionChange || onCharacterScaleChange) && (
+              {/* {avatarVisible && (onCharacterPositionChange || onCharacterScaleChange) && (
                 <View
                   style={{
                     position: 'absolute',
@@ -378,7 +386,7 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
                   }}
                   pointerEvents="none"
                 />
-              )}
+              )} */}
             </>
           ) : (
             // Fallback: RN 배경 (Android 또는 Unity 미사용)
@@ -389,6 +397,20 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
           <View style={styles.overlay} pointerEvents="box-none">
             {/* 개별 통계 요소들 */}
             {statElements.map((element) => {
+              // map 타입은 DraggableRouteMap으로 렌더링
+              if (element.type === 'map') {
+                return (
+                  <DraggableRouteMap
+                    key="map"
+                    locations={runningData.locations ?? []}
+                    transform={element.transform}
+                    onTransformChange={createStatTransformHandler('map')}
+                    visible={element.visible}
+                  />
+                );
+              }
+
+              // 나머지는 DraggableStat으로 렌더링
               const statData = formattedStats[element.type];
               return (
                 <DraggableStat
@@ -405,7 +427,7 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
 
             {/* 워터마크 */}
             <View style={styles.watermarkContainer}>
-              <Text style={styles.watermark}>RunTaeho</Text>
+              <Text style={styles.watermark}>달려라 태호군</Text>
             </View>
           </View>
         </View>

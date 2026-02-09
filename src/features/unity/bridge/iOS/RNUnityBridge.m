@@ -38,6 +38,9 @@ RCT_EXTERN_METHOD(setCharacterPosition:(nonnull NSNumber *)x y:(nonnull NSNumber
 RCT_EXTERN_METHOD(setCharacterScale:(nonnull NSNumber *)scale
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
+RCT_EXTERN_METHOD(setCharacterVisible:(BOOL)visible
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
 
 // Character Capture (공유 기능용)
 RCT_EXTERN_METHOD(captureCharacter:(RCTPromiseResolveBlock)resolver rejecter:(RCTPromiseRejectBlock)reject)

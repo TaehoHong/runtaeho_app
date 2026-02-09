@@ -54,6 +54,7 @@ interface UseShareEditorReturn {
   isCapturing: boolean;
   isUnityReady: boolean;
   characterTransform: CharacterTransform;
+  avatarVisible: boolean;
 
   // Refs
   canvasRef: React.RefObject<View | null>;
@@ -63,6 +64,7 @@ interface UseShareEditorReturn {
   setSelectedPose: (pose: PoseOption) => void;
   updateStatTransform: (type: StatType, transform: ElementTransform) => void;
   toggleStatVisibility: (type: StatType) => void;
+  toggleAvatarVisibility: () => void;
   shareResult: () => Promise<ShareResult>;
   saveToGallery: () => Promise<boolean>;
   resetAll: () => void;
@@ -124,6 +126,7 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
     y: INITIAL_CHARACTER_Y,    // Unity 초기화와 동일한 값 (화면 하단)
     scale: INITIAL_CHARACTER_SCALE,
   });
+  const [avatarVisible, setAvatarVisible] = useState<boolean>(true);
 
   // 초기 배경/포즈 값을 ref로 저장 (초기화 시 최신 값 참조 방지)
   const initialBackgroundRef = useRef(getDefaultBackground());
@@ -335,6 +338,23 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
   }, []);
 
   /**
+   * 아바타 표시/숨김 토글 (iOS Unity 캐릭터 제어)
+   */
+  const toggleAvatarVisibility = useCallback(async () => {
+    const newVisible = !avatarVisible;
+    setAvatarVisible(newVisible);
+
+    // iOS에서 Unity 캐릭터 표시/숨김
+    if (Platform.OS === 'ios' && canSendMessage) {
+      try {
+        await unityService.setCharacterVisible(newVisible);
+      } catch (error) {
+        console.error('[useShareEditor] Failed to toggle avatar visibility:', error);
+      }
+    }
+  }, [avatarVisible, canSendMessage]);
+
+  /**
    * 캡처 후 공유
    */
   const shareResult = useCallback(async (): Promise<ShareResult> => {
@@ -393,6 +413,9 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
     // 포즈 초기화
     await setSelectedPose(DEFAULT_POSE);
 
+    // 아바타 표시 상태 초기화
+    setAvatarVisible(true);
+
     // 캐릭터 위치/스케일 초기화 (하단 중앙으로)
     setCharacterTransform({
       x: INITIAL_CHARACTER_X,
@@ -405,6 +428,8 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
         const unityY = 1 - INITIAL_CHARACTER_Y;
         await unityService.setCharacterPosition(INITIAL_CHARACTER_X, unityY);
         await unityService.setCharacterScale(INITIAL_CHARACTER_SCALE);
+        // 아바타 표시 상태 초기화
+        await unityService.setCharacterVisible(true);
       } catch (error) {
         console.error('[useShareEditor] Failed to reset character transform:', error);
       }
@@ -420,6 +445,7 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
     isCapturing,
     isUnityReady,
     characterTransform,
+    avatarVisible,
 
     // Refs
     canvasRef,
@@ -429,6 +455,7 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
     setSelectedPose,
     updateStatTransform,
     toggleStatVisibility,
+    toggleAvatarVisibility,
     shareResult,
     saveToGallery,
     resetAll,

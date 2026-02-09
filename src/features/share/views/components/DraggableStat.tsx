@@ -133,11 +133,6 @@ export const DraggableStat: React.FC<DraggableStatProps> = ({
           valueStyle: styles.paceValue,
           labelStyle: styles.paceLabel,
         };
-      case 'points':
-        return {
-          valueStyle: styles.pointsValue,
-          labelStyle: styles.pointsLabel,
-        };
       case 'map':
         // 'map' 타입은 DraggableRouteMap으로 별도 렌더링됨
         // DraggableStat에서는 렌더링하지 않음
@@ -153,10 +148,18 @@ export const DraggableStat: React.FC<DraggableStatProps> = ({
   return (
     <GestureDetector gesture={combinedGesture}>
       <Animated.View style={[styles.container, animatedStyle]}>
-        <View style={styles.contentWrapper}>
-          <Text style={[styles.value, valueStyle]}>{value}</Text>
-          <Text style={[styles.label, labelStyle]}>{label}</Text>
-        </View>
+        {/* time, pace: 세로 레이아웃 (라벨 위, 값 아래) */}
+        {(type === 'time' || type === 'pace') ? (
+          <View style={styles.verticalWrapper}>
+            <Text style={[styles.label, labelStyle]}>{label}</Text>
+            <Text style={[styles.value, valueStyle]}>{value}</Text>
+          </View>
+        ) : (
+          <View style={styles.contentWrapper}>
+            <Text style={[styles.value, valueStyle]}>{value}</Text>
+            <Text style={[styles.label, labelStyle]}>{label}</Text>
+          </View>
+        )}
       </Animated.View>
     </GestureDetector>
   );
@@ -172,6 +175,15 @@ const styles = StyleSheet.create({
   contentWrapper: {
     flexDirection: 'row',
     alignItems: 'baseline',
+    // 텍스트 그림자로 가독성 확보
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.5,
+    shadowRadius: 3,
+  },
+  verticalWrapper: {
+    flexDirection: 'column',
+    alignItems: 'center',
     // 텍스트 그림자로 가독성 확보
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -210,6 +222,8 @@ const styles = StyleSheet.create({
   timeLabel: {
     fontSize: 14,
     color: GREY[200],
+    marginBottom: 2,
+    marginLeft: 0,
   },
   // 페이스
   paceValue: {
@@ -219,15 +233,8 @@ const styles = StyleSheet.create({
   paceLabel: {
     fontSize: 14,
     color: GREY[200],
-  },
-  // 포인트 - 브랜드 컬러
-  pointsValue: {
-    fontSize: 24,
-    color: PRIMARY[500],
-  },
-  pointsLabel: {
-    fontSize: 12,
-    color: PRIMARY[400],
+    marginBottom: 2,
+    marginLeft: 0,
   },
 });
 

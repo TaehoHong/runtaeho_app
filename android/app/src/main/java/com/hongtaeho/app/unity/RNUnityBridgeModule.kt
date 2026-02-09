@@ -342,6 +342,26 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
     // MARK: - Helper Methods
 
     /**
+     * Unity 캐릭터 표시/숨김 설정 (공유 에디터용)
+     */
+    @ReactMethod
+    fun setCharacterVisible(visible: Boolean, promise: Promise) {
+        Log.d(TAG, "setCharacterVisible: $visible")
+
+        try {
+            UnityHolder.sendMessage(
+                "Charactor",
+                "SetCharacterVisible",
+                if (visible) "true" else "false"
+            )
+            promise.resolve(null)
+        } catch (e: Exception) {
+            Log.e(TAG, "setCharacterVisible error: ${e.message}", e)
+            promise.reject("SET_CHARACTER_VISIBLE_ERROR", "Failed to set character visible", e)
+        }
+    }
+
+    /**
      * ReadableArray를 JSONArray로 변환
      */
     private fun convertReadableArrayToJsonArray(readableArray: ReadableArray): JSONArray {

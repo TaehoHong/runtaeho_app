@@ -8,7 +8,7 @@
  */
 
 import { router } from 'expo-router';
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -21,8 +21,11 @@ import {
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { GREY } from '~/shared/styles';
+import { GREY, PRIMARY } from '~/shared/styles';
+import { useUserStore } from '~/stores/user';
 import type { ShareRunningData } from '../models/types';
+import { useShareStore } from '../stores/shareStore';
+import { generateDummyLocations } from '../utils/dummyGpsData';
 import { useShareEditor } from '../viewmodels/useShareEditor';
 import {
   BackgroundSelector,
@@ -44,10 +47,12 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
     statElements,
     isLoading,
     isCapturing,
+    avatarVisible,
     setSelectedBackground,
     setSelectedPose,
     updateStatTransform,
     toggleStatVisibility,
+    toggleAvatarVisibility,
     shareResult,
     resetAll,
     handleUnityReady,
@@ -55,6 +60,19 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
     updateCharacterPosition,
     updateCharacterScale,
   } = useShareEditor({ runningData });
+
+  // userId=1 전용 더미 데이터 기능
+  const currentUser = useUserStore((state) => state.currentUser);
+  const setDummyLocations = useShareStore((state) => state.setDummyLocations);
+  const shareData = useShareStore((state) => state.shareData);
+  const isTestUser = currentUser?.id === 1;
+  const hasLocations = (shareData?.locations?.length ?? 0) > 0;
+
+  const handleAddDummyData = useCallback(() => {
+    const dummyLocations = generateDummyLocations();
+    setDummyLocations(dummyLocations);
+    Alert.alert('더미 데이터 추가됨', `${dummyLocations.length}개의 GPS 좌표가 추가되었습니다.`);
+  }, [setDummyLocations]);
 
   // 공유 처리
   const handleShare = async () => {
@@ -114,6 +132,7 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
                   onCharacterPositionChange={updateCharacterPosition}
                   onCharacterScaleChange={updateCharacterScale}
                   characterTransform={characterTransform}
+                  avatarVisible={avatarVisible}
                 />
               </View>
 
@@ -121,7 +140,26 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
               <StatVisibilityToggle
                 statElements={statElements}
                 onToggle={toggleStatVisibility}
+                avatarVisible={avatarVisible}
+                onAvatarToggle={toggleAvatarVisibility}
               />
+
+              {/* 더미 GPS 데이터 추가 버튼 (userId=1 전용) */}
+              {isTestUser && !hasLocations && (
+                <View style={styles.dummyButtonContainer}>
+                  <TouchableOpacity
+                    style={styles.dummyButton}
+                    onPress={handleAddDummyData}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="map-outline" size={18} color={GREY.WHITE} />
+                    <Text style={styles.dummyButtonText}>더미 GPS 데이터 추가</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.dummyButtonHint}>
+                    * 지도 테스트용 (userId=1 전용)
+                  </Text>
+                </View>
+              )}
 
               {/* 배경 선택 - 카드 래핑 포함 */}
               <BackgroundSelector
@@ -213,6 +251,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: GREY[500],
     fontFamily: 'Pretendard-Regular',
+  },
+  dummyButtonContainer: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 8,
+    alignItems: 'center',
+  },
+  dummyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: PRIMARY[600],
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    gap: 8,
+  },
+  dummyButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: GREY.WHITE,
+    fontFamily: 'Pretendard-SemiBold',
+  },
+  dummyButtonHint: {
+    fontSize: 11,
+    color: GREY[400],
+    fontFamily: 'Pretendard-Regular',
+    marginTop: 4,
   },
 });
 

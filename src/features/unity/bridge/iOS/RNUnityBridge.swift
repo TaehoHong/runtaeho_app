@@ -540,6 +540,21 @@ class RNUnityBridge: RCTEventEmitter {
         }
     }
 
+    /// ★ Unity 캐릭터 표시/숨김 설정 (공유 에디터용)
+    @objc
+    func setCharacterVisible(_ visible: Bool,
+                             resolver resolve: @escaping RCTPromiseResolveBlock,
+                             rejecter reject: @escaping RCTPromiseRejectBlock) {
+        print("[RNUnityBridge] setCharacterVisible: \(visible)")
+
+        DispatchQueue.main.async {
+            Unity.shared.sendMessage("Charactor",
+                                    methodName: "SetCharacterVisible",
+                                    parameter: visible ? "true" : "false")
+            resolve(nil)
+        }
+    }
+
     // MARK: - Character Capture (공유 기능용)
 
     /// ★ Unity 캐릭터 스크린샷 캡처

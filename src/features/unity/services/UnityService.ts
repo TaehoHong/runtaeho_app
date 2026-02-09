@@ -384,6 +384,22 @@ export class UnityService {
     }
   }
 
+  /**
+   * ★ Unity 캐릭터 표시/숨김 설정 (공유 에디터용)
+   * @param visible true=표시, false=숨김
+   */
+  async setCharacterVisible(visible: boolean): Promise<void> {
+    this.log(`Setting character visible: ${visible}`);
+
+    try {
+      await UnityBridge.setCharacterVisible(visible);
+      this.log(`Character visibility set to ${visible}`);
+    } catch (error) {
+      this.logError('Failed to set character visibility', error);
+      throw error;
+    }
+  }
+
   // ==========================================
   // 캐릭터 캡처 기능 (공유 기능용)
   // ==========================================

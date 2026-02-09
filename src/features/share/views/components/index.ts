@@ -1,4 +1,5 @@
 export { DraggableAvatar } from './DraggableAvatar';
+export { DraggableRouteMap } from './DraggableRouteMap';
 export { DraggableStat } from './DraggableStat';
 export { DraggableStats } from './DraggableStats';
 export { BackgroundSelector } from './BackgroundSelector';

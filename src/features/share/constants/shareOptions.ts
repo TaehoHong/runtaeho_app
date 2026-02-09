@@ -103,14 +103,9 @@ export const INITIAL_STAT_ELEMENTS: StatElementConfig[] = [
     transform: { x: 60, y: 78, scale: 1 },
   },
   {
-    type: 'points',
-    visible: true,
-    transform: { x: 0, y: 106, scale: 1 },
-  },
-  {
     type: 'map',
     visible: true,
-    transform: { x: 0, y: 140, scale: 1 },
+    transform: { x: 0, y: 106, scale: 1 },
   },
 ];
 
