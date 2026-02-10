@@ -22,44 +22,44 @@ export const BACKGROUND_OPTIONS: BackgroundOption[] = [
 /**
  * 포즈 옵션 목록
  * Unity Animator trigger와 매핑
- * icon: 이모지 (UI에 표시)
+ * icon: Ionicons 아이콘 이름 (UI에 표시)
  */
 export const POSE_OPTIONS: PoseOption[] = [
   {
     id: 'idle',
     name: '기본',
     trigger: 'IDLE',
-    icon: '🧍',
+    icon: 'body-outline',
   },
   {
     id: 'move',
     name: '달리기',
     trigger: 'MOVE',
-    icon: '🏃',
+    icon: 'footsteps-outline',
   },
   {
     id: 'attack',
     name: '점프',
     trigger: 'ATTACK',
-    icon: '🤸',
+    icon: 'flash-outline',
   },
   {
     id: 'damaged',
     name: '지침',
     trigger: 'DAMAGED',
-    icon: '😮‍💨',
+    icon: 'battery-dead-outline',
   },
   {
     id: 'rest',
     name: '휴식',
     trigger: 'REST',
-    icon: '🧘',
+    icon: 'cafe-outline',
   },
   {
     id: 'victory',
     name: '승리',
     trigger: 'VICTORY',
-    icon: '🙌',
+    icon: 'ribbon-outline',
   },
 ];
 

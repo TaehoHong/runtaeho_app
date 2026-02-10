@@ -143,8 +143,8 @@ export const useUnityReadiness = (
   // ★ handleUnityReady에서 생성된 구독 저장 (메모리 누수 방지)
   const unityReadyUnsubscribeRef = useRef<(() => void) | null>(null);
 
-  // Unity 사용 가능 여부 (iOS만 지원)
-  const isUnityAvailable = Platform.OS === 'ios';
+  // Unity 사용 가능 여부 (iOS, Android 지원)
+  const isUnityAvailable = Platform.OS === 'ios' || Platform.OS === 'android';
 
   // 준비 완료 판단
   const isFullyReady = isGameObjectReady && isAvatarReady && !error;

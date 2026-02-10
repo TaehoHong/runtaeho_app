@@ -183,7 +183,59 @@ export class UnityService {
       throw error;
     }
   }
-  
+
+  /**
+   * ★ 포즈를 설정하고 정지 상태로 유지 (슬라이더 모드용)
+   * Unity 캐릭터를 특정 포즈의 0% 프레임에서 정지 상태로 설정
+   * @param poseName 포즈 이름 (CharacterMotion 타입)
+   */
+  async setPoseForSlider(poseName: CharacterMotion): Promise<void> {
+    this.log(`Setting pose for slider: ${poseName}`);
+
+    if (!this.isReady()) {
+      this.log('⚠️ GameObject not ready, message will be queued');
+    }
+
+    try {
+      // 유효한 모션인지 검증 (setCharacterMotion과 동일한 검증)
+      if (!UnityService.VALID_MOTIONS.includes(poseName)) {
+        throw new Error(`Invalid motion: ${poseName}. Valid motions: ${UnityService.VALID_MOTIONS.join(', ')}`);
+      }
+
+      await UnityBridge.sendUnityMessage(
+        UnityService.UNITY_OBJECT_NAME,
+        'SetPoseForSlider',
+        poseName
+      );
+
+      this.log(`Pose set for slider: ${poseName}`);
+    } catch (error) {
+      this.logError('Failed to set pose for slider', error);
+      throw error;
+    }
+  }
+
+  /**
+   * ★ 애니메이션 정규화 시간 설정 (슬라이더 조작용)
+   * Unity 애니메이션의 특정 프레임으로 이동 (0.0 = 시작, 1.0 = 끝)
+   * @param normalizedTime 0.0 ~ 1.0 범위의 정규화 시간
+   */
+  async setAnimationNormalizedTime(normalizedTime: number): Promise<void> {
+    // 범위 제한
+    const clampedTime = Math.max(0, Math.min(1, normalizedTime));
+
+    try {
+      await UnityBridge.sendUnityMessage(
+        UnityService.UNITY_OBJECT_NAME,
+        'SetAnimationNormalizedTime',
+        clampedTime.toString()
+      );
+    } catch (error) {
+      this.logError('Failed to set animation normalized time', error);
+      throw error;
+    }
+  }
+
   /**
    * ★ 아바타 변경 (Native Promise Hold 방식 + Lock 메커니즘)
    *

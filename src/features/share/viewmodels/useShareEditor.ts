@@ -6,7 +6,7 @@
  * Sprint 2: 캐릭터 드래그/줌 (Unity API 확장 필요)
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Platform, type View } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
@@ -55,6 +55,7 @@ interface UseShareEditorReturn {
   isUnityReady: boolean;
   characterTransform: CharacterTransform;
   avatarVisible: boolean;
+  animationTime: number;
 
   // Refs
   canvasRef: React.RefObject<View | null>;
@@ -71,6 +72,7 @@ interface UseShareEditorReturn {
   handleUnityReady: (event: UnityReadyEvent) => void;
   updateCharacterPosition: (x: number, y: number) => void;
   updateCharacterScale: (scale: number) => void;
+  setAnimationTime: (time: number) => void;
 }
 
 /**
@@ -118,7 +120,7 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
   );
   const [selectedPose, setSelectedPoseState] = useState<PoseOption>(DEFAULT_POSE);
   const [statElements, setStatElements] = useState<StatElementConfig[]>(INITIAL_STAT_ELEMENTS);
-  const [isLoading, setIsLoading] = useState(Platform.OS === 'ios'); // iOS는 Unity Ready 대기
+  const [isLoading, setIsLoading] = useState(true); // Unity Ready 대기 (iOS, Android)
   const [isCapturing, setIsCapturing] = useState(false);
   const [hasInitializedUnity, setHasInitializedUnity] = useState(false);
   const [characterTransform, setCharacterTransform] = useState<CharacterTransform>({
@@ -127,6 +129,12 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
     scale: INITIAL_CHARACTER_SCALE,
   });
   const [avatarVisible, setAvatarVisible] = useState<boolean>(true);
+
+  // 애니메이션 슬라이더 값 (0~1)
+  const [animationTime, setAnimationTimeState] = useState(0);
+
+  // throttle을 위한 마지막 호출 시간 ref
+  const lastAnimationTimeCallRef = useRef(0);
 
   // 초기 배경/포즈 값을 ref로 저장 (초기화 시 최신 값 참조 방지)
   const initialBackgroundRef = useRef(getDefaultBackground());
@@ -150,7 +158,7 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
    */
   useEffect(() => {
     const initializeUnity = async () => {
-      if (!canSendMessage || hasInitializedUnity || Platform.OS !== 'ios') {
+      if (!canSendMessage || hasInitializedUnity) {
         return;
       }
 
@@ -184,14 +192,6 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
     initializeUnity();
   }, [canSendMessage, hasInitializedUnity]);
 
-  /**
-   * Android 전용: Unity 없이 바로 로딩 완료
-   */
-  useEffect(() => {
-    if (Platform.OS !== 'ios') {
-      setIsLoading(false);
-    }
-  }, []);
 
   /**
    * 화면 언마운트 시 Unity 상태 초기화
@@ -199,8 +199,8 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
    */
   useEffect(() => {
     return () => {
-      // cleanup에서 Unity 상태 초기화
-      if (Platform.OS === 'ios') {
+      // cleanup에서 Unity 상태 초기화 (iOS, Android)
+      if (Platform.OS === 'ios' || Platform.OS === 'android') {
         console.log('[useShareEditor] Cleanup: Resetting Unity state');
 
         // 배경 초기화 (기본 배경으로)
@@ -254,22 +254,37 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
   );
 
   /**
-   * 포즈 선택 및 Unity 업데이트
+   * 포즈 선택 및 Unity 업데이트 (슬라이더 모드용)
+   * 포즈가 실제로 변경된 경우에만 애니메이션 시간을 0으로 리셋
+   * 동일 포즈 재선택 시에는 슬라이더 값 유지
    */
   const setSelectedPose = useCallback(
     async (pose: PoseOption) => {
+      // 포즈가 변경된 경우에만 애니메이션 시간 리셋
+      const poseChanged = selectedPose.id !== pose.id;
+
       setSelectedPoseState(pose);
 
-      // Unity 캐릭터 모션 변경 (iOS only)
-      if (Platform.OS === 'ios' && canSendMessage) {
+      if (poseChanged) {
+        setAnimationTimeState(0);
+      }
+
+      // Unity 캐릭터 포즈 변경 (슬라이더 모드)
+      if (canSendMessage) {
         try {
-          await unityService.setCharacterMotion(pose.trigger as any);
+          // 포즈 변경 또는 동일 포즈 재선택 모두 슬라이더 모드로 설정
+          await unityService.setPoseForSlider(pose.trigger as any);
+
+          // 포즈가 변경된 경우에만 Unity 애니메이션 시간도 리셋
+          if (poseChanged) {
+            await unityService.setAnimationNormalizedTime(0);
+          }
         } catch (error) {
           console.error('[useShareEditor] Failed to change pose:', error);
         }
       }
     },
-    [canSendMessage]
+    [selectedPose, canSendMessage]
   );
 
   /**
@@ -282,7 +297,7 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
     (x: number, y: number) => {
       setCharacterTransform((prev) => ({ ...prev, x, y }));
 
-      if (Platform.OS === 'ios' && canSendMessage) {
+      if (canSendMessage) {
         // 중앙(0.5) 기준으로 스케일 보정 (RN PREVIEW → Unity Viewport)
         const scaledX = 0.5 + (x - 0.5) * UNITY_SCALE_FACTOR_X;
         const scaledY = 0.5 + (y - 0.5) * UNITY_SCALE_FACTOR_Y;
@@ -306,13 +321,49 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
       const clampedScale = Math.max(0.5, Math.min(2.5, scale));
       setCharacterTransform((prev) => ({ ...prev, scale: clampedScale }));
 
-      if (Platform.OS === 'ios' && canSendMessage) {
+      if (canSendMessage) {
         unityService.setCharacterScale(clampedScale).catch((error) => {
           console.warn('[useShareEditor] Scale update failed:', error);
         });
       }
     },
     [canSendMessage]
+  );
+
+  /**
+   * Throttled 애니메이션 시간 업데이트 (Unity 전송용)
+   * ~60fps (16ms) 간격으로 Unity에 업데이트 전송
+   */
+  const throttledSetAnimationTime = useMemo(
+    () => async (time: number) => {
+      const now = Date.now();
+      if (now - lastAnimationTimeCallRef.current < 16) {
+        return; // 16ms 이내 호출은 무시 (~60fps)
+      }
+      lastAnimationTimeCallRef.current = now;
+
+      if (canSendMessage) {
+        try {
+          await unityService.setAnimationNormalizedTime(time);
+        } catch (error) {
+          console.warn('[useShareEditor] Animation time update failed:', error);
+        }
+      }
+    },
+    [canSendMessage]
+  );
+
+  /**
+   * 애니메이션 시간 설정 (슬라이더 조작용)
+   * 상태 업데이트와 Unity 전송을 함께 수행
+   * @param time 0.0 ~ 1.0 범위의 정규화 시간
+   */
+  const setAnimationTime = useCallback(
+    (time: number) => {
+      setAnimationTimeState(time);
+      throttledSetAnimationTime(time);
+    },
+    [throttledSetAnimationTime]
   );
 
   /**
@@ -344,8 +395,8 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
     const newVisible = !avatarVisible;
     setAvatarVisible(newVisible);
 
-    // iOS에서 Unity 캐릭터 표시/숨김
-    if (Platform.OS === 'ios' && canSendMessage) {
+    // Unity 캐릭터 표시/숨김
+    if (canSendMessage) {
       try {
         await unityService.setCharacterVisible(newVisible);
       } catch (error) {
@@ -416,13 +467,16 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
     // 아바타 표시 상태 초기화
     setAvatarVisible(true);
 
+    // 애니메이션 시간 초기화
+    setAnimationTimeState(0);
+
     // 캐릭터 위치/스케일 초기화 (하단 중앙으로)
     setCharacterTransform({
       x: INITIAL_CHARACTER_X,
       y: INITIAL_CHARACTER_Y,
       scale: INITIAL_CHARACTER_SCALE,
     });
-    if (Platform.OS === 'ios' && canSendMessage) {
+    if (canSendMessage) {
       try {
         // Y축 반전: RN 좌표계(0=상단) → Unity Viewport 좌표계(0=하단)
         const unityY = 1 - INITIAL_CHARACTER_Y;
@@ -446,6 +500,7 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
     isUnityReady,
     characterTransform,
     avatarVisible,
+    animationTime,
 
     // Refs
     canvasRef,
@@ -462,6 +517,7 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
     handleUnityReady,
     updateCharacterPosition,
     updateCharacterScale,
+    setAnimationTime,
   };
 };
 
