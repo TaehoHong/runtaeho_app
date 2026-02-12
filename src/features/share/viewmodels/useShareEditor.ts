@@ -133,6 +133,15 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
   // 애니메이션 슬라이더 값 (0~1)
   const [animationTime, setAnimationTimeState] = useState(0);
 
+  // ★ 포즈별 애니메이션 시간 저장 상태
+  // 각 포즈(IDLE, MOVE, ATTACK, DAMAGED)마다 개별 슬라이더 값 유지
+  const [poseAnimationTimes, setPoseAnimationTimes] = useState<Record<string, number>>({
+    IDLE: 0,
+    MOVE: 0,
+    ATTACK: 0,
+    DAMAGED: 0,
+  });
+
   // throttle을 위한 마지막 호출 시간 ref
   const lastAnimationTimeCallRef = useRef(0);
 
@@ -255,18 +264,20 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
 
   /**
    * 포즈 선택 및 Unity 업데이트 (슬라이더 모드용)
-   * 포즈가 실제로 변경된 경우에만 애니메이션 시간을 0으로 리셋
+   * 포즈가 실제로 변경된 경우 해당 포즈에 저장된 애니메이션 시간으로 복원
    * 동일 포즈 재선택 시에는 슬라이더 값 유지
    */
   const setSelectedPose = useCallback(
     async (pose: PoseOption) => {
-      // 포즈가 변경된 경우에만 애니메이션 시간 리셋
+      // 포즈가 변경된 경우에만 애니메이션 시간 복원
       const poseChanged = selectedPose.id !== pose.id;
 
       setSelectedPoseState(pose);
 
       if (poseChanged) {
-        setAnimationTimeState(0);
+        // ★ 변경: 0으로 리셋 대신 저장된 값으로 복원
+        const savedTime = poseAnimationTimes[pose.trigger] ?? 0;
+        setAnimationTimeState(savedTime);
       }
 
       // Unity 캐릭터 포즈 변경 (슬라이더 모드)
@@ -275,16 +286,17 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
           // 포즈 변경 또는 동일 포즈 재선택 모두 슬라이더 모드로 설정
           await unityService.setPoseForSlider(pose.trigger as any);
 
-          // 포즈가 변경된 경우에만 Unity 애니메이션 시간도 리셋
+          // 포즈가 변경된 경우 저장된 애니메이션 시간으로 Unity도 복원
           if (poseChanged) {
-            await unityService.setAnimationNormalizedTime(0);
+            const savedTime = poseAnimationTimes[pose.trigger] ?? 0;
+            await unityService.setAnimationNormalizedTime(savedTime);
           }
         } catch (error) {
           console.error('[useShareEditor] Failed to change pose:', error);
         }
       }
     },
-    [selectedPose, canSendMessage]
+    [selectedPose, canSendMessage, poseAnimationTimes]
   );
 
   /**
@@ -356,14 +368,20 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
   /**
    * 애니메이션 시간 설정 (슬라이더 조작용)
    * 상태 업데이트와 Unity 전송을 함께 수행
+   * ★ 현재 포즈에 값을 저장하여 포즈 변경 시 복원 가능
    * @param time 0.0 ~ 1.0 범위의 정규화 시간
    */
   const setAnimationTime = useCallback(
     (time: number) => {
       setAnimationTimeState(time);
+      // ★ 추가: 현재 포즈에 값 저장
+      setPoseAnimationTimes((prev) => ({
+        ...prev,
+        [selectedPose.trigger]: time,
+      }));
       throttledSetAnimationTime(time);
     },
-    [throttledSetAnimationTime]
+    [throttledSetAnimationTime, selectedPose]
   );
 
   /**
@@ -469,6 +487,14 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
 
     // 애니메이션 시간 초기화
     setAnimationTimeState(0);
+
+    // ★ 포즈별 애니메이션 시간도 초기화
+    setPoseAnimationTimes({
+      IDLE: 0,
+      MOVE: 0,
+      ATTACK: 0,
+      DAMAGED: 0,
+    });
 
     // 캐릭터 위치/스케일 초기화 (하단 중앙으로)
     setCharacterTransform({

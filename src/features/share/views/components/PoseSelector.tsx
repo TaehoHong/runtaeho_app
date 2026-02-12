@@ -1,42 +1,25 @@
-/**
- * PoseSelector Component
- * 포즈 선택 UI 컴포넌트
- *
- * Figma 프로토타입 351:6944 정확 반영
- * - 버튼 높이: 48px
- * - pill 형태 버튼
- * - 그라데이션 활성 상태
- * - 섹션 카드 래핑
- *
- * Sprint 3: 포즈 타임라인 슬라이더 추가
- * - 롱프레스 시 슬라이더 팝오버 표시
- * - 드래그로 애니메이션 프레임 선택 (0~1)
- * - 실시간 Unity 캐릭터 업데이트
- */
 
-import React, { useState, useCallback, useEffect } from 'react';
-import { StyleSheet, View, Text, ScrollView, LayoutChangeEvent } from 'react-native';
+
+import React, { useCallback } from 'react';
+import {
+  StyleSheet,
+  View,
+  Text,
+  ScrollView,
+  LayoutChangeEvent,
+  AccessibilityActionEvent,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  useDerivedValue,
-  withTiming,
-  runOnJS,
-  interpolate,
-  Extrapolation,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import type { PoseOption } from '../../models/types';
 import { POSE_OPTIONS } from '../../constants/shareOptions';
 import { GREY, PRIMARY } from '~/shared/styles';
-
-/** 슬라이더 드래그 범위 (좌우 각각 픽셀) */
-const SLIDER_DRAG_RANGE = 150;
-
-/** 롱프레스 인식 시간 (ms) */
-const LONG_PRESS_DURATION = 200;
 
 interface PoseSelectorProps {
   /** 선택된 포즈 */
@@ -52,204 +35,43 @@ interface PoseSelectorProps {
 }
 
 /**
- * 개별 포즈 버튼 컴포넌트
+ * 개별 포즈 버튼 컴포넌트 (간소화 버전)
  * - 탭: 포즈 선택만
- * - 롱프레스 + 드래그: 슬라이더로 프레임 조절
  */
 interface PoseButtonProps {
   option: PoseOption;
   isSelected: boolean;
   disabled: boolean;
-  sliderValue: number;
   onSelect: (pose: PoseOption) => void;
-  onSliderChange: (value: number) => void;
 }
 
 const PoseButton = React.memo<PoseButtonProps>(({
   option,
   isSelected,
   disabled,
-  sliderValue,
   onSelect,
-  onSliderChange,
 }) => {
-  // 슬라이더 팝오버 표시 여부 (0: 숨김, 1: 표시)
-  const isSliderVisible = useSharedValue(0);
-
-  // 슬라이더 값을 SharedValue로 관리 (UI 스레드 최적화)
-  const sliderValueShared = useSharedValue(sliderValue);
-
-  // 드래그 시작 시점의 슬라이더 값 저장
-  const startSliderValue = useSharedValue(sliderValue);
-
-  // 버튼 너비를 SharedValue로 관리
-  const buttonWidthShared = useSharedValue(0);
-
-  // 슬라이더 표시 상태 (JS 스레드용)
-  const [isSliderShowing, setIsSliderShowing] = useState(false);
-
-  // sliderValue prop이 변경될 때 SharedValue 동기화
-  useEffect(() => {
-    sliderValueShared.value = sliderValue;
-  }, [sliderValue, sliderValueShared]);
-
-  // 슬라이더 값 업데이트 (UI 스레드 → JS 스레드)
-  const updateSliderValue = useCallback((value: number) => {
-    onSliderChange(value);
-  }, [onSliderChange]);
-
   // 포즈 선택 (UI 스레드 → JS 스레드)
   const selectPose = useCallback(() => {
     onSelect(option);
   }, [onSelect, option]);
 
-  // 슬라이더 표시/숨기기 상태 업데이트
-  const showSlider = useCallback(() => {
-    setIsSliderShowing(true);
-  }, []);
-
-  const hideSlider = useCallback(() => {
-    setIsSliderShowing(false);
-  }, []);
-
-  // 버튼 레이아웃 측정
-  const onLayout = useCallback((event: LayoutChangeEvent) => {
-    buttonWidthShared.value = event.nativeEvent.layout.width;
-  }, [buttonWidthShared]);
-
   // 탭 제스처: 단순 탭 시 포즈만 선택
   const tapGesture = Gesture.Tap()
     .enabled(!disabled)
     .onEnd(() => {
-      runOnJS(selectPose)();
+      scheduleOnRN(selectPose);
     });
-
-  // 롱프레스 제스처: 슬라이더 표시 + 포즈 선택
-  const longPressGesture = Gesture.LongPress()
-    .enabled(!disabled)
-    .minDuration(LONG_PRESS_DURATION)
-    .onStart(() => {
-      // 포즈 선택 + 슬라이더 표시
-      runOnJS(selectPose)();
-      runOnJS(showSlider)();
-      startSliderValue.value = sliderValueShared.value;
-      isSliderVisible.value = withTiming(1, { duration: 150 });
-    });
-
-  // 팬 제스처: 롱프레스 후 드래그로 슬라이더 조절
-  const panGesture = Gesture.Pan()
-    .enabled(!disabled)
-    .activateAfterLongPress(LONG_PRESS_DURATION)
-    .onStart(() => {
-      // 드래그 시작 시 현재 값 저장
-      startSliderValue.value = sliderValueShared.value;
-    })
-    .onUpdate((event) => {
-      // 좌우 드래그로 슬라이더 값 조절
-      // translationX: -SLIDER_DRAG_RANGE ~ +SLIDER_DRAG_RANGE → 0 ~ 1
-      const delta = event.translationX / (SLIDER_DRAG_RANGE * 2);
-      const newValue = Math.max(0, Math.min(1, startSliderValue.value + delta));
-      sliderValueShared.value = newValue;
-      runOnJS(updateSliderValue)(newValue);
-    })
-    .onEnd(() => {
-      // 터치 해제 → 슬라이더 숨김
-      isSliderVisible.value = withTiming(0, { duration: 150 });
-      runOnJS(hideSlider)();
-    })
-    .onFinalize(() => {
-      // 제스처 취소 시에도 슬라이더 숨김
-      isSliderVisible.value = withTiming(0, { duration: 150 });
-      runOnJS(hideSlider)();
-    });
-
-  // 복합 제스처: 탭 vs (롱프레스 + 팬)
-  // Race: 먼저 인식되는 제스처가 승리
-  const composedGesture = Gesture.Race(
-    Gesture.Simultaneous(longPressGesture, panGesture),
-    tapGesture
-  );
-
-  // 슬라이더 팝오버 애니메이션 스타일
-  const sliderPopoverStyle = useAnimatedStyle(() => {
-    return {
-      opacity: isSliderVisible.value,
-      transform: [
-        {
-          scale: interpolate(
-            isSliderVisible.value,
-            [0, 1],
-            [0.8, 1],
-            Extrapolation.CLAMP
-          )
-        },
-        {
-          translateY: interpolate(
-            isSliderVisible.value,
-            [0, 1],
-            [10, 0],
-            Extrapolation.CLAMP
-          )
-        },
-      ],
-    };
-  });
-
-  // 슬라이더 채움 너비 계산 (SharedValue 사용)
-  const sliderFillWidth = useDerivedValue(() => {
-    return sliderValueShared.value * 100;
-  });
-
-  const sliderFillStyle = useAnimatedStyle(() => {
-    return {
-      width: `${sliderFillWidth.value}%`,
-    };
-  });
-
-  // 슬라이더 썸 위치 계산 (SharedValue 사용)
-  const sliderThumbStyle = useAnimatedStyle(() => {
-    // 버튼 너비 기준으로 썸 위치 계산 (패딩 고려)
-    const trackWidth = Math.max(0, buttonWidthShared.value - 32); // 좌우 패딩 16px씩
-    const thumbPosition = sliderValueShared.value * trackWidth;
-    return {
-      transform: [{ translateX: thumbPosition }],
-    };
-  });
-
-  // 슬라이더 값 퍼센트 표시용 derived value
-  const sliderPercentage = useDerivedValue(() => {
-    return Math.round(sliderValueShared.value * 100);
-  });
 
   return (
-    <GestureDetector gesture={composedGesture}>
+    <GestureDetector gesture={tapGesture}>
       <Animated.View
         style={[disabled ? styles.buttonDisabled : undefined]}
-        onLayout={onLayout}
         accessible={true}
         accessibilityLabel={`${option.name} 포즈${isSelected ? ', 선택됨' : ''}`}
         accessibilityRole="button"
         accessibilityState={{ selected: isSelected, disabled }}
-        accessibilityHint="길게 누르면 프레임을 조절할 수 있습니다"
       >
-        {/* 슬라이더 팝오버 - 버튼 위에 표시 */}
-        <Animated.View
-          style={[styles.sliderPopover, sliderPopoverStyle]}
-          pointerEvents={isSliderShowing ? 'auto' : 'none'}
-          accessible={isSliderShowing}
-          accessibilityLabel={`프레임 슬라이더, ${sliderPercentage.value}%`}
-          accessibilityRole="adjustable"
-        >
-          <View style={styles.sliderTrack}>
-            <Animated.View style={[styles.sliderFill, sliderFillStyle]} />
-          </View>
-          <Animated.View style={[styles.sliderThumb, sliderThumbStyle]} />
-          {/* 슬라이더 값 표시 */}
-          <Text style={styles.sliderValueText}>
-            {Math.round(sliderValue * 100)}%
-          </Text>
-        </Animated.View>
-
         {/* 포즈 버튼 */}
         {isSelected ? (
           <LinearGradient
@@ -284,6 +106,142 @@ const PoseButton = React.memo<PoseButtonProps>(({
 
 PoseButton.displayName = 'PoseButton';
 
+/**
+ * 프레임 슬라이더 컴포넌트
+ * - 드래그로 애니메이션 프레임 선택 (0~1)
+ */
+interface FrameSliderProps {
+  value: number;
+  onChange: (value: number) => void;
+  disabled?: boolean;
+}
+
+const FrameSlider = React.memo<FrameSliderProps>(({
+  value,
+  onChange,
+  disabled = false,
+}) => {
+  // 트랙 너비 저장 (UI 스레드 안전을 위해 SharedValue 사용)
+  const trackWidth = useSharedValue(0);
+
+  // 슬라이더 값을 SharedValue로 관리
+  const sliderValue = useSharedValue(value);
+
+  // value prop이 변경될 때 SharedValue 동기화
+  React.useEffect(() => {
+    sliderValue.value = value;
+  }, [value, sliderValue]);
+
+  // 슬라이더 값 업데이트
+  const updateSliderValue = useCallback((newValue: number) => {
+    onChange(newValue);
+  }, [onChange]);
+
+  // 트랙 레이아웃 측정
+  const onTrackLayout = useCallback((event: LayoutChangeEvent) => {
+    trackWidth.value = event.nativeEvent.layout.width;
+  }, [trackWidth]);
+
+  // 팬 제스처: 드래그로 슬라이더 조절
+  const panGesture = Gesture.Pan()
+    .enabled(!disabled)
+    .onStart((event) => {
+      // 터치 시작 위치에서 값 계산
+      if (trackWidth.value > 0) {
+        const newValue = Math.max(0, Math.min(1, event.x / trackWidth.value));
+        sliderValue.value = newValue;
+        scheduleOnRN(updateSliderValue, newValue);
+      }
+    })
+    .onUpdate((event) => {
+      // 드래그로 슬라이더 값 조절
+      if (trackWidth.value > 0) {
+        const newValue = Math.max(0, Math.min(1, event.x / trackWidth.value));
+        sliderValue.value = newValue;
+        scheduleOnRN(updateSliderValue, newValue);
+      }
+    });
+
+  // 탭 제스처: 탭한 위치로 이동
+  const tapGesture = Gesture.Tap()
+    .enabled(!disabled)
+    .onEnd((event) => {
+      if (trackWidth.value > 0) {
+        const newValue = Math.max(0, Math.min(1, event.x / trackWidth.value));
+        sliderValue.value = newValue;
+        scheduleOnRN(updateSliderValue, newValue);
+      }
+    });
+
+  // 복합 제스처
+  const composedGesture = Gesture.Race(panGesture, tapGesture);
+
+  // 슬라이더 채움 스타일
+  const sliderFillStyle = useAnimatedStyle(() => {
+    return {
+      width: `${sliderValue.value * 100}%`,
+    };
+  });
+
+  // 슬라이더 썸 위치 스타일
+  const sliderThumbStyle = useAnimatedStyle(() => {
+    const thumbPosition = sliderValue.value * (trackWidth.value - 20); // 썸 크기 20px 고려
+    return {
+      transform: [{ translateX: thumbPosition }],
+    };
+  });
+
+  const percentage = Math.round(value * 100);
+
+  // VoiceOver 접근성 액션 핸들러
+  const handleAccessibilityAction = useCallback(
+    (event: AccessibilityActionEvent) => {
+      const step = 0.1; // 10% 단위
+      if (event.nativeEvent.actionName === 'increment') {
+        const newValue = Math.min(1, value + step);
+        onChange(newValue);
+      } else if (event.nativeEvent.actionName === 'decrement') {
+        const newValue = Math.max(0, value - step);
+        onChange(newValue);
+      }
+    },
+    [value, onChange]
+  );
+
+  return (
+    <View style={[styles.sliderContainer, disabled && styles.sliderDisabled]}>
+      <GestureDetector gesture={composedGesture}>
+        <View
+          style={styles.sliderTrackContainer}
+          onLayout={onTrackLayout}
+          accessible={true}
+          accessibilityLabel={`프레임 슬라이더, ${percentage}%`}
+          accessibilityRole="adjustable"
+          accessibilityValue={{ min: 0, max: 100, now: percentage }}
+          accessibilityActions={[
+            { name: 'increment', label: '증가' },
+            { name: 'decrement', label: '감소' },
+          ]}
+          onAccessibilityAction={handleAccessibilityAction}
+        >
+          {/* 트랙 */}
+          <View style={styles.sliderTrack}>
+            <Animated.View style={[styles.sliderFill, sliderFillStyle]} />
+          </View>
+
+          {/* 썸 */}
+          <Animated.View style={[styles.sliderThumb, sliderThumbStyle]} />
+        </View>
+      </GestureDetector>
+
+      {/* 퍼센트 표시 */}
+      <Text style={styles.sliderValueText}>{percentage}%</Text>
+    </View>
+  );
+});
+
+FrameSlider.displayName = 'FrameSlider';
+
 export const PoseSelector: React.FC<PoseSelectorProps> = ({
   selectedPose,
   onSelect,
@@ -294,11 +252,6 @@ export const PoseSelector: React.FC<PoseSelectorProps> = ({
   return (
     <View style={styles.sectionCard}>
       <Text style={styles.title}>포즈</Text>
-
-      {/* 사용법 힌트 */}
-      <Text style={styles.hintText}>
-        버튼을 길게 누르고 좌우로 드래그하여 프레임 조절
-      </Text>
 
       {/* 포즈 버튼들 */}
       <ScrollView
@@ -316,13 +269,18 @@ export const PoseSelector: React.FC<PoseSelectorProps> = ({
               option={option}
               isSelected={isSelected}
               disabled={disabled}
-              sliderValue={sliderValue}
               onSelect={onSelect}
-              onSliderChange={onSliderChange}
             />
           );
         })}
       </ScrollView>
+
+      {/* 프레임 슬라이더 */}
+      <FrameSlider
+        value={sliderValue}
+        onChange={onSliderChange}
+        disabled={disabled}
+      />
     </View>
   );
 };
@@ -336,7 +294,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 14,
     paddingVertical: 16,
-    overflow: 'visible', // 슬라이더 팝오버가 카드 경계 밖으로 나올 수 있도록 허용
+    overflow: 'hidden',
     // 카드 그림자
     shadowColor: GREY[900],
     shadowOffset: { width: 0, height: 1 },
@@ -348,16 +306,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: GREY[700],
-    marginBottom: 8,
-    paddingHorizontal: 16,
-    fontFamily: 'Pretendard-SemiBold',
-  },
-  hintText: {
-    fontSize: 12,
-    color: GREY[500],
     marginBottom: 12,
     paddingHorizontal: 16,
-    fontFamily: 'Pretendard-Regular',
+    fontFamily: 'Pretendard-SemiBold',
   },
   scrollView: {
     overflow: 'visible',
@@ -399,24 +350,21 @@ const styles = StyleSheet.create({
     color: GREY.WHITE,
     fontWeight: '600',
   },
-  // 슬라이더 팝오버 스타일
-  sliderPopover: {
-    position: 'absolute',
-    top: -52,
-    left: 0,
-    right: 0,
+  // 프레임 슬라이더 스타일
+  sliderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     height: 44,
-    backgroundColor: GREY.WHITE,
-    borderRadius: 22,
+    marginTop: 16,
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    // 그림자
-    shadowColor: GREY[900],
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
-    zIndex: 100,
+    gap: 12,
+  },
+  sliderDisabled: {
+    opacity: 0.5,
+  },
+  sliderTrackContainer: {
+    flex: 1,
+    height: 44,
     justifyContent: 'center',
   },
   sliderTrack: {
@@ -432,14 +380,15 @@ const styles = StyleSheet.create({
   },
   sliderThumb: {
     position: 'absolute',
-    top: 8,
-    left: 16, // 패딩만큼 오프셋
     width: 20,
     height: 20,
     backgroundColor: GREY.WHITE,
     borderRadius: 10,
     borderWidth: 2,
     borderColor: PRIMARY[500],
+    // 세로 중앙 정렬 (트랙 높이 8px 기준)
+    top: 12, // (44 - 20) / 2 = 12
+    left: 0,
     // 그림자
     shadowColor: GREY[900],
     shadowOffset: { width: 0, height: 2 },
@@ -448,13 +397,12 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   sliderValueText: {
-    position: 'absolute',
-    right: 16,
-    top: 12,
     fontSize: 12,
     fontWeight: '600',
     color: PRIMARY[600],
     fontFamily: 'Pretendard-SemiBold',
+    minWidth: 36,
+    textAlign: 'right',
   },
 });
 

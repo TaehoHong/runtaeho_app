@@ -4,8 +4,9 @@
  */
 
 import React from 'react';
-import { StyleSheet, TouchableOpacity, Text } from 'react-native';
-import { GREY } from '~/shared/styles';
+import { StyleSheet, TouchableOpacity, Text, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { PRIMARY, GREY } from '~/shared/styles';
 
 interface ShareButtonProps {
   /** 버튼 클릭 콜백 */
@@ -22,8 +23,13 @@ export const ShareButton: React.FC<ShareButtonProps> = ({ onPress, disabled = fa
       disabled={disabled}
       activeOpacity={0.8}
     >
+      <Ionicons
+        name="share-social"
+        size={18}
+        color={disabled ? GREY[400] : PRIMARY[600]}
+      />
       <Text style={[styles.buttonText, disabled && styles.buttonTextDisabled]}>
-        공유
+        공유하기
       </Text>
     </TouchableOpacity>
   );
@@ -31,22 +37,36 @@ export const ShareButton: React.FC<ShareButtonProps> = ({ onPress, disabled = fa
 
 const styles = StyleSheet.create({
   button: {
-    flex: 1,
-    height: 52,
-    borderRadius: 12,
-    backgroundColor: GREY[100],
-    borderWidth: 1,
-    borderColor: GREY[200],
+    width: 90,
+    height: 46,
+    borderRadius: 8,
+    backgroundColor: GREY.WHITE,
+    borderWidth: 2,
+    borderColor: PRIMARY[600],
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
+    // 그림자 (iOS)
+    shadowColor: PRIMARY[600],
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    // 그림자 (Android)
+    ...Platform.select({
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   buttonDisabled: {
     opacity: 0.5,
+    borderColor: GREY[300],
   },
   buttonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
-    color: GREY[800],
+    color: PRIMARY[600],
     fontFamily: 'Pretendard-SemiBold',
   },
   buttonTextDisabled: {

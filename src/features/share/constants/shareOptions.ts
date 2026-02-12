@@ -71,7 +71,7 @@ export const DEFAULT_BACKGROUND: BackgroundOption = BACKGROUND_OPTIONS[0]!;
 /**
  * 기본 포즈
  */
-export const DEFAULT_POSE: PoseOption = POSE_OPTIONS[1]!; // 달리기 포즈
+export const DEFAULT_POSE: PoseOption = POSE_OPTIONS[0]!;
 
 /**
  * 초기 아바타 변환 (위치 + 스케일)
@@ -114,7 +114,7 @@ export const INITIAL_STAT_ELEMENTS: StatElementConfig[] = [
  */
 export const CANVAS_SIZE = {
   width: 1080,
-  height: 1080,
+  height: 1350, // 4:5 비율 (인스타그램 게시물 최적화)
 };
 
 /**

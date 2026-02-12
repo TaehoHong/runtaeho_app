@@ -1,14 +1,3 @@
-/**
- * StatVisibilityToggle Component
- * 통계 항목 표시/숨김 토글 컴포넌트
- *
- * Figma 프로토타입 351:6944 정확 반영
- * - 섹션 제목: "표시할 정보"
- * - SVG 아이콘 (Ionicons)
- * - 72x72 카드 + 그라데이션 배경
- * - 섹션 카드 래핑
- */
-
 import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -49,7 +38,7 @@ export const StatVisibilityToggle: React.FC<StatVisibilityToggleProps> = ({
 }) => {
   return (
     <View style={styles.sectionCard}>
-      <Text style={styles.title}>표시할 정보</Text>
+      {/* <Text style={styles.title}>표시할 정보</Text> */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}

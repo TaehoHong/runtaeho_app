@@ -10,8 +10,8 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  runOnJS,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import Svg, { Path, Circle, Defs, Filter, FeGaussianBlur } from 'react-native-svg';
 import type { Location } from '~/features/running/models';
 import type { ElementTransform } from '../../models/types';
@@ -89,7 +89,7 @@ export const DraggableRouteMap: React.FC<DraggableRouteMapProps> = ({
       offsetY.value = translateY.value;
       dragScale.value = withSpring(1);
 
-      runOnJS(updateTransform)(translateX.value, translateY.value, scale.value);
+      scheduleOnRN(updateTransform, translateX.value, translateY.value, scale.value);
     });
 
   // Pinch gesture for scaling
@@ -100,7 +100,7 @@ export const DraggableRouteMap: React.FC<DraggableRouteMapProps> = ({
     })
     .onEnd(() => {
       savedScale.value = scale.value;
-      runOnJS(updateTransform)(translateX.value, translateY.value, scale.value);
+      scheduleOnRN(updateTransform, translateX.value, translateY.value, scale.value);
     });
 
   // Combine gestures

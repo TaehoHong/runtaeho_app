@@ -15,8 +15,8 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   Easing,
-  runOnJS,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { UnityPlaceholder, type UnityPlaceholderVariant } from './UnityPlaceholder';
 
 interface UnityLoadingStateProps {
@@ -86,7 +86,7 @@ export const UnityLoadingState: React.FC<UnityLoadingStateProps> = ({
           },
           (finished) => {
             if (finished) {
-              runOnJS(setShowPlaceholder)(false);
+              scheduleOnRN(setShowPlaceholder, false);
             }
           }
         );

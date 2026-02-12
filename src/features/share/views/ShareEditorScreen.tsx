@@ -138,6 +138,15 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
                 />
               </View>
 
+              {/* 포즈 선택 - 카드 래핑 포함 + 타임라인 슬라이더 */}
+              <PoseSelector
+                selectedPose={selectedPose}
+                onSelect={setSelectedPose}
+                disabled={isCapturing}
+                sliderValue={animationTime}
+                onSliderChange={setAnimationTime}
+              />
+
               {/* 기록 항목 표시/숨김 토글 - 카드 래핑 포함 */}
               <StatVisibilityToggle
                 statElements={statElements}
@@ -167,15 +176,6 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
               <BackgroundSelector
                 selectedBackground={selectedBackground}
                 onSelect={setSelectedBackground}
-              />
-
-              {/* 포즈 선택 - 카드 래핑 포함 + 타임라인 슬라이더 */}
-              <PoseSelector
-                selectedPose={selectedPose}
-                onSelect={setSelectedPose}
-                disabled={isCapturing}
-                sliderValue={animationTime}
-                onSliderChange={setAnimationTime}
               />
             </ScrollView>
           )}

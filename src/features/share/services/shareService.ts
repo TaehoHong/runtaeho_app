@@ -113,6 +113,14 @@ export class ShareService {
       const result = await Share.open(shareOptions);
       console.log('[ShareService] Share result:', result);
 
+      // 사용자가 공유를 취소한 경우 (iOS에서 공유 시트를 닫은 경우)
+      if (result.dismissedAction) {
+        return {
+          success: false,
+          message: '공유가 취소되었습니다.',
+        };
+      }
+
       return {
         success: true,
         app: result.app,

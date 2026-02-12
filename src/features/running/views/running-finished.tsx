@@ -236,6 +236,8 @@ const styles = StyleSheet.create({
   },
   buttonRow: {
     flexDirection: 'row',
-    gap: 12,
+    justifyContent: 'center',
+    gap: 24,
+    marginTop: 24,
   },
 });

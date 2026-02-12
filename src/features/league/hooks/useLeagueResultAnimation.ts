@@ -18,7 +18,6 @@ import type { CharacterMotion } from '~/features/unity/types/UnityTypes';
 
 /**
  * 리그 결과 상태를 CharacterMotion으로 매핑
- * 현재 Unity는 IDLE, MOVE, ATTACK, DAMAGED만 지원
  */
 const getMotionForResult = (status: LeagueResultStatus): CharacterMotion => {
   switch (status) {

@@ -29,13 +29,13 @@ export const CompleteButton: React.FC<CompleteButtonProps> = ({ onPress, disable
 
 const styles = StyleSheet.create({
   button: {
-    height: 42,
-    width: 73,
+    height: 46,
+    width: 90,
     borderRadius: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    alignSelf: 'center',
-    marginTop: 8,
   },
   text: {
     fontSize: 14,

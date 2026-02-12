@@ -14,8 +14,8 @@ import { Image } from 'expo-image';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
-  runOnJS,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import type {
   BackgroundOption,
   ElementTransform,
@@ -32,7 +32,7 @@ import type { UnityReadyEvent } from '~/features/unity/bridge/UnityBridge';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CANVAS_PADDING = 16; // container 좌우 패딩
 const PREVIEW_WIDTH = SCREEN_WIDTH - CANVAS_PADDING * 2;
-const PREVIEW_HEIGHT = PREVIEW_WIDTH; // 1:1 비율
+const PREVIEW_HEIGHT = PREVIEW_WIDTH * 1.25; // 4:5 비율 (인스타그램 게시물 최적화)
 
 // 캐릭터 스케일 범위
 const MIN_SCALE = 0.5;
@@ -243,14 +243,14 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
         positionY.value = newY;
 
         // 드래그 중 실시간 Unity 호출 (throttled)
-        runOnJS(throttledPositionUpdate)(newX, newY);
+        scheduleOnRN(throttledPositionUpdate, newX, newY);
       })
       .onEnd(() => {
         'worklet';
         if (!isDraggingCharacter.value) return;
 
         // 최종 위치 보정 (정확도 보장)
-        runOnJS(handlePositionChange)(positionX.value, positionY.value);
+        scheduleOnRN(handlePositionChange, positionX.value, positionY.value);
         isDraggingCharacter.value = false;
       })
       .onTouchesUp(() => {
@@ -270,12 +270,12 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
         scale.value = clampedScale;
 
         // 🔥 핀치 줌 중 실시간 Unity 호출 (throttled)
-        runOnJS(throttledScaleUpdate)(clampedScale);
+        scheduleOnRN(throttledScaleUpdate, clampedScale);
       })
       .onEnd(() => {
         savedScale.value = scale.value;
         // 최종 스케일 보정 (기존 로직 유지 - 정확도 보장)
-        runOnJS(handleScaleChange)(scale.value);
+        scheduleOnRN(handleScaleChange, scale.value);
       });
 
     // 드래그 + 핀치 동시 제스처
@@ -368,7 +368,7 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
               {/* 디버그: 캐릭터 영역 표시 (빨간색 테두리) - 아바타 visible일 때만
                   SPUM 캐릭터는 anchor point가 발(하단)에 있으므로,
                   박스는 y좌표에서 전체 높이만큼 위로 그려야 함 */}
-              {/* {avatarVisible && (onCharacterPositionChange || onCharacterScaleChange) && (
+              {avatarVisible && (onCharacterPositionChange || onCharacterScaleChange) && (
                 <View
                   style={{
                     position: 'absolute',
@@ -386,7 +386,7 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
                   }}
                   pointerEvents="none"
                 />
-              )} */}
+              )}
             </>
           ) : (
             // Fallback: RN 배경 (Android 또는 Unity 미사용)

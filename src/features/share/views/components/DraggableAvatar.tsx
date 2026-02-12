@@ -11,8 +11,8 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  runOnJS,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import type { ElementTransform } from '../../models/types';
 
 interface DraggableAvatarProps {
@@ -78,7 +78,7 @@ export const DraggableAvatar: React.FC<DraggableAvatarProps> = ({
       offsetY.value = translateY.value;
       dragScale.value = withSpring(1);
 
-      runOnJS(updateTransform)(translateX.value, translateY.value, scale.value);
+      scheduleOnRN(updateTransform, translateX.value, translateY.value, scale.value);
     });
 
   // Pinch gesture for scaling
@@ -89,7 +89,7 @@ export const DraggableAvatar: React.FC<DraggableAvatarProps> = ({
     })
     .onEnd(() => {
       savedScale.value = scale.value;
-      runOnJS(updateTransform)(translateX.value, translateY.value, scale.value);
+      scheduleOnRN(updateTransform, translateX.value, translateY.value, scale.value);
     });
 
   // Combine gestures for simultaneous pan and pinch

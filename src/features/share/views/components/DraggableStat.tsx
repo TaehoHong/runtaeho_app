@@ -10,8 +10,8 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  runOnJS,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import type { StatType, ElementTransform } from '../../models/types';
 import { GREY, PRIMARY } from '~/shared/styles';
 
@@ -84,7 +84,7 @@ export const DraggableStat: React.FC<DraggableStatProps> = ({
       offsetY.value = translateY.value;
       dragScale.value = withSpring(1);
 
-      runOnJS(updateTransform)(translateX.value, translateY.value, scale.value);
+      scheduleOnRN(updateTransform, translateX.value, translateY.value, scale.value);
     });
 
   // Pinch gesture for scaling
@@ -95,7 +95,7 @@ export const DraggableStat: React.FC<DraggableStatProps> = ({
     })
     .onEnd(() => {
       savedScale.value = scale.value;
-      runOnJS(updateTransform)(translateX.value, translateY.value, scale.value);
+      scheduleOnRN(updateTransform, translateX.value, translateY.value, scale.value);
     });
 
   // Combine gestures
