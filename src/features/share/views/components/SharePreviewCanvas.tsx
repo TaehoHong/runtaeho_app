@@ -9,20 +9,20 @@
  */
 
 import React, { forwardRef, useMemo, useCallback, useRef } from 'react';
-import { StyleSheet, View, Text, Dimensions, Platform } from 'react-native';
-import { Image } from 'expo-image';
+import { StyleSheet, View, Text, Dimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import type {
-  BackgroundOption,
   ElementTransform,
   ShareRunningData,
   StatElementConfig,
   StatType,
+  CharacterTransform,
 } from '../../models/types';
+import { SCALE_RANGES } from '../../constants/shareOptions';
 import { DraggableStat } from './DraggableStat';
 import { DraggableRouteMap } from './DraggableRouteMap';
 import { PRIMARY } from '~/shared/styles';
@@ -34,10 +34,6 @@ const CANVAS_PADDING = 16; // container 좌우 패딩
 const PREVIEW_WIDTH = SCREEN_WIDTH - CANVAS_PADDING * 2;
 const PREVIEW_HEIGHT = PREVIEW_WIDTH * 1.25; // 4:5 비율 (인스타그램 게시물 최적화)
 
-// 캐릭터 스케일 범위
-const MIN_SCALE = 0.5;
-const MAX_SCALE = 2.5;
-
 // 캐릭터 영역 크기 (정규화 좌표 기준) - Single Source of Truth
 // ★ 실제 Unity 캐릭터 크기에 맞게 조정됨
 const CHARACTER_WIDTH = 0.25; // 화면 너비의 30%
@@ -45,30 +41,16 @@ const CHARACTER_HEIGHT = 0.2; // 화면 높이의 35%
 
 // Unity 스케일 팩터는 useShareEditor.ts로 이동 (Unity 전달 시점에 적용)
 
-/** 캐릭터 위치/스케일 변환 정보 */
-export interface CharacterTransform {
-  /** X 좌표 (0~1 정규화, 0=좌측, 1=우측) */
-  x: number;
-  /** Y 좌표 (0~1 정규화, 0=상단, 1=하단) */
-  y: number;
-  /** 스케일 (0.5~2.5) */
-  scale: number;
-}
-
 // 드래그/핀치 중 Unity 호출 간격 (ms)
 const POSITION_UPDATE_INTERVAL = 10; // 10ms = 100fps (더 부드러운 움직임)
 
 interface SharePreviewCanvasProps {
-  /** 선택된 배경 */
-  background: BackgroundOption;
   /** 통계 요소 설정 배열 */
   statElements: StatElementConfig[];
   /** 통계 요소 변환 변경 콜백 */
   onStatTransformChange: (type: StatType, transform: ElementTransform) => void;
   /** 러닝 데이터 */
   runningData: ShareRunningData;
-  /** Unity 사용 여부 (iOS만 지원) */
-  useUnity?: boolean;
   /** Unity Ready 콜백 (useUnityReadiness의 handleUnityReady 전달) */
   onUnityReady?: (event: UnityReadyEvent) => void;
   /** 캐릭터 위치 변경 콜백 */
@@ -84,11 +66,9 @@ interface SharePreviewCanvasProps {
 export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
   (
     {
-      background,
       statElements,
       onStatTransformChange,
       runningData,
-      useUnity = Platform.OS === 'ios',
       onUnityReady,
       onCharacterPositionChange,
       onCharacterScaleChange,
@@ -266,7 +246,7 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
       })
       .onUpdate((event) => {
         const newScale = savedScale.value * event.scale;
-        const clampedScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
+        const clampedScale = Math.max(SCALE_RANGES.character.min, Math.min(SCALE_RANGES.character.max, newScale));
         scale.value = clampedScale;
 
         // 🔥 핀치 줌 중 실시간 Unity 호출 (throttled)
@@ -302,47 +282,6 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
       };
     }, [runningData]);
 
-    // Fallback 배경 렌더링 (Android 또는 Unity 사용 안함)
-    const renderFallbackBackground = () => {
-      // 사용자 사진 배경
-      if (background.type === 'photo' && background.photoUri) {
-        return (
-          <Image
-            source={{ uri: background.photoUri }}
-            style={StyleSheet.absoluteFill}
-            contentFit="cover"
-          />
-        );
-      }
-
-      // Unity 배경인 경우 투명 배경 (Unity가 실제 배경을 렌더링)
-      if (background.type === 'unity') {
-        return (
-          <View
-            style={[
-              StyleSheet.absoluteFill,
-              { backgroundColor: 'transparent' },
-            ]}
-          />
-        );
-      }
-
-      // 단색 배경
-      const bgColor =
-        typeof background.source === 'string'
-          ? background.source
-          : '#FFFFFF';
-
-      return (
-        <View
-          style={[
-            StyleSheet.absoluteFill,
-            { backgroundColor: bgColor },
-          ]}
-        />
-      );
-    };
-
     // 통계 요소 변환 핸들러 생성
     const createStatTransformHandler = (type: StatType) => (transform: ElementTransform) => {
       onStatTransformChange(type, transform);
@@ -351,47 +290,39 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
     return (
       <View style={styles.container}>
         <View ref={ref} style={styles.canvas} collapsable={false}>
-          {/* 배경: Unity 또는 Fallback */}
-          {useUnity ? (
-            <>
-              {/* Unity 뷰 (전체 화면 - 배경 + 캐릭터) */}
-              <UnityView
-                style={StyleSheet.absoluteFill}
-                {...(onUnityReady && { onUnityReady })}
-              />
-              {/* 투명 제스처 레이어 (캐릭터 조작용) - 아바타 visible일 때만 */}
-              {avatarVisible && (onCharacterPositionChange || onCharacterScaleChange) && (
-                <GestureDetector gesture={combinedGesture}>
-                  <Animated.View style={styles.gestureLayer} />
-                </GestureDetector>
-              )}
-              {/* 디버그: 캐릭터 영역 표시 (빨간색 테두리) - 아바타 visible일 때만
-                  SPUM 캐릭터는 anchor point가 발(하단)에 있으므로,
-                  박스는 y좌표에서 전체 높이만큼 위로 그려야 함 */}
-              {avatarVisible && (onCharacterPositionChange || onCharacterScaleChange) && (
-                <View
-                  style={{
-                    position: 'absolute',
-                    left:
-                      (characterTransform?.x ?? 0.5) * PREVIEW_WIDTH -
-                      (CHARACTER_WIDTH * (characterTransform?.scale ?? 1) * PREVIEW_WIDTH) / 2,
-                    top:
-                      (characterTransform?.y ?? 0.5) * PREVIEW_HEIGHT -
-                      CHARACTER_HEIGHT * (characterTransform?.scale ?? 1) * PREVIEW_HEIGHT,
-                    width: CHARACTER_WIDTH * (characterTransform?.scale ?? 1) * PREVIEW_WIDTH,
-                    height: CHARACTER_HEIGHT * (characterTransform?.scale ?? 1) * PREVIEW_HEIGHT,
-                    borderWidth: 2,
-                    borderColor: 'red',
-                    backgroundColor: 'rgba(255, 0, 0, 0.1)',
-                  }}
-                  pointerEvents="none"
-                />
-              )}
-            </>
-          ) : (
-            // Fallback: RN 배경 (Android 또는 Unity 미사용)
-            renderFallbackBackground()
+          {/* Unity 뷰 (전체 화면 - 배경 + 캐릭터) */}
+          <UnityView
+            style={StyleSheet.absoluteFill}
+            {...(onUnityReady && { onUnityReady })}
+          />
+          {/* 투명 제스처 레이어 (캐릭터 조작용) - 아바타 visible일 때만 */}
+          {avatarVisible && (onCharacterPositionChange || onCharacterScaleChange) && (
+            <GestureDetector gesture={combinedGesture}>
+              <Animated.View style={styles.gestureLayer} />
+            </GestureDetector>
           )}
+          {/* 디버그: 캐릭터 영역 표시 (빨간색 테두리) - 아바타 visible일 때만
+              SPUM 캐릭터는 anchor point가 발(하단)에 있으므로,
+              박스는 y좌표에서 전체 높이만큼 위로 그려야 함 */}
+          {/* {avatarVisible && (onCharacterPositionChange || onCharacterScaleChange) && (
+            <View
+              style={{
+                position: 'absolute',
+                left:
+                  (characterTransform?.x ?? 0.5) * PREVIEW_WIDTH -
+                  (CHARACTER_WIDTH * (characterTransform?.scale ?? 1) * PREVIEW_WIDTH) / 2,
+                top:
+                  (characterTransform?.y ?? 0.5) * PREVIEW_HEIGHT -
+                  CHARACTER_HEIGHT * (characterTransform?.scale ?? 1) * PREVIEW_HEIGHT,
+                width: CHARACTER_WIDTH * (characterTransform?.scale ?? 1) * PREVIEW_WIDTH,
+                height: CHARACTER_HEIGHT * (characterTransform?.scale ?? 1) * PREVIEW_HEIGHT,
+                borderWidth: 2,
+                borderColor: 'red',
+                backgroundColor: 'rgba(255, 0, 0, 0.1)',
+              }}
+              pointerEvents="none"
+            />
+          )} */}
 
           {/* RN 오버레이 영역 */}
           <View style={styles.overlay} pointerEvents="box-none">

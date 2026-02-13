@@ -107,3 +107,16 @@ export interface ShareResult {
   /** 공유된 앱 (iOS Share Sheet에서 선택된 앱) */
   app?: string;
 }
+
+/**
+ * 캐릭터 위치/스케일 변환 정보
+ * SharePreviewCanvas에서 Unity 캐릭터 조작용
+ */
+export interface CharacterTransform {
+  /** X 좌표 (0~1 정규화, 0=좌측, 1=우측) */
+  x: number;
+  /** Y 좌표 (0~1 정규화, 0=상단, 1=하단) */
+  y: number;
+  /** 스케일 (0.5~2.5) */
+  scale: number;
+}

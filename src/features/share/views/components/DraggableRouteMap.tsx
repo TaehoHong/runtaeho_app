@@ -15,6 +15,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 import Svg, { Path, Circle, Defs, Filter, FeGaussianBlur } from 'react-native-svg';
 import type { Location } from '~/features/running/models';
 import type { ElementTransform } from '../../models/types';
+import { SCALE_RANGES } from '../../constants/shareOptions';
 import { gpsToSVGPath } from '../../utils/gpsToPath';
 import { PRIMARY } from '~/shared/styles';
 
@@ -32,10 +33,6 @@ interface DraggableRouteMapProps {
 // SVG ViewBox 크기 (Figma 기준)
 const SVG_WIDTH = 160;
 const SVG_HEIGHT = 180;
-
-// 스케일 범위 상수
-const MIN_SCALE = 0.5;
-const MAX_SCALE = 2.0;
 
 // 마커 스타일 상수
 const MARKER_OUTER_RADIUS = 6;
@@ -96,7 +93,7 @@ export const DraggableRouteMap: React.FC<DraggableRouteMapProps> = ({
   const pinchGesture = Gesture.Pinch()
     .onUpdate((event) => {
       const newScale = savedScale.value * event.scale;
-      scale.value = Math.max(MIN_SCALE, Math.min(newScale, MAX_SCALE));
+      scale.value = Math.max(SCALE_RANGES.map.min, Math.min(newScale, SCALE_RANGES.map.max));
     })
     .onEnd(() => {
       savedScale.value = scale.value;

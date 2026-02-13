@@ -27,6 +27,7 @@ export type {
   StatElementConfig,
   ShareEditorState,
   ShareResult,
+  CharacterTransform,
 } from './models/types';
 
 // Constants
@@ -38,7 +39,5 @@ export {
   INITIAL_AVATAR_TRANSFORM,
   INITIAL_STAT_ELEMENTS,
   CANVAS_SIZE,
-  PREVIEW_SCALE,
-  AVATAR_SCALE_RANGE,
-  STAT_SCALE_RANGE,
+  SCALE_RANGES,
 } from './constants/shareOptions';

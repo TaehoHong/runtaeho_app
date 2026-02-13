@@ -1,5 +1,5 @@
 import React, { useEffect, type ReactNode, useCallback, useRef } from 'react';
-import { AppState, type AppStateStatus, Platform } from 'react-native';
+import { AppState, type AppStateStatus } from 'react-native';
 import { useAppStore, ViewState } from '~/stores';
 import { useAuthStore } from '~/features';
 import { useUserStore } from '~/stores/user/userStore';
@@ -234,12 +234,6 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
    * 앱 업데이트 후 stale Unity 상태 감지 및 복구
    */
   const checkUnityConnection = async () => {
-    // iOS에서만 Unity 상태 확인
-    if (Platform.OS !== 'ios') {
-      console.log('🎮 [AppStateProvider] Unity check skipped (non-iOS)');
-      return;
-    }
-
     console.log('🎮 [AppStateProvider] Checking Unity connection...');
 
     try {

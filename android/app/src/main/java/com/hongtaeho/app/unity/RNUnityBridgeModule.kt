@@ -1,10 +1,13 @@
 package com.hongtaeho.app.unity
 
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import com.facebook.react.bridge.*
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import org.json.JSONArray
 import org.json.JSONObject
+import java.lang.ref.WeakReference
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -30,6 +33,20 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
         private const val EVENT_ON_UNITY_ERROR = "onUnityError"
         private const val EVENT_ON_CHARACTOR_READY = "onCharactorReady"
         private const val EVENT_ON_AVATAR_READY = "onAvatarReady"
+
+        // Timeout constants
+        private const val AVATAR_TIMEOUT_MS: Long = 5000
+        private const val CAPTURE_TIMEOUT_MS: Long = 5000
+
+        // 싱글톤 참조 (콜백에서 접근 가능하도록)
+        @Volatile
+        private var instance: WeakReference<RNUnityBridgeModule>? = null
+
+        /**
+         * 현재 인스턴스 가져오기
+         * UnityNativeBridge에서 콜백 처리 시 사용
+         */
+        fun getInstance(): RNUnityBridgeModule? = instance?.get()
     }
 
     // MARK: - State
@@ -44,7 +61,33 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
     /** 동기화 락 */
     private val eventsLock = Any()
 
+    // MARK: - Promise-based Avatar Change
+
+    /** 아바타 변경 대기 중인 Promise */
+    @Volatile
+    private var pendingAvatarResolve: Promise? = null
+
+    /** 아바타 타임아웃 핸들러 */
+    private var avatarTimeoutHandler: Handler? = null
+
+    /** 아바타 Promise 락 */
+    private val avatarLock = Any()
+
+    // MARK: - Promise-based Character Capture
+
+    /** 캐릭터 캡처 대기 중인 콜백들 (callbackId -> Promise) */
+    private val pendingCaptureCallbacks = mutableMapOf<String, Promise>()
+
+    /** 캡처 콜백 락 */
+    private val captureLock = Any()
+
+    /** Main Thread Handler */
+    private val mainHandler = Handler(Looper.getMainLooper())
+
     init {
+        // 싱글톤 인스턴스 설정
+        instance = WeakReference(this)
+
         // Lifecycle 리스너 등록
         reactContext.addLifecycleEventListener(this)
 
@@ -55,7 +98,7 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
 
         // UnityHolder에 Avatar Ready 콜백 리스너 등록
         UnityHolder.onAvatarReadyListener = {
-            handleAvatarReady()
+            handleAvatarReadyCallback()
         }
 
         Log.d(TAG, "RNUnityBridgeModule initialized")
@@ -131,7 +174,7 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
     }
 
     /**
-     * Avatar Ready 이벤트 처리
+     * Avatar Ready 이벤트 처리 (이벤트 방식)
      * UnityHolder에서 콜백으로 호출됨
      */
     private fun handleAvatarReady() {
@@ -147,7 +190,51 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
                 Log.d(TAG, "Sending onAvatarReady event immediately")
                 sendEvent(EVENT_ON_AVATAR_READY, eventBody)
             } else {
-                Log.d(TAG, "⚠️ No listeners for onAvatarReady")
+                Log.d(TAG, "No listeners for onAvatarReady")
+            }
+        }
+    }
+
+    /**
+     * Avatar Ready 콜백 처리 (Promise 방식)
+     * changeAvatarAndWait의 Promise를 resolve함
+     */
+    private fun handleAvatarReadyCallback() {
+        Log.d(TAG, "handleAvatarReadyCallback() called")
+
+        // 이벤트 방식도 함께 호출
+        handleAvatarReady()
+
+        // Promise 방식 처리
+        synchronized(avatarLock) {
+            avatarTimeoutHandler?.removeCallbacksAndMessages(null)
+            avatarTimeoutHandler = null
+
+            pendingAvatarResolve?.let { promise ->
+                Log.d(TAG, "Resolving pending avatar promise with true")
+                promise.resolve(true)
+            }
+            pendingAvatarResolve = null
+        }
+    }
+
+    /**
+     * 캐릭터 이미지 캡처 완료 콜백
+     * Unity에서 캡처 완료 시 UnityNativeBridge를 통해 호출됨
+     *
+     * @param callbackId 요청 시 전달한 콜백 ID
+     * @param base64Image Base64 인코딩된 이미지 데이터
+     */
+    fun handleCharacterImageCaptured(callbackId: String, base64Image: String) {
+        Log.d(TAG, "handleCharacterImageCaptured() called with callbackId: $callbackId")
+
+        synchronized(captureLock) {
+            val promise = pendingCaptureCallbacks.remove(callbackId)
+            if (promise != null) {
+                Log.d(TAG, "Resolving capture promise for callbackId: $callbackId")
+                promise.resolve(base64Image)
+            } else {
+                Log.w(TAG, "No pending capture callback found for callbackId: $callbackId")
             }
         }
     }
@@ -251,6 +338,103 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
         }
     }
 
+    // MARK: - Promise-based Avatar Change Method
+
+    /**
+     * 아바타 변경 후 완료를 기다리는 메서드
+     * iOS의 changeAvatarAndWait와 동일한 기능
+     *
+     * @param objectName Unity GameObject 이름
+     * @param methodName Unity에서 호출할 메서드 이름
+     * @param data 전달할 데이터 (문자열)
+     * @param promise React Native Promise (Boolean 반환 - true: 성공, false: 타임아웃)
+     */
+    @ReactMethod
+    fun changeAvatarAndWait(
+        objectName: String,
+        methodName: String,
+        data: String,
+        promise: Promise
+    ) {
+        Log.d(TAG, "changeAvatarAndWait: $objectName.$methodName($data)")
+
+        synchronized(avatarLock) {
+            // 이전 pending promise 정리 (새 요청이 들어오면 이전 요청은 취소)
+            pendingAvatarResolve?.reject("CANCELLED", "New avatar change request", null)
+            avatarTimeoutHandler?.removeCallbacksAndMessages(null)
+
+            // 새 promise 설정
+            pendingAvatarResolve = promise
+
+            // 타임아웃 설정
+            avatarTimeoutHandler = Handler(Looper.getMainLooper())
+            avatarTimeoutHandler?.postDelayed({
+                synchronized(avatarLock) {
+                    if (pendingAvatarResolve === promise) {
+                        Log.w(TAG, "Avatar change timed out after ${AVATAR_TIMEOUT_MS}ms")
+                        pendingAvatarResolve?.resolve(false)
+                        pendingAvatarResolve = null
+                        avatarTimeoutHandler = null
+                    }
+                }
+            }, AVATAR_TIMEOUT_MS)
+        }
+
+        // Unity 메시지 전송
+        try {
+            UnityHolder.sendMessage(objectName, methodName, data)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to send avatar change message: ${e.message}", e)
+            synchronized(avatarLock) {
+                avatarTimeoutHandler?.removeCallbacksAndMessages(null)
+                avatarTimeoutHandler = null
+                pendingAvatarResolve?.reject("UNITY_MESSAGE_ERROR", "Failed to send message: ${e.message}", e)
+                pendingAvatarResolve = null
+            }
+        }
+    }
+
+    // MARK: - Promise-based Character Capture Method
+
+    /**
+     * Unity 캐릭터 캡처 메서드
+     * iOS의 captureCharacter와 동일한 기능
+     *
+     * @param promise React Native Promise (String 반환 - Base64 이미지 또는 에러)
+     */
+    @ReactMethod
+    fun captureCharacter(promise: Promise) {
+        Log.d(TAG, "captureCharacter() called")
+
+        val callbackId = UUID.randomUUID().toString()
+
+        synchronized(captureLock) {
+            pendingCaptureCallbacks[callbackId] = promise
+        }
+
+        // Unity에 캡처 요청 전송
+        try {
+            UnityHolder.sendMessage("Charactor", "CaptureCharacter", callbackId)
+
+            // 타임아웃 설정
+            mainHandler.postDelayed({
+                synchronized(captureLock) {
+                    val pendingPromise = pendingCaptureCallbacks.remove(callbackId)
+                    if (pendingPromise != null) {
+                        Log.w(TAG, "Character capture timed out for callbackId: $callbackId")
+                        pendingPromise.reject("TIMEOUT", "Character capture timed out", null)
+                    }
+                }
+            }, CAPTURE_TIMEOUT_MS)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to send capture request: ${e.message}", e)
+            synchronized(captureLock) {
+                pendingCaptureCallbacks.remove(callbackId)
+            }
+            promise.reject("CAPTURE_ERROR", "Failed to request capture: ${e.message}", e)
+        }
+    }
+
     // MARK: - Unity Message Methods
 
     /**
@@ -334,12 +518,27 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
 
     override fun onHostDestroy() {
         Log.d(TAG, "onHostDestroy()")
+
         // 리스너 정리
         UnityHolder.onCharactorReadyListener = null
         UnityHolder.onAvatarReadyListener = null
+
+        // Promise 관련 리소스 정리
+        synchronized(avatarLock) {
+            avatarTimeoutHandler?.removeCallbacksAndMessages(null)
+            avatarTimeoutHandler = null
+            pendingAvatarResolve = null
+        }
+
+        synchronized(captureLock) {
+            pendingCaptureCallbacks.clear()
+        }
+
+        // 싱글톤 인스턴스 정리
+        instance = null
     }
 
-    // MARK: - Helper Methods
+    // MARK: - Shared Editor Methods (공유 에디터 메서드들)
 
     /**
      * Unity 캐릭터 표시/숨김 설정 (공유 에디터용)
@@ -360,6 +559,144 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
             promise.reject("SET_CHARACTER_VISIBLE_ERROR", "Failed to set character visible", e)
         }
     }
+
+    /**
+     * 배경 설정 (배경 ID 기반)
+     * iOS의 setBackground와 동일한 기능
+     *
+     * @param backgroundId 배경 ID
+     * @param promise React Native Promise
+     */
+    @ReactMethod
+    fun setBackground(backgroundId: String, promise: Promise) {
+        Log.d(TAG, "setBackground: $backgroundId")
+
+        try {
+            UnityHolder.sendMessage("Background", "SetBackground", backgroundId)
+            promise.resolve(null)
+        } catch (e: Exception) {
+            Log.e(TAG, "setBackground error: ${e.message}", e)
+            promise.reject("SET_BACKGROUND_ERROR", "Failed to set background", e)
+        }
+    }
+
+    /**
+     * 배경색 설정
+     * iOS의 setBackgroundColor와 동일한 기능
+     *
+     * @param hexColor HEX 색상 코드 (예: "#FF0000")
+     * @param promise React Native Promise
+     */
+    @ReactMethod
+    fun setBackgroundColor(hexColor: String, promise: Promise) {
+        Log.d(TAG, "setBackgroundColor: $hexColor")
+
+        try {
+            UnityHolder.sendMessage("Background", "SetBackgroundColor", hexColor)
+            promise.resolve(null)
+        } catch (e: Exception) {
+            Log.e(TAG, "setBackgroundColor error: ${e.message}", e)
+            promise.reject("SET_BACKGROUND_COLOR_ERROR", "Failed to set background color", e)
+        }
+    }
+
+    /**
+     * 사진으로 배경 설정
+     * iOS의 setBackgroundFromPhoto와 동일한 기능
+     *
+     * @param base64Image Base64 인코딩된 이미지 데이터
+     * @param promise React Native Promise
+     */
+    @ReactMethod
+    fun setBackgroundFromPhoto(base64Image: String, promise: Promise) {
+        Log.d(TAG, "setBackgroundFromPhoto: (base64 image length: ${base64Image.length})")
+
+        try {
+            UnityHolder.sendMessage("Background", "SetBackgroundFromPhoto", base64Image)
+            promise.resolve(null)
+        } catch (e: Exception) {
+            Log.e(TAG, "setBackgroundFromPhoto error: ${e.message}", e)
+            promise.reject("SET_BACKGROUND_FROM_PHOTO_ERROR", "Failed to set background from photo", e)
+        }
+    }
+
+    /**
+     * 캐릭터 위치 설정
+     * iOS의 setCharacterPosition과 동일한 기능
+     *
+     * @param x X 좌표
+     * @param y Y 좌표
+     * @param promise React Native Promise
+     */
+    @ReactMethod
+    fun setCharacterPosition(x: Double, y: Double, promise: Promise) {
+        Log.d(TAG, "setCharacterPosition: ($x, $y)")
+
+        try {
+            val json = """{"x":$x,"y":$y}"""
+            UnityHolder.sendMessage("Charactor", "SetPosition", json)
+            promise.resolve(null)
+        } catch (e: Exception) {
+            Log.e(TAG, "setCharacterPosition error: ${e.message}", e)
+            promise.reject("SET_CHARACTER_POSITION_ERROR", "Failed to set character position", e)
+        }
+    }
+
+    /**
+     * 캐릭터 스케일 설정
+     * iOS의 setCharacterScale과 동일한 기능
+     *
+     * @param scale 스케일 값
+     * @param promise React Native Promise
+     */
+    @ReactMethod
+    fun setCharacterScale(scale: Double, promise: Promise) {
+        Log.d(TAG, "setCharacterScale: $scale")
+
+        try {
+            UnityHolder.sendMessage("Charactor", "SetScale", scale.toString())
+            promise.resolve(null)
+        } catch (e: Exception) {
+            Log.e(TAG, "setCharacterScale error: ${e.message}", e)
+            promise.reject("SET_CHARACTER_SCALE_ERROR", "Failed to set character scale", e)
+        }
+    }
+
+    // MARK: - Unity Engine Methods (Unity 엔진 메서드들)
+
+    /**
+     * Unity 엔진 준비 상태 확인
+     * iOS의 isEngineReady와 동일한 기능
+     *
+     * @param promise React Native Promise (Boolean 반환)
+     */
+    @ReactMethod
+    fun isEngineReady(promise: Promise) {
+        val isReady = UnityHolder.isUnityReady
+        Log.d(TAG, "isEngineReady: $isReady")
+        promise.resolve(isReady)
+    }
+
+    /**
+     * Unity 엔진 초기화
+     * iOS의 initializeUnityEngine과 동일한 기능
+     *
+     * @param promise React Native Promise
+     */
+    @ReactMethod
+    fun initializeUnityEngine(promise: Promise) {
+        Log.d(TAG, "initializeUnityEngine() called")
+
+        try {
+            UnityHolder.initialize()
+            promise.resolve(null)
+        } catch (e: Exception) {
+            Log.e(TAG, "initializeUnityEngine error: ${e.message}", e)
+            promise.reject("INITIALIZE_UNITY_ERROR", "Failed to initialize Unity engine", e)
+        }
+    }
+
+    // MARK: - Helper Methods
 
     /**
      * ReadableArray를 JSONArray로 변환

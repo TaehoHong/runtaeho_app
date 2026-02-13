@@ -118,22 +118,14 @@ export const CANVAS_SIZE = {
 };
 
 /**
- * 미리보기 스케일
+ * 요소별 스케일 범위 (Single Point of Truth)
+ * 모든 Draggable 컴포넌트에서 이 상수를 참조
  */
-export const PREVIEW_SCALE = 0.3;
-
-/**
- * 아바타 스케일 범위
- */
-export const AVATAR_SCALE_RANGE = {
-  min: 0.5,
-  max: 2.5,
-};
-
-/**
- * 통계 요소 스케일 범위
- */
-export const STAT_SCALE_RANGE = {
-  min: 0.5,
-  max: 3.0,
-};
+export const SCALE_RANGES = {
+  /** 캐릭터 (SharePreviewCanvas) */
+  character: { min: 0.5, max: 2.5 },
+  /** 통계 항목 (DraggableStat) */
+  stat: { min: 0.5, max: 3.0 },
+  /** 경로 지도 (DraggableRouteMap) */
+  map: { min: 0.5, max: 2.0 },
+} as const;

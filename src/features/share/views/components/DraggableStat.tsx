@@ -13,6 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import type { StatType, ElementTransform } from '../../models/types';
+import { SCALE_RANGES } from '../../constants/shareOptions';
 import { GREY, PRIMARY } from '~/shared/styles';
 
 interface DraggableStatProps {
@@ -29,10 +30,6 @@ interface DraggableStatProps {
   /** 표시 여부 */
   visible: boolean;
 }
-
-// 스케일 범위 상수
-const MIN_SCALE = 0.5;
-const MAX_SCALE = 3.0;
 
 export const DraggableStat: React.FC<DraggableStatProps> = ({
   type,
@@ -91,7 +88,7 @@ export const DraggableStat: React.FC<DraggableStatProps> = ({
   const pinchGesture = Gesture.Pinch()
     .onUpdate((event) => {
       const newScale = savedScale.value * event.scale;
-      scale.value = Math.max(MIN_SCALE, Math.min(newScale, MAX_SCALE));
+      scale.value = Math.max(SCALE_RANGES.stat.min, Math.min(newScale, SCALE_RANGES.stat.max));
     })
     .onEnd(() => {
       savedScale.value = scale.value;

@@ -107,4 +107,73 @@ object UnityNativeBridge {
             }
         }
     }
+
+    /**
+     * Unity C#에서 호출되는 캐릭터 이미지 캡처 완료 콜백
+     * CaptureCharacter() 완료 시 호출됨
+     *
+     * Unity에서 호출하는 방법 (C#):
+     * ```csharp
+     * #if UNITY_ANDROID && !UNITY_EDITOR
+     * using (AndroidJavaClass bridgeClass = new AndroidJavaClass("com.hongtaeho.app.unity.UnityNativeBridge"))
+     * {
+     *     bridgeClass.CallStatic("sendCharacterImage", callbackId, base64Image);
+     * }
+     * #endif
+     * ```
+     *
+     * @param callbackId 요청 시 전달받은 콜백 ID
+     * @param base64Image Base64 인코딩된 캐릭터 이미지 데이터
+     */
+    @JvmStatic
+    fun sendCharacterImage(callbackId: String, base64Image: String) {
+        Log.d(TAG, "sendCharacterImage() called with callbackId: $callbackId, image length: ${base64Image.length}")
+
+        mainHandler.post {
+            try {
+                // RNUnityBridgeModule의 handleCharacterImageCaptured 호출
+                val bridgeModule = RNUnityBridgeModule.getInstance()
+                if (bridgeModule != null) {
+                    bridgeModule.handleCharacterImageCaptured(callbackId, base64Image)
+                    Log.d(TAG, "Successfully sent character image to RNUnityBridgeModule")
+                } else {
+                    Log.e(TAG, "RNUnityBridgeModule instance not available")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error sending character image: ${e.message}", e)
+            }
+        }
+    }
+
+    /**
+     * Unity C#에서 호출되는 Avatar Ready 콜백 (Promise 기반)
+     * SetSprites() 완료 시 호출됨 - changeAvatarAndWait의 Promise를 resolve함
+     *
+     * Note: 기존 notifyAvatarReady()는 이벤트 방식으로도 동작하므로 유지
+     * 이 메서드는 명시적으로 Promise 기반 콜백을 위해 사용 가능
+     *
+     * Unity에서 호출하는 방법 (C#):
+     * ```csharp
+     * #if UNITY_ANDROID && !UNITY_EDITOR
+     * using (AndroidJavaClass bridgeClass = new AndroidJavaClass("com.hongtaeho.app.unity.UnityNativeBridge"))
+     * {
+     *     bridgeClass.CallStatic("onAvatarReady");
+     * }
+     * #endif
+     * ```
+     */
+    @JvmStatic
+    fun onAvatarReady() {
+        Log.d(TAG, "onAvatarReady() called from Unity C#")
+
+        mainHandler.post {
+            try {
+                // notifyAvatarReady 호출 (기존 흐름 유지)
+                UnityHolder.notifyAvatarReady()
+                Log.d(TAG, "Successfully notified Avatar Ready")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error notifying Avatar Ready: ${e.message}", e)
+            }
+        }
+    }
 }

@@ -90,8 +90,9 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
     }
   };
 
-  // 닫기 처리
-  const handleClose = () => {
+  // 닫기 처리 - 상태 초기화 후 화면 종료
+  const handleClose = async () => {
+    await resetAll();
     router.back();
   };
 
@@ -126,7 +127,6 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
               <View style={styles.previewContainer}>
                 <SharePreviewCanvas
                   ref={canvasRef}
-                  background={selectedBackground}
                   statElements={statElements}
                   onStatTransformChange={updateStatTransform}
                   runningData={runningData}

@@ -89,6 +89,39 @@ object UnityHolder {
     val isAppActive: Boolean
         get() = _isAppActive
 
+    /**
+     * Unity 엔진 준비 상태 조회
+     * iOS의 isEngineReady와 동일한 기능
+     *
+     * @return Unity Player가 존재하고 활성 상태이면 true
+     */
+    val isUnityReady: Boolean
+        get() = _unityPlayer != null && _isAppActive && isUnityLoaded()
+
+    // MARK: - Initialization
+
+    /**
+     * Unity 엔진 초기화
+     * iOS의 initializeUnityEngine과 동일한 기능
+     *
+     * Note: Android에서는 Unity Player가 Activity 기반으로 생성되므로
+     * 실제 초기화는 RNUnityViewManager에서 수행됨.
+     * 이 메서드는 상태 플래그만 설정하고 준비 상태를 확인함.
+     */
+    fun initialize() {
+        Log.d(TAG, "initialize() called")
+
+        // 앱 활성 상태 설정
+        _isAppActive = true
+
+        // Unity Player가 이미 존재하면 로그만 출력
+        if (_unityPlayer != null) {
+            Log.d(TAG, "Unity Player already exists")
+        } else {
+            Log.d(TAG, "Unity Player not yet created - will be created when UnityView is mounted")
+        }
+    }
+
     // MARK: - State Management
 
     /**

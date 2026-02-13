@@ -18,6 +18,7 @@ import type {
   StatElementConfig,
   StatType,
   ShareResult,
+  CharacterTransform,
 } from '../models/types';
 import {
   DEFAULT_POSE,
@@ -33,7 +34,6 @@ import { useUnityReadiness } from '~/features/unity/hooks';
 const UNITY_SCALE_FACTOR_X = 1.0;
 const UNITY_SCALE_FACTOR_Y = 1.0;
 import type { UnityReadyEvent } from '~/features/unity/bridge/UnityBridge';
-import type { CharacterTransform } from '../views/components/SharePreviewCanvas';
 
 // ★ 캐릭터 초기 위치/스케일 상수 (RN 좌표계 기준)
 // 모든 초기화 로직에서 동일한 값을 사용하여 빨간 박스와 Unity 캐릭터 위치 동기화
