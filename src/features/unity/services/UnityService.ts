@@ -24,7 +24,7 @@ export class UnityService {
   private static readonly CHANGE_AVATAR = 'SetSprites';
   private static readonly MIN_SPEED = 3.0;
   private static readonly MAX_SPEED = 7.0;
-  private static readonly VALID_MOTIONS: CharacterMotion[] = ['IDLE', 'MOVE', 'ATTACK', 'DAMAGED'];
+  private static readonly VALID_MOTIONS: CharacterMotion[] = ['IDLE', 'MOVE', 'ATTACK', 'DAMAGED', 'DEATH'];
 
   // Avatar 변경 Lock 메커니즘 - 동시 호출로 인한 CANCELLED 에러 방지
   private isChangingAvatar: boolean = false;

@@ -40,7 +40,7 @@ export default {
         NSLocationAlwaysUsageDescription: "RunTaeho는 백그라운드에서도 러닝을 중단 없이 기록하기 위해 위치 접근이 필요합니다. 앱이 백그라운드 상태에서도 러닝 경로, 이동 거리, 페이스가 정확하게 기록됩니다.",
         NSMotionUsageDescription: "걸음 수 측정 및 러닝 페이스 분석을 위해 동작 및 피트니스 데이터를 사용합니다.",
         UIBackgroundModes: ["location"],
-        GIDClientID: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || "620303212609-581f7f3bgj104gtaermbtjqqf8u6khb8.apps.googleusercontent.com"
+        GIDClientID: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID
       }
     },
     android: {
@@ -106,7 +106,7 @@ export default {
         {
           iosUrlScheme: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?
             `com.googleusercontent.apps.${process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID.split('-')[0]}-${process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID.split('-')[1]}` :
-            "com.googleusercontent.apps.620303212609-581f7f3bgj104gtaermbtjqqf8u6khb8"
+            "com.googleusercontent.apps.322350985432-ilfhl51v50rtvgn0hho7tiui5e8km5en"
         }
       ],
       [

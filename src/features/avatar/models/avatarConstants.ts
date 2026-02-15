@@ -1,3 +1,4 @@
+import { GREY } from '~/shared/styles';
 /**
  * 아바타 기능 관련 상수
  *
@@ -23,7 +24,7 @@ export const HAIR_COLORS = [
   { id: 4, name: '빨강', hex: '#DC143C' },
   { id: 5, name: '파랑', hex: '#4169E1' },
   { id: 6, name: '보라', hex: '#9370DB' },
-  { id: 7, name: '흰색', hex: '#FFFFFF' },
+  { id: 7, name: '흰색', hex: GREY.WHITE },
 ] as const;
 
 /**

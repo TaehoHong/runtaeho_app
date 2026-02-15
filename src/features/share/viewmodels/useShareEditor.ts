@@ -140,6 +140,7 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
     MOVE: 0,
     ATTACK: 0,
     DAMAGED: 0,
+    DEATH: 0,
   });
 
   // throttle을 위한 마지막 호출 시간 ref

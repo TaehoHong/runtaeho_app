@@ -116,7 +116,7 @@ export interface UnityBridge {
 // 캐릭터 관련 타입들 (기존 타입과 통합)
 // ==========================================
 
-export type CharacterMotion = 'IDLE' | 'MOVE' | 'ATTACK' | 'DAMAGED';
+export type CharacterMotion = 'IDLE' | 'MOVE' | 'ATTACK' | 'DAMAGED' | 'DEATH';
 
 export interface CharacterState {
   motion: CharacterMotion;

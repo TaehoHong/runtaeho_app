@@ -67,3 +67,5 @@ app-example
 # generated native folders
 # /ios
 # /android
+
+prepare-native-build.sh

@@ -38,13 +38,13 @@ export const POSE_OPTIONS: PoseOption[] = [
     icon: 'footsteps-outline',
   },
   {
-    id: 'attack',
+    id: 'jump',
     name: '점프',
     trigger: 'ATTACK',
     icon: 'flash-outline',
   },
   {
-    id: 'damaged',
+    id: 'tired',
     name: '지침',
     trigger: 'DAMAGED',
     icon: 'battery-dead-outline',
@@ -52,15 +52,9 @@ export const POSE_OPTIONS: PoseOption[] = [
   {
     id: 'rest',
     name: '휴식',
-    trigger: 'REST',
-    icon: 'cafe-outline',
-  },
-  {
-    id: 'victory',
-    name: '승리',
-    trigger: 'VICTORY',
-    icon: 'ribbon-outline',
-  },
+    trigger: 'DEATH',
+    icon: 'battery-dead-outline',
+  }
 ];
 
 /**

@@ -6,6 +6,7 @@
  */
 
 import React from 'react';
+import { PRIMARY } from '~/shared/styles';
 import Svg, { Path } from 'react-native-svg';
 
 interface PointIconProps {
@@ -17,7 +18,7 @@ interface PointIconProps {
 
 export const PointIcon: React.FC<PointIconProps> = ({
   size = 24,
-  color = '#45DA31'
+  color = PRIMARY[600]
 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     {/* 왼쪽 원 (시계/포인트 형태) */}
