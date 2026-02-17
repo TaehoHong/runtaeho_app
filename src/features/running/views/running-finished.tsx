@@ -12,7 +12,7 @@ import { PointInfoBar } from './components/point-info-bar';
 import { AddShoeCard } from './components/add-shoe-card';
 import { useRunning } from '../contexts';
 import { runningService } from '../services/runningService';
-import { type RunningRecord } from '../models';
+import { type Location, type RunningRecord } from '../models';
 import { useShoeViewModel } from '~/features/shoes/viewmodels';
 import { leagueService } from '~/features/league/services/leagueService';
 import { useShareStore } from '~/features/share/stores/shareStore';
@@ -28,7 +28,16 @@ const { width } = Dimensions.get('window');
 export const RunningFinishedView: React.FC = () => {
   const setRunningState = useAppStore((state) => state.setRunningState);
   const setPreviousLeagueRank = useAppStore((state) => state.setPreviousLeagueRank);
-  const { currentRecord, resetRunning, distance, stats, elapsedTime, formatPace, locations } = useRunning();
+  const {
+    currentRecord,
+    resetRunning,
+    distance,
+    stats,
+    elapsedTime,
+    formatPace,
+    locations,
+    currentSegmentItems,
+  } = useRunning();
 
   // 신발 데이터 가져오기
   const { shoes, isLoadingShoes } = useShoeViewModel();
@@ -56,8 +65,72 @@ export const RunningFinishedView: React.FC = () => {
   // 신발 추가 후 자동으로 React Query가 신발 목록을 갱신하고,
   // 첫 신발이므로 자동으로 메인 설정되어 ShoeSelectionArea가 표시됩니다.
 
+  const normalizeLocations = (source: Location[]): Location[] => {
+    const validLocations = source
+      .filter((point) =>
+        Number.isFinite(point.latitude) &&
+        Number.isFinite(point.longitude) &&
+        point.timestamp instanceof Date &&
+        Number.isFinite(point.timestamp.getTime())
+      )
+      .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+    const deduplicated: Location[] = [];
+    for (const location of validLocations) {
+      const prev = deduplicated[deduplicated.length - 1];
+      if (
+        prev &&
+        prev.latitude === location.latitude &&
+        prev.longitude === location.longitude &&
+        prev.timestamp.getTime() === location.timestamp.getTime()
+      ) {
+        continue;
+      }
+      deduplicated.push(location);
+    }
+    return deduplicated;
+  };
+
+  const getSegmentLocations = (): Location[] => {
+    return currentSegmentItems.flatMap((segment) => segment.locations ?? []);
+  };
+
+  const getLocationsFromServer = async (): Promise<Location[]> => {
+    if (!currentRecord) return [];
+
+    try {
+      const items = await runningService.getRunningRecordItems(currentRecord.id);
+      return items.flatMap((item) =>
+        (item.gpsPoints ?? []).map((point) => ({
+          latitude: point.latitude,
+          longitude: point.longitude,
+          timestamp: new Date(point.timestampMs),
+          speed: point.speed,
+          altitude: point.altitude,
+          ...(point.accuracy !== undefined && { accuracy: point.accuracy }),
+        }))
+      );
+    } catch (error) {
+      console.warn('[RunningFinishedView] Failed to fetch running record items:', error);
+      return [];
+    }
+  };
+
+  const resolveShareLocations = async (): Promise<Location[]> => {
+    const currentLocations = normalizeLocations(locations);
+    if (currentLocations.length >= 2) return currentLocations;
+
+    const segmentLocations = normalizeLocations(getSegmentLocations());
+    if (segmentLocations.length >= 2) return segmentLocations;
+
+    const serverLocations = normalizeLocations(await getLocationsFromServer());
+    return serverLocations;
+  };
+
   // 공유 버튼 핸들러
-  const handleShare = () => {
+  const handleShare = async () => {
+    const resolvedLocations = await resolveShareLocations();
+
     // Store에 공유 데이터 저장 (GPS locations 포함)
     // URL params로는 배열 전달이 불가능하므로 Zustand store 사용
     useShareStore.getState().setShareData({
@@ -66,7 +139,7 @@ export const RunningFinishedView: React.FC = () => {
       pace: formatPace(stats.pace.minutes, stats.pace.seconds),
       startTimestamp: new Date().toISOString(),
       earnedPoints,
-      locations,
+      locations: resolvedLocations,
     });
 
     // 공유 에디터 화면으로 이동 (params 불필요)

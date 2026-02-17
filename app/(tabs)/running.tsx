@@ -1,4 +1,5 @@
 import React from 'react';
+import { StyleSheet, View } from 'react-native';
 import { RunningView } from '~/features/running/views/RunningView';
 
 /**
@@ -7,5 +8,15 @@ import { RunningView } from '~/features/running/views/RunningView';
 export default function RunningScreen() {
   console.log('🏃 [RUNNING_SCREEN] 러닝 화면 렌더링');
 
-  return <RunningView />;
+  return (
+    <View style={styles.container} testID="running-screen">
+      <RunningView />
+    </View>
+  );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+});

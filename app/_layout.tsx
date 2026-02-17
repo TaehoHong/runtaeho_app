@@ -20,13 +20,15 @@ if (__DEV__) {
 const isSentryEnabled = (process.env.EXPO_PUBLIC_ENV || 'production') !== 'local';
 
 function RootLayout() {
-
   // 권한 요청은 AuthProvider에서 로그인 후 한 번만 실행 (중복 제거)
 
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <ForceUpdateProvider checkOnLaunch={true} checkOnForeground={true}>
+        <ForceUpdateProvider
+          checkOnLaunch={true}
+          checkOnForeground={true}
+        >
           <AuthProvider>
             <AppStateProvider>
               <UpdateProvider

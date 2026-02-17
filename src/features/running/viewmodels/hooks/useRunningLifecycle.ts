@@ -26,6 +26,7 @@ import { offlineStorageService } from '../../services/OfflineStorageService';
 import { backgroundTaskService } from '../../services/BackgroundTaskService';
 import { locationService } from '../../services/LocationService';
 import { useAppStore, RunningState } from '~/stores/app/appStore';
+import { permissionManager } from '~/services/PermissionManager';
 import type { UseRunningLifecycleProps, UseRunningLifecycleReturn, RunningStats } from './types';
 import { DEFAULT_RUNNING_STATS } from './types';
 
@@ -71,7 +72,6 @@ export const useRunningLifecycle = ({
   const startRunning = useCallback(async (): Promise<RunningRecord> => {
     try {
       // 1. GPS 권한 확인 (v3.0 PermissionManager)
-      const { permissionManager } = await import('~/services/PermissionManager');
       const permissionCheck = await permissionManager.checkRequiredPermissions();
 
       if (!permissionCheck.location) {
@@ -237,13 +237,21 @@ export const useRunningLifecycle = ({
           const itemsForServer = segmentsToUpload.map((segment) => ({
             distance: segment.distance,
             durationSec: segment.durationSec,
-            cadence: segment.cadence,
-            heartRate: segment.heartRate,
-            minHeartRate: segment.heartRate,
-            maxHeartRate: segment.heartRate,
+            cadence: segment.cadence ?? 0,
+            heartRate: segment.heartRate ?? 0,
+            minHeartRate: segment.heartRate ?? 0,
+            maxHeartRate: segment.heartRate ?? 0,
             orderIndex: segment.orderIndex,
             startTimeStamp: segment.startTimestamp,
             endTimeStamp: segment.startTimestamp + segment.durationSec,
+            gpsPoints: (segment.locations ?? []).map((point) => ({
+              latitude: point.latitude,
+              longitude: point.longitude,
+              timestampMs: point.timestamp.getTime(),
+              speed: point.speed,
+              altitude: point.altitude,
+              accuracy: point.accuracy,
+            })),
           }));
 
           // 비동기로 전송 (UI 블로킹 방지)

@@ -17,6 +17,13 @@ export class SilentTokenRefreshService {
     }
     return SilentTokenRefreshService.instance;
   }
+
+  /**
+   * 테스트 격리를 위한 싱글톤 리셋
+   */
+  static resetForTest(): void {
+    SilentTokenRefreshService.instance = new SilentTokenRefreshService();
+  }
   
   
   /**

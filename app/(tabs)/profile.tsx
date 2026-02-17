@@ -1,4 +1,5 @@
 import React from 'react';
+import { StyleSheet, View } from 'react-native';
 import { MyInfoView } from '~/features/user/views/MyInfoView';
 
 /**
@@ -8,5 +9,15 @@ import { MyInfoView } from '~/features/user/views/MyInfoView';
 export default function ProfileScreen() {
   console.log('👤 [PROFILE_SCREEN] 내정보 화면 렌더링');
 
-  return <MyInfoView />;
+  return (
+    <View style={styles.container} testID="profile-screen">
+      <MyInfoView />
+    </View>
+  );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+});

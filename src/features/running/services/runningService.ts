@@ -13,6 +13,31 @@ import type { CursorResult } from '~/shared/utils/dto/CursorResult';
 import { apiClient } from '../../../services/api/client';
 import { API_ENDPOINTS } from '../../../services/api/config';
 
+export interface RunningRecordItemGpsPoint {
+  latitude: number;
+  longitude: number;
+  timestampMs: number;
+  speed: number;
+  altitude: number;
+  accuracy?: number;
+}
+
+export interface RunningRecordItemResponse {
+  distance: number;
+  durationSec: number;
+  cadence: number;
+  heartRate: number;
+  minHeartRate: number;
+  maxHeartRate: number;
+  orderIndex: number;
+  startTimeStamp: number;
+  endTimeStamp: number;
+  gpsPoints?: RunningRecordItemGpsPoint[];
+}
+
+interface RunningRecordItemsResponse {
+  items: RunningRecordItemResponse[];
+}
 
 /**
  * Running API Service
@@ -178,11 +203,23 @@ export const runningService = {
       orderIndex: number;         // 순서
       startTimeStamp: number;     // Unix timestamp (초)
       endTimeStamp: number;       // Unix timestamp (초)
+      gpsPoints?: RunningRecordItemGpsPoint[];
     }>;
   }): Promise<void> => {
     await apiClient.post(
       API_ENDPOINTS.RUNNING.ITEMS(params.runningRecordId),
       { items: params.items }
     );
+  },
+
+  /**
+   * 러닝 기록 아이템 조회 (GPS 복원용)
+   * GET /api/v1/running/{id}/items
+   */
+  getRunningRecordItems: async (runningRecordId: number): Promise<RunningRecordItemResponse[]> => {
+    const { data } = await apiClient.get<RunningRecordItemsResponse>(
+      API_ENDPOINTS.RUNNING.ITEMS(runningRecordId)
+    );
+    return data.items ?? [];
   },
 };

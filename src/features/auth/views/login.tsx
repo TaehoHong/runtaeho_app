@@ -59,7 +59,7 @@ export const Login: React.FC = () => {
     updateStatus === 'idle';
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="login-screen">
       {/* 장식 아이콘들 - 배경 */}
       <Icon name="point" 
         style={[styles.decorIcon, { left: -26, top: 113, width: 108, height: 108, transform: [{ rotate: '-16.95deg' }] }]}
@@ -133,6 +133,7 @@ export const Login: React.FC = () => {
             style={styles.googleButton}
             onPress={signInWithGoogle}
             disabled={isLoading}
+            testID="login-google-button"
           >
             <Icon name="google" style={styles.buttonIcon} />
             <Text style={styles.googleButtonText}>
@@ -146,6 +147,7 @@ export const Login: React.FC = () => {
               style={styles.appleButton}
               onPress={signInWithApple}
               disabled={isLoading}
+              testID="login-apple-button"
             >
               <Icon name="apple" style={styles.buttonIcon}/>
               <Text style={styles.appleButtonText}>
@@ -153,6 +155,7 @@ export const Login: React.FC = () => {
               </Text>
             </TouchableOpacity>
           )}
+
         </View>
       )}
 
@@ -299,7 +302,6 @@ const styles = StyleSheet.create({
     color: GREY.WHITE,
     fontSize: 14, // Figma 기준
   },
-
   /** ---------- 디버그/기타 기존 스타일 유지 ---------- */
   unityTestButton: {
     width: 240,

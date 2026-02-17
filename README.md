@@ -16,6 +16,13 @@ npm run ios:local
 npm run android:local
 ```
 
+## 테스트
+
+```bash
+# 단위/화면/훅 테스트
+npm run test:all
+```
+
 ## 배포
 
 ### 1. 앱 빌드 (앱스토어 심사 필요)

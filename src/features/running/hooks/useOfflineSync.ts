@@ -81,13 +81,21 @@ export const useOfflineSync = () => {
             const itemsForServer = segments.map(segment => ({
               distance: segment.distance,
               durationSec: segment.durationSec,
-              cadence: segment.cadence,
-              heartRate: segment.heartRate,
-              minHeartRate: segment.heartRate,
-              maxHeartRate: segment.heartRate,
+              cadence: segment.cadence ?? 0,
+              heartRate: segment.heartRate ?? 0,
+              minHeartRate: segment.heartRate ?? 0,
+              maxHeartRate: segment.heartRate ?? 0,
               orderIndex: segment.orderIndex,
               startTimeStamp: segment.startTimestamp,
               endTimeStamp: segment.startTimestamp + segment.durationSec,
+              gpsPoints: (segment.locations ?? []).map((point) => ({
+                latitude: point.latitude,
+                longitude: point.longitude,
+                timestampMs: point.timestamp.getTime(),
+                speed: point.speed,
+                altitude: point.altitude,
+                accuracy: point.accuracy,
+              })),
             }));
 
             await runningService.saveRunningRecordItems({

@@ -100,7 +100,7 @@ export const SettingsView: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top']} testID="settings-screen">
       {/* 헤더 */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
@@ -130,6 +130,7 @@ export const SettingsView: React.FC = () => {
             style={[styles.menuItem, styles.menuItemBorder]}
             onPress={() => setShowLogoutAlert(true)}
             activeOpacity={0.7}
+            testID="settings-logout-menu"
           >
             <Text style={styles.menuItemText}>로그아웃</Text>
             <Ionicons name="chevron-forward" size={20} color={GREY[300]} />
@@ -180,6 +181,7 @@ export const SettingsView: React.FC = () => {
                 style={[styles.alertButton, styles.confirmButton]}
                 onPress={handleLogout}
                 disabled={isLoggingOut}
+                testID="settings-logout-confirm"
               >
                 <Text style={styles.confirmButtonText}>
                   {isLoggingOut ? '로그아웃 중...' : '로그아웃'}

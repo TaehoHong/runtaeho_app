@@ -54,7 +54,7 @@ export const PointHistoryView: React.FC<PointHistoryViewProps> = ({ onClose }) =
 
   return (
     <SafeAreaProvider>
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top']} testID="point-history-screen">
       {/* 헤더 */}
       <Header onClose={onClose} />
 
@@ -74,6 +74,7 @@ export const PointHistoryView: React.FC<PointHistoryViewProps> = ({ onClose }) =
           <LoadingState />
         ) : (
           <FlatList
+            testID="point-history-list"
             data={filteredPointHistory}
             keyExtractor={(item) => `point-history-${item.id}`}
             renderItem={({ item }) => <HistoryItem history={item} />}
@@ -111,7 +112,7 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ onClose }) => {
   return (
     <View style={styles.header}>
-      <TouchableOpacity onPress={onClose} style={styles.backButton}>
+      <TouchableOpacity onPress={onClose} style={styles.backButton} testID="point-history-close">
         <Ionicons name="chevron-back" size={24} color={GREY[900]} />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>포인트</Text>
@@ -163,6 +164,7 @@ const FilterTabs: React.FC<FilterTabsProps> = ({ selected, onSelect }) => {
             key={filter}
             style={[styles.filterTab, isSelected && styles.filterTabSelected]}
             onPress={() => onSelect(filter)}
+            testID={`point-filter-${filter}`}
           >
             <Text style={[styles.filterTabText, isSelected && styles.filterTabTextSelected]}>
               {config.displayName}

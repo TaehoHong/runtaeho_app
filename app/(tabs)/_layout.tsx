@@ -52,6 +52,7 @@ export default function TabLayout() {
         name="statistics"
         options={{
           title: '통계',
+          tabBarButtonTestID: 'tab-statistics',
           tabBarIcon: ({ color, size }) => (
             <Icon name="chart" size={size} tintColor={color} />
           ),
@@ -61,6 +62,7 @@ export default function TabLayout() {
         name="running"
         options={{
           title: '러닝',
+          tabBarButtonTestID: 'tab-running',
           tabBarIcon: ({ color, size }) => (
             <Icon name="shoe" size={size} tintColor={color} />
           ),
@@ -70,6 +72,7 @@ export default function TabLayout() {
         name="league"
         options={{
           title: '리그',
+          tabBarButtonTestID: 'tab-league',
           tabBarIcon: ({ color, size }) => (
             <Icon name="league" size={size} tintColor={color} />
           ),
@@ -79,6 +82,7 @@ export default function TabLayout() {
         name="profile"
         options={{
           title: '내정보',
+          tabBarButtonTestID: 'tab-profile',
           tabBarIcon: ({ color, size }) => (
             <Icon name="myinfo" size={size} tintColor={color} />
           ),

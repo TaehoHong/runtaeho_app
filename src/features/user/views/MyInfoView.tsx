@@ -98,7 +98,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({ user, totalPoint, onPointPres
                     <Icon name="point" size={24} />
                     <Text style={[styles.pointLabelText, styles.pointColor]}>포인트</Text>
                 </View>
-                  <TouchableOpacity onPress={onPointPress}>
+                  <TouchableOpacity onPress={onPointPress} testID="myinfo-point-history-open">
                   <View style={[styles.pointValue, styles.rowCentered]}>
                       <Text style={[styles.pointValueText, styles.pointColor]}>{ totalPoint || 0 } P</Text>
                       <Icon style={styles.chevronIcon} name="chevron" size={16} />
@@ -146,16 +146,18 @@ const MainMenuCard: React.FC<MainMenuCardProps> = ({ onShoesPress, onAvatarPress
 interface MenuItemProps {
   title: string;
   onPress: () => void;
+  testID?: string;
 }
 
 /**
  * 개별 메뉴 아이템 컴포넌트
  */
-const MenuItem: React.FC<MenuItemProps> = ({ title, onPress }) => {
+const MenuItem: React.FC<MenuItemProps> = ({ title, onPress, testID }) => {
   return (
     <TouchableOpacity
       style={[styles.menuItem, styles.rowCentered]}
       onPress={onPress}
+      testID={testID}
     >
       <Text style={styles.menuItemText}>{title}</Text>
       <Icon name="chevron" size={16} />
@@ -179,7 +181,7 @@ const MenuSettingsCard: React.FC<MenuSettingsCardProps> = ({ items }) => {
   const defaultMenuItems: MenuItemProps[] = [
     { title: '연결 계정 관리', onPress: () => router.push('/user/account-connection') },
     { title: '약관 및 정책', onPress: () => router.push('/user/terms-list') },
-    { title: '설정', onPress: () => router.push('/user/settings') },
+    { title: '설정', onPress: () => router.push('/user/settings'), testID: 'myinfo-menu-settings' },
   ];
 
   const menuItems = items || defaultMenuItems;
@@ -381,4 +383,3 @@ const styles = StyleSheet.create({
       color: GREY[500]
   }
 });
-
