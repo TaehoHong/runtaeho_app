@@ -70,3 +70,5 @@ app-example
 # /android
 
 prepare-native-build.sh
+
+/android/app/release

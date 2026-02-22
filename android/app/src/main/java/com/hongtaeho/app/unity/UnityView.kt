@@ -29,6 +29,9 @@ class UnityView(context: Context) : FrameLayout(context) {
 
     companion object {
         private const val TAG = "UnityView"
+        private const val ATTACH_TRACE_LOG = "UNITY_ATTACH_TRACE"
+        private const val MAX_ATTACH_RETRY = 2
+        private const val ATTACH_RETRY_DELAY_MS = 16L
 
         // Unity 렌더링 기준 크기 (iOS와 동일)
         private const val UNITY_RENDER_WIDTH = 600f
@@ -40,8 +43,12 @@ class UnityView(context: Context) : FrameLayout(context) {
     private var unityPlayer: UnityPlayerForActivityOrService? = null
     private var isUnityLoaded = false
     private var pendingReattach = false
+    private var hasSentInitialUnityReadyEvent = false
 
     private val mainHandler = Handler(Looper.getMainLooper())
+    private var attachRequestToken = 0L
+    private var pendingAttachRunnable: Runnable? = null
+    private var pendingAttachReason: String? = null
 
     // MARK: - React Native Event Callbacks
 
@@ -92,19 +99,6 @@ class UnityView(context: Context) : FrameLayout(context) {
                 }
 
                 unityPlayer?.let { player ->
-                    val unityView = player.view
-
-                    // 기존 부모에서 제거
-                    (unityView?.parent as? ViewGroup)?.removeView(unityView)
-
-                    // 현재 View에 추가
-                    unityView?.let {
-                        addView(it, LayoutParams(
-                            LayoutParams.MATCH_PARENT,
-                            LayoutParams.MATCH_PARENT
-                        ))
-                    }
-
                     // Unity 시작 - lifecycle 메서드 순서대로 호출
                     player.onStart()   // Scene 실행 시작
                     player.onResume()  // 렌더링 재개
@@ -112,11 +106,7 @@ class UnityView(context: Context) : FrameLayout(context) {
 
                     isUnityLoaded = true
                     Log.d(TAG, "Unity initialized successfully - onStart(), onResume(), windowFocusChanged(true) called")
-
-                    requestLayout()
-                    ensureUnityViewLayout()
-
-                    sendUnityReadyEvent("Unity loaded successfully")
+                    scheduleAttach("initialize")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to initialize Unity: ${e.message}", e)
@@ -261,6 +251,7 @@ class UnityView(context: Context) : FrameLayout(context) {
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
+        clearPendingAttachOperations("onDetachedFromWindow")
         Log.d(TAG, "onDetachedFromWindow")
     }
 
@@ -289,38 +280,185 @@ class UnityView(context: Context) : FrameLayout(context) {
             return
         }
 
-        mainHandler.post {
-            val player = unityPlayer ?: return@post
-            val unityView = player.view ?: return@post
+        scheduleAttach("reattach")
+    }
 
-            // 이미 현재 view에 붙어있으면 스킵
-            if (unityView.parent == this) {
-                Log.d(TAG, "Unity view already attached to this view, skipping reattach")
-                return@post
+    private fun scheduleAttach(reason: String) {
+        if (!isUnityLoaded) {
+            Log.d(TAG, "$ATTACH_TRACE_LOG scheduleAttach skipped: unity not loaded, reason=$reason")
+            return
+        }
+
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mainHandler.post { scheduleAttach(reason) }
+            return
+        }
+
+        pendingAttachReason = reason
+
+        if (pendingAttachRunnable != null) {
+            Log.d(
+                TAG,
+                "$ATTACH_TRACE_LOG attach request coalesced: reason=$reason, token=$attachRequestToken"
+            )
+            return
+        }
+
+        attachRequestToken += 1
+        val token = attachRequestToken
+        val runnable = Runnable {
+            if (token != attachRequestToken) {
+                Log.d(
+                    TAG,
+                    "$ATTACH_TRACE_LOG stale attach runnable ignored: token=$token, currentToken=$attachRequestToken"
+                )
+                return@Runnable
             }
 
-            val wasAttachedElsewhere = unityView.parent != null
+            pendingAttachRunnable = null
+            val attachReason = pendingAttachReason ?: reason
+            pendingAttachReason = null
+            attachUnityViewWithRetry(attachReason)
+        }
 
-            // 다른 superview에서 제거
-            (unityView.parent as? ViewGroup)?.removeView(unityView)
+        pendingAttachRunnable = runnable
+        Log.d(TAG, "$ATTACH_TRACE_LOG attach scheduled: reason=$reason, token=$token")
+        mainHandler.post(runnable)
+    }
 
-            // 현재 view에 추가
-            addView(unityView, LayoutParams(
-                LayoutParams.MATCH_PARENT,
-                LayoutParams.MATCH_PARENT
-            ))
+    private fun attachUnityViewWithRetry(reason: String, retryCount: Int = 0) {
+        val player = unityPlayer
+        if (player == null) {
+            Log.w(TAG, "$ATTACH_TRACE_LOG attach aborted: unityPlayer is null, reason=$reason")
+            return
+        }
 
-            // 레이아웃 업데이트
-            requestLayout()
-            ensureUnityViewLayout()
+        val unityView = player.view
+        if (unityView == null) {
+            Log.w(TAG, "$ATTACH_TRACE_LOG attach aborted: unityView is null, reason=$reason")
+            return
+        }
 
-            Log.d(TAG, "Unity view reattached safely (wasAttachedElsewhere: $wasAttachedElsewhere)")
+        val token = attachRequestToken
+        val currentParent = unityView.parent
+        Log.d(
+            TAG,
+            "$ATTACH_TRACE_LOG attach attempt: reason=$reason, retryCount=$retryCount, " +
+                    "parent=${currentParent?.javaClass?.simpleName ?: "null"}, " +
+                    "targetContainerHash=${System.identityHashCode(this)}, token=$token"
+        )
 
-            // 실제로 다른 곳에서 옮겨온 경우에만 React Native에 알림
-            if (wasAttachedElsewhere) {
-                sendUnityReadyEvent("Unity reattached successfully", "reattach")
+        if (currentParent == this) {
+            Log.d(TAG, "$ATTACH_TRACE_LOG attach skipped: already attached to target, reason=$reason")
+            if (reason == "initialize" && !hasSentInitialUnityReadyEvent) {
+                hasSentInitialUnityReadyEvent = true
+                sendUnityReadyEvent("Unity loaded successfully")
+            }
+            return
+        }
+
+        val wasAttachedElsewhere = currentParent != null
+
+        when (currentParent) {
+            is ViewGroup -> currentParent.removeView(unityView)
+            null -> Unit
+            else -> {
+                scheduleAttachRetry(
+                    reason = reason,
+                    retryCount = retryCount,
+                    token = token,
+                    detail = "Unsupported parent type: ${currentParent.javaClass.name}"
+                )
+                return
             }
         }
+
+        val parentAfterRemove = unityView.parent
+        if (parentAfterRemove != null) {
+            scheduleAttachRetry(
+                reason = reason,
+                retryCount = retryCount,
+                token = token,
+                detail = "Parent still present after remove: ${parentAfterRemove.javaClass.name}"
+            )
+            return
+        }
+
+        try {
+            addView(
+                unityView,
+                LayoutParams(
+                    LayoutParams.MATCH_PARENT,
+                    LayoutParams.MATCH_PARENT
+                )
+            )
+        } catch (e: IllegalStateException) {
+            Log.w(TAG, "$ATTACH_TRACE_LOG addView failed: reason=$reason, retryCount=$retryCount", e)
+            scheduleAttachRetry(
+                reason = reason,
+                retryCount = retryCount,
+                token = token,
+                detail = "IllegalStateException: ${e.message ?: "unknown"}"
+            )
+            return
+        }
+
+        requestLayout()
+        ensureUnityViewLayout()
+
+        Log.d(
+            TAG,
+            "$ATTACH_TRACE_LOG attach success: reason=$reason, wasAttachedElsewhere=$wasAttachedElsewhere, " +
+                    "retryCount=$retryCount, token=$token"
+        )
+
+        if (reason == "initialize" && !hasSentInitialUnityReadyEvent) {
+            hasSentInitialUnityReadyEvent = true
+            sendUnityReadyEvent("Unity loaded successfully")
+        } else if (wasAttachedElsewhere) {
+            sendUnityReadyEvent("Unity reattached successfully", "reattach")
+        }
+    }
+
+    private fun scheduleAttachRetry(reason: String, retryCount: Int, token: Long, detail: String) {
+        if (retryCount >= MAX_ATTACH_RETRY) {
+            val errorMessage = "Attach failed after ${retryCount + 1} attempts (reason=$reason, detail=$detail)"
+            Log.e(TAG, "$ATTACH_TRACE_LOG $errorMessage")
+            sendErrorEvent("UNITY_REATTACH_ERROR", errorMessage)
+            return
+        }
+
+        val nextRetry = retryCount + 1
+        Log.w(
+            TAG,
+            "$ATTACH_TRACE_LOG scheduling retry: reason=$reason, retry=$nextRetry/$MAX_ATTACH_RETRY, " +
+                    "token=$token, detail=$detail"
+        )
+
+        mainHandler.postDelayed({
+            if (token != attachRequestToken) {
+                Log.d(
+                    TAG,
+                    "$ATTACH_TRACE_LOG stale retry ignored: reason=$reason, expectedToken=$token, currentToken=$attachRequestToken"
+                )
+                return@postDelayed
+            }
+
+            attachUnityViewWithRetry(reason, nextRetry)
+        }, ATTACH_RETRY_DELAY_MS)
+    }
+
+    private fun clearPendingAttachOperations(caller: String) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mainHandler.post { clearPendingAttachOperations(caller) }
+            return
+        }
+
+        pendingAttachRunnable?.let { mainHandler.removeCallbacks(it) }
+        pendingAttachRunnable = null
+        pendingAttachReason = null
+        attachRequestToken += 1
+        Log.d(TAG, "$ATTACH_TRACE_LOG cleared pending attach operations: caller=$caller, newToken=$attachRequestToken")
     }
 
     /**
@@ -358,6 +496,7 @@ class UnityView(context: Context) : FrameLayout(context) {
      */
     fun cleanup() {
         Log.d(TAG, "Cleaning up Unity view")
+        clearPendingAttachOperations("cleanup")
 
         // Unity View는 제거하지 않음 - 다른 화면에서 사용할 수 있음
         // unityPlayer?.let { player ->
