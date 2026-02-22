@@ -44,9 +44,9 @@ export const RunningActiveView: React.FC = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <View testID="running-active-container" style={styles.container}>
       {/* 러닝 통계 - BPM, 순간 페이스, 러닝 시간 */}
-      <View style={{ marginBottom: 16 }}>
+      <View testID="running-active-stats-section" style={styles.statsSection}>
         <StatsView paceType="instant" />
       </View>
 
@@ -54,7 +54,10 @@ export const RunningActiveView: React.FC = () => {
       <MainDistanceCard />
 
       {/* 버튼들 - 일시정지, 정지 */}
-      <View style={[styles.buttonContainer, { bottom: buttonBottom }]}>
+      <View
+        testID="running-active-button-container"
+        style={[styles.buttonContainer, { bottom: buttonBottom }]}
+      >
         <PauseButton onPress={handlePauseRunning} />
         <StopButton onPress={handleStopRunning} />
       </View>
@@ -70,6 +73,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: 16,
     paddingHorizontal: 16,
+  },
+  statsSection: {
+    marginBottom: 16,
   },
   buttonContainer: {
     position: 'absolute',

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useAppStore, RunningState } from '~/stores/app/appStore';
 import { StatsView } from './stats-view';
 import { MainDistanceCard } from './components/main-distance-card';
@@ -8,8 +8,6 @@ import { PlayButton } from './components/play-button';
 import { useBottomActionOffset } from '~/shared/hooks';
 import { useRunning } from '../contexts';
 
-const { width, height } = Dimensions.get('window');
-
 /**
  * 러닝 일시정지 화면
  * iOS RunningPausedView 대응
@@ -17,7 +15,7 @@ const { width, height } = Dimensions.get('window');
 export const RunningPausedView: React.FC = () => {
   const setRunningState = useAppStore((state) => state.setRunningState);
   const { resumeRunning, endRunning } = useRunning();
-  const containerPaddingBottom = useBottomActionOffset(43);
+  const buttonBottom = useBottomActionOffset(42);
 
   const handleStopRunning = async () => {
     console.log('⏹️ [RunningPausedView] 러닝 종료 버튼 눌러짐');
@@ -46,15 +44,20 @@ export const RunningPausedView: React.FC = () => {
   };
 
   return (
-    <View style={[styles.container, { paddingBottom: containerPaddingBottom }]}>
+    <View testID="running-paused-container" style={styles.container}>
       {/* 러닝 통계 (현재 진행 상황 표시) */}
-      <StatsView />
+      <View testID="running-paused-stats-section" style={styles.statsSection}>
+        <StatsView />
+      </View>
 
       {/* 현재 누적 거리 - Figma 디자인 */}
       <MainDistanceCard />
 
       {/* 제어 버튼들 - Figma: [재개(초록)] [종료(회색)] 순서 */}
-      <View style={styles.buttonContainer}>
+      <View
+        testID="running-paused-button-container"
+        style={[styles.buttonContainer, { bottom: buttonBottom }]}
+      >
         <PlayButton onPress={handleResumeRunning} />
         <StopButton onPress={handleStopRunning} />
       </View>
@@ -67,19 +70,19 @@ export const RunningPaused = RunningPausedView;
 
 const styles = StyleSheet.create({
   container: {
-    width: width,
-    height: height * 0.5,
-    justifyContent: 'flex-end',
-    alignItems: 'center',
+    flex: 1,
+    paddingTop: 16,
     paddingHorizontal: 16,
-    gap: 16, // Figma: 480-464=16px
+  },
+  statsSection: {
+    marginBottom: 16,
   },
   buttonContainer: {
+    position: 'absolute',
+    left: 58,
+    right: 58,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    width: '100%',
-    paddingHorizontal: 42, // Figma: 58px - container padding 16px = 42px
-    marginTop: 96, // Figma: 704-592=112px (gap 16 포함하여 96)
   },
 });
