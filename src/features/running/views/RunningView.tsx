@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
-import { AppState, StyleSheet, View } from 'react-native';
+import { AppState, BackHandler, Platform, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { GREY } from '~/shared/styles';
@@ -151,6 +151,32 @@ export const RunningView: React.FC = () => {
     useLeagueCheckStore.getState().allowRecheck();
     checkUncheckedLeagueResult();
   }, [isUnityReady, isPermissionChecked, runningState, checkUncheckedLeagueResult]);
+
+  /**
+   * Android 시스템 뒤로가기 차단
+   * 러닝 중(Running/Paused)에는 화면 이탈을 방지하기 위해 백 버튼을 소비
+   */
+  useEffect(() => {
+    if (Platform.OS !== 'android') {
+      return;
+    }
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      const shouldBlockBack =
+        runningState === RunningState.Running || runningState === RunningState.Paused;
+
+      if (shouldBlockBack) {
+        console.log('🛑 [RunningView] 러닝 중 시스템 뒤로가기 차단');
+        return true;
+      }
+
+      return false;
+    });
+
+    return () => {
+      backHandler.remove();
+    };
+  }, [runningState]);
 
   /**
    * 백그라운드 ↔ 포그라운드 전환 감지 및 Unity 재초기화

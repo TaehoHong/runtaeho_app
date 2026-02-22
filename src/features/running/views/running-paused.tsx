@@ -5,6 +5,7 @@ import { StatsView } from './stats-view';
 import { MainDistanceCard } from './components/main-distance-card';
 import { StopButton } from './components/stop-button';
 import { PlayButton } from './components/play-button';
+import { useBottomActionOffset } from '~/shared/hooks';
 import { useRunning } from '../contexts';
 
 const { width, height } = Dimensions.get('window');
@@ -16,6 +17,7 @@ const { width, height } = Dimensions.get('window');
 export const RunningPausedView: React.FC = () => {
   const setRunningState = useAppStore((state) => state.setRunningState);
   const { resumeRunning, endRunning } = useRunning();
+  const containerPaddingBottom = useBottomActionOffset(43);
 
   const handleStopRunning = async () => {
     console.log('⏹️ [RunningPausedView] 러닝 종료 버튼 눌러짐');
@@ -44,7 +46,7 @@ export const RunningPausedView: React.FC = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: containerPaddingBottom }]}>
       {/* 러닝 통계 (현재 진행 상황 표시) */}
       <StatsView />
 
@@ -70,7 +72,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingBottom: 43, // Figma: 812-(704+65)=43px
     gap: 16, // Figma: 480-464=16px
   },
   buttonContainer: {

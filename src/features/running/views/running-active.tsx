@@ -5,6 +5,7 @@ import { StatsView } from './stats-view';
 import { PauseButton } from './components/pause-button';
 import { StopButton } from './components/stop-button';
 import { MainDistanceCard } from './components/main-distance-card';
+import { useBottomActionOffset } from '~/shared/hooks';
 import { useRunning } from '../contexts';
 
 /**
@@ -14,6 +15,7 @@ import { useRunning } from '../contexts';
 export const RunningActiveView: React.FC = () => {
   const setRunningState = useAppStore((state) => state.setRunningState);
   const { pauseRunning, endRunning } = useRunning();
+  const buttonBottom = useBottomActionOffset(42);
 
   const handlePauseRunning = () => {
     console.log('⏸️ [RunningActiveView] 러닝 일시정지 버튼 눌러짐');
@@ -52,7 +54,7 @@ export const RunningActiveView: React.FC = () => {
       <MainDistanceCard />
 
       {/* 버튼들 - 일시정지, 정지 */}
-      <View style={styles.buttonContainer}>
+      <View style={[styles.buttonContainer, { bottom: buttonBottom }]}>
         <PauseButton onPress={handlePauseRunning} />
         <StopButton onPress={handleStopRunning} />
       </View>
@@ -71,7 +73,6 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     position: 'absolute',
-    bottom: 42,
     left: 58,
     right: 58,
     flexDirection: 'row',

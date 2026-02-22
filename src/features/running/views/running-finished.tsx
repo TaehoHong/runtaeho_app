@@ -16,6 +16,7 @@ import { type Location, type RunningRecord } from '../models';
 import { useShoeViewModel } from '~/features/shoes/viewmodels';
 import { leagueService } from '~/features/league/services/leagueService';
 import { useShareStore } from '~/features/share/stores/shareStore';
+import { useBottomActionOffset } from '~/shared/hooks';
 import { GREY } from '~/shared/styles';
 
 const { width } = Dimensions.get('window');
@@ -28,6 +29,7 @@ const { width } = Dimensions.get('window');
 export const RunningFinishedView: React.FC = () => {
   const setRunningState = useAppStore((state) => state.setRunningState);
   const setPreviousLeagueRank = useAppStore((state) => state.setPreviousLeagueRank);
+  const scrollContentPaddingBottom = useBottomActionOffset(32);
   const {
     currentRecord,
     resetRunning,
@@ -235,7 +237,10 @@ export const RunningFinishedView: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: scrollContentPaddingBottom }]}
+      >
         {/* 포인트 정보 바 - 획득/보유 포인트 */}
         <PointInfoBar
           earnedPoints={earnedPoints}
@@ -297,7 +302,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     gap: 16,
     paddingHorizontal: 16,
-    paddingBottom: 32,
   },
   pointInfo: {
 
