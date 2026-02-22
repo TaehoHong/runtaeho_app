@@ -8,8 +8,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SwipeListView } from 'react-native-swipe-list-view';
+import { TopScreenSafeAreaView } from '~/shared/components';
 import { Text } from '~/shared/components/typography';
 import { Icon } from '~/shared/components/ui';
 import { GREY, PRIMARY, RED } from '~/shared/styles';
@@ -123,7 +124,7 @@ export const ShoesListView: React.FC<ShoesListViewProps> = ({ onClose }) => {
 
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <TopScreenSafeAreaView style={styles.container}>
         {/* 헤더 */}
         <Header onClose={onClose} onAddPress={() => setShowAddShoeView(true)} />
 
@@ -237,7 +238,7 @@ export const ShoesListView: React.FC<ShoesListViewProps> = ({ onClose }) => {
           />
         </Modal>
       )}
-      </SafeAreaView>
+      </TopScreenSafeAreaView>
     </SafeAreaProvider>
   );
 };

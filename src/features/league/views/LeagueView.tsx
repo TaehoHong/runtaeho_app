@@ -13,7 +13,7 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { TopScreenSafeAreaView } from '~/shared/components';
 import { GREY, PRIMARY } from '~/shared/styles';
 import { useLeagueCheckStore } from '~/stores';
 import { useAppStore } from '~/stores/app/appStore';
@@ -150,11 +150,11 @@ export const LeagueView = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <TopScreenSafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         {renderContent()}
       </View>
-    </SafeAreaView>
+    </TopScreenSafeAreaView>
   );
 };
 

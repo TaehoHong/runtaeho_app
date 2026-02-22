@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { TopScreenSafeAreaView } from '~/shared/components';
 import { useAuth } from '~/features/auth/hooks/useAuth';
 import { Text } from '~/shared/components/typography';
 import { GREY, RED } from '~/shared/styles';
@@ -100,7 +100,7 @@ export const SettingsView: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']} testID="settings-screen">
+    <TopScreenSafeAreaView style={styles.container} testID="settings-screen">
       {/* 헤더 */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
@@ -226,7 +226,7 @@ export const SettingsView: React.FC = () => {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </TopScreenSafeAreaView>
   );
 };
 

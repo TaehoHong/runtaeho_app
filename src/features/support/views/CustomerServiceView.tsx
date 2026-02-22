@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { Linking, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { TopScreenSafeAreaView } from '~/shared/components';
 import { Text } from '~/shared/components/typography';
 import { CONTACT } from '~/shared/constants';
 import { GREY, PRIMARY } from '~/shared/styles';
@@ -76,7 +76,7 @@ export const CustomerServiceView: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <TopScreenSafeAreaView style={styles.container}>
       {/* 헤더 */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
@@ -155,7 +155,7 @@ export const CustomerServiceView: React.FC = () => {
           </View>
         </View>
       </View>
-    </SafeAreaView>
+    </TopScreenSafeAreaView>
   );
 };
 

@@ -5,6 +5,7 @@
 
 export { usePermissionRequest } from './usePermissionRequest';
 export { useMediaPicker } from './useMediaPicker';
+export { useBottomActionOffset } from './useBottomActionOffset';
 
 // 타입 re-export (편의성)
 export type {

@@ -5,8 +5,8 @@
 
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View, ActivityIndicator, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { TopScreenSafeAreaView } from '~/shared/components';
 import { Text } from '~/shared/components/typography';
 import { GREY } from '~/shared/styles';
 import { AuthProviderType, getAuthProviderInfo } from '~/features/auth/models';
@@ -35,7 +35,7 @@ export const AccountConnectionView: React.FC = () => {
   const providers = [AuthProviderType.APPLE, AuthProviderType.GOOGLE];
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <TopScreenSafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -78,7 +78,7 @@ export const AccountConnectionView: React.FC = () => {
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </TopScreenSafeAreaView>
   );
 };
 

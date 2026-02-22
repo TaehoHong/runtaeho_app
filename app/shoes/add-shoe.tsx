@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { TopScreenSafeAreaView } from '~/shared/components';
 import { Text } from '~/shared/components/typography';
 import { PRIMARY, GREY, RED } from '~/shared/styles';
 import { useShoeViewModel } from '~/features/shoes/viewmodels';
@@ -65,7 +65,7 @@ export default function AddShoeModal() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <TopScreenSafeAreaView style={styles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardAvoid}
@@ -133,7 +133,7 @@ export default function AddShoeModal() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </TopScreenSafeAreaView>
   );
 }
 

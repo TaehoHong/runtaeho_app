@@ -5,7 +5,7 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { TopScreenSafeAreaView } from '~/shared/components';
 import { Text } from '~/shared/components/typography';
 import { GREY } from '~/shared/styles';
 
@@ -31,7 +31,7 @@ export const AppVersionView: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <TopScreenSafeAreaView style={styles.container}>
       {/* 헤더 */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
@@ -65,7 +65,7 @@ export const AppVersionView: React.FC = () => {
           <Text style={styles.copyrightText}>All Rights Reserved</Text>
         </View>
       </View>
-    </SafeAreaView>
+    </TopScreenSafeAreaView>
   );
 };
 

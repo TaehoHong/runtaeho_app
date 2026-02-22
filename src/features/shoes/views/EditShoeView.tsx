@@ -8,7 +8,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { TopScreenSafeAreaView } from '~/shared/components';
 import { Text } from '~/shared/components/typography';
 import { GREY, PRIMARY, RED } from '~/shared/styles';
 import type { ShoeViewModel } from '../models';
@@ -111,7 +112,7 @@ export const EditShoeView: React.FC<EditShoeViewProps> = ({
 
   return (
     <SafeAreaProvider>
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <TopScreenSafeAreaView style={styles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardAvoid}
@@ -158,9 +159,9 @@ export const EditShoeView: React.FC<EditShoeViewProps> = ({
           >
             <Text style={styles.submitButtonText}>신발 수정하기</Text>
           </TouchableOpacity>
-        </View>
+          </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </TopScreenSafeAreaView>
     </SafeAreaProvider>
   );
 };
