@@ -11,6 +11,7 @@ import { AvatarItemCard } from './ItemCard';
 
 interface Props {
   items: readonly Item[];
+  hairColor: string;
   onSelectItem: (item: Item) => void;
   isItemSelected: (itemId: number) => boolean;
   onEndReached: () => void;
@@ -18,6 +19,7 @@ interface Props {
 
 export const ItemsGrid: React.FC<Props> = ({
   items,
+  hairColor,
   onSelectItem,
   isItemSelected,
   onEndReached,
@@ -30,6 +32,7 @@ export const ItemsGrid: React.FC<Props> = ({
       renderItem={({ item }) => (
         <AvatarItemCard
           item={item}
+          hairColor={hairColor}
           isSelected={isItemSelected(item.id)}
           onPress={() => onSelectItem(item)}
         />

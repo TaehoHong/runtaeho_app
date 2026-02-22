@@ -23,6 +23,23 @@ npm run android:local
 npm run test:all
 ```
 
+## 헤어 색상 에셋 생성
+
+헤어 아이템 썸네일은 색상별 PNG를 사전 생성해서 사용합니다.
+
+```bash
+# 헤어 색상 PNG + generated 매핑 파일 생성
+npm run assets:generate-hair-colors
+
+# 생성 결과 검증
+npm run assets:verify-hair-colors
+```
+
+- 원본 경로: `assets/items/Hair/*.png`
+- 생성 경로: `assets/items/Hair/<colorId>/<fileName>.png`
+- 생성 매핑 파일: `src/shared/constants/generated/hairColorImages.generated.ts`
+- 새 헤어 PNG를 추가/교체한 경우 `npm run assets:generate-hair-colors` 실행 후 생성 파일을 함께 커밋합니다.
+
 ## 배포
 
 ### 1. 앱 빌드 (앱스토어 심사 필요)

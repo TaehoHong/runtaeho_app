@@ -80,6 +80,7 @@ const AvatarViewContent: React.FC<AvatarViewProps> = ({ onClose }) => {
         {/* Items Grid */}
         <ItemsGrid
           items={viewModel.currentCategoryItems}
+          hairColor={viewModel.pendingHairColor}
           onSelectItem={viewModel.selectItem}
           isItemSelected={viewModel.isItemSelected}
           onEndReached={() => {
@@ -103,6 +104,7 @@ const AvatarViewContent: React.FC<AvatarViewProps> = ({ onClose }) => {
       {viewModel.showPurchaseModal && (
         <PurchaseModal
           items={viewModel.itemsToPurchase}
+          hairColor={viewModel.pendingHairColor}
           totalPrice={viewModel.totalPurchasePrice}
           currentPoints={viewModel.totalPoint}
           remainingPoints={viewModel.remainingPoints}

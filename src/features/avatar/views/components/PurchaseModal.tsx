@@ -7,6 +7,7 @@ import React from 'react';
 import {
   ActivityIndicator,
   Image,
+  type ImageSourcePropType,
   Modal,
   StyleSheet,
   Text,
@@ -14,12 +15,13 @@ import {
   View,
 } from 'react-native';
 import type { Item } from '~/features/avatar';
+import { resolveAvatarItemImage } from '~/features/avatar/utils/avatarItemImageResolver';
 import { Icon } from '~/shared/components/ui';
-import { ITEM_IMAGE, type ItemImage } from '~/shared/constants/images';
 import { BLUE, GREY, PRIMARY, RED } from '~/shared/styles';
 
 interface Props {
   items: readonly Item[];
+  hairColor: string;
   totalPrice: number;
   currentPoints: number;
   remainingPoints: number;
@@ -30,6 +32,7 @@ interface Props {
 
 export const PurchaseModal: React.FC<Props> = ({
   items,
+  hairColor,
   totalPrice,
   currentPoints,
   remainingPoints,
@@ -37,17 +40,9 @@ export const PurchaseModal: React.FC<Props> = ({
   onCancel,
   isLoading,
 }) => {
-
-  function getItemImage(item: Item): any | undefined {
-    // item.name에서 파일명 추출 (예: "New_Armor_01.png")
-    const fileName = item.name as ItemImage;
-
-    // ITEM_IMAGE에서 해당 이미지 찾기
-    if (fileName in ITEM_IMAGE) {
-      return ITEM_IMAGE[fileName];
-    }
-    return undefined
-  };
+  function getItemImage(item: Item): ImageSourcePropType | undefined {
+    return resolveAvatarItemImage(item, hairColor);
+  }
 
   return (
     <Modal
@@ -74,17 +69,22 @@ export const PurchaseModal: React.FC<Props> = ({
 
             {/* Items Preview */}
             <View style={styles.itemsContainer}>
-              {items.map((item) => (
-                <View key={item.id} style={styles.itemRow}>
-                  <View style={styles.itemImageContainer} >
-                    <Image source={getItemImage(item)} style={styles.itemImage}/> 
+              {items.map((item) => {
+                const itemImage = getItemImage(item);
+                return (
+                  <View key={item.id} style={styles.itemRow}>
+                    <View style={styles.itemImageContainer} >
+                      {itemImage && (
+                        <Image source={itemImage} style={styles.itemImage}/>
+                      )}
+                    </View>
+                    <View style={styles.itemPriceContainer}>
+                      <Icon name='point' size={24}/>
+                      <Text style={styles.itemPrice}>{item.point}</Text>
+                    </View>
                   </View>
-                  <View style={styles.itemPriceContainer}>
-                    <Icon name='point' size={24}/>
-                    <Text style={styles.itemPrice}>{item.point}</Text>
-                  </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
 
             {/* Points Calculation */}

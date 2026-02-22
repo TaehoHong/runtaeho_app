@@ -7,12 +7,13 @@ import React from 'react';
 import { Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { Item } from '~/features/avatar';
 import { GRID_LAYOUT, ITEM_OPACITY, ItemStatus } from '~/features/avatar';
+import { resolveAvatarItemImage } from '~/features/avatar/utils/avatarItemImageResolver';
 import { Icon } from '~/shared/components/ui';
-import { ITEM_IMAGE, type ItemImage } from '~/shared/constants/images';
 import { GREY, PRIMARY } from '~/shared/styles';
 
 interface Props {
   item: Item;
+  hairColor: string;
   isSelected: boolean;
   onPress: () => void;
 }
@@ -20,18 +21,8 @@ interface Props {
 const screenWidth = Dimensions.get('window').width;
 const cardWidth = (screenWidth - GRID_LAYOUT.HORIZONTAL_PADDING * 2 - GRID_LAYOUT.ITEM_SPACING * 2) / GRID_LAYOUT.NUM_COLUMNS;
 
-export const AvatarItemCard: React.FC<Props> = ({ item, isSelected, onPress }) => {
-  // 아이템 이미지 가져오기
-  const getItemImage = () => {
-    // item.name에서 파일명 추출 (예: "New_Armor_01.png")
-    const fileName = item.name as ItemImage;
-
-    // ITEM_IMAGE에서 해당 이미지 찾기
-    if (fileName in ITEM_IMAGE) {
-      return ITEM_IMAGE[fileName];
-    }
-  };
-
+export const AvatarItemCard: React.FC<Props> = ({ item, hairColor, isSelected, onPress }) => {
+  const itemImage = resolveAvatarItemImage(item, hairColor);
   // 테두리 색상 결정
   const borderColor = isSelected? PRIMARY[500] : GREY[250];
 
@@ -61,7 +52,9 @@ export const AvatarItemCard: React.FC<Props> = ({ item, isSelected, onPress }) =
           },
         ]}
       >
-        <Image source={getItemImage()} style={styles.image} />
+        {itemImage && (
+          <Image source={itemImage} style={styles.image} />
+        )}
 
         {/* 가격 배지 (선택된 미보유 아이템만) */}
         {isSelected && !item.isOwned && item.point && (
