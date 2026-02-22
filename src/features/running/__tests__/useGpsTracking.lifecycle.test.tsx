@@ -11,14 +11,18 @@ import { resetAllStores } from '~/test-utils/resetState';
 
 const mockBackgroundStartTracking = jest.fn();
 const mockBackgroundStopTracking = jest.fn();
+const mockBackgroundPauseTracking = jest.fn();
+const mockBackgroundResumeTracking = jest.fn();
 const mockGetTotalDistance = jest.fn();
 const mockGetBackgroundLocations = jest.fn();
+const mockGetLatestPaceSignal = jest.fn();
 const mockLocationStartTracking = jest.fn();
 const mockLocationStopTracking = jest.fn();
 const mockLocationPauseTracking = jest.fn();
 const mockLocationResumeTracking = jest.fn();
 const mockSubscribeToLocation = jest.fn();
 const mockSubscribeToTrackingData = jest.fn();
+const mockSubscribeToPaceSignal = jest.fn();
 const locationServiceState = {
   totalDistanceMeters: 0,
   allLocations: [] as Array<{
@@ -35,8 +39,11 @@ jest.mock('~/features/running/services/BackgroundTaskService', () => ({
   backgroundTaskService: {
     startBackgroundTracking: (...args: unknown[]) => mockBackgroundStartTracking(...args),
     stopBackgroundTracking: (...args: unknown[]) => mockBackgroundStopTracking(...args),
+    pauseBackgroundTracking: (...args: unknown[]) => mockBackgroundPauseTracking(...args),
+    resumeBackgroundTracking: (...args: unknown[]) => mockBackgroundResumeTracking(...args),
     getTotalDistance: (...args: unknown[]) => mockGetTotalDistance(...args),
     getBackgroundLocations: (...args: unknown[]) => mockGetBackgroundLocations(...args),
+    getLatestPaceSignal: (...args: unknown[]) => mockGetLatestPaceSignal(...args),
   },
 }));
 
@@ -48,6 +55,7 @@ jest.mock('~/features/running/services/LocationService', () => ({
     resumeTracking: (...args: unknown[]) => mockLocationResumeTracking(...args),
     subscribeToLocation: (...args: unknown[]) => mockSubscribeToLocation(...args),
     subscribeToTrackingData: (...args: unknown[]) => mockSubscribeToTrackingData(...args),
+    subscribeToPaceSignal: (...args: unknown[]) => mockSubscribeToPaceSignal(...args),
     get totalDistanceMeters() {
       return locationServiceState.totalDistanceMeters;
     },
@@ -127,14 +135,18 @@ describe('useGpsTracking lifecycle', () => {
 
     mockBackgroundStartTracking.mockResolvedValue(undefined);
     mockBackgroundStopTracking.mockResolvedValue(undefined);
+    mockBackgroundPauseTracking.mockResolvedValue(undefined);
+    mockBackgroundResumeTracking.mockResolvedValue(undefined);
     mockGetTotalDistance.mockResolvedValue(0);
     mockGetBackgroundLocations.mockResolvedValue([]);
+    mockGetLatestPaceSignal.mockResolvedValue(null);
     mockLocationStartTracking.mockResolvedValue(undefined);
     mockLocationStopTracking.mockImplementation(() => undefined);
     mockLocationPauseTracking.mockImplementation(() => undefined);
     mockLocationResumeTracking.mockImplementation(() => undefined);
     mockSubscribeToLocation.mockReturnValue(jest.fn());
     mockSubscribeToTrackingData.mockReturnValue(jest.fn());
+    mockSubscribeToPaceSignal.mockReturnValue(jest.fn());
     locationServiceState.totalDistanceMeters = 0;
     locationServiceState.allLocations = [];
 
@@ -339,8 +351,10 @@ describe('useGpsTracking lifecycle', () => {
       result.current.pauseGpsTracking();
       result.current.resumeGpsTracking();
     });
-    expect(mockLocationPauseTracking).toHaveBeenCalledTimes(1);
-    expect(mockLocationResumeTracking).toHaveBeenCalledTimes(1);
+    expect(mockBackgroundPauseTracking).toHaveBeenCalledTimes(1);
+    expect(mockBackgroundResumeTracking).toHaveBeenCalledTimes(1);
+    expect(mockLocationPauseTracking).not.toHaveBeenCalled();
+    expect(mockLocationResumeTracking).not.toHaveBeenCalled();
 
     act(() => {
       result.current.resetGpsTracking();
@@ -348,6 +362,29 @@ describe('useGpsTracking lifecycle', () => {
     expect(result.current.distance).toBe(0);
     expect(result.current.locations).toHaveLength(0);
     expect(result.current.trackingData).toBeNull();
+  });
+
+  it('uses foreground pause/resume handlers when background mode is disabled', async () => {
+    useAppStore.getState().setRunningState(RunningState.Running);
+    const props = createHookProps();
+    const { result } = renderHook(() => useGpsTracking(props));
+
+    act(() => {
+      result.current.setUseBackgroundMode(false);
+    });
+    await waitFor(() => {
+      expect(result.current.useBackgroundMode).toBe(false);
+    });
+
+    act(() => {
+      result.current.pauseGpsTracking();
+      result.current.resumeGpsTracking();
+    });
+
+    expect(mockLocationPauseTracking).toHaveBeenCalledTimes(1);
+    expect(mockLocationResumeTracking).toHaveBeenCalledTimes(1);
+    expect(mockBackgroundPauseTracking).not.toHaveBeenCalled();
+    expect(mockBackgroundResumeTracking).not.toHaveBeenCalled();
   });
 
   it('GPS-LC-010 handles foreground subscriptions and segment creation', async () => {

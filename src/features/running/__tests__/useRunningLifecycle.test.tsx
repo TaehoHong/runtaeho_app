@@ -18,6 +18,8 @@ const mockOfflineAddPendingUpload = jest.fn();
 const mockOfflineAddPendingSegmentUpload = jest.fn();
 const mockBackgroundClearData = jest.fn();
 const mockBackgroundStopTracking = jest.fn();
+const mockBackgroundPauseTracking = jest.fn();
+const mockBackgroundResumeTracking = jest.fn();
 const mockLocationStopTracking = jest.fn();
 const mockLocationPauseTracking = jest.fn();
 const mockLocationResumeTracking = jest.fn();
@@ -70,6 +72,8 @@ jest.mock('~/features/running/services/BackgroundTaskService', () => ({
   backgroundTaskService: {
     clearBackgroundData: (...args: unknown[]) => mockBackgroundClearData(...args),
     stopBackgroundTracking: (...args: unknown[]) => mockBackgroundStopTracking(...args),
+    pauseBackgroundTracking: (...args: unknown[]) => mockBackgroundPauseTracking(...args),
+    resumeBackgroundTracking: (...args: unknown[]) => mockBackgroundResumeTracking(...args),
   },
 }));
 
@@ -106,6 +110,7 @@ const buildHookProps = (overrides?: {
   stopGpsDistance?: number;
   segmentItems?: RunningRecordItem[];
   paceSnapshots?: { timestamp: number; distance: number }[];
+  useBackgroundMode?: boolean;
 }) => {
   const startGpsTracking = jest.fn().mockResolvedValue(undefined);
   const stopGpsTracking = jest
@@ -138,6 +143,7 @@ const buildHookProps = (overrides?: {
       speed: 11.5,
     },
     currentSegmentItems: [],
+    useBackgroundMode: overrides?.useBackgroundMode ?? false,
   };
 
   return {
@@ -163,6 +169,8 @@ describe('useRunningLifecycle', () => {
     mockPedometerGetCurrentCadence.mockReturnValue(0);
     mockBackgroundClearData.mockResolvedValue(undefined);
     mockBackgroundStopTracking.mockResolvedValue(undefined);
+    mockBackgroundPauseTracking.mockResolvedValue(undefined);
+    mockBackgroundResumeTracking.mockResolvedValue(undefined);
     mockPedometerStartTracking.mockResolvedValue(undefined);
     mockSaveRunningRecordItems.mockResolvedValue(undefined);
   });
@@ -264,6 +272,34 @@ describe('useRunningLifecycle', () => {
     expect(result.current.pausedDuration).toBe(6);
     expect(mockLocationResumeTracking).toHaveBeenCalledTimes(1);
     expect(useAppStore.getState().runningState).toBe(RunningState.Running);
+    dateNowSpy.mockRestore();
+  });
+
+  it('pauses and resumes background tracking when background mode is enabled', () => {
+    const dateNowSpy = jest
+      .spyOn(Date, 'now')
+      .mockReturnValueOnce(1000)
+      .mockReturnValueOnce(5000);
+
+    const { props } = buildHookProps({ useBackgroundMode: true });
+    const { result } = renderHook(() => useRunningLifecycle(props));
+
+    act(() => {
+      result.current.pauseRunning();
+    });
+
+    expect(mockBackgroundPauseTracking).toHaveBeenCalledTimes(1);
+    expect(mockLocationPauseTracking).not.toHaveBeenCalled();
+    expect(useAppStore.getState().runningState).toBe(RunningState.Paused);
+
+    act(() => {
+      result.current.resumeRunning();
+    });
+
+    expect(mockBackgroundResumeTracking).toHaveBeenCalledTimes(1);
+    expect(mockLocationResumeTracking).not.toHaveBeenCalled();
+    expect(useAppStore.getState().runningState).toBe(RunningState.Running);
+
     dateNowSpy.mockRestore();
   });
 

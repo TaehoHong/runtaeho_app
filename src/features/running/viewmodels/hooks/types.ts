@@ -46,6 +46,16 @@ export interface PaceSnapshot {
 }
 
 /**
+ * 실시간 페이스 계산용 GPS 신호
+ */
+export interface PaceSignal {
+  timestampMs: number;
+  speedMps?: number;
+  accuracyMeters?: number;
+  distanceDeltaMeters?: number;
+}
+
+/**
  * 기본 RunningStats 초기값
  */
 export const DEFAULT_RUNNING_STATS: RunningStats = {
@@ -114,7 +124,8 @@ export interface UseRunningStatsReturn {
     distanceMeters: number,
     elapsedSeconds: number,
     heartRate?: number,
-    cadence?: number
+    cadence?: number,
+    paceSignal?: PaceSignal
   ) => void;
   resetStats: () => void;
   setElapsedTime: React.Dispatch<React.SetStateAction<number>>;
@@ -146,6 +157,7 @@ export interface UseGpsTrackingReturn {
   locations: Location[];
   trackingData: LocationTrackingData | null;
   useBackgroundMode: boolean;
+  latestPaceSignal: PaceSignal | null;
 
   // Actions
   startGpsTracking: (recordId: number) => Promise<void>;
@@ -200,6 +212,7 @@ export interface UseRunningLifecycleProps {
   elapsedTime: number;
   stats: RunningStats;
   currentSegmentItems: RunningRecordItem[];
+  useBackgroundMode: boolean;
 }
 
 /**

@@ -45,6 +45,7 @@ export const useRunningLifecycle = ({
   elapsedTime,
   stats,
   currentSegmentItems,
+  useBackgroundMode,
 }: UseRunningLifecycleProps): UseRunningLifecycleReturn => {
   // App store
   const runningState = useAppStore((state) => state.runningState);
@@ -150,11 +151,17 @@ export const useRunningLifecycle = ({
    * 러닝 일시정지
    */
   const pauseRunning = useCallback(() => {
-    locationService.pauseTracking();
+    if (useBackgroundMode) {
+      backgroundTaskService.pauseBackgroundTracking().catch((error) => {
+        console.error('[useRunningLifecycle] Failed to pause background tracking:', error);
+      });
+    } else {
+      locationService.pauseTracking();
+    }
     setPauseStartTime(Date.now());
     setRunningState(RunningState.Paused);
     console.log('[useRunningLifecycle] Running paused');
-  }, [setRunningState]);
+  }, [setRunningState, useBackgroundMode]);
 
   /**
    * 러닝 재개
@@ -170,10 +177,16 @@ export const useRunningLifecycle = ({
       );
     }
 
-    locationService.resumeTracking();
+    if (useBackgroundMode) {
+      backgroundTaskService.resumeBackgroundTracking().catch((error) => {
+        console.error('[useRunningLifecycle] Failed to resume background tracking:', error);
+      });
+    } else {
+      locationService.resumeTracking();
+    }
     setRunningState(RunningState.Running);
     console.log('[useRunningLifecycle] Running resumed');
-  }, [pauseStartTime, pausedDuration, setRunningState]);
+  }, [pauseStartTime, pausedDuration, setRunningState, useBackgroundMode]);
 
   /**
    * 러닝 종료

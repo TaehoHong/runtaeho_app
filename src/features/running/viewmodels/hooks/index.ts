@@ -7,6 +7,7 @@
 // Types
 export type {
   PaceData,
+  PaceSignal,
   RunningStats,
   PaceSnapshot,
   PedometerData,

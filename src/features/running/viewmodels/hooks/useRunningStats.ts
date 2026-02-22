@@ -16,10 +16,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
   RunningStats,
   PaceData,
+  PaceSignal,
   PaceSnapshot,
   UseRunningStatsReturn,
 } from './types';
-import { DEFAULT_RUNNING_STATS, DEFAULT_PACE_DATA } from './types';
+import { DEFAULT_RUNNING_STATS } from './types';
+import {
+  calculateDistanceWindowSpeed,
+  createInitialPaceFusionState,
+  fuseInstantPace,
+} from '../../services/gps/PaceFusion';
 
 const INSTANT_PACE_WINDOW_MS = 10000; // 10초 윈도우
 
@@ -31,6 +37,7 @@ export const useRunningStats = (): UseRunningStatsReturn => {
   // Refs
   const statsRef = useRef<RunningStats>(stats);
   const paceSnapshotsRef = useRef<PaceSnapshot[]>([]);
+  const paceFusionStateRef = useRef(createInitialPaceFusionState());
 
   // Sync statsRef with state
   useEffect(() => {
@@ -41,55 +48,42 @@ export const useRunningStats = (): UseRunningStatsReturn => {
    * 순간 페이스 계산 (최근 10초 기준)
    * 현재 거리와 10초 전 거리의 차이로 계산
    */
-  const calculateInstantPace = useCallback((currentDistance: number): PaceData => {
-    const now = Date.now();
+  const calculateInstantPace = useCallback(
+    (currentDistance: number, paceSignal?: PaceSignal): PaceData => {
+      const now = Date.now();
 
-    // 새 스냅샷 추가
-    paceSnapshotsRef.current.push({
-      timestamp: now,
-      distance: currentDistance,
-    });
+      // 새 스냅샷 추가
+      paceSnapshotsRef.current.push({
+        timestamp: now,
+        distance: currentDistance,
+      });
 
-    // 10초 이전 데이터 제거
-    const cutoffTime = now - INSTANT_PACE_WINDOW_MS;
-    paceSnapshotsRef.current = paceSnapshotsRef.current.filter(
-      (snapshot) => snapshot.timestamp >= cutoffTime
-    );
+      // 10초 이전 데이터 제거
+      const cutoffTime = now - INSTANT_PACE_WINDOW_MS;
+      paceSnapshotsRef.current = paceSnapshotsRef.current.filter(
+        (snapshot) => snapshot.timestamp >= cutoffTime
+      );
 
-    const snapshots = paceSnapshotsRef.current;
+      const distanceWindowSpeedMps = calculateDistanceWindowSpeed(
+        paceSnapshotsRef.current,
+        now,
+        INSTANT_PACE_WINDOW_MS
+      );
 
-    // 데이터가 2개 미만이면 계산 불가 - 0 반환
-    if (snapshots.length < 2) {
-      return DEFAULT_PACE_DATA;
-    }
+      const fused = fuseInstantPace(
+        {
+          distanceWindowSpeedMps,
+          paceSignal,
+          nowMs: now,
+        },
+        paceFusionStateRef.current
+      );
 
-    // 가장 오래된 스냅샷과 현재 스냅샷 비교
-    const oldestSnapshot = snapshots[0];
-    const newestSnapshot = snapshots[snapshots.length - 1];
-
-    if (!oldestSnapshot || !newestSnapshot) {
-      return DEFAULT_PACE_DATA;
-    }
-
-    const distanceDelta = newestSnapshot.distance - oldestSnapshot.distance;
-    const timeDeltaSeconds = (newestSnapshot.timestamp - oldestSnapshot.timestamp) / 1000;
-
-    // 거리 변화가 없거나 시간이 너무 짧으면 0 반환
-    if (distanceDelta <= 0 || timeDeltaSeconds < 1) {
-      return DEFAULT_PACE_DATA;
-    }
-
-    // 순간 페이스 계산 (초/km)
-    const instantPaceSeconds = Math.floor((timeDeltaSeconds / distanceDelta) * 1000);
-    const instantPaceMinutes = Math.floor(instantPaceSeconds / 60);
-    const instantPaceSecondsRemainder = instantPaceSeconds % 60;
-
-    return {
-      minutes: instantPaceMinutes,
-      seconds: instantPaceSecondsRemainder,
-      totalSeconds: instantPaceSeconds,
-    };
-  }, []);
+      paceFusionStateRef.current = fused.nextState;
+      return fused.pace;
+    },
+    []
+  );
 
   /**
    * 칼로리 계산
@@ -147,7 +141,8 @@ export const useRunningStats = (): UseRunningStatsReturn => {
       distanceMeters: number,
       elapsedSeconds: number,
       heartRate?: number,
-      cadence?: number
+      cadence?: number,
+      paceSignal?: PaceSignal
     ) => {
       if (elapsedSeconds === 0) return;
 
@@ -158,7 +153,7 @@ export const useRunningStats = (): UseRunningStatsReturn => {
       const paceSecondsRemainder = paceSeconds % 60;
 
       // 순간 페이스 계산 (최근 10초 기준)
-      const instantPace = calculateInstantPace(distanceMeters);
+      const instantPace = calculateInstantPace(distanceMeters, paceSignal);
 
       // 속도 계산 (km/h)
       const speedKmh = distanceMeters > 0 ? (distanceMeters / elapsedSeconds) * 3.6 : 0;
@@ -189,6 +184,7 @@ export const useRunningStats = (): UseRunningStatsReturn => {
     setStats(DEFAULT_RUNNING_STATS);
     setElapsedTime(0);
     paceSnapshotsRef.current = [];
+    paceFusionStateRef.current = createInitialPaceFusionState();
     console.log('[useRunningStats] Stats reset');
   }, []);
 

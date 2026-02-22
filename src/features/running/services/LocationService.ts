@@ -5,7 +5,12 @@
  */
 
 import * as ExpoLocation from 'expo-location';
-import { type Location, createLocationFromPosition, calculateDistance } from '../models/Location';
+import { type Location, createLocationFromPosition } from '../models/Location';
+import {
+  DEFAULT_GPS_FILTER_CONFIG,
+  evaluateGpsSample,
+  type GpsSample,
+} from './gps/GpsFilter';
 
 /**
  * 위치 추적 설정
@@ -31,6 +36,13 @@ export interface LocationTrackingData {
   isTracking: boolean;
 }
 
+export interface LocationPaceSignal {
+  timestampMs: number;
+  speedMps?: number;
+  accuracyMeters?: number;
+  distanceDeltaMeters?: number;
+}
+
 /**
  * 위치 서비스
  * iOS LocationService와 동일한 로직
@@ -43,9 +55,9 @@ export class LocationService {
     accuracy: ExpoLocation.Accuracy.BestForNavigation,
     timeInterval: 1000, // 1초
     distanceInterval: 5, // 5m
-    maximumAcceptableAccuracy: 20.0, // 20m
-    maximumReasonableSpeed: 30.0, // 30km/h
-    minimumDistanceForUpdate: 2.0, // 2m
+    maximumAcceptableAccuracy: 25.0, // 25m
+    maximumReasonableSpeed: 36.0, // 36km/h
+    minimumDistanceForUpdate: 3.0, // 3m
   };
 
   // Tracking state
@@ -55,10 +67,11 @@ export class LocationService {
 
   // Location data
   private locations: Location[] = [];
-  private previousLocation: Location | null = null;
+  private previousSample: GpsSample | null = null;
   private lastValidLocation: Location | null = null;
   private totalDistance: number = 0;
   private speedReadings: number[] = [];
+  private latestPaceSignal: LocationPaceSignal | null = null;
 
   // Validation
   private consecutiveInvalidReadings: number = 0;
@@ -67,6 +80,7 @@ export class LocationService {
   // Callbacks
   private locationCallbacks: Set<(location: Location) => void> = new Set();
   private trackingDataCallbacks: Set<(data: LocationTrackingData) => void> = new Set();
+  private paceSignalCallbacks: Set<(signal: LocationPaceSignal) => void> = new Set();
 
   private constructor() {}
 
@@ -183,88 +197,75 @@ export class LocationService {
     if (!this.isTracking || this.isPaused) return;
 
     const location = createLocationFromPosition(position);
+    const currentSample: GpsSample = {
+      latitude: location.latitude,
+      longitude: location.longitude,
+      timestampMs: location.timestamp.getTime(),
+      speedMps: location.speed,
+      accuracyMeters: location.accuracy,
+    };
 
-    // 위치 데이터 저장
-    this.locations.push(location);
-
-    // 거리 계산
-    if (this.previousLocation) {
-      const distance = calculateDistance(this.previousLocation, location);
-
-      // 유효성 검증
-      if (this.isValidLocationUpdate(location, this.previousLocation, distance)) {
-        this.totalDistance += distance;
-
-        // 속도 기록 저장
-        let speed = 0; // m/s
-        const timeDelta = (location.timestamp.getTime() - this.previousLocation.timestamp.getTime()) / 1000;
-        if (timeDelta > 0) {
-          speed = distance / timeDelta; // m/s
-          this.speedReadings.push(speed);
-
-          // 최근 30개만 유지 (약 30초)
-          if (this.speedReadings.length > 30) {
-            this.speedReadings.shift();
-          }
-        }
-
-        this.consecutiveInvalidReadings = 0;
-        this.lastValidLocation = location;
-
-        // 콜백 호출
-        this.locationCallbacks.forEach(callback => callback(location));
-        this.notifyTrackingDataUpdate();
-
-        console.log(
-          `[LocationService] Distance: ${distance.toFixed(2)}m, ` +
-          `Total: ${this.totalDistance.toFixed(2)}m, ` +
-          `Speed: ${(speed * 3.6).toFixed(1)} km/h`
-        );
-      } else {
-        this.consecutiveInvalidReadings++;
-        console.log('[LocationService] Invalid location update ignored');
-
-        // 너무 많은 무효 데이터 시 경고
-        if (this.consecutiveInvalidReadings >= this.maxConsecutiveInvalidReadings) {
-          console.warn('[LocationService] Too many consecutive invalid readings');
-        }
+    const filterResult = evaluateGpsSample(
+      this.previousSample,
+      currentSample,
+      {
+        ...DEFAULT_GPS_FILTER_CONFIG,
+        maxAccuracyMeters: this.config.maximumAcceptableAccuracy,
+        minDistanceMeters: this.config.minimumDistanceForUpdate,
+        maxSpeedKmh: this.config.maximumReasonableSpeed,
       }
-    } else {
-      // 첫 번째 위치
+    );
+
+    this.previousSample = currentSample;
+
+    if (filterResult.acceptedForPace) {
+      this.latestPaceSignal = {
+        timestampMs: currentSample.timestampMs,
+        speedMps: filterResult.speedMps,
+        accuracyMeters: currentSample.accuracyMeters,
+        distanceDeltaMeters: filterResult.acceptedForDistance ? filterResult.distanceMeters : 0,
+      };
+      if (this.latestPaceSignal) {
+        this.paceSignalCallbacks.forEach((callback) => callback(this.latestPaceSignal!));
+      }
+    }
+
+    if (filterResult.acceptedForPath) {
+      this.locations.push(location);
       this.lastValidLocation = location;
+      this.locationCallbacks.forEach((callback) => callback(location));
     }
 
-    this.previousLocation = location;
-  }
+    if (filterResult.acceptedForDistance) {
+      this.totalDistance += filterResult.distanceMeters;
 
-  /**
-   * 위치 업데이트 유효성 검증
-   */
-  private isValidLocationUpdate(
-    location: Location,
-    previousLocation: Location,
-    distance: number
-  ): boolean {
-    // 정확도 체크
-    if (location.accuracy && location.accuracy > this.config.maximumAcceptableAccuracy) {
-      return false;
+      this.speedReadings.push(filterResult.speedMps);
+      if (this.speedReadings.length > 30) {
+        this.speedReadings.shift();
+      }
+
+      this.consecutiveInvalidReadings = 0;
+      this.notifyTrackingDataUpdate();
+
+      console.log(
+        `[LocationService] Distance: ${filterResult.distanceMeters.toFixed(2)}m, ` +
+        `Total: ${this.totalDistance.toFixed(2)}m, ` +
+        `Speed: ${(filterResult.speedMps * 3.6).toFixed(1)} km/h`
+      );
+      return;
     }
 
-    // 최소 거리 체크
-    if (distance < this.config.minimumDistanceForUpdate) {
-      return false;
-    }
-
-    // 속도 체크 (비정상적으로 빠른 이동 방지)
-    const timeDelta = (location.timestamp.getTime() - previousLocation.timestamp.getTime()) / 1000;
-    if (timeDelta > 0) {
-      const speedKmh = (distance / timeDelta) * 3.6;
-      if (speedKmh > this.config.maximumReasonableSpeed) {
-        return false;
+    if (filterResult.reason !== 'NO_PREVIOUS_SAMPLE') {
+      this.consecutiveInvalidReadings++;
+      console.log(`[LocationService] Invalid location update ignored (${filterResult.reason})`);
+      if (this.consecutiveInvalidReadings >= this.maxConsecutiveInvalidReadings) {
+        console.warn('[LocationService] Too many consecutive invalid readings');
       }
     }
 
-    return true;
+    if (filterResult.acceptedForPath) {
+      this.notifyTrackingDataUpdate();
+    }
   }
 
   /**
@@ -272,11 +273,12 @@ export class LocationService {
    */
   private resetTrackingState(): void {
     this.locations = [];
-    this.previousLocation = null;
+    this.previousSample = null;
     this.lastValidLocation = null;
     this.totalDistance = 0;
     this.speedReadings = [];
     this.consecutiveInvalidReadings = 0;
+    this.latestPaceSignal = null;
   }
 
   /**
@@ -294,7 +296,11 @@ export class LocationService {
    */
   getCurrentTrackingData(): LocationTrackingData {
     const currentLocation = this.locations[this.locations.length - 1] || null;
-    const currentSpeed = currentLocation?.speed ? currentLocation.speed * 3.6 : 0;
+    const currentSpeed = this.latestPaceSignal?.speedMps
+      ? this.latestPaceSignal.speedMps * 3.6
+      : currentLocation?.speed
+        ? currentLocation.speed * 3.6
+        : 0;
     const averageSpeed = this.calculateAverageSpeed();
     const accuracy = currentLocation?.accuracy || 0;
 
@@ -329,6 +335,16 @@ export class LocationService {
   }
 
   /**
+   * 실시간 페이스 신호 구독
+   */
+  subscribeToPaceSignal(callback: (signal: LocationPaceSignal) => void): () => void {
+    this.paceSignalCallbacks.add(callback);
+    return () => {
+      this.paceSignalCallbacks.delete(callback);
+    };
+  }
+
+  /**
    * 추적 데이터 업데이트 알림
    */
   private notifyTrackingDataUpdate(): void {
@@ -353,6 +369,10 @@ export class LocationService {
 
   get isCurrentlyPaused(): boolean {
     return this.isPaused;
+  }
+
+  getLatestPaceSignal(): LocationPaceSignal | null {
+    return this.latestPaceSignal;
   }
 
   /**

@@ -77,6 +77,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     locations,
     trackingData,
     useBackgroundMode,
+    latestPaceSignal,
     startGpsTracking,
     stopGpsTracking,
     pauseGpsTracking,
@@ -127,6 +128,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     elapsedTime,
     stats,
     currentSegmentItems,
+    useBackgroundMode,
   });
 
   // ============================================
@@ -154,7 +156,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
         setElapsedTime(actualElapsed);
 
         // 실시간 통계 업데이트 (센서 데이터 포함 - 원본 코드 복원)
-        updateStats(distance, actualElapsed, sensorHeartRate, sensorCadence);
+        updateStats(distance, actualElapsed, sensorHeartRate, sensorCadence, latestPaceSignal);
       }, 1000);
     }
 
@@ -167,6 +169,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     distance,
     sensorHeartRate,
     sensorCadence,
+    latestPaceSignal,
     pausedDuration,
     updateStats,
     setElapsedTime,

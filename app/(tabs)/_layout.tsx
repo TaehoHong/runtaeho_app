@@ -1,7 +1,8 @@
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAppStore, RunningState, ViewState } from '~/stores/app/appStore';
+import { useAppStore } from '~/stores/app/appStore';
 import { Icon } from '~/shared/components/ui';
+import { isTabBarVisible } from '~/shared/utils/tabBarVisibility';
 
 /**
  * 메인 탭 네비게이션 레이아웃
@@ -14,13 +15,20 @@ export default function TabLayout() {
   const insets = useSafeAreaInsets();
 
   // iOS와 동일한 로직: 러닝 중이 아니고 로딩 완료 시에만 탭바 표시
-  const shouldShowTabBar = runningState === RunningState.Stopped && viewState === ViewState.Loaded;
+  const shouldShowTabBar = isTabBarVisible(runningState, viewState);
 
   console.log('📋 [TAB_LAYOUT] 탭 레이아웃 렌더링, 탭바 표시:', shouldShowTabBar);
 
   return (
     <Tabs
       initialRouteName="running"
+      screenListeners={{
+        tabPress: (e) => {
+          if (!shouldShowTabBar) {
+            e.preventDefault();
+          }
+        },
+      }}
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
@@ -35,8 +43,7 @@ export default function TabLayout() {
           paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
           paddingTop: 5,
           height: 60 + (insets.bottom > 0 ? insets.bottom : 10),
-          opacity: shouldShowTabBar ? 1 : 0,
-          pointerEvents: shouldShowTabBar ? 'auto' : 'none',
+          display: shouldShowTabBar ? 'flex' : 'none',
         },
         tabBarActiveTintColor: '#45DA31',
         tabBarInactiveTintColor: '#B4B4B4',

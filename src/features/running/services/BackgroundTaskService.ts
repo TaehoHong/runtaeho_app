@@ -9,8 +9,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import { Platform } from 'react-native';
+import {
+  DEFAULT_GPS_FILTER_CONFIG,
+  evaluateGpsSample,
+  type GpsSample,
+} from './gps/GpsFilter';
 import { RED } from '~/shared/styles';
-import { calculateHaversineDistance } from '~/shared/utils/DistanceUtils';
 
 /**
  * Task 이름 상수
@@ -24,6 +28,8 @@ const STORAGE_KEYS = {
   RUNNING_SESSION: '@running_session',
   BACKGROUND_LOCATIONS: '@background_locations',
   TOTAL_DISTANCE: '@total_distance',
+  LATEST_PACE_SIGNAL: '@latest_pace_signal',
+  GPS_FILTER_STATE: '@gps_filter_state',
 } as const;
 
 /**
@@ -47,6 +53,17 @@ interface BackgroundLocationData {
   speed: number;
   altitude: number;
   accuracy: number;
+}
+
+interface BackgroundGpsFilterState {
+  lastSample: GpsSample | null;
+}
+
+export interface BackgroundPaceSignal {
+  timestampMs: number;
+  speedMps?: number;
+  accuracyMeters?: number;
+  distanceDeltaMeters?: number;
 }
 
 /**
@@ -86,45 +103,60 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
         ? JSON.parse(storedLocationsData)
         : [];
 
+      const filterStateData = await AsyncStorage.getItem(STORAGE_KEYS.GPS_FILTER_STATE);
+      const gpsFilterState: BackgroundGpsFilterState = filterStateData
+        ? JSON.parse(filterStateData)
+        : { lastSample: null };
+
       // 새로운 위치들 처리
       let totalDistanceAdded = 0;
       const newLocations: BackgroundLocationData[] = [];
+      let latestPaceSignal: BackgroundPaceSignal | null = null;
 
       for (const location of locations) {
-        const newLocation: BackgroundLocationData = {
+        const currentSample: GpsSample = {
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
+          timestampMs: location.timestamp,
+          speedMps: location.coords.speed ?? undefined,
+          accuracyMeters: location.coords.accuracy ?? undefined,
+        };
+
+        const newLocation: BackgroundLocationData = {
+          latitude: currentSample.latitude,
+          longitude: currentSample.longitude,
           timestamp: location.timestamp,
           speed: location.coords.speed || 0,
           altitude: location.coords.altitude || 0,
           accuracy: location.coords.accuracy || 0,
         };
 
-        // 거리 계산 (이전 위치가 있을 때만)
-        const previousLocation = newLocations.length > 0
-          ? newLocations[newLocations.length - 1]
-          : storedLocations.length > 0
-            ? storedLocations[storedLocations.length - 1]
-            : undefined;
+        const filterResult = evaluateGpsSample(
+          gpsFilterState.lastSample,
+          currentSample,
+          DEFAULT_GPS_FILTER_CONFIG
+        );
 
-        if (previousLocation) {
-          // 유효성 검증
-          if (newLocation.accuracy <= 20) { // 20m 이하 정확도만 사용
-            const distance = calculateHaversineDistance(
-              previousLocation.latitude,
-              previousLocation.longitude,
-              newLocation.latitude,
-              newLocation.longitude
-            );
-
-            // 비정상적인 거리 필터링 (2m ~ 100m)
-            if (distance >= 2 && distance <= 100) {
-              totalDistanceAdded += distance;
-            }
-          }
+        if (filterResult.acceptedForDistance) {
+          totalDistanceAdded += filterResult.distanceMeters;
         }
 
-        newLocations.push(newLocation);
+        if (filterResult.acceptedForPath) {
+          newLocations.push(newLocation);
+        }
+
+        if (filterResult.acceptedForPace) {
+          latestPaceSignal = {
+            timestampMs: currentSample.timestampMs,
+            speedMps: filterResult.speedMps,
+            accuracyMeters: currentSample.accuracyMeters,
+            distanceDeltaMeters: filterResult.acceptedForDistance
+              ? filterResult.distanceMeters
+              : 0,
+          };
+        }
+
+        gpsFilterState.lastSample = currentSample;
       }
 
       // 업데이트된 데이터 저장
@@ -135,11 +167,18 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
         locationCount: updatedLocations.length,
       };
 
-      await AsyncStorage.multiSet([
+      const updates: [string, string][] = [
         [STORAGE_KEYS.BACKGROUND_LOCATIONS, JSON.stringify(updatedLocations)],
         [STORAGE_KEYS.RUNNING_SESSION, JSON.stringify(updatedSession)],
         [STORAGE_KEYS.TOTAL_DISTANCE, updatedSession.totalDistance.toString()],
-      ]);
+        [STORAGE_KEYS.GPS_FILTER_STATE, JSON.stringify(gpsFilterState)],
+      ];
+
+      if (latestPaceSignal) {
+        updates.push([STORAGE_KEYS.LATEST_PACE_SIGNAL, JSON.stringify(latestPaceSignal)]);
+      }
+
+      await AsyncStorage.multiSet(updates);
 
       // console.log(
       //   `[BackgroundTask] Processed ${newLocations.length} locations, ` +
@@ -196,6 +235,8 @@ export class BackgroundTaskService {
         [STORAGE_KEYS.RUNNING_SESSION, JSON.stringify(session)],
         [STORAGE_KEYS.BACKGROUND_LOCATIONS, JSON.stringify([])],
         [STORAGE_KEYS.TOTAL_DISTANCE, '0'],
+        [STORAGE_KEYS.GPS_FILTER_STATE, JSON.stringify({ lastSample: null })],
+        [STORAGE_KEYS.LATEST_PACE_SIGNAL, JSON.stringify(null)],
       ]);
 
       // Task가 이미 등록되어 있는지 확인
@@ -206,10 +247,10 @@ export class BackgroundTaskService {
 
       // 백그라운드 위치 업데이트 시작
       await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, {
-        accuracy: Location.Accuracy.BestForNavigation,
-        timeInterval: 1000, // 1초
+        accuracy: Location.Accuracy.High,
+        timeInterval: 2000, // 2초
         distanceInterval: 5, // 5m
-        deferredUpdatesInterval: 1000,
+        deferredUpdatesInterval: 2000,
         deferredUpdatesDistance: 5,
         showsBackgroundLocationIndicator: true,
         // Foreground Service 설정 (Android)
@@ -257,6 +298,46 @@ export class BackgroundTaskService {
   }
 
   /**
+   * 백그라운드 추적 일시정지 (세션 비활성화)
+   */
+  async pauseBackgroundTracking(): Promise<void> {
+    try {
+      const sessionData = await AsyncStorage.getItem(STORAGE_KEYS.RUNNING_SESSION);
+      if (!sessionData) return;
+
+      const session: BackgroundRunningSession = JSON.parse(sessionData);
+      await AsyncStorage.multiSet([
+        [STORAGE_KEYS.RUNNING_SESSION, JSON.stringify({ ...session, isActive: false })],
+        [STORAGE_KEYS.GPS_FILTER_STATE, JSON.stringify({ lastSample: null })],
+      ]);
+      console.log('[BackgroundTask] Paused background tracking');
+    } catch (error) {
+      console.error('[BackgroundTask] Failed to pause:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 백그라운드 추적 재개 (세션 활성화 + 필터 재앵커)
+   */
+  async resumeBackgroundTracking(): Promise<void> {
+    try {
+      const sessionData = await AsyncStorage.getItem(STORAGE_KEYS.RUNNING_SESSION);
+      if (!sessionData) return;
+
+      const session: BackgroundRunningSession = JSON.parse(sessionData);
+      await AsyncStorage.multiSet([
+        [STORAGE_KEYS.RUNNING_SESSION, JSON.stringify({ ...session, isActive: true })],
+        [STORAGE_KEYS.GPS_FILTER_STATE, JSON.stringify({ lastSample: null })],
+      ]);
+      console.log('[BackgroundTask] Resumed background tracking');
+    } catch (error) {
+      console.error('[BackgroundTask] Failed to resume:', error);
+      throw error;
+    }
+  }
+
+  /**
    * 현재 세션 정보 조회
    */
   async getCurrentSession(): Promise<BackgroundRunningSession | null> {
@@ -265,6 +346,19 @@ export class BackgroundTaskService {
       return sessionData ? JSON.parse(sessionData) : null;
     } catch (error) {
       console.error('[BackgroundTask] Failed to get session:', error);
+      return null;
+    }
+  }
+
+  /**
+   * 최신 실시간 페이스 신호 조회
+   */
+  async getLatestPaceSignal(): Promise<BackgroundPaceSignal | null> {
+    try {
+      const raw = await AsyncStorage.getItem(STORAGE_KEYS.LATEST_PACE_SIGNAL);
+      return raw ? JSON.parse(raw) : null;
+    } catch (error) {
+      console.error('[BackgroundTask] Failed to get latest pace signal:', error);
       return null;
     }
   }
@@ -304,6 +398,8 @@ export class BackgroundTaskService {
         STORAGE_KEYS.RUNNING_SESSION,
         STORAGE_KEYS.BACKGROUND_LOCATIONS,
         STORAGE_KEYS.TOTAL_DISTANCE,
+        STORAGE_KEYS.LATEST_PACE_SIGNAL,
+        STORAGE_KEYS.GPS_FILTER_STATE,
       ]);
       console.log('[BackgroundTask] Cleared background data');
     } catch (error) {

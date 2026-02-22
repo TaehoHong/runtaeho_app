@@ -17,7 +17,7 @@ import type { Location } from '../../models';
 import { locationService, type LocationTrackingData } from '../../services/LocationService';
 import { backgroundTaskService } from '../../services/BackgroundTaskService';
 import { useAppStore, RunningState } from '~/stores/app/appStore';
-import type { UseGpsTrackingProps, UseGpsTrackingReturn } from './types';
+import type { PaceSignal, UseGpsTrackingProps, UseGpsTrackingReturn } from './types';
 
 const SEGMENT_DISTANCE_THRESHOLD = 10.0; // 10미터마다 세그먼트 생성
 
@@ -34,6 +34,7 @@ export const useGpsTracking = ({
   const [locations, setLocations] = useState<Location[]>([]);
   const [trackingData, setTrackingData] = useState<LocationTrackingData | null>(null);
   const [useBackgroundMode, setUseBackgroundMode] = useState<boolean>(true);
+  const [latestPaceSignal, setLatestPaceSignal] = useState<PaceSignal | null>(null);
 
   /**
    * GPS 추적 시작
@@ -95,17 +96,29 @@ export const useGpsTracking = ({
    * GPS 추적 일시정지
    */
   const pauseGpsTracking = useCallback(() => {
-    locationService.pauseTracking();
+    if (useBackgroundMode) {
+      backgroundTaskService.pauseBackgroundTracking().catch((error) => {
+        console.error('[useGpsTracking] Failed to pause background tracking:', error);
+      });
+    } else {
+      locationService.pauseTracking();
+    }
     console.log('[useGpsTracking] GPS tracking paused');
-  }, []);
+  }, [useBackgroundMode]);
 
   /**
    * GPS 추적 재개
    */
   const resumeGpsTracking = useCallback(() => {
-    locationService.resumeTracking();
+    if (useBackgroundMode) {
+      backgroundTaskService.resumeBackgroundTracking().catch((error) => {
+        console.error('[useGpsTracking] Failed to resume background tracking:', error);
+      });
+    } else {
+      locationService.resumeTracking();
+    }
     console.log('[useGpsTracking] GPS tracking resumed');
-  }, []);
+  }, [useBackgroundMode]);
 
   /**
    * GPS 데이터 초기화
@@ -114,6 +127,7 @@ export const useGpsTracking = ({
     setDistance(0);
     setLocations([]);
     setTrackingData(null);
+    setLatestPaceSignal(null);
     console.log('[useGpsTracking] GPS tracking reset');
   }, []);
 
@@ -171,11 +185,21 @@ export const useGpsTracking = ({
       }
     });
 
+    const unsubscribePaceSignal = locationService.subscribeToPaceSignal((paceSignal) => {
+      setLatestPaceSignal({
+        timestampMs: paceSignal.timestampMs,
+        speedMps: paceSignal.speedMps,
+        accuracyMeters: paceSignal.accuracyMeters,
+        distanceDeltaMeters: paceSignal.distanceDeltaMeters,
+      });
+    });
+
     console.log('[useGpsTracking] GPS subscription active (foreground mode)');
 
     return () => {
       unsubscribeLocation();
       unsubscribeTracking();
+      unsubscribePaceSignal();
       console.log('[useGpsTracking] GPS subscription cleanup');
     };
   }, [
@@ -202,6 +226,16 @@ export const useGpsTracking = ({
         try {
           const totalDistance = await backgroundTaskService.getTotalDistance();
           const allLocations = await backgroundTaskService.getBackgroundLocations();
+          const paceSignal = await backgroundTaskService.getLatestPaceSignal();
+
+          if (paceSignal) {
+            setLatestPaceSignal({
+              timestampMs: paceSignal.timestampMs,
+              speedMps: paceSignal.speedMps,
+              accuracyMeters: paceSignal.accuracyMeters,
+              distanceDeltaMeters: paceSignal.distanceDeltaMeters,
+            });
+          }
 
           // 거리 업데이트
           setDistance(totalDistance);
@@ -316,6 +350,7 @@ export const useGpsTracking = ({
     locations,
     trackingData,
     useBackgroundMode,
+    latestPaceSignal,
 
     // Actions
     startGpsTracking,
