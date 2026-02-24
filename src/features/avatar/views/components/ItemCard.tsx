@@ -19,7 +19,9 @@ interface Props {
 }
 
 const screenWidth = Dimensions.get('window').width;
-const cardWidth = (screenWidth - GRID_LAYOUT.HORIZONTAL_PADDING * 2 - GRID_LAYOUT.ITEM_SPACING * 2) / GRID_LAYOUT.NUM_COLUMNS;
+const totalHorizontalPadding = GRID_LAYOUT.HORIZONTAL_PADDING * 2;
+const totalColumnSpacing = GRID_LAYOUT.ITEM_SPACING * (GRID_LAYOUT.NUM_COLUMNS - 1);
+const cardWidth = (screenWidth - totalHorizontalPadding - totalColumnSpacing) / GRID_LAYOUT.NUM_COLUMNS;
 
 export const AvatarItemCard: React.FC<Props> = ({ item, hairColor, isSelected, onPress }) => {
   const itemImage = resolveAvatarItemImage(item, hairColor);

@@ -612,7 +612,7 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
         Log.d(TAG, "setBackgroundFromPhoto: (base64 image length: ${base64Image.length})")
 
         try {
-            UnityHolder.sendMessage("Background", "SetBackgroundFromPhoto", base64Image)
+            UnityHolder.sendMessage("Background", "SetBackgroundFromBase64", base64Image)
             promise.resolve(null)
         } catch (e: Exception) {
             Log.e(TAG, "setBackgroundFromPhoto error: ${e.message}", e)

@@ -139,7 +139,7 @@ export function getUnityPartName(itemTypeId: number): string {
  * 그리드 레이아웃 설정
  */
 export const GRID_LAYOUT = {
-  NUM_COLUMNS: 3,
+  NUM_COLUMNS: 4,
   ITEM_SPACING: 10,
   HORIZONTAL_PADDING: 20,
 } as const;
