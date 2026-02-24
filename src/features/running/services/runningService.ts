@@ -193,7 +193,7 @@ export const runningService = {
    */
   saveRunningRecordItems: async (params: {
     runningRecordId: number;
-    items: Array<{
+    items: {
       distance: number;           // 미터
       durationSec: number;        // 초
       cadence: number | null;            // steps/min
@@ -204,7 +204,7 @@ export const runningService = {
       startTimeStamp: number;     // Unix timestamp (초)
       endTimeStamp: number;       // Unix timestamp (초)
       gpsPoints?: RunningRecordItemGpsPoint[];
-    }>;
+    }[];
   }): Promise<void> => {
     await apiClient.post(
       API_ENDPOINTS.RUNNING.ITEMS(params.runningRecordId),

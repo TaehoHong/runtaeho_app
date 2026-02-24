@@ -13,7 +13,7 @@ jest.mock('~/services/api/client', () => ({
 }));
 
 class MockFormData {
-  entries: Array<[string, unknown]> = [];
+  entries: [string, unknown][] = [];
 
   append(key: string, value: unknown) {
     this.entries.push([key, value]);

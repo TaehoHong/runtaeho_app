@@ -13,7 +13,7 @@ initializeSentry();
 
 // 🔧 개발 환경 전용: API 로깅 인터셉터 등록
 if (__DEV__) {
-  require('~/services/api/interceptors');
+  void import('~/services/api/interceptors');
 }
 
 // Sentry 활성화 여부 확인

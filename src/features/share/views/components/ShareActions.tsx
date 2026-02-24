@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { GREY, PRIMARY } from '~/shared/styles';
+import { GREY } from '~/shared/styles';
 
 interface ShareActionsProps {
   /** 공유 버튼 클릭 콜백 */

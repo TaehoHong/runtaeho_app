@@ -14,7 +14,7 @@ import Animated, {
 import { scheduleOnRN } from 'react-native-worklets';
 import type { StatType, ElementTransform } from '../../models/types';
 import { SCALE_RANGES } from '../../constants/shareOptions';
-import { GREY, PRIMARY } from '~/shared/styles';
+import { GREY } from '~/shared/styles';
 
 interface DraggableStatProps {
   /** 통계 항목 타입 */
@@ -60,7 +60,17 @@ export const DraggableStat: React.FC<DraggableStatProps> = ({
     offsetY.value = transform.y;
     scale.value = transform.scale;
     savedScale.value = transform.scale;
-  }, [transform.x, transform.y, transform.scale]);
+  }, [
+    offsetX,
+    offsetY,
+    savedScale,
+    scale,
+    transform.x,
+    transform.y,
+    transform.scale,
+    translateX,
+    translateY,
+  ]);
 
   // 변환 업데이트 함수 (JS 스레드에서 실행)
   const updateTransform = (x: number, y: number, s: number) => {

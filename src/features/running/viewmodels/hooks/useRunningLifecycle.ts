@@ -13,11 +13,10 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import type { RunningRecord, EndRunningRecord, RunningRecordItem } from '../../models';
+import type { RunningRecord, EndRunningRecord } from '../../models';
 import {
   createRunningRecord,
   updateRunningRecord,
-  formatRunningRecord,
 } from '../../models';
 import { useStartRunning, useEndRunning, useUpdateRunningRecord } from '../../services';
 import { runningService } from '../../services/runningService';
@@ -27,8 +26,7 @@ import { backgroundTaskService } from '../../services/BackgroundTaskService';
 import { locationService } from '../../services/LocationService';
 import { useAppStore, RunningState } from '~/stores/app/appStore';
 import { permissionManager } from '~/services/PermissionManager';
-import type { UseRunningLifecycleProps, UseRunningLifecycleReturn, RunningStats } from './types';
-import { DEFAULT_RUNNING_STATS } from './types';
+import type { UseRunningLifecycleProps, UseRunningLifecycleReturn } from './types';
 
 export const useRunningLifecycle = ({
   statsRef,

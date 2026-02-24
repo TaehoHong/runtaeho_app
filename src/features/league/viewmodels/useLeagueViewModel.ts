@@ -4,15 +4,12 @@
  */
 
 import { useCallback, useMemo } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '../../../services/queryClient';
 import { useGetCurrentLeague, useJoinLeague } from '../services';
 import {
   formatDistance,
   getTierType,
   getPromotionStatus,
   calculateProgressPosition,
-  type CurrentLeague,
   type LeagueParticipant,
   type PromotionStatus,
 } from '../models';
@@ -44,8 +41,6 @@ export interface FormattedLeagueData {
 }
 
 export const useLeagueViewModel = () => {
-  const queryClient = useQueryClient();
-
   // 현재 리그 정보 조회
   const {
     data: currentLeague,

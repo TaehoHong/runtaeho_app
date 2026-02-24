@@ -16,7 +16,6 @@
 
 import { useCallback, useEffect } from 'react';
 import { RunningState } from '~/stores/app/appStore';
-import type { Location } from '../models';
 import { formatRunningRecord } from '../models';
 
 // Import hooks
@@ -55,14 +54,11 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
   // ============================================
   const {
     currentSegmentItems,
-    segmentDistance,
-    segmentLocations,
     segmentItemsRef,
     segmentStartTimeRef,
     createSegment,
     finalizeCurrentSegment,
     initializeSegmentTracking,
-    processDistanceUpdate,
     resetSegments,
     setSegmentDistance,
     setSegmentLocations,
@@ -80,8 +76,6 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     latestPaceSignal,
     startGpsTracking,
     stopGpsTracking,
-    pauseGpsTracking,
-    resumeGpsTracking,
     setUseBackgroundMode,
     resetGpsTracking,
   } = useGpsTracking({
@@ -104,7 +98,6 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     pausedDuration,
     sensorHeartRate,
     sensorCadence,
-    pedometerData,
     isStarting,
     isEnding,
     startRunning,

@@ -57,7 +57,6 @@ export const TermsListView: React.FC<TermsListViewProps> = ({ onClose }) => {
 
   const handleTermPress = (term: TermItem) => {
     const label = TERM_TYPE_LABELS[term.type];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     router.push({
       pathname: '/user/terms-detail' as any,
       params: {

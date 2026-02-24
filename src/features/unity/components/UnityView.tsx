@@ -16,6 +16,7 @@ interface UnityViewProps extends ViewProps {
 const NativeUnityView = requireNativeComponent<UnityViewProps>('UnityView');
 
 export const UnityView: React.FC<UnityViewProps> = (props) => {
+  const { onUnityReady, onUnityError, ...restProps } = props;
   const viewRef = useRef(null);
 
   // ⚠️ 중요: UnityView 마운트 시 GameObject Ready 상태 리셋
@@ -45,18 +46,18 @@ export const UnityView: React.FC<UnityViewProps> = (props) => {
   // ★ 의존성을 props 전체가 아닌 특정 콜백으로 변경 (불필요한 재생성 방지)
   const handleUnityReady = useCallback((event: any) => {
     console.log('[UnityView] onUnityReady event received:', event.nativeEvent);
-    props.onUnityReady?.(event);
-  }, [props.onUnityReady]);
+    onUnityReady?.(event);
+  }, [onUnityReady]);
 
   const handleUnityError = useCallback((event: any) => {
     console.error('[UnityView] onUnityError event received:', event.nativeEvent);
-    props.onUnityError?.(event);
-  }, [props.onUnityError]);
+    onUnityError?.(event);
+  }, [onUnityError]);
 
   return (
     <NativeUnityView
       ref={viewRef}
-      {...props}
+      {...restProps}
       onUnityReady={handleUnityReady}
       onUnityError={handleUnityError}
     />

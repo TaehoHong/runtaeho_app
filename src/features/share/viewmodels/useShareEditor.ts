@@ -26,6 +26,7 @@ import {
   BACKGROUND_OPTIONS,
 } from '../constants/shareOptions';
 import { shareService } from '../services/shareService';
+import type { UnityReadyEvent } from '~/features/unity/bridge/UnityBridge';
 import { unityService } from '~/features/unity/services/UnityService';
 import { useUnityReadiness } from '~/features/unity/hooks';
 
@@ -33,7 +34,6 @@ import { useUnityReadiness } from '~/features/unity/hooks';
 // RN PREVIEW 좌표계와 Unity Viewport 좌표계 간의 비율 차이 보정
 const UNITY_SCALE_FACTOR_X = 1.0;
 const UNITY_SCALE_FACTOR_Y = 1.0;
-import type { UnityReadyEvent } from '~/features/unity/bridge/UnityBridge';
 
 // ★ 캐릭터 초기 위치/스케일 상수 (RN 좌표계 기준)
 // 모든 초기화 로직에서 동일한 값을 사용하여 빨간 박스와 Unity 캐릭터 위치 동기화

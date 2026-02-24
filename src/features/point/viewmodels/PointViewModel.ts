@@ -9,7 +9,6 @@ import {
   filterPointHistories,
   getIsEarnedFromFilter,
   getThreeMonthsAgo,
-  calculatePointStatistics,
 } from '../models';
 
 /**
@@ -171,13 +170,6 @@ export const usePointViewModel = (pointOverride?: number) => {
     console.log('[PointViewModel] Total items:', filteredPointHistory.length);
     console.log('[PointViewModel] Recent items:', allRecentHistories.length, ', Older items:', olderHistories.length);
   }, [olderHistoriesData?.hasNext, isLoadingOlder, filteredPointHistory.length, allRecentHistories.length, olderHistories.length]);
-
-  /**
-   * 포인트 통계 계산 (로컬)
-   */
-  const localStatistics = useMemo(() => {
-    return calculatePointStatistics(filteredPointHistory);
-  }, [filteredPointHistory]);
 
   return {
     // State

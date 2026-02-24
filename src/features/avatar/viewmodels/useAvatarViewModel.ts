@@ -9,7 +9,7 @@
  * iOS AvatarManagementViewModel 포팅
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ITEM_CATEGORIES,
   ItemStatus,
@@ -17,6 +17,7 @@ import {
   usePurchaseItems,
   useUpdateEquippedItems,
   type Item,
+  type ItemStatusValue,
   type EquippedItemsMap,
   type HairColor,
   DEFAULT_HAIR_COLOR,
@@ -59,7 +60,7 @@ function toItems(
     );
 
     // 상태 결정 로직
-    let status: ItemStatus;
+    let status: ItemStatusValue;
     if (isEquipped) {
       status = ItemStatus.EQUIPPED;      // 착용 중
     } else if (item.isOwned === true) {
@@ -155,6 +156,8 @@ export function useAvatarViewModel(): AvatarViewModel {
 
   // 전역 equippedItems를 항상 Map으로 정규화해 사용
   const globalEquippedMap = useMemo<EquippedItemsMap>(() => normalizeEquippedMap(globalEquippedItems), [globalEquippedItems]);
+  const initialEquippedMapRef = useRef(globalEquippedMap);
+  const initialHairColorRef = useRef(globalHairColor);
 
   // ===================================
   // Local State
@@ -188,7 +191,6 @@ export function useAvatarViewModel(): AvatarViewModel {
     data: itemsData,
     fetchNextPage,
     hasNextPage,
-    isFetching,
   } = useAvatarItems(selectedCategory);
 
   const purchaseMutation = usePurchaseItems();
@@ -268,8 +270,8 @@ export function useAvatarViewModel(): AvatarViewModel {
 
   // 아바타 화면 마운트 시 Unity에 현재 장착 아이템과 헤어 색상 전송
   useEffect(() => {
-    const items = Object.values(globalEquippedMap).filter((item): item is Item => !!item);
-    const hairColor = globalHairColor || DEFAULT_HAIR_COLOR.hex;
+    const items = Object.values(initialEquippedMapRef.current).filter((item): item is Item => !!item);
+    const hairColor = initialHairColorRef.current || DEFAULT_HAIR_COLOR.hex;
 
     if (items.length > 0) {
       unityService.changeAvatar(items, hairColor);

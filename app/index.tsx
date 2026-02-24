@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useAppStore, ViewState } from '~/stores/app/appStore';
-import { router } from 'expo-router';
 import '~/config/apiSetup';
-import { useAuthStore } from '~/features/auth/stores/authStore';
 import * as Font from 'expo-font'
 
 /**
@@ -13,7 +11,6 @@ import * as Font from 'expo-font'
 export default function Index() {
   console.log('🚀 [APP] 앱 메인 진입점 시작');
 
-  const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const viewState = useAppStore((state) => state.viewState);
   const [isInitialized, setIsInitialized] = useState(false);
   const [fontsLoaded] = Font.useFonts({

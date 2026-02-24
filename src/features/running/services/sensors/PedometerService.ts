@@ -8,7 +8,6 @@
  */
 
 import { Pedometer } from 'expo-sensors';
-import { Platform } from 'react-native';
 import { DataSource } from './SensorTypes';
 
 /**

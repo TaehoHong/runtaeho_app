@@ -13,6 +13,12 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, Platform } from 'react-native';
+import { useAuth } from '~/features/auth/hooks/useAuth';
+import { AuthError, AuthErrorType } from '~/features/auth/models/AuthError';
+import { AuthProviderType, getAuthProviderInfo } from '~/features/auth/models';
+import { GoogleAuthStrategy } from '~/features/auth/strategies/GoogleAuthStrategy';
+import { userService } from '~/features/user/services/userService';
+import type { UserAccount } from '../models';
 
 let appleAuth: any = null;
 if (Platform.OS === 'ios') {
@@ -20,12 +26,6 @@ if (Platform.OS === 'ios') {
   const mod = require('@invertase/react-native-apple-authentication');
   appleAuth = mod.appleAuth;
 }
-import { useAuth } from '~/features/auth/hooks/useAuth';
-import { AuthError, AuthErrorType } from '~/features/auth/models/AuthError';
-import { AuthProviderType, getAuthProviderInfo } from '~/features/auth/models';
-import { GoogleAuthStrategy } from '~/features/auth/strategies/GoogleAuthStrategy';
-import { userService } from '~/features/user/services/userService';
-import type { UserAccount } from '../models';
 
 /**
  * 계정 연결 Hook

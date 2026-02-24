@@ -3,13 +3,11 @@ import { useInfiniteShoes, useAddShoe, usePatchShoe, useUpdateToMain } from '../
 import {
   type Shoe,
   type PatchShoeDto,
-  type ShoeViewModel as ShoeViewModelType,
   createShoeViewModel,
   createAddShoeDto,
   createPatchShoeDto,
   validateShoe,
   filterShoes,
-  analyzeShoeStatus,
 } from '../models';
 
 /**
@@ -47,7 +45,7 @@ export const useShoeViewModel = () => {
   // Mutations
   const { mutateAsync: addShoe, isPending: isAddingShoe } = useAddShoe();
   const { mutateAsync: patchShoe, isPending: isPatchingShoe } = usePatchShoe();
-  const { mutateAsync: updateToMain, isPending: isUpdatingToMain } = useUpdateToMain();
+  const { mutateAsync: updateToMain } = useUpdateToMain();
   /**
    * 신발 추가
    */

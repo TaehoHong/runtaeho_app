@@ -252,8 +252,6 @@ export const useGpsTracking = ({
               currentSegmentStartTime !== null
             ) {
               const segmentDistanceValue = currentSegmentDist;
-              const now = Date.now();
-              const segmentDuration = (now - currentSegmentStartTime) / 1000;
 
               // 새로 추가된 위치들만 추출
               const newLocations = allLocations.slice(lastProcessedLocationCount);

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
 import React from 'react';
 import { screen } from '@testing-library/react-native';
 import { RunningActiveView } from '~/features/running/views/running-active';

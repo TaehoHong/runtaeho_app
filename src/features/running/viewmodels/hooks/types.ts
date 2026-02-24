@@ -180,10 +180,7 @@ export interface UseUnityCharacterControlProps {
 /**
  * useUnityCharacterControl hook 반환 타입
  */
-export interface UseUnityCharacterControlReturn {
-  // Unity control is handled via useEffect, no explicit actions needed
-  // This hook is purely reactive to runningState and speed changes
-}
+export type UseUnityCharacterControlReturn = Record<string, never>;
 
 /**
  * useRunningLifecycle hook props

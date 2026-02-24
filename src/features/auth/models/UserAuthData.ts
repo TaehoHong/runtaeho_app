@@ -36,7 +36,7 @@ export const createUserAuthData = (data: {
   nickname: data.nickname,
   accessToken: data.accessToken,
   refreshToken: data.refreshToken,
-  profileImageURL: data.profileImageURL == undefined ? "": data.profileImageURL,
+  profileImageURL: data.profileImageURL ?? '',
 });
 
 export class AuthenticationError extends Error {

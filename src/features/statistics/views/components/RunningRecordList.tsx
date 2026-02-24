@@ -9,10 +9,7 @@ import { RunningRecordCard } from './RunningRecordCard';
 import { useRunningRecordList } from '../../viewmodels/useRunningRecordList';
 import { PRIMARY, GREY } from '~/shared/styles';
 
-interface RunningRecordListProps {
-}
-
-export const RunningRecordList: React.FC<RunningRecordListProps> = () => {
+export const RunningRecordList: React.FC = () => {
   const {
     records,
     isLoading,

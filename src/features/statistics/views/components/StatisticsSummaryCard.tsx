@@ -48,7 +48,7 @@ export const StatisticsSummaryCard: React.FC<StatisticsSummaryCardProps> = ({
       {/* 페이스 카드 */}
       <View style={styles.card}>
         <Text style={styles.cardLabel}>페이스</Text>
-        <Text style={styles.cardValue}>{formatPaceForUI(averagePace)}"/km</Text>
+        <Text style={styles.cardValue}>{`${formatPaceForUI(averagePace)}"/km`}</Text>
       </View>
     </View>
   );

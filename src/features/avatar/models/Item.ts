@@ -12,7 +12,7 @@ export const ItemTypeId = {
   PANTS: 3,
 } as const;
 
-export type ItemTypeId = typeof ItemTypeId[keyof typeof ItemTypeId];
+export type ItemTypeIdValue = typeof ItemTypeId[keyof typeof ItemTypeId];
 
 /**
  * 아이템 카테고리 모델 (백엔드 ItemType 엔티티)
@@ -34,7 +34,7 @@ export const ItemStatus = {
   NOT_OWNED: 'NOT_OWNED',
 } as const;
 
-export type ItemStatus = typeof ItemStatus[keyof typeof ItemStatus];
+export type ItemStatusValue = typeof ItemStatus[keyof typeof ItemStatus];
 
 /**
  * 아이템 모델 (백엔드 Item 엔티티와 동일)
@@ -50,7 +50,7 @@ export interface Item {
   isOwned?: boolean;            // 백엔드 제공: 사용자 보유 여부
 
   // 프론트엔드 전용 (optional)
-  status?: ItemStatus;          // 착용 상태 (계산된 값)
+  status?: ItemStatusValue;     // 착용 상태 (계산된 값)
 }
 
 /**

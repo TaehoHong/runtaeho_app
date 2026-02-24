@@ -25,14 +25,14 @@ const mockSubscribeToTrackingData = jest.fn();
 const mockSubscribeToPaceSignal = jest.fn();
 const locationServiceState = {
   totalDistanceMeters: 0,
-  allLocations: [] as Array<{
+  allLocations: [] as {
     latitude: number;
     longitude: number;
     altitude: number;
     accuracy: number;
     speed: number;
     timestamp: Date;
-  }>,
+  }[],
 };
 
 jest.mock('~/features/running/services/BackgroundTaskService', () => ({

@@ -15,7 +15,15 @@
 // ===================================
 // Types & Models
 // ===================================
-export type { Item, EquippedItemsMap, ItemType, PurchaseItemsRequest, ItemCategory, HairColor } from './models';
+export type {
+  Item,
+  EquippedItemsMap,
+  ItemType,
+  PurchaseItemsRequest,
+  ItemCategory,
+  HairColor,
+  ItemStatusValue,
+} from './models';
 export { isItemType } from './models';
 
 // ===================================
@@ -49,4 +57,3 @@ export {
   useMainAvatar, usePurchaseAndEquipItems, usePurchaseItems,
   useUpdateEquippedItems
 } from './services/avatarQueries';
-

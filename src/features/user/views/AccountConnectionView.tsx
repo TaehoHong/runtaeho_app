@@ -10,7 +10,6 @@ import { TopScreenSafeAreaView } from '~/shared/components';
 import { Text } from '~/shared/components/typography';
 import { GREY } from '~/shared/styles';
 import { AuthProviderType, getAuthProviderInfo } from '~/features/auth/models';
-import { useAuth } from '~/features/auth/hooks/useAuth';
 import { useAccountConnection } from '../hooks/useAccountConnection';
 import { getConnectionButtonColor, AccountConnectionStatus } from '../models/UserAccount';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,9 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
  */
 export const AccountConnectionView: React.FC = () => {
   const router = useRouter();
-  const { user } = useAuth();
   const {
-    connectedAccounts,
     isConnecting,
     isDisconnecting,
     canDisconnect,

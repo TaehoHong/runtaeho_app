@@ -83,7 +83,6 @@ export const AppInfoView: React.FC = () => {
    * 오픈소스 라이선스 보기
    */
   const handleOpenSourceLicenses = () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     router.push('/user/licenses' as any);
   };
 

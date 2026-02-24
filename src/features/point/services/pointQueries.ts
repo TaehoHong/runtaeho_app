@@ -2,7 +2,7 @@
  * Point React Query Hooks
  */
 
-import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import type { PointHistoryRequest } from '../models';
 import { pointService } from './pointService';
 import { queryKeys } from '../../../services/queryClient';

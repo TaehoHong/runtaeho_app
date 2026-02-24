@@ -7,7 +7,6 @@ import {
   Modal,
   ActivityIndicator,
 } from 'react-native';
-import { UpdateStatus } from '../../models/UpdateState';
 import { useUpdateStore } from '../../stores/updateStore';
 import { useUpdateDownload } from '../../hooks/useUpdateDownload';
 import { PRIMARY, GREY } from '~/shared/styles/colors';
@@ -26,7 +25,7 @@ export function UpdateModal({
   onClose,
   mandatory = false,
 }: UpdateModalProps) {
-  const { status, progress, availableManifest } = useUpdateStore();
+  const { progress, availableManifest } = useUpdateStore();
   const { downloadUpdate, applyUpdate, isDownloading, isReady, hasError, error } = useUpdateDownload();
 
   const handleDownload = async () => {

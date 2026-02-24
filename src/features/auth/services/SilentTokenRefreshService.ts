@@ -32,7 +32,6 @@ export class SilentTokenRefreshService {
    */
   async performSilentRefresh(): Promise<TokenPair> {
     let retryCount = 0;
-    let lastError: Error | null = null;
     
     while (retryCount < this.MAX_RETRY_COUNT) {
       try {
@@ -46,7 +45,6 @@ export class SilentTokenRefreshService {
           return response;
         }
       } catch (error: any) {
-        lastError = error;
         console.error(`❌ [SilentTokenRefreshService] Refresh attempt ${retryCount + 1} failed:`, error);
         
         if (error.message === 'RefreshTokenExpired') {

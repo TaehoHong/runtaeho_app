@@ -14,6 +14,9 @@
  * ```
  */
 
+import { secureStorage } from './SecureStorage';
+import type { ITokenStorage } from './types';
+
 // ===== Type Exports =====
 export type {
   ISecureStorage,
@@ -42,9 +45,6 @@ export const TOKEN_KEYS = {
 } as const;
 
 // ===== Token Storage Helper =====
-
-import { secureStorage } from './SecureStorage';
-import type { ITokenStorage } from './types';
 
 /**
  * 토큰 전용 저장소 헬퍼
@@ -150,7 +150,7 @@ class TokenStorageImpl implements ITokenStorage {
     try {
       const { accessToken, refreshToken } = await this.loadTokens();
       return !!(accessToken || refreshToken);
-    } catch (error) {
+    } catch {
       return false;
     }
   }

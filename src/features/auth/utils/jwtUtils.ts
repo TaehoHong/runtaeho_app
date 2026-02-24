@@ -44,7 +44,7 @@ function parseToken(token: string): JWTPayload | null {
 
     const payload = components[1];
 
-    if (payload == undefined) throw Error('payload is undefined');
+    if (payload === undefined) throw Error('payload is undefined');
 
     // Base64 URL 디코딩 (URL-safe 문자 변환 + 패딩 추가)
     let base64 = payload.replace(/-/g, '+').replace(/_/g, '/');

@@ -37,6 +37,7 @@ export function useForceUpdateCheck(options: UseForceUpdateCheckOptions = {}) {
 
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const isCheckingRef = useRef(false);
+  const checkForUpdateRef = useRef<((force?: boolean) => Promise<void>) | null>(null);
 
   /**
    * 버전 체크 실행
@@ -93,6 +94,10 @@ export function useForceUpdateCheck(options: UseForceUpdateCheckOptions = {}) {
     [lastCheckedAt, setChecking, setUpdateRequired, setUpToDate, setError]
   );
 
+  useEffect(() => {
+    checkForUpdateRef.current = checkForUpdate;
+  }, [checkForUpdate]);
+
   /**
    * 앱 상태 변경 핸들러 (포그라운드 복귀 감지)
    */
@@ -127,9 +132,9 @@ export function useForceUpdateCheck(options: UseForceUpdateCheckOptions = {}) {
   // 앱 시작 시 체크
   useEffect(() => {
     if (checkOnLaunch) {
-      checkForUpdate(true); // force 체크 (debounce 무시)
+      checkForUpdateRef.current?.(true); // force 체크 (debounce 무시)
     }
-  }, [checkOnLaunch]); // checkForUpdate는 의도적으로 의존성에서 제외
+  }, [checkOnLaunch]);
 
   // 포그라운드 복귀 감지
   useEffect(() => {

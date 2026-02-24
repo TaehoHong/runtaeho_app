@@ -1,5 +1,4 @@
 import { QueryClient } from '@tanstack/react-query';
-import { reportError, addBreadcrumb } from '~/config/sentry';
 
 /**
  * React Query Client 설정

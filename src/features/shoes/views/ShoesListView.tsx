@@ -40,7 +40,6 @@ export const ShoesListView: React.FC<ShoesListViewProps> = ({ onClose }) => {
 
   // UI 전용 로컬 상태
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [swipedShoeId, setSwipedShoeId] = useState<number | null>(null);
   const swipeListRef = useRef<SwipeListView<ShoeViewModel>>(null);
   const [selectedShoe, setSelectedShoe] = useState<ShoeViewModel | null>(null);
   const [showStorageModal, setShowStorageModal] = useState(false);
@@ -54,7 +53,6 @@ export const ShoesListView: React.FC<ShoesListViewProps> = ({ onClose }) => {
   // 열린 스와이프 행 닫기
   const closeOpenRows = () => {
     swipeListRef.current?.closeAllOpenRows();
-    setSwipedShoeId(null);
   };
 
   // 새로고침
@@ -169,11 +167,6 @@ export const ShoesListView: React.FC<ShoesListViewProps> = ({ onClose }) => {
           disableRightSwipe
           closeOnRowPress
           closeOnScroll
-          onRowOpen={(rowKey) => {
-            const shoeId = parseInt(rowKey.replace('shoe-', ''));
-            setSwipedShoeId(shoeId);
-          }}
-          onRowClose={() => setSwipedShoeId(null)}
         />
       )}
 

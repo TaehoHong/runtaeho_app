@@ -27,7 +27,7 @@ export const useRunningSegments = ({
   const [segmentStartTime, setSegmentStartTime] = useState<number | null>(null);
   const [segmentDistance, setSegmentDistance] = useState<number>(0);
   const [segmentLocations, setSegmentLocations] = useState<Location[]>([]);
-  const [segmentIdCounter, setSegmentIdCounter] = useState<number>(1);
+  const [, setSegmentIdCounter] = useState<number>(1);
 
   // Refs for synchronous access in callbacks (closure stale value 방지)
   const segmentItemsRef = useRef<RunningRecordItem[]>(currentSegmentItems);

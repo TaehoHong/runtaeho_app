@@ -23,7 +23,7 @@ import {
 } from '@tanstack/react-query';
 
 import { QUERY_KEY_PREFIX, QUERY_OPTIONS } from '../models/avatarConstants';
-import type { Item, Avatar, ItemType, PurchaseItemsRequest, UpdateEquippedItemsRequest } from '../models/';
+import type { Item, Avatar, PurchaseItemsRequest, UpdateEquippedItemsRequest } from '../models/';
 import { avatarService } from './avatarService';
 import type { CursorResult } from '~/shared/utils/dto/CursorResult';
 import { pointService } from '~/features/point/services/pointService';

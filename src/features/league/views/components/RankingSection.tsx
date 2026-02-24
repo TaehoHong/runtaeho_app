@@ -198,7 +198,15 @@ export const RankingSection = ({
     return () => {
       animation.stop();
     };
-  }, [previousRank, myCurrentRank, totalSteps, participants]);
+  }, [
+    previousRank,
+    myCurrentRank,
+    totalSteps,
+    participants,
+    displacedAnimations,
+    myAnimatedScale,
+    myAnimatedY,
+  ]);
 
   // renderItem 함수
   const renderItem = useCallback(({ item: participant, index }: { item: LeagueParticipant; index: number }) => {

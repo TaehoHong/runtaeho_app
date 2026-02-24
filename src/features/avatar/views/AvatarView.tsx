@@ -37,12 +37,13 @@ export const AvatarView: React.FC<AvatarViewProps> = ({ onClose }) => {
 const AvatarViewContent: React.FC<AvatarViewProps> = ({ onClose }) => {
   const viewModel = useAvatarViewModel();
   const insets = useSafeAreaInsets();
+  const { cancelChanges } = viewModel;
 
   // 뒤로가기 버튼 핸들러: Unity에 원래 상태 복원 후 화면 닫기
   const handleClose = useCallback(() => {
-    viewModel.cancelChanges();
+    cancelChanges();
     onClose();
-  }, [viewModel.cancelChanges, onClose]);
+  }, [cancelChanges, onClose]);
 
   return (
     <View style={[
@@ -95,7 +96,7 @@ const AvatarViewContent: React.FC<AvatarViewProps> = ({ onClose }) => {
       <BottomButtons
         hasChanges={viewModel.hasChanges}
         shouldShowPurchase={viewModel.shouldShowPurchaseButton}
-        onCancel={viewModel.cancelChanges}
+        onCancel={cancelChanges}
         onConfirm={viewModel.confirmChanges}
         isLoading={viewModel.isLoading}
       />
