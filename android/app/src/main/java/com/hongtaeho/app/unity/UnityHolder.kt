@@ -189,14 +189,15 @@ object UnityHolder {
 
         synchronized(queueLock) {
             _isCharactorReady = false
-            // Note: _isGameObjectReady는 리셋하지 않음 (Unity가 이미 초기화되어 있으면 유지)
+            _isGameObjectReady = false
             messageQueue.clear()
         }
 
         // Unity가 이미 로드되어 있으면 상태 유지
         if (isUnityLoaded()) {
             _isCharactorReady = true
-            Log.d(TAG, "Unity already loaded, keeping state true")
+            _isGameObjectReady = true
+            Log.d(TAG, "Unity already loaded, keeping ready states true")
         }
     }
 
@@ -213,12 +214,6 @@ object UnityHolder {
         // Unity Player가 있는데 Activity가 없으면 stale
         if (_unityPlayer != null && UnityPlayer.currentActivity == null) {
             Log.w(TAG, "⚠️ Stale state detected: player exists but no activity")
-            return false
-        }
-
-        // 앱이 active인데 Unity가 초기화 안됨
-        if (_isAppActive && _unityPlayer == null) {
-            Log.w(TAG, "⚠️ State mismatch: app active but no Unity player")
             return false
         }
 
@@ -254,7 +249,21 @@ object UnityHolder {
     fun onPause() {
         Log.d(TAG, "onPause()")
         _isAppActive = false
-        _unityPlayer?.onPause()  // Unity 렌더링 중지
+
+        val player = _unityPlayer
+        if (player != null) {
+            try {
+                player.windowFocusChanged(false)
+            } catch (e: Exception) {
+                Log.w(TAG, "windowFocusChanged(false) failed: ${e.message}", e)
+            }
+
+            try {
+                player.onPause()  // Unity 렌더링 중지
+            } catch (e: Exception) {
+                Log.w(TAG, "onPause failed: ${e.message}", e)
+            }
+        }
     }
 
     /**
@@ -264,7 +273,21 @@ object UnityHolder {
     fun onResume() {
         Log.d(TAG, "onResume()")
         _isAppActive = true
-        _unityPlayer?.onResume()  // Unity 렌더링 재개
+
+        val player = _unityPlayer
+        if (player != null) {
+            try {
+                player.onResume()  // Unity 렌더링 재개
+            } catch (e: Exception) {
+                Log.w(TAG, "onResume failed: ${e.message}", e)
+            }
+
+            try {
+                player.windowFocusChanged(true)
+            } catch (e: Exception) {
+                Log.w(TAG, "windowFocusChanged(true) failed: ${e.message}", e)
+            }
+        }
 
         // Resume 시 대기 중인 메시지 처리
         synchronized(queueLock) {

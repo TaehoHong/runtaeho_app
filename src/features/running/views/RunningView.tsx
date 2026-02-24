@@ -40,6 +40,8 @@ export const RunningView: React.FC = () => {
   const [isUnityReady, setIsUnityReady] = useState(false);
   const isInitialMount = useRef(true);
   const hasInitializedAvatar = useRef(false);
+  const foregroundReinitUnsubscribeRef = useRef<(() => void) | null>(null);
+  const unityReadyInitUnsubscribeRef = useRef<(() => void) | null>(null);
 
   console.log('🏃 [RunningView] 렌더링, viewState:', viewState, 'runningState:', runningState, 'isLoggedIn:', isLoggedIn, 'isUnityReady:', isUnityReady);
 
@@ -183,19 +185,18 @@ export const RunningView: React.FC = () => {
    * Unity는 백그라운드에서 리셋될 수 있으므로 포그라운드 복귀 시 재초기화 필요
    */
   useEffect(() => {
-    let unsubscribe: (() => void) | null = null;
-
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active') {
         console.log('🔄 [RunningView] 포그라운드 복귀 - 캐릭터 재초기화');
 
         // 이전 구독 정리
-        if (unsubscribe) {
-          unsubscribe();
+        if (foregroundReinitUnsubscribeRef.current) {
+          foregroundReinitUnsubscribeRef.current();
+          foregroundReinitUnsubscribeRef.current = null;
         }
 
         // onReady는 Push + Pull 패턴으로 안전하게 처리
-        unsubscribe = unityService.onReady(async () => {
+        foregroundReinitUnsubscribeRef.current = unityService.onReady(async () => {
           try {
             // ★ getState()로 최신 값 조회 (stale closure 방지)
             const currentState = useUserStore.getState();
@@ -211,8 +212,9 @@ export const RunningView: React.FC = () => {
 
     return () => {
       subscription.remove();
-      if (unsubscribe) {
-        unsubscribe();
+      if (foregroundReinitUnsubscribeRef.current) {
+        foregroundReinitUnsubscribeRef.current();
+        foregroundReinitUnsubscribeRef.current = null;
       }
     };
   }, []);
@@ -257,9 +259,14 @@ export const RunningView: React.FC = () => {
   const handleUnityReady = useCallback((event: any) => {
     console.log('[RunningView] Unity View Ready:', event.nativeEvent);
 
+    if (unityReadyInitUnsubscribeRef.current) {
+      unityReadyInitUnsubscribeRef.current();
+      unityReadyInitUnsubscribeRef.current = null;
+    }
+
     // unityService.onReady는 이미 ready면 즉시 실행하고,
     // 아니면 Native 상태도 확인 후 구독 (이벤트 놓침 방지)
-    const unsubscribe = unityService.onReady(async () => {
+    unityReadyInitUnsubscribeRef.current = unityService.onReady(async () => {
       console.log('[RunningView] ✅ GameObject Ready! 초기화 시작');
 
       try {
@@ -289,11 +296,16 @@ export const RunningView: React.FC = () => {
         requestPermissionsOnFirstLogin();
       }
     });
-
-    // 컴포넌트 리렌더링 시 이전 구독 정리를 위해 반환
-    // (useCallback이므로 실제로 정리되지 않지만, 향후 useEffect로 전환 시 활용 가능)
-    return unsubscribe;
   }, [requestPermissionsOnFirstLogin]); // ✅ 의존성 추가
+
+  useEffect(() => {
+    return () => {
+      if (unityReadyInitUnsubscribeRef.current) {
+        unityReadyInitUnsubscribeRef.current();
+        unityReadyInitUnsubscribeRef.current = null;
+      }
+    };
+  }, []);
 
   const isLoading = viewState === ViewState.Loading;
 

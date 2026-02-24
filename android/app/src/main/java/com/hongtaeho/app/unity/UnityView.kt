@@ -90,6 +90,7 @@ class UnityView(context: Context) : FrameLayout(context) {
                 }
 
                 // 싱글톤 Unity Player 사용 (앱 전체에서 하나의 인스턴스만 유지)
+                val isNewUnityPlayer = UnityHolder.getUnityPlayer() == null
                 unityPlayer = try {
                     UnityHolder.getOrCreateUnityPlayer(activity)
                 } catch (e: Exception) {
@@ -99,13 +100,23 @@ class UnityView(context: Context) : FrameLayout(context) {
                 }
 
                 unityPlayer?.let { player ->
-                    // Unity 시작 - lifecycle 메서드 순서대로 호출
-                    player.onStart()   // Scene 실행 시작
+                    // Unity lifecycle 동기화
+                    // - 신규 인스턴스: onStart/onResume/windowFocusChanged(true)
+                    // - 재사용 인스턴스: onResume/windowFocusChanged(true)
+                    if (isNewUnityPlayer) {
+                        player.onStart()   // Scene 실행 시작
+                    } else {
+                        Log.d(TAG, "Reusing existing Unity player - skipping onStart()")
+                    }
+
                     player.onResume()  // 렌더링 재개
                     player.windowFocusChanged(true)  // Window Focus 부여 (렌더링 트리거)
 
                     isUnityLoaded = true
-                    Log.d(TAG, "Unity initialized successfully - onStart(), onResume(), windowFocusChanged(true) called")
+                    Log.d(
+                        TAG,
+                        "Unity initialized successfully - newPlayer=$isNewUnityPlayer, onResume(), windowFocusChanged(true) called"
+                    )
                     scheduleAttach("initialize")
                 }
             } catch (e: Exception) {
@@ -253,6 +264,21 @@ class UnityView(context: Context) : FrameLayout(context) {
         super.onDetachedFromWindow()
         clearPendingAttachOperations("onDetachedFromWindow")
         Log.d(TAG, "onDetachedFromWindow")
+    }
+
+    override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
+        super.onWindowFocusChanged(hasWindowFocus)
+        Log.d(TAG, "onWindowFocusChanged: $hasWindowFocus")
+
+        if (!hasWindowFocus || !isUnityLoaded) {
+            return
+        }
+
+        val isAttachedToThisContainer = unityPlayer?.view?.parent === this
+        if (pendingReattach || !isAttachedToThisContainer) {
+            pendingReattach = false
+            scheduleAttach("windowFocus")
+        }
     }
 
     // MARK: - Unity Control Methods
