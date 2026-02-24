@@ -26,8 +26,10 @@ interface Props {
 }
 
 export const AvatarPreview: React.FC<Props> = ({ equippedItems, hairColor }) => {
-  // ★ hasInitializedRef: handleUnityReady에서 이미 changeAvatar 호출했으면 useEffect에서 중복 호출 방지
-  const hasInitializedRef = useRef(false);
+  // ★ 첫 ready 이후 effect를 한 번만 제어하기 위한 플래그
+  const hasHandledFirstReadyEffectRef = useRef(false);
+  // ★ onReady에서 실제 초기 sync 완료 여부
+  const didInitialSyncInOnReadyRef = useRef(false);
   // ★ 이전 장착 아이템/색상 저장 (변경 감지용)
   const prevEquippedItemsRef = useRef<EquippedItemsMap>(equippedItems);
   const prevHairColorRef = useRef<string>(hairColor);
@@ -43,20 +45,28 @@ export const AvatarPreview: React.FC<Props> = ({ equippedItems, hairColor }) => 
 
   /**
    * 장착 아이템 또는 헤어 색상 변경 시 Unity 아바타 동기화
-   * ★ 첫 번째 실행(handleUnityReady 직후)은 스킵 - 이미 초기화됨
+   * ★ onReady 초기 동기화 완료 여부에 따라 첫 실행을 분기 처리
    */
   useEffect(() => {
     // Unity가 아직 준비되지 않았으면 스킵 (handleUnityReady에서 처리)
     if (!canSendMessage) return;
 
-    // ★ 첫 번째 실행(handleUnityReady 직후)은 스킵 - 이미 초기화됨
-    if (!hasInitializedRef.current) {
-      hasInitializedRef.current = true;
-      console.log('🔄 [AvatarPreview] 초기 동기화는 handleUnityReady에서 완료됨 - 스킵');
-      // 이전 값 저장
-      prevEquippedItemsRef.current = equippedItems;
-      prevHairColorRef.current = hairColor;
-      return;
+    let shouldForceSync = false;
+
+    // ★ 첫 ready effect에서만 특별 처리
+    if (!hasHandledFirstReadyEffectRef.current) {
+      hasHandledFirstReadyEffectRef.current = true;
+
+      // onReady에서 초기 sync가 이미 완료됐으면 중복 요청 방지
+      if (didInitialSyncInOnReadyRef.current) {
+        console.log('🔄 [AvatarPreview] onReady 초기 동기화 완료 - 첫 effect 스킵');
+        prevEquippedItemsRef.current = equippedItems;
+        prevHairColorRef.current = hairColor;
+        return;
+      }
+
+      // onReady 초기 sync 완료 전이면 최신 props로 1회 강제 동기화
+      shouldForceSync = true;
     }
 
     // ★ 실제 변경이 있는지 확인 (아이템 ID 비교)
@@ -73,7 +83,7 @@ export const AvatarPreview: React.FC<Props> = ({ equippedItems, hairColor }) => 
     const itemsChanged = prevItemIds !== currentItemIds;
     const colorChanged = prevHairColorRef.current !== hairColor;
 
-    if (!itemsChanged && !colorChanged) {
+    if (!shouldForceSync && !itemsChanged && !colorChanged) {
       return;
     }
 
@@ -117,8 +127,14 @@ export const AvatarPreview: React.FC<Props> = ({ equippedItems, hairColor }) => 
           const items = Object.values(equippedItems).filter((item): item is Item => !!item);
           if (items.length > 0) {
             await unityService.changeAvatar(items, hairColor);
+            didInitialSyncInOnReadyRef.current = true;
+            prevEquippedItemsRef.current = equippedItems;
+            prevHairColorRef.current = hairColor;
             console.log(`✅ [AvatarPreview] 초기화 완료 (${items.length}개, 색상: ${hairColor})`);
           } else {
+            didInitialSyncInOnReadyRef.current = true;
+            prevEquippedItemsRef.current = equippedItems;
+            prevHairColorRef.current = hairColor;
             console.log('[AvatarPreview] 장착 아이템 없음 - 수동으로 ready 처리');
             setAvatarReady(true);
           }

@@ -17,7 +17,7 @@ export interface UserDataDto {
   avatarId: number;
   haveRunningRecord: boolean;
   equippedItems: EquippedItemDataDto[];
-  hairColor?: string;  // 헤어 색상 (HEX 형식: "#FFFFFF")
+  hairColor: string;  // 헤어 색상 (HEX 형식: "#FFFFFF")
 }
 
 /**

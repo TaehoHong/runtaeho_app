@@ -29,7 +29,7 @@ describe('resolveAvatarItemImage', () => {
   it('returns colorized hair image for selected hair color', () => {
     const hairItem = createItem({ name: 'New_Hair_01', itemTypeId: 1 });
 
-    const resolved = resolveAvatarItemImage(hairItem, '#1A1A1A');
+    const resolved = resolveAvatarItemImage(hairItem, '#000000');
 
     expect(resolved).toBe(HAIR_COLOR_IMAGES[1]!.New_Hair_01);
   });
@@ -53,7 +53,7 @@ describe('resolveAvatarItemImage', () => {
   it('returns existing non-hair image from ITEM_IMAGE', () => {
     const clothItem = createItem({ name: 'New_Cloth_01', itemTypeId: 2 });
 
-    const resolved = resolveAvatarItemImage(clothItem, '#1A1A1A');
+    const resolved = resolveAvatarItemImage(clothItem, '#000000');
 
     expect(resolved).toBe(ITEM_IMAGE.New_Cloth_01);
   });
@@ -61,7 +61,7 @@ describe('resolveAvatarItemImage', () => {
   it('returns undefined safely when image key does not exist', () => {
     const missingHairItem = createItem({ name: 'Not_Existing_Hair_99', itemTypeId: 1 });
 
-    const resolved = resolveAvatarItemImage(missingHairItem, '#1A1A1A');
+    const resolved = resolveAvatarItemImage(missingHairItem, '#000000');
 
     expect(resolved).toBeUndefined();
   });

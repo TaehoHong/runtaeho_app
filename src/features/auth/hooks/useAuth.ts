@@ -97,7 +97,7 @@ export const useAuth = () => {
         avatarId: userData.avatarId,
         haveRunningRecord: userData.haveRunningRecord,
         equippedItems: convertEquippedItems(userData.equippedItems || []),
-        ...(userData.hairColor ? { hairColor: userData.hairColor } : {}),
+        hairColor: userData.hairColor,
       });
 
       // 3. 토큰 저장 (SecureStore)
@@ -215,7 +215,7 @@ export const useAuth = () => {
           avatarId: userData.avatarId,
           haveRunningRecord: userData.haveRunningRecord,
           equippedItems: convertEquippedItems(userData.equippedItems || []),
-          ...(userData.hairColor ? { hairColor: userData.hairColor } : {}),
+          hairColor: userData.hairColor,
         });
       }
     } catch (error) {

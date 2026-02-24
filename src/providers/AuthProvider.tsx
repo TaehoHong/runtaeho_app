@@ -22,7 +22,7 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const accessToken = useAuthStore((state) => state.accessToken);
-  const { verifyAndRefreshToken } = useAuth();
+  const { verifyAndRefreshToken, refreshUserData } = useAuth();
   const { syncOfflineData } = useOfflineSync();
   const [isNavigationReady, setIsNavigationReady] = useState(false);
 
@@ -53,6 +53,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // 3. 로그인 상태이고 토큰이 유효하면 오프라인 데이터 동기화
       if (isTokenValid && useAuthStore.getState().isLoggedIn) {
+        await refreshUserData();
         await syncOfflineData();
       }
 
@@ -60,7 +61,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error) {
       console.error('⚠️ [AuthProvider] 인증 상태 초기화 실패:', error);
     }
-  }, [verifyAndRefreshToken, syncOfflineData]);
+  }, [verifyAndRefreshToken, refreshUserData, syncOfflineData]);
 
   useEffect(() => {
     const init = async () => {

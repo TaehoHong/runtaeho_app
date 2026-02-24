@@ -13,7 +13,6 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import type { Item, EquippedItemsMap } from '~/features/avatar';
 import { ItemStatus, getItemTypeById } from '~/features/avatar/models';
-import { DEFAULT_HAIR_COLOR } from '~/features/avatar/models/avatarConstants';
 import { type User } from '~/features/user/models/User';
 import { type UserAccount } from '~/features/user/models/UserAccount';
 import { userDataDtoToUser, type UserDataDto } from '~/features/user/models/UserDataDto';
@@ -91,7 +90,7 @@ interface UserState {
     avatarId: number;
     haveRunningRecord: boolean;
     equippedItems: EquippedItemsMap;
-    hairColor?: string;
+    hairColor: string;
   }) => void;
   setHairColor: (hairColor: string) => void;
   logout: () => void;
@@ -136,7 +135,7 @@ export const useUserStore = create<UserState>()(
       avatarId: 0,
       haveRunningRecord: false,
       equippedItems: {} as EquippedItemsMap,
-      hairColor: DEFAULT_HAIR_COLOR.hex, // 기본 헤어 색상: 갈색
+      hairColor: '', // 백엔드 동기화 전에는 빈 값 유지
       userPreferences: defaultPreferences,
       appLaunchCount: 0,
       lastAppVersion: null,
@@ -160,7 +159,7 @@ export const useUserStore = create<UserState>()(
           avatarId,
           haveRunningRecord,
           equippedItems,
-          hairColor: hairColor || DEFAULT_HAIR_COLOR.hex,
+          hairColor,
         });
 
         // Debug logging
@@ -196,7 +195,7 @@ export const useUserStore = create<UserState>()(
           profileImgUrl: null,
           avatarId: 0,
           equippedItems: {} as EquippedItemsMap,
-          hairColor: DEFAULT_HAIR_COLOR.hex,
+          hairColor: '',
           userPreferences: defaultPreferences,
           appLaunchCount: 0,
           lastAppVersion: null,
@@ -507,7 +506,7 @@ export const useUserStore = create<UserState>()(
           avatarId: userData.avatarId,
           haveRunningRecord: userData.haveRunningRecord,
           equippedItems: convertEquippedItems(userData.equippedItems || []),
-          hairColor: userData.hairColor || DEFAULT_HAIR_COLOR.hex,
+          hairColor: userData.hairColor,
         });
       },
     }),

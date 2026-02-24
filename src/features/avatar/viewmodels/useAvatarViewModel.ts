@@ -20,7 +20,6 @@ import {
   type ItemStatusValue,
   type EquippedItemsMap,
   type HairColor,
-  DEFAULT_HAIR_COLOR,
 } from '~/features/avatar';
 import { unityService } from '~/features/unity/services/UnityService';
 import { useUserStore } from '~/stores/user/userStore';
@@ -164,7 +163,7 @@ export function useAvatarViewModel(): AvatarViewModel {
   // ===================================
   const [selectedCategoryIndex, setSelectedCategoryIndex] = useState(0);
   const [pendingEquippedItems, setPendingEquippedItems] = useState<EquippedItemsMap>(() => normalizeEquippedMap(globalEquippedItems));
-  const [pendingHairColor, setPendingHairColor] = useState<string>(() => globalHairColor || DEFAULT_HAIR_COLOR.hex);
+  const [pendingHairColor, setPendingHairColor] = useState<string>(() => globalHairColor);
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [showInsufficientPointsAlert, setShowInsufficientPointsAlert] = useState(false);
 
@@ -220,7 +219,7 @@ export function useAvatarViewModel(): AvatarViewModel {
   const isHairCategory = selectedCategory === 1;
 
   // 헤어 색상 변경 여부
-  const hasHairColorChanged = pendingHairColor.toLowerCase() !== (globalHairColor || DEFAULT_HAIR_COLOR.hex).toLowerCase();
+  const hasHairColorChanged = pendingHairColor.toLowerCase() !== globalHairColor.toLowerCase();
 
   // 변경 여부 확인 (아이템 + 헤어 색상)
   const hasChanges = useMemo(() => {
@@ -271,9 +270,9 @@ export function useAvatarViewModel(): AvatarViewModel {
   // 아바타 화면 마운트 시 Unity에 현재 장착 아이템과 헤어 색상 전송
   useEffect(() => {
     const items = Object.values(initialEquippedMapRef.current).filter((item): item is Item => !!item);
-    const hairColor = initialHairColorRef.current || DEFAULT_HAIR_COLOR.hex;
+    const hairColor = initialHairColorRef.current;
 
-    if (items.length > 0) {
+    if (items.length > 0 && hairColor) {
       unityService.changeAvatar(items, hairColor);
       if (__DEV__) {
         console.log('🎨 [AvatarViewModel] Initial avatar sync to Unity:', items.length, 'items, hairColor:', hairColor);
@@ -288,7 +287,7 @@ export function useAvatarViewModel(): AvatarViewModel {
 
   // Global 헤어 색상이 변경되면 Pending 상태 동기화
   useEffect(() => {
-    setPendingHairColor(globalHairColor || DEFAULT_HAIR_COLOR.hex);
+    setPendingHairColor(globalHairColor);
   }, [globalHairColor]);
 
   // ===================================
@@ -457,11 +456,11 @@ export function useAvatarViewModel(): AvatarViewModel {
     setPendingEquippedItems(normalizeEquippedMap(globalEquippedItems));
 
     // 헤어 색상 복원
-    setPendingHairColor(globalHairColor || DEFAULT_HAIR_COLOR.hex);
+    setPendingHairColor(globalHairColor);
 
     // Unity 프리뷰 복원 (원래 상태로)
     const items = Object.values(globalEquippedItems).filter((item): item is Item => !!item);
-    unityService.changeAvatar(items, globalHairColor || DEFAULT_HAIR_COLOR.hex);
+    unityService.changeAvatar(items, globalHairColor);
 
   }, [globalEquippedItems, globalHairColor]);
 

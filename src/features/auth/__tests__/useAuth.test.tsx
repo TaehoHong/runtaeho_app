@@ -72,7 +72,7 @@ describe('useAuth', () => {
         },
       ],
       equippedItems: [],
-      hairColor: '#123456',
+      hairColor: '#000000',
     });
 
     const { result } = renderHook(() => useAuth());
@@ -84,6 +84,7 @@ describe('useAuth', () => {
     expect(mockTokenStorage.saveTokens).toHaveBeenCalledWith('access-token', 'refresh-token');
     expect(useAuthStore.getState().isLoggedIn).toBe(true);
     expect(useUserStore.getState().currentUser?.nickname).toBe('Runner');
+    expect(useUserStore.getState().hairColor).toBe('#000000');
     expect(mockSetUserContext).toHaveBeenCalledWith('10', 'runner@test.com', 'Runner');
   });
 

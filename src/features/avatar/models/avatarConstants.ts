@@ -18,7 +18,7 @@ import { GREY } from '~/shared/styles';
  * 7가지 색상 중 선택 가능
  */
 export const HAIR_COLORS = [
-  { id: 1, name: '검정', hex: '#1A1A1A' },
+  { id: 1, name: '검정', hex: '#000000' },
   { id: 2, name: '갈색', hex: '#8B4513' },
   { id: 3, name: '금발', hex: '#FFD700' },
   { id: 4, name: '빨강', hex: '#DC143C' },
