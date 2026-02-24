@@ -3,6 +3,7 @@ package com.hongtaeho.app.unity
 import android.app.Activity
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import android.view.View
 import com.unity3d.player.UnityPlayer
@@ -23,6 +24,8 @@ import com.unity3d.player.UnityPlayerForActivityOrService
  */
 object UnityHolder {
     private const val TAG = "UnityHolder"
+    private const val ACTIVITY_RECOVERY_GRACE_MS = 1200L
+    private const val ACTIVITY_RECHECK_DELAY_MS = 120L
 
     // MARK: - Singleton Unity Player
 
@@ -56,6 +59,10 @@ object UnityHolder {
     @Volatile
     private var _isGameObjectReady: Boolean = false
 
+    /** 실제 Unity Ready 이벤트를 최소 1회라도 수신했는지 여부 */
+    @Volatile
+    private var _hasEverBeenReady: Boolean = false
+
     /** 메시지 큐 (GameObject Ready 전까지 메시지 저장) */
     private val messageQueue = mutableListOf<QueuedMessage>()
 
@@ -65,6 +72,10 @@ object UnityHolder {
     /** 앱 활성 상태 */
     @Volatile
     private var _isAppActive: Boolean = true
+
+    /** 마지막 Resume 시각 (transient 상태 필터링용) */
+    @Volatile
+    private var _lastResumeAtMillis: Long = SystemClock.elapsedRealtime()
 
     /** Charactor Ready 콜백 리스너 (RNUnityBridgeModule에서 설정) */
     var onCharactorReadyListener: (() -> Unit)? = null
@@ -113,6 +124,7 @@ object UnityHolder {
 
         // 앱 활성 상태 설정
         _isAppActive = true
+        _lastResumeAtMillis = SystemClock.elapsedRealtime()
 
         // Unity Player가 이미 존재하면 로그만 출력
         if (_unityPlayer != null) {
@@ -142,6 +154,7 @@ object UnityHolder {
         synchronized(queueLock) {
             _isCharactorReady = true
             _isGameObjectReady = true
+            _hasEverBeenReady = true
 
             // 대기 중인 메시지 처리
             val count = messageQueue.size
@@ -194,11 +207,67 @@ object UnityHolder {
         }
 
         // Unity가 이미 로드되어 있으면 상태 유지
-        if (isUnityLoaded()) {
+        if (isUnityLoaded() && _hasEverBeenReady) {
             _isCharactorReady = true
             _isGameObjectReady = true
             Log.d(TAG, "Unity already loaded, keeping ready states true")
         }
+    }
+
+    private fun flushQueuedMessagesIfReady(reason: String) {
+        val messagesToProcess = mutableListOf<QueuedMessage>()
+
+        synchronized(queueLock) {
+            if (!_isGameObjectReady || messageQueue.isEmpty()) {
+                return
+            }
+
+            messagesToProcess.addAll(messageQueue)
+            messageQueue.clear()
+        }
+
+        Log.d(TAG, "Flushing ${messagesToProcess.size} queued messages ($reason)")
+        messagesToProcess.forEach { msg ->
+            sendMessageImmediate(msg.gameObject, msg.methodName, msg.message)
+        }
+    }
+
+    private fun recoverReadyStateIfPossible(reason: String): Boolean {
+        val hasPlayer = _unityPlayer != null
+        val hasActivity = UnityPlayer.currentActivity != null
+        val isLoaded = isUnityLoaded()
+        val appActive = _isAppActive
+        val hasEverReady = _hasEverBeenReady
+
+        if (!hasPlayer || !hasActivity || !isLoaded || !appActive || !hasEverReady) {
+            Log.d(
+                TAG,
+                "Ready recovery skipped ($reason): hasPlayer=$hasPlayer, hasActivity=$hasActivity, isLoaded=$isLoaded, isAppActive=$appActive, hasEverReady=$hasEverReady"
+            )
+            return false
+        }
+
+        var changedToReady = false
+        synchronized(queueLock) {
+            val wasReady = _isCharactorReady && _isGameObjectReady
+            _isCharactorReady = true
+            _isGameObjectReady = true
+            changedToReady = !wasReady
+        }
+
+        if (changedToReady) {
+            Log.d(TAG, "Recovered ready state ($reason)")
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+                onCharactorReadyListener?.invoke()
+            } else {
+                mainHandler.post {
+                    onCharactorReadyListener?.invoke()
+                }
+            }
+        }
+
+        flushQueuedMessagesIfReady(reason)
+        return true
     }
 
     // MARK: - State Validation
@@ -211,13 +280,64 @@ object UnityHolder {
      * @return 상태가 유효하면 true, stale 상태이면 false
      */
     fun validateState(): Boolean {
-        // Unity Player가 있는데 Activity가 없으면 stale
-        if (_unityPlayer != null && UnityPlayer.currentActivity == null) {
-            Log.w(TAG, "⚠️ Stale state detected: player exists but no activity")
-            return false
+        val hasPlayer = _unityPlayer != null
+        val hasActivity = UnityPlayer.currentActivity != null
+        val appActive = _isAppActive
+
+        if (!hasPlayer) {
+            return true
         }
 
-        return true
+        if (hasActivity) {
+            return true
+        }
+
+        val elapsedSinceResumeMs = SystemClock.elapsedRealtime() - _lastResumeAtMillis
+
+        if (!appActive) {
+            Log.w(
+                TAG,
+                "validateState transient: hasPlayer=true, hasActivity=false, isAppActive=false"
+            )
+            return true
+        }
+
+        if (elapsedSinceResumeMs <= ACTIVITY_RECOVERY_GRACE_MS) {
+            Log.w(
+                TAG,
+                "validateState transient within grace: hasPlayer=true, hasActivity=false, elapsedSinceResumeMs=$elapsedSinceResumeMs"
+            )
+            return true
+        }
+
+        Log.w(
+            TAG,
+            "validateState retrying activity check: hasPlayer=true, hasActivity=false, isAppActive=true"
+        )
+
+        try {
+            Thread.sleep(ACTIVITY_RECHECK_DELAY_MS)
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+            Log.w(TAG, "validateState retry interrupted: ${e.message}", e)
+        }
+
+        val hasActivityAfterRetry = UnityPlayer.currentActivity != null
+        val stillStale = _unityPlayer != null && _isAppActive && !hasActivityAfterRetry
+
+        if (stillStale) {
+            Log.w(
+                TAG,
+                "⚠️ Stale state detected after retry: hasPlayer=true, hasActivity=false, isAppActive=true"
+            )
+        } else {
+            Log.d(
+                TAG,
+                "validateState recovered after retry: hasActivityAfterRetry=$hasActivityAfterRetry"
+            )
+        }
+
+        return !stillStale
     }
 
     /**
@@ -235,9 +355,16 @@ object UnityHolder {
         }
 
         _isAppActive = true
-        // Note: _unityPlayer는 null로 설정하지 않음 (재생성 필요시 getOrCreateUnityPlayer 호출)
+        val recoveredImmediately = recoverReadyStateIfPossible("forceReset-immediate")
+        if (!recoveredImmediately) {
+            mainHandler.postDelayed({
+                val recoveredDelayed = recoverReadyStateIfPossible("forceReset-delayed")
+                Log.d(TAG, "forceReset delayed recovery result=$recoveredDelayed")
+            }, ACTIVITY_RECHECK_DELAY_MS)
+        }
 
-        Log.d(TAG, "✅ Force reset completed")
+        // Note: _unityPlayer는 null로 설정하지 않음 (재생성 필요시 getOrCreateUnityPlayer 호출)
+        Log.d(TAG, "✅ Force reset completed (recoveredImmediately=$recoveredImmediately)")
     }
 
     // MARK: - Lifecycle Management
@@ -273,6 +400,7 @@ object UnityHolder {
     fun onResume() {
         Log.d(TAG, "onResume()")
         _isAppActive = true
+        _lastResumeAtMillis = SystemClock.elapsedRealtime()
 
         val player = _unityPlayer
         if (player != null) {
@@ -289,17 +417,13 @@ object UnityHolder {
             }
         }
 
-        // Resume 시 대기 중인 메시지 처리
-        synchronized(queueLock) {
-            if (_isGameObjectReady && messageQueue.isNotEmpty()) {
-                Log.d(TAG, "Processing ${messageQueue.size} queued messages on resume")
-                val messagesToProcess = messageQueue.toList()
-                messageQueue.clear()
-
-                messagesToProcess.forEach { msg ->
-                    sendMessageImmediate(msg.gameObject, msg.methodName, msg.message)
-                }
-            }
+        val recoveredOnResume = recoverReadyStateIfPossible("onResume")
+        if (!recoveredOnResume) {
+            flushQueuedMessagesIfReady("onResume-existing-ready")
+            mainHandler.postDelayed({
+                recoverReadyStateIfPossible("onResume-delayed")
+                flushQueuedMessagesIfReady("onResume-delayed")
+            }, ACTIVITY_RECHECK_DELAY_MS)
         }
     }
 

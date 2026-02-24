@@ -6,6 +6,7 @@
 //
 
 import MetalKit
+import QuartzCore
 import UnityFramework
 
 class Unity: ObservableObject  {
@@ -55,6 +56,12 @@ class Unity: ObservableObject  {
     var isSafeToReattach: Bool {
         return loaded && isAppActive && !isPaused
     }
+
+    /// didBecomeActive 직후 transient 상태 허용 시간 (초)
+    private let foregroundValidationGraceInterval: TimeInterval = 1.2
+
+    /// 마지막 didBecomeActive 시각
+    private var lastDidBecomeActiveAt: CFTimeInterval = CACurrentMediaTime()
 
     private init() {
         // ⚠️ 중요: init()에서는 UnityFramework를 로드하지 않음
@@ -172,6 +179,7 @@ class Unity: ObservableObject  {
 
     @objc private func handleAppDidBecomeActive() {
         print("[Unity] 📱 App did become active (loaded: \(loaded), frameworkInit: \(isFrameworkInitialized))")
+        lastDidBecomeActiveAt = CACurrentMediaTime()
 
         // Unity가 로드되지 않았으면 단순히 상태만 업데이트
         guard loaded && isFrameworkInitialized else {
@@ -407,6 +415,8 @@ class Unity: ObservableObject  {
     /// Unity 싱글톤 상태 유효성 검사
     /// 앱 종료 후 재시작 시 stale 상태 감지
     func validateState() -> Bool {
+        let elapsedSinceForeground = CACurrentMediaTime() - lastDidBecomeActiveAt
+
         // Framework 참조가 있지만 실제로 유효하지 않은 경우 감지
         if _framework != nil {
             // rootView가 없으면 stale
@@ -418,6 +428,16 @@ class Unity: ObservableObject  {
 
             // rootView가 window hierarchy에 없으면 stale (로드 완료 후에만 체크)
             if rootView.window == nil && loaded {
+                if !isAppActive {
+                    print("[Unity] ⚠️ validateState transient: app inactive while rootView.window is nil")
+                    return true
+                }
+
+                if elapsedSinceForeground <= foregroundValidationGraceInterval {
+                    print("[Unity] ⚠️ validateState transient within grace (\(elapsedSinceForeground)s): rootView.window is nil")
+                    return true
+                }
+
                 print("[Unity] ⚠️ Stale: rootView not in window hierarchy")
                 return false
             }
@@ -425,6 +445,11 @@ class Unity: ObservableObject  {
 
         // 앱이 active인데 Unity가 paused면 불일치
         if isAppActive && isPaused && loaded {
+            if elapsedSinceForeground <= foregroundValidationGraceInterval {
+                print("[Unity] ⚠️ validateState transient within grace (\(elapsedSinceForeground)s): app active but Unity paused")
+                return true
+            }
+
             print("[Unity] ⚠️ State mismatch: app active but Unity paused")
             return false
         }

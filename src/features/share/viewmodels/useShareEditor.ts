@@ -40,6 +40,7 @@ const UNITY_SCALE_FACTOR_Y = 1.0;
 const INITIAL_CHARACTER_X = 0.5;    // 화면 중앙
 const INITIAL_CHARACTER_Y = 0.9;    // 화면 하단 (RN: 0=상단, 1=하단)
 const INITIAL_CHARACTER_SCALE = 1;  // 기본 스케일
+const SLIDER_MODE_EXIT_SETTLE_MS = 40; // Slider 모드 종료 후 Animator Update 1프레임 대기
 
 interface UseShareEditorProps {
   runningData: ShareRunningData;
@@ -146,10 +147,6 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
   // throttle을 위한 마지막 호출 시간 ref
   const lastAnimationTimeCallRef = useRef(0);
 
-  // 초기 배경/포즈 값을 ref로 저장 (초기화 시 최신 값 참조 방지)
-  const initialBackgroundRef = useRef(getDefaultBackground());
-  const initialPoseRef = useRef(DEFAULT_POSE);
-
   /**
    * Unity 준비 상태 관리 (Store 기반)
    * - waitForAvatar: false - GameObject만 준비되면 OK (아바타 로딩 불필요, 포즈 변경만 필요)
@@ -161,6 +158,39 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
     timeout: 3000,
     autoStart: false,
   });
+
+  const previousCanSendMessageRef = useRef(canSendMessage);
+
+  const applyBackgroundToUnity = useCallback(async (background: BackgroundOption) => {
+    if (background.type === 'unity' && background.unityBackgroundId) {
+      await unityService.setBackground(background.unityBackgroundId);
+      return;
+    }
+
+    if (background.type === 'photo' && background.photoUri) {
+      const base64Image = await resizeImageToBase64(background.photoUri);
+      await unityService.setBackgroundFromPhoto(base64Image);
+      return;
+    }
+
+    if (background.type === 'color' && typeof background.source === 'string') {
+      await unityService.setBackgroundColor(background.source);
+    }
+  }, []);
+
+  /**
+   * canSendMessage가 끊겼다가 복구되는 경우 재초기화 허용
+   */
+  useEffect(() => {
+    const wasCanSendMessage = previousCanSendMessageRef.current;
+    previousCanSendMessageRef.current = canSendMessage;
+
+    if (wasCanSendMessage && !canSendMessage) {
+      console.warn('[useShareEditor] Unity message channel disconnected - waiting for recovery');
+      setHasInitializedUnity(false);
+      setIsLoading(true);
+    }
+  }, [canSendMessage]);
 
   /**
    * Unity 초기화 (배경/포즈 설정)
@@ -176,22 +206,15 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
       setHasInitializedUnity(true);
 
       try {
-        const bg = initialBackgroundRef.current;
-        const pose = initialPoseRef.current;
+        await applyBackgroundToUnity(selectedBackground);
+        await unityService.setPoseForSlider(selectedPose.trigger as any);
+        await unityService.setAnimationNormalizedTime(animationTime);
 
-        // 기본 Unity 배경 설정
-        if (bg.type === 'unity' && bg.unityBackgroundId) {
-          await unityService.setBackground(bg.unityBackgroundId);
-        }
-
-        // 기본 포즈 설정 (달리기)
-        await unityService.setCharacterMotion(pose.trigger as any);
-
-        // ★ 초기 캐릭터 위치/스케일 설정 (RN 상태와 Unity 동기화)
-        // Y축 반전: RN(0=상단) → Unity(0=하단)
-        const unityY = 1 - INITIAL_CHARACTER_Y;
-        await unityService.setCharacterPosition(INITIAL_CHARACTER_X, unityY);
-        await unityService.setCharacterScale(INITIAL_CHARACTER_SCALE);
+        // RN 상태 기준으로 캐릭터 위치/스케일 재적용
+        const unityY = 1 - characterTransform.y;
+        await unityService.setCharacterPosition(characterTransform.x, unityY);
+        await unityService.setCharacterScale(characterTransform.scale);
+        await unityService.setCharacterVisible(avatarVisible);
       } catch (error) {
         console.error('[useShareEditor] Failed to initialize Unity:', error);
       } finally {
@@ -200,7 +223,16 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
     };
 
     initializeUnity();
-  }, [canSendMessage, hasInitializedUnity]);
+  }, [
+    animationTime,
+    applyBackgroundToUnity,
+    avatarVisible,
+    canSendMessage,
+    characterTransform,
+    hasInitializedUnity,
+    selectedBackground,
+    selectedPose,
+  ]);
 
 
   /**
@@ -224,6 +256,15 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
         unityService.setCharacterMotion(DEFAULT_POSE.trigger as any)
           .catch(err => console.warn('[useShareEditor] Cleanup motion failed:', err));
 
+        // Slider 모드에서 animator.speed=0으로 남는 케이스 보정:
+        // 짧게 speed를 올린 뒤 다시 stopCharacter로 되돌려 IDLE 애니메이션을 복구한다.
+        unityService.setCharacterSpeed(10)
+          .then(() => new Promise<void>((resolve) => {
+            setTimeout(resolve, SLIDER_MODE_EXIT_SETTLE_MS);
+          }))
+          .then(() => unityService.stopCharacter())
+          .catch(err => console.warn('[useShareEditor] Cleanup slider recovery failed:', err));
+
         // 위치/스케일 초기화
         // Y축 반전: RN(0=상단, 1=하단) → Unity(0=하단, 1=상단)
         const unityY = 1 - INITIAL_CHARACTER_Y;
@@ -244,23 +285,13 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
 
       if (canSendMessage) {
         try {
-          if (background.type === 'unity' && background.unityBackgroundId) {
-            // Unity 사전정의 배경
-            await unityService.setBackground(background.unityBackgroundId);
-          } else if (background.type === 'photo' && background.photoUri) {
-            // ★ 사용자 사진 배경 - Base64로 변환하여 Unity에 전송
-            const base64Image = await resizeImageToBase64(background.photoUri);
-            await unityService.setBackgroundFromPhoto(base64Image);
-          } else if (background.type === 'color' && typeof background.source === 'string') {
-            // 단색 배경
-            await unityService.setBackgroundColor(background.source);
-          }
+          await applyBackgroundToUnity(background);
         } catch (error) {
           console.error('[useShareEditor] Failed to change Unity background:', error);
         }
       }
     },
-    [canSendMessage]
+    [applyBackgroundToUnity, canSendMessage]
   );
 
   /**

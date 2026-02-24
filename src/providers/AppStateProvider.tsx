@@ -1,5 +1,5 @@
 import React, { useEffect, type ReactNode, useCallback, useRef } from 'react';
-import { AppState, type AppStateStatus } from 'react-native';
+import { AppState, type AppStateStatus, Platform } from 'react-native';
 import { useAppStore, ViewState } from '~/stores';
 import { useAuthStore } from '~/features';
 import { useUserStore } from '~/stores/user/userStore';
@@ -15,6 +15,11 @@ interface AppStateProviderProps {
 
 // 임계치 상수 (5분)
 const BACKGROUND_SYNC_THRESHOLD_SECONDS = 300 as const;
+const UNITY_RECOVERY_RETRY_DELAY_MS = 150 as const;
+
+const wait = (ms: number) => new Promise<void>((resolve) => {
+  setTimeout(resolve, ms);
+});
 
 // 최신 값을 참조하기 위한 ref 헬퍼
 function useLatestRef<T>(value: T) {
@@ -125,24 +130,48 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
    * 앱 업데이트 후 stale Unity 상태 감지 및 복구
    */
   const checkUnityConnection = useCallback(async () => {
-    console.log('🎮 [AppStateProvider] Checking Unity connection...');
+    console.log('🎮 [AppStateProvider] Checking Unity connection...', { platform: Platform.OS });
 
     try {
       // Unity 상태 유효성 검사
       const isValid = await UnityBridge.validateUnityState();
 
       if (!isValid) {
-        console.warn('⚠️ [AppStateProvider] Stale Unity state detected, resetting...');
-        await UnityBridge.forceResetUnity();
-        console.log('✅ [AppStateProvider] Unity reset completed');
-      } else {
-        console.log('✅ [AppStateProvider] Unity state is valid');
+        console.warn(
+          `⚠️ [AppStateProvider] ${Platform.OS} validate=false. Trying syncReadyState before forceReset`
+        );
+
+        const firstSyncReady = await UnityBridge.syncReadyState();
+        console.warn(`[AppStateProvider] ${Platform.OS} recovery sync attempt #1:`, firstSyncReady);
+
+        if (!firstSyncReady) {
+          await wait(UNITY_RECOVERY_RETRY_DELAY_MS);
+          const secondSyncReady = await UnityBridge.syncReadyState();
+          console.warn(
+            `[AppStateProvider] ${Platform.OS} recovery sync attempt #2:`,
+            secondSyncReady
+          );
+
+          if (!secondSyncReady) {
+            console.warn(
+              `⚠️ [AppStateProvider] ${Platform.OS} stale state persisted after retry, force resetting...`
+            );
+            await UnityBridge.forceResetUnity();
+            const recoveredAfterReset = await UnityBridge.syncReadyState();
+            console.log(
+              `[AppStateProvider] ${Platform.OS} post-reset syncReadyState:`,
+              recoveredAfterReset
+            );
+          }
+        }
+
+        return;
       }
 
       // ★ 핵심 수정: Unity valid 여부와 관계없이 Store 동기화
       // 포그라운드 복귀 시 Native와 JS Store 상태를 항상 동기화
-      await UnityBridge.syncReadyState();
-      console.log('✅ [AppStateProvider] Unity state synced');
+      const syncedReady = await UnityBridge.syncReadyState();
+      console.log('✅ [AppStateProvider] Unity state synced:', syncedReady);
     } catch (error) {
       console.error('❌ [AppStateProvider] Unity check failed:', error);
     }

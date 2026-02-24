@@ -634,7 +634,7 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
 
         try {
             val json = """{"x":$x,"y":$y}"""
-            UnityHolder.sendMessage("Charactor", "SetPosition", json)
+            UnityHolder.sendMessage("Charactor", "SetCharacterPosition", json)
             promise.resolve(null)
         } catch (e: Exception) {
             Log.e(TAG, "setCharacterPosition error: ${e.message}", e)
@@ -654,7 +654,7 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
         Log.d(TAG, "setCharacterScale: $scale")
 
         try {
-            UnityHolder.sendMessage("Charactor", "SetScale", scale.toString())
+            UnityHolder.sendMessage("Charactor", "SetCharacterScale", scale.toString())
             promise.resolve(null)
         } catch (e: Exception) {
             Log.e(TAG, "setCharacterScale error: ${e.message}", e)
