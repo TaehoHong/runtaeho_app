@@ -4,24 +4,17 @@ import type { EquippedItemsMap, Item } from '~/features/avatar';
 import { AvatarPreview } from '~/features/avatar/views/components/AvatarPreview';
 import { renderWithProviders } from '~/test-utils/renderWithProviders';
 
-const mockChangeAvatar = jest.fn<Promise<void>, [Item[], string]>();
-const mockUseUnityReadiness = jest.fn();
-const mockSetAvatarReady = jest.fn();
+const mockSyncAvatar = jest.fn<Promise<'applied' | 'empty' | 'failed'>, [Item[], string]>();
+const mockUseUnityBootstrap = jest.fn();
 
 jest.mock('~/features/unity/services/UnityService', () => ({
   unityService: {
-    changeAvatar: (items: Item[], hairColor: string) => mockChangeAvatar(items, hairColor),
-    onReady: jest.fn(() => jest.fn()),
+    syncAvatar: (items: Item[], hairColor: string) => mockSyncAvatar(items, hairColor),
   },
 }));
 
 jest.mock('~/features/unity/hooks', () => ({
-  useUnityReadiness: (...args: unknown[]) => mockUseUnityReadiness(...args),
-}));
-
-jest.mock('~/stores/unity/unityStore', () => ({
-  useUnityStore: (selector: (state: { setAvatarReady: (ready: boolean) => void }) => unknown) =>
-    selector({ setAvatarReady: mockSetAvatarReady }),
+  useUnityBootstrap: (...args: unknown[]) => mockUseUnityBootstrap(...args),
 }));
 
 jest.mock('~/features/unity/components/UnityView', () => ({
@@ -59,14 +52,15 @@ function createHairItem(id: number): Item {
 describe('AvatarPreview initial sync', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockChangeAvatar.mockResolvedValue(undefined);
-    mockUseUnityReadiness.mockReturnValue({
+    mockSyncAvatar.mockResolvedValue('applied');
+    mockUseUnityBootstrap.mockReturnValue({
       handleUnityReady: jest.fn(),
       canSendMessage: true,
+      isInitialAvatarSynced: true,
     });
   });
 
-  it('does not skip first sync before onReady initial sync completion', async () => {
+  it('syncs only changed payload after initial bootstrap sync is complete', async () => {
     const equippedItems: EquippedItemsMap = {
       1: createHairItem(1),
     };
@@ -75,20 +69,16 @@ describe('AvatarPreview initial sync', () => {
       <AvatarPreview equippedItems={equippedItems} hairColor="#000000" />
     );
 
-    await waitFor(() => {
-      expect(mockChangeAvatar).toHaveBeenCalledTimes(1);
-    });
+    expect(mockSyncAvatar).toHaveBeenCalledTimes(0);
 
     rerender(<AvatarPreview equippedItems={equippedItems} hairColor="#000000" />);
 
-    await waitFor(() => {
-      expect(mockChangeAvatar).toHaveBeenCalledTimes(1);
-    });
+    expect(mockSyncAvatar).toHaveBeenCalledTimes(0);
 
     rerender(<AvatarPreview equippedItems={equippedItems} hairColor="#8B4513" />);
 
     await waitFor(() => {
-      expect(mockChangeAvatar).toHaveBeenCalledTimes(2);
+      expect(mockSyncAvatar).toHaveBeenCalledTimes(1);
     });
   });
 });

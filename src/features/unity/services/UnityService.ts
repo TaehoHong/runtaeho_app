@@ -10,6 +10,26 @@ import { UnityBridge } from '../bridge/UnityBridge';
 import { type CharacterMotion, type UnityAvatarDtoList } from '../types/UnityTypes';
 import type { Item } from '~/features/avatar';
 import { getUnityPartName } from '~/features/avatar/models/avatarConstants';
+import { useUnityStore } from '~/stores/unity/unityStore';
+
+interface WaitForReadyOptions {
+  waitForAvatar?: boolean;
+  timeoutMs?: number;
+  pollIntervalMs?: number;
+  forceReadyOnTimeout?: boolean;
+}
+
+type RunWhenReadyOptions = WaitForReadyOptions;
+
+interface SyncAvatarOptions {
+  waitForReady?: boolean;
+  readyOptions?: WaitForReadyOptions;
+}
+
+interface RecoverConnectionOptions {
+  syncRetryCount?: number;
+  retryDelayMs?: number;
+}
 
 /**
  * Unity Bridge Service 클래스
@@ -25,6 +45,9 @@ export class UnityService {
   private static readonly MIN_SPEED = 3.0;
   private static readonly MAX_SPEED = 7.0;
   private static readonly VALID_MOTIONS: CharacterMotion[] = ['IDLE', 'MOVE', 'ATTACK', 'DAMAGED', 'DEATH'];
+  private static readonly DEFAULT_READY_POLL_INTERVAL_MS = 100;
+  private static readonly DEFAULT_CONNECTION_RETRY_COUNT = 2;
+  private static readonly DEFAULT_CONNECTION_RETRY_DELAY_MS = 150;
 
   // Avatar 변경 Lock 메커니즘 - 동시 호출로 인한 CANCELLED 에러 방지
   private isChangingAvatar: boolean = false;
@@ -85,6 +108,151 @@ export class UnityService {
     this.log('Resetting Ready state');
     await UnityBridge.resetGameObjectReady();
   }
+
+  async waitForReady(options: WaitForReadyOptions = {}): Promise<{ ready: boolean; timedOut: boolean }> {
+    const {
+      waitForAvatar = false,
+      timeoutMs,
+      pollIntervalMs = UnityService.DEFAULT_READY_POLL_INTERVAL_MS,
+      forceReadyOnTimeout = true,
+    } = options;
+    const startedAt = Date.now();
+
+    while (true) {
+      const state = useUnityStore.getState();
+      const ready = waitForAvatar
+        ? state.isGameObjectReady && state.isAvatarReady
+        : state.isGameObjectReady;
+
+      if (ready) {
+        return { ready: true, timedOut: false };
+      }
+
+      // Native 이벤트 누락 보정
+      if (!state.isGameObjectReady) {
+        await this.syncReady();
+      }
+
+      const syncedState = useUnityStore.getState();
+      const syncedReady = waitForAvatar
+        ? syncedState.isGameObjectReady && syncedState.isAvatarReady
+        : syncedState.isGameObjectReady;
+
+      if (syncedReady) {
+        return { ready: true, timedOut: false };
+      }
+
+      if (typeof timeoutMs === 'number' && timeoutMs > 0 && Date.now() - startedAt >= timeoutMs) {
+        this.log(`waitForReady timed out (${timeoutMs}ms), waitForAvatar=${waitForAvatar}`);
+        if (forceReadyOnTimeout) {
+          const store = useUnityStore.getState();
+          store.setGameObjectReady(true);
+          if (waitForAvatar) {
+            store.setAvatarReady(true);
+          }
+          return { ready: true, timedOut: true };
+        }
+        return { ready: false, timedOut: true };
+      }
+
+      await this.wait(pollIntervalMs);
+    }
+  }
+
+  async runWhenReady(
+    task: () => void | Promise<void>,
+    options: RunWhenReadyOptions = {}
+  ): Promise<boolean> {
+    const { ready } = await this.waitForReady(options);
+    if (!ready) {
+      return false;
+    }
+
+    try {
+      await task();
+      return true;
+    } catch (error) {
+      this.logError('runWhenReady task failed', error);
+      return false;
+    }
+  }
+
+  async syncAvatar(
+    items: Item[],
+    hairColor?: string,
+    options: SyncAvatarOptions = {}
+  ): Promise<'applied' | 'empty' | 'failed'> {
+    const { waitForReady = true, readyOptions = {} } = options;
+    const validItems = this.validateAvatarItems(items);
+    const hasAvatarPayload = validItems.length > 0 || !!hairColor;
+    const store = useUnityStore.getState();
+
+    if (!hasAvatarPayload) {
+      store.setAvatarReady(true);
+      return 'empty';
+    }
+
+    if (waitForReady) {
+      const readyResult = await this.waitForReady({
+        waitForAvatar: false,
+        ...readyOptions,
+      });
+      if (!readyResult.ready) {
+        store.setAvatarReady(true);
+        return 'failed';
+      }
+    }
+
+    store.setAvatarReady(false);
+
+    try {
+      const success = await this.executeAvatarChangeWithLock(validItems, hairColor);
+      if (!success) {
+        store.setAvatarReady(true);
+        return 'failed';
+      }
+      return 'applied';
+    } catch (error) {
+      this.logError('syncAvatar failed', error);
+      store.setAvatarReady(true);
+      return 'failed';
+    }
+  }
+
+  async recoverConnection(
+    options: RecoverConnectionOptions = {}
+  ): Promise<{ valid: boolean; recovered: boolean; usedForceReset: boolean }> {
+    const {
+      syncRetryCount = UnityService.DEFAULT_CONNECTION_RETRY_COUNT,
+      retryDelayMs = UnityService.DEFAULT_CONNECTION_RETRY_DELAY_MS,
+    } = options;
+    const valid = await UnityBridge.validateUnityState();
+
+    if (valid) {
+      const recovered = await this.syncReady();
+      return { valid: true, recovered, usedForceReset: false };
+    }
+
+    for (let attempt = 0; attempt < syncRetryCount; attempt += 1) {
+      const recovered = await this.syncReady();
+      if (recovered) {
+        return { valid: false, recovered: true, usedForceReset: false };
+      }
+
+      if (attempt < syncRetryCount - 1) {
+        await this.wait(retryDelayMs);
+      }
+    }
+
+    await UnityBridge.forceResetUnity();
+    const recovered = await this.syncReady();
+    return { valid: false, recovered, usedForceReset: true };
+  }
+
+  async resetReadyAndResync(): Promise<void> {
+    await this.resetGameObjectReady();
+    await this.syncReady();
+  }
   
   // ==========================================
   // Unity 화면 제어 (UnityView 컴포넌트에서 처리)
@@ -105,13 +273,14 @@ export class UnityService {
   // ==========================================
 
   async initCharacter(items: Item[], hairColor?: string): Promise<void> {
-    if (items.length > 0) {
-      this.log(`Initializing character with ${items.length} items`);
-      await this.changeAvatar(items, hairColor);
-    }
-
-    // Unity 캐릭터 초기 속도 설정
-    await this.stopCharacter();
+    this.log(`Initializing character with ${items.length} items`);
+    await this.runWhenReady(
+      async () => {
+        await this.syncAvatar(items, hairColor, { waitForReady: false });
+        await this.stopCharacter();
+      },
+      { waitForAvatar: false, timeoutMs: 3000, forceReadyOnTimeout: true }
+    );
   }
   
   async setCharacterSpeed(speed: number): Promise<void> {
@@ -245,25 +414,45 @@ export class UnityService {
    * - SetSprites 중복 실행 방지
    */
   async changeAvatar(items: Item[], hairColor?: string): Promise<void> {
+    const result = await this.syncAvatar(items, hairColor, {
+      waitForReady: true,
+      readyOptions: {
+        waitForAvatar: false,
+        timeoutMs: 3000,
+        forceReadyOnTimeout: true,
+      },
+    });
+
+    if (result === 'failed') {
+      this.log('⚠️ Avatar change reported failed');
+    }
+  }
+
+  /**
+   * 실제 아바타 변경 로직 (Lock 기반 직렬 처리)
+   */
+  private async executeAvatarChangeWithLock(items: Item[], hairColor?: string): Promise<boolean> {
     // 진행 중이면 대기열에 추가하고 리턴 (최신 요청만 유지)
     if (this.isChangingAvatar) {
       this.log('⏳ Avatar change in progress, queueing request');
       this.pendingAvatarChange = { items, hairColor };
-      return;
+      return true;
     }
 
     this.isChangingAvatar = true;
+    let lastResult = true;
 
     try {
-      await this.executeChangeAvatar(items, hairColor);
+      lastResult = await this.executeChangeAvatar(items, hairColor);
 
       // 대기 중인 요청 처리 (while loop로 연속 요청 처리)
       while (this.pendingAvatarChange) {
         const pending = this.pendingAvatarChange;
         this.pendingAvatarChange = null;
         this.log('📋 Processing queued avatar change request');
-        await this.executeChangeAvatar(pending.items, pending.hairColor);
+        lastResult = await this.executeChangeAvatar(pending.items, pending.hairColor);
       }
+      return lastResult;
     } finally {
       this.isChangingAvatar = false;
     }
@@ -273,7 +462,7 @@ export class UnityService {
    * 실제 아바타 변경 로직 (내부 메서드)
    * SetSprites 완료까지 대기 후 resolve되므로 깜빡임 없음
    */
-  private async executeChangeAvatar(items: Item[], hairColor?: string): Promise<void> {
+  private async executeChangeAvatar(items: Item[], hairColor?: string): Promise<boolean> {
     this.log(`Changing avatar with ${items.length} items, hairColor: ${hairColor}`);
 
     if (!this.isReady()) {
@@ -282,13 +471,6 @@ export class UnityService {
 
     try {
       const validatedItems = this.validateAvatarItems(items);
-
-      // items가 비어있고 hairColor도 없으면 업데이트할 것이 없음
-      if (validatedItems.length === 0 && !hairColor) {
-        this.log('No valid avatar items and no hairColor provided, skipping update');
-        return;
-      }
-
       const unityData = this.convertToUnityAvatarDtoList(validatedItems, hairColor);
       const jsonString = JSON.stringify(unityData);
 
@@ -306,6 +488,7 @@ export class UnityService {
       }
 
       this.log(`Avatar changed with ${validatedItems.length} items, hairColor: ${hairColor}, success: ${success}`);
+      return success;
     } catch (error) {
       this.logError('Failed to change avatar', error);
       throw error;
@@ -476,6 +659,12 @@ export class UnityService {
       this.logError('Failed to capture avatar', error);
       throw error;
     }
+  }
+
+  private wait(ms: number): Promise<void> {
+    return new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
   }
 
   private log(message: string, ...args: any[]): void {

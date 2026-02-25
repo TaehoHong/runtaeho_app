@@ -2,16 +2,16 @@
  * useLeagueResultAnimation
  * 리그 결과 화면에서 Unity 캐릭터 애니메이션을 관리하는 훅
  *
- * ★ useUnityReadiness Hook 기반으로 리팩토링
- * - 기존: 로컬 useState + 개별 이벤트 구독 + 타임아웃 관리
- * - 변경: Store 기반 통합 상태 관리 + Hook의 타임아웃 기능 활용
+ * ★ useUnityBootstrap Hook 기반으로 리팩토링
+ * - 초기 Ready + 첫 avatar sync는 공통 bootstrap에서 처리
+ * - 이 훅은 결과 애니메이션 재생에 집중
  */
 
 import { useCallback, useRef, useEffect } from 'react';
 import type { Item } from '~/features/avatar';
+import type { UnityReadyEvent } from '~/features/unity/bridge/UnityBridge';
 import { unityService } from '~/features/unity/services/UnityService';
-import { useUnityReadiness } from '~/features/unity/hooks';
-import { useUnityStore } from '~/stores/unity/unityStore';
+import { useUnityBootstrap } from '~/features/unity/hooks';
 import { useUserStore } from '~/stores/user/userStore';
 import { LeagueResultStatus } from '../models';
 import type { CharacterMotion } from '~/features/unity/types/UnityTypes';
@@ -45,7 +45,7 @@ interface UseLeagueResultAnimationProps {
 interface UseLeagueResultAnimationReturn {
   isUnityReady: boolean;
   isUnityAvailable: boolean;
-  handleUnityReady: (event: any) => void;
+  handleUnityReady: (event: UnityReadyEvent) => void;
 }
 
 /**
@@ -61,14 +61,26 @@ export const useLeagueResultAnimation = ({
   // 애니메이션 딜레이 타이머
   const animationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ★ 통합 Hook 사용
-  // Store 액션
-  const setAvatarReady = useUnityStore((state) => state.setAvatarReady);
+  const getInitialAvatarPayload = useCallback(() => {
+    const items = Object.values(equippedItems).filter(
+      (item): item is Item => !!item
+    );
+    return {
+      items,
+      hairColor,
+    };
+  }, [equippedItems, hairColor]);
 
-  const { isReady, isUnityAvailable, handleUnityReady: baseHandleUnityReady } = useUnityReadiness({
+  const {
+    isReady,
+    isUnityAvailable,
+    handleUnityReady,
+    isInitialAvatarSynced,
+  } = useUnityBootstrap({
     waitForAvatar: true, // ★ isGameObjectReady && isAvatarReady 모두 체크 (아바타 완성 후 표시)
     timeout: 3000, // 3초 타임아웃 (아바타 로딩 고려)
     startDelay: 0, // LeagueResult는 이미 앱이 실행 중이므로 지연 불필요
+    getInitialAvatarPayload,
   });
 
   /**
@@ -86,58 +98,19 @@ export const useLeagueResultAnimation = ({
     }
   }, [resultStatus, isUnityAvailable]);
 
-  /**
-   * Unity 준비 완료 이벤트 핸들러
-   * 기본 핸들러 + 아바타 로드 + 애니메이션 실행
-   */
-  const handleUnityReady = useCallback(
-    (event: any) => {
-      console.log('[LeagueResultAnimation] Unity View Ready:', event?.nativeEvent);
+  useEffect(() => {
+    if (!isInitialAvatarSynced || !isUnityAvailable) {
+      return;
+    }
 
-      // 이전 애니메이션 타이머 정리
-      if (animationTimeoutRef.current) {
-        clearTimeout(animationTimeoutRef.current);
-      }
+    if (animationTimeoutRef.current) {
+      clearTimeout(animationTimeoutRef.current);
+    }
 
-      // 기본 핸들러 호출
-      baseHandleUnityReady(event);
-
-      // 아바타 로드 및 애니메이션 실행
-      const unsubscribe = unityService.onReady(async () => {
-        console.log('[LeagueResultAnimation] GameObject Ready! Initializing...');
-
-        try {
-          // 1. 사용자 아바타 로드
-          const items = Object.values(equippedItems).filter(
-            (item): item is Item => !!item
-          );
-
-          if (items.length > 0) {
-            await unityService.changeAvatar(items, hairColor);
-            console.log(`[LeagueResultAnimation] Avatar loaded (${items.length} items)`);
-            // ★ onAvatarReady 이벤트가 자동으로 setAvatarReady(true) 처리
-          } else {
-            // ★ 아이템이 없는 경우: changeAvatar() 호출 안 함 → onAvatarReady 이벤트 안 옴
-            // 수동으로 isAvatarReady를 true로 설정
-            console.log('[LeagueResultAnimation] 장착 아이템 없음 - 수동으로 ready 처리');
-            setAvatarReady(true);
-          }
-
-          // 2. 결과에 맞는 애니메이션 실행 (약간의 딜레이 후)
-          animationTimeoutRef.current = setTimeout(async () => {
-            await playResultAnimation();
-          }, 500);
-        } catch (error) {
-          console.error('[LeagueResultAnimation] Initialization failed:', error);
-          // ★ 에러 시 강제로 ready 처리 (UX 유지)
-          setAvatarReady(true);
-        }
-      });
-
-      return unsubscribe;
-    },
-    [equippedItems, hairColor, playResultAnimation, baseHandleUnityReady, setAvatarReady]
-  );
+    animationTimeoutRef.current = setTimeout(() => {
+      void playResultAnimation();
+    }, 500);
+  }, [isInitialAvatarSynced, isUnityAvailable, playResultAnimation]);
 
   /**
    * 컴포넌트 언마운트 시 타이머 정리

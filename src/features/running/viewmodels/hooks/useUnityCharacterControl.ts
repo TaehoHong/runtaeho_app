@@ -26,37 +26,12 @@ export const useUnityCharacterControl = ({
     console.log('[useUnityCharacterControl] isUnityReady:', isUnityReady);
 
     if (!isUnityReady) return;
-    let readyUnsubscribe: (() => void) | null = null;
-
-    const applySpeedControl = () => {
-      if (runningState === RunningState.Running) {
-        unityService.setCharacterSpeed(speed);
-      } else {
-        unityService.stopCharacter();
-      }
-    };
-
-    // Unity가 아직 준비되지 않은 경우 onReady 콜백 등록
-    if (!unityService.isReady()) {
-      readyUnsubscribe = unityService.onReady(() => {
-        console.log('[useUnityCharacterControl] GameObject Ready, applying speed control');
-        applySpeedControl();
-      });
-      return () => {
-        if (readyUnsubscribe) {
-          readyUnsubscribe();
-        }
-      };
+    if (runningState === RunningState.Running) {
+      void unityService.setCharacterSpeed(speed);
+      return;
     }
 
-    // Unity가 준비된 경우 즉시 속도 제어 적용
-    applySpeedControl();
-
-    return () => {
-      if (readyUnsubscribe) {
-        readyUnsubscribe();
-      }
-    };
+    void unityService.stopCharacter();
   }, [isUnityReady, runningState, speed]);
 
   // 이 hook은 순수하게 reactive하며, 외부로 노출하는 action이 없음

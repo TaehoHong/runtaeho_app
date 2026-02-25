@@ -1,11 +1,10 @@
 import React, { useEffect, type ReactNode, useCallback, useRef } from 'react';
-import { AppState, type AppStateStatus, Platform } from 'react-native';
+import { AppState, type AppStateStatus } from 'react-native';
 import { useAppStore, ViewState } from '~/stores';
 import { useAuthStore } from '~/features';
 import { useUserStore } from '~/stores/user/userStore';
 import { pointService } from '~/features/point/services/pointService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { UnityBridge } from '~/features/unity/bridge/UnityBridge';
 import { unityService } from '~/features/unity/services/UnityService';
 import type { Item } from '~/features/avatar';
 
@@ -15,11 +14,6 @@ interface AppStateProviderProps {
 
 // 임계치 상수 (5분)
 const BACKGROUND_SYNC_THRESHOLD_SECONDS = 300 as const;
-const UNITY_RECOVERY_RETRY_DELAY_MS = 150 as const;
-
-const wait = (ms: number) => new Promise<void>((resolve) => {
-  setTimeout(resolve, ms);
-});
 
 // 최신 값을 참조하기 위한 ref 헬퍼
 function useLatestRef<T>(value: T) {
@@ -130,48 +124,11 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
    * 앱 업데이트 후 stale Unity 상태 감지 및 복구
    */
   const checkUnityConnection = useCallback(async () => {
-    console.log('🎮 [AppStateProvider] Checking Unity connection...', { platform: Platform.OS });
+    console.log('🎮 [AppStateProvider] Checking Unity connection...');
 
     try {
-      // Unity 상태 유효성 검사
-      const isValid = await UnityBridge.validateUnityState();
-
-      if (!isValid) {
-        console.warn(
-          `⚠️ [AppStateProvider] ${Platform.OS} validate=false. Trying syncReadyState before forceReset`
-        );
-
-        const firstSyncReady = await UnityBridge.syncReadyState();
-        console.warn(`[AppStateProvider] ${Platform.OS} recovery sync attempt #1:`, firstSyncReady);
-
-        if (!firstSyncReady) {
-          await wait(UNITY_RECOVERY_RETRY_DELAY_MS);
-          const secondSyncReady = await UnityBridge.syncReadyState();
-          console.warn(
-            `[AppStateProvider] ${Platform.OS} recovery sync attempt #2:`,
-            secondSyncReady
-          );
-
-          if (!secondSyncReady) {
-            console.warn(
-              `⚠️ [AppStateProvider] ${Platform.OS} stale state persisted after retry, force resetting...`
-            );
-            await UnityBridge.forceResetUnity();
-            const recoveredAfterReset = await UnityBridge.syncReadyState();
-            console.log(
-              `[AppStateProvider] ${Platform.OS} post-reset syncReadyState:`,
-              recoveredAfterReset
-            );
-          }
-        }
-
-        return;
-      }
-
-      // ★ 핵심 수정: Unity valid 여부와 관계없이 Store 동기화
-      // 포그라운드 복귀 시 Native와 JS Store 상태를 항상 동기화
-      const syncedReady = await UnityBridge.syncReadyState();
-      console.log('✅ [AppStateProvider] Unity state synced:', syncedReady);
+      const result = await unityService.recoverConnection();
+      console.log('✅ [AppStateProvider] Unity connection checked:', result);
     } catch (error) {
       console.error('❌ [AppStateProvider] Unity check failed:', error);
     }
@@ -192,30 +149,29 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
     if (backgroundDuration > BACKGROUND_SYNC_THRESHOLD_SECONDS) {
       console.log('🎮 [AppStateProvider] 5분 이상 백그라운드 - Unity 상태 리셋');
 
-      // 1. Store 상태 리셋 + Native 동기화 (isGameObjectReady, isAvatarReady 모두 false로)
-      // ★ 핵심 수정: Store만 리셋하는 대신 Native와 동기화하는 메서드 사용
-      await UnityBridge.resetGameObjectReady();
+      // 1. Store 상태 리셋 + Native 동기화
+      await unityService.resetReadyAndResync();
 
       // 2. 사용자 데이터 동기화
       await syncUserDataFromServer();
 
-      // 3. ★ Unity 재초기화 완료 후 아바타 재적용
-      const unsubscribe = unityService.onReady(async () => {
+      // 3. Unity 재초기화 완료 후 아바타 재적용
+      await unityService.runWhenReady(async () => {
         try {
           const currentState = useUserStore.getState();
           const items = Object.values(currentState.equippedItems).filter(
             (item): item is Item => !!item
           );
-          if (items.length > 0) {
-            await unityService.changeAvatar(items, currentState.hairColor);
-            console.log(`✅ [AppStateProvider] 아바타 재적용 완료 (${items.length}개)`);
-          }
+          const syncResult = await unityService.syncAvatar(items, currentState.hairColor, {
+            waitForReady: false,
+          });
+          console.log(
+            `✅ [AppStateProvider] 아바타 재적용 완료 (${items.length}개, result=${syncResult})`
+          );
         } catch (error) {
           console.error('❌ [AppStateProvider] 아바타 재적용 실패:', error);
         }
-        // 1회성 콜백이므로 구독 해제
-        unsubscribe();
-      });
+      }, { waitForAvatar: false, timeoutMs: 3000, forceReadyOnTimeout: true });
     }
 
     // 2. 시스템 권한 상태 재확인

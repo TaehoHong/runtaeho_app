@@ -131,17 +131,13 @@ export const useUnityReadiness = (
   const error = useUnityStore((state) => state.error);
 
   // Store 액션
-  const setGameObjectReady = useUnityStore((state) => state.setGameObjectReady);
-  const setAvatarReady = useUnityStore((state) => state.setAvatarReady);
   const resetReadyStates = useUnityStore((state) => state.resetReadyStates);
 
   // 로컬 상태 (Unity 시작 여부만 로컬로 관리)
   const [isUnityStarted, setIsUnityStarted] = useState(false);
   const hasCalledOnReadyRef = useRef(false);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // ★ handleUnityReady에서 생성된 구독 저장 (메모리 누수 방지)
-  const unityReadyUnsubscribeRef = useRef<(() => void) | null>(null);
+  const waitRequestIdRef = useRef(0);
 
   // Unity 사용 가능 여부 (iOS, Android 지원)
   const isUnityAvailable = Platform.OS === 'ios' || Platform.OS === 'android';
@@ -176,29 +172,36 @@ export const useUnityReadiness = (
 
   /**
    * UnityView onUnityReady 핸들러
-   * ★ 반환된 unsubscribe를 ref에 저장하여 cleanup 시 호출
+   * Service 오케스트레이터로 ready 대기 로직 위임
    */
   const handleUnityReady = useCallback(
-    (event: any) => {
+    (event: UnityReadyEvent) => {
       console.log('[useUnityReadiness] Unity View Ready:', event?.nativeEvent);
+      const requestId = waitRequestIdRef.current + 1;
+      waitRequestIdRef.current = requestId;
 
-      // ★ 이전 구독 정리
-      if (unityReadyUnsubscribeRef.current) {
-        unityReadyUnsubscribeRef.current();
-        unityReadyUnsubscribeRef.current = null;
-      }
-
-      // unityService.onReady는 Push + Pull 패턴으로 안전하게 처리
-      const unsubscribe = unityService.onReady(() => {
-        console.log('[useUnityReadiness] GameObject Ready!');
-        // Store는 UnityBridge에서 이미 업데이트됨
-        // 여기서는 추가 작업 불필요 (콜백 체이닝만)
-      });
-
-      // ★ ref에 저장 (cleanup 시 사용)
-      unityReadyUnsubscribeRef.current = unsubscribe;
+      void unityService
+        .waitForReady({
+          waitForAvatar,
+          timeoutMs: timeout,
+          forceReadyOnTimeout: true,
+        })
+        .then((result) => {
+          // 최신 요청만 반영
+          if (requestId !== waitRequestIdRef.current) {
+            return;
+          }
+          if (result.timedOut) {
+            console.warn(
+              `[useUnityReadiness] waitForReady timed out (waitForAvatar=${waitForAvatar})`
+            );
+          }
+        })
+        .catch((waitError) => {
+          console.error('[useUnityReadiness] waitForReady failed:', waitError);
+        });
     },
-    []
+    [timeout, waitForAvatar]
   );
 
   /**
@@ -218,42 +221,12 @@ export const useUnityReadiness = (
   }, [autoStart, isUnityAvailable, startUnity]);
 
   /**
-   * 타임아웃 처리
-   */
-  useEffect(() => {
-    if (!timeout || isReady) return;
-
-    console.log(`[useUnityReadiness] 타임아웃 설정: ${timeout}ms`);
-
-    timeoutRef.current = setTimeout(() => {
-      console.log('[useUnityReadiness] 타임아웃 - 강제 ready 처리');
-      setGameObjectReady(true);
-      if (waitForAvatar) {
-        setAvatarReady(true);
-      }
-    }, timeout);
-
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-    };
-  }, [timeout, isReady, waitForAvatar, setGameObjectReady, setAvatarReady]);
-
-  /**
    * onReady 콜백 실행
    */
   useEffect(() => {
     if (isReady && onReady && !hasCalledOnReadyRef.current) {
       console.log('[useUnityReadiness] onReady 콜백 실행');
       hasCalledOnReadyRef.current = true;
-
-      // 타임아웃 정리
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
 
       onReady();
     }
@@ -264,16 +237,8 @@ export const useUnityReadiness = (
    */
   useEffect(() => {
     return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
       if (startDelayTimerRef.current) {
         clearTimeout(startDelayTimerRef.current);
-      }
-      // ★ unityService.onReady 구독 정리
-      if (unityReadyUnsubscribeRef.current) {
-        unityReadyUnsubscribeRef.current();
-        unityReadyUnsubscribeRef.current = null;
       }
     };
   }, []);

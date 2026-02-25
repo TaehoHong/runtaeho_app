@@ -9,7 +9,7 @@
  * iOS AvatarManagementViewModel 포팅
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ITEM_CATEGORIES,
   ItemStatus,
@@ -155,8 +155,6 @@ export function useAvatarViewModel(): AvatarViewModel {
 
   // 전역 equippedItems를 항상 Map으로 정규화해 사용
   const globalEquippedMap = useMemo<EquippedItemsMap>(() => normalizeEquippedMap(globalEquippedItems), [globalEquippedItems]);
-  const initialEquippedMapRef = useRef(globalEquippedMap);
-  const initialHairColorRef = useRef(globalHairColor);
 
   // ===================================
   // Local State
@@ -266,19 +264,6 @@ export function useAvatarViewModel(): AvatarViewModel {
   // ===================================
   // Effects
   // ===================================
-
-  // 아바타 화면 마운트 시 Unity에 현재 장착 아이템과 헤어 색상 전송
-  useEffect(() => {
-    const items = Object.values(initialEquippedMapRef.current).filter((item): item is Item => !!item);
-    const hairColor = initialHairColorRef.current;
-
-    if (items.length > 0 && hairColor) {
-      unityService.changeAvatar(items, hairColor);
-      if (__DEV__) {
-        console.log('🎨 [AvatarViewModel] Initial avatar sync to Unity:', items.length, 'items, hairColor:', hairColor);
-      }
-    }
-  }, []); // 마운트 시 1회만 실행
 
   // Global 상태가 변경되면 Pending 상태 동기화
   useEffect(() => {
@@ -460,7 +445,7 @@ export function useAvatarViewModel(): AvatarViewModel {
 
     // Unity 프리뷰 복원 (원래 상태로)
     const items = Object.values(globalEquippedItems).filter((item): item is Item => !!item);
-    unityService.changeAvatar(items, globalHairColor);
+    void unityService.syncAvatar(items, globalHairColor, { waitForReady: true });
 
   }, [globalEquippedItems, globalHairColor]);
 

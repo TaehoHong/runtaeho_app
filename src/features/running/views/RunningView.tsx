@@ -1,11 +1,13 @@
-import React, { useCallback, useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { AppState, BackHandler, Platform, StyleSheet, View } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { GREY } from '~/shared/styles';
 import type { Item } from '~/features/avatar';
+import type { UnityReadyEvent } from '~/features/unity/bridge/UnityBridge';
 import { UnityView } from '~/features/unity/components/UnityView';
 import { UnityLoadingState } from '~/features/unity/components/UnityLoadingState';
+import { useUnityBootstrap } from '~/features/unity/hooks';
 import { unityService } from '~/features/unity/services/UnityService';
 import { LoadingView } from '~/shared/components';
 import { usePermissionRequest } from '~/shared/hooks/usePermissionRequest';
@@ -24,10 +26,10 @@ import { ControlPanelView } from './components/ControlPanelView';
  */
 export const RunningView: React.FC = () => {
   const router = useRouter();
+  const isRunningActive = useIsFocused();
   const viewState = useAppStore((state) => state.viewState);
   const runningState = useAppStore((state) => state.runningState);
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
-  const equippedItems = useUserStore((state) => state.equippedItems);
 
   // 리그 결과 확인용 상태
   const pendingResult = useLeagueCheckStore((state) => state.pendingResult);
@@ -36,12 +38,39 @@ export const RunningView: React.FC = () => {
 
   const { requestPermissionsOnFirstLogin, isPermissionChecked } = usePermissionRequest();
 
-  const [unityStarted, setUnityStarted] = useState(false);
-  const [isUnityReady, setIsUnityReady] = useState(false);
   const isInitialMount = useRef(true);
-  const hasInitializedAvatar = useRef(false);
-  const foregroundReinitUnsubscribeRef = useRef<(() => void) | null>(null);
-  const unityReadyInitUnsubscribeRef = useRef<(() => void) | null>(null);
+  const hasRequestedPermissionRef = useRef(false);
+  const hasInitializedCharacterRef = useRef(false);
+
+  const getInitialAvatarPayload = useCallback(() => {
+    const currentState = useUserStore.getState();
+    const items = Object.values(currentState.equippedItems).filter(
+      (item): item is Item => !!item
+    );
+
+    if (items.length === 0) {
+      return null;
+    }
+
+    return {
+      items,
+      hairColor: currentState.hairColor,
+    };
+  }, []);
+
+  const {
+    isReady: isUnityReady,
+    isUnityStarted: unityStarted,
+    isInitialAvatarSynced,
+    startUnity,
+    handleUnityReady: baseHandleUnityReady,
+  } = useUnityBootstrap({
+    waitForAvatar: false,
+    timeout: 5000,
+    startDelay: 500,
+    autoStart: false,
+    getInitialAvatarPayload,
+  });
 
   console.log('🏃 [RunningView] 렌더링, viewState:', viewState, 'runningState:', runningState, 'isLoggedIn:', isLoggedIn, 'isUnityReady:', isUnityReady);
 
@@ -71,30 +100,29 @@ export const RunningView: React.FC = () => {
   useEffect(() => {
     console.log('🔄 [RunningView] 컴포넌트 마운트');
 
-    if (isLoggedIn && !unityStarted) {
-      console.log('🎮 [RunningView] 로그인 완료 - Unity 시작 예약 (500ms 지연)');
-
-      const timer = setTimeout(() => {
-        console.log('🎮 [RunningView] Unity 시작');
-        setUnityStarted(true);
-      }, 500);
-
-      return () => {
-        console.log('🔄 [RunningView] 컴포넌트 언마운트 - Unity 시작 타이머 정리');
-        clearTimeout(timer);
-      };
+    if (isLoggedIn && isRunningActive) {
+      console.log('🎮 [RunningView] 로그인 완료 - Unity 시작');
+      startUnity();
     }
 
     return () => {
       console.log('🔄 [RunningView] 컴포넌트 언마운트');
     };
-  }, [isLoggedIn, unityStarted]);
+  }, [isLoggedIn, isRunningActive, startUnity]);
 
   /**
    * 화면 포커스 시 Unity 캐릭터 동기화 및 리그 결과 재확인
    */
   useFocusEffect(
     useCallback(() => {
+      if (!isRunningActive) {
+        return;
+      }
+
+      if (!isInitialAvatarSynced) {
+        return;
+      }
+
       // 최초 마운트 시에는 아바타 동기화만 (리그 결과 확인은 별도 useEffect에서)
       if (isInitialMount.current) {
         console.log('🔄 [RunningView] 최초 포커스 - 리그 결과 확인은 Unity 로딩 완료 후 실행');
@@ -114,23 +142,23 @@ export const RunningView: React.FC = () => {
 
       // 아바타 동기화
       console.log('🔄 [RunningView] 화면 포커스 - 아바타 동기화');
-
-      const unsubscribe = unityService.onReady(async () => {
+      void unityService.runWhenReady(async () => {
         try {
-          // ★ getState()로 최신 값 조회 (stale closure 방지)
           const currentState = useUserStore.getState();
-          const items = Object.values(currentState.equippedItems).filter((item): item is Item => !!item);
-          if (items.length > 0) {
-            await unityService.changeAvatar(items, currentState.hairColor);
-            console.log(`✅ [RunningView] 포커스 동기화 완료 (${items.length}개)`);
-          }
+          const items = Object.values(currentState.equippedItems).filter(
+            (item): item is Item => !!item
+          );
+          const syncResult = await unityService.syncAvatar(items, currentState.hairColor, {
+            waitForReady: false,
+          });
+          console.log(
+            `✅ [RunningView] 포커스 동기화 완료 (${items.length}개, result=${syncResult})`
+          );
         } catch (error) {
           console.error('❌ [RunningView] 포커스 동기화 실패:', error);
         }
-      });
-
-      return () => unsubscribe();
-    }, [runningState, checkUncheckedLeagueResult])
+      }, { waitForAvatar: false, timeoutMs: 3000, forceReadyOnTimeout: true });
+    }, [isInitialAvatarSynced, isRunningActive, runningState, checkUncheckedLeagueResult])
   );
 
   /**
@@ -139,7 +167,13 @@ export const RunningView: React.FC = () => {
   const hasCheckedLeagueRef = useRef(false);
   useEffect(() => {
     // 조건: Unity 준비됨 + 권한 체크 완료 + 러닝 중 아님 + 최초 1회만
-    if (!isUnityReady || !isPermissionChecked || runningState !== RunningState.Stopped) {
+    if (
+      !isRunningActive
+      || !isUnityReady
+      || !isInitialAvatarSynced
+      || !isPermissionChecked
+      || runningState !== RunningState.Stopped
+    ) {
       return;
     }
 
@@ -152,7 +186,14 @@ export const RunningView: React.FC = () => {
     console.log('🏆 [RunningView] Unity + 권한 준비 완료 → 리그 결과 확인');
     useLeagueCheckStore.getState().allowRecheck();
     checkUncheckedLeagueResult();
-  }, [isUnityReady, isPermissionChecked, runningState, checkUncheckedLeagueResult]);
+  }, [
+    isInitialAvatarSynced,
+    isRunningActive,
+    isUnityReady,
+    isPermissionChecked,
+    runningState,
+    checkUncheckedLeagueResult,
+  ]);
 
   /**
    * Android 시스템 뒤로가기 차단
@@ -185,127 +226,75 @@ export const RunningView: React.FC = () => {
    * Unity는 백그라운드에서 리셋될 수 있으므로 포그라운드 복귀 시 재초기화 필요
    */
   useEffect(() => {
+    if (!isRunningActive) {
+      return;
+    }
+
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active') {
         console.log('🔄 [RunningView] 포그라운드 복귀 - 캐릭터 재초기화');
-
-        // 이전 구독 정리
-        if (foregroundReinitUnsubscribeRef.current) {
-          foregroundReinitUnsubscribeRef.current();
-          foregroundReinitUnsubscribeRef.current = null;
-        }
-
-        // onReady는 Push + Pull 패턴으로 안전하게 처리
-        foregroundReinitUnsubscribeRef.current = unityService.onReady(async () => {
+        void unityService.runWhenReady(async () => {
           try {
-            // ★ getState()로 최신 값 조회 (stale closure 방지)
             const currentState = useUserStore.getState();
-            const items = Object.values(currentState.equippedItems).filter((item): item is Item => !!item);
+            const items = Object.values(currentState.equippedItems).filter(
+              (item): item is Item => !!item
+            );
             await unityService.initCharacter(items, currentState.hairColor);
             console.log(`✅ [RunningView] 포그라운드 재초기화 완료 (${items.length}개)`);
           } catch (error) {
             console.error('❌ [RunningView] 포그라운드 재초기화 실패:', error);
           }
-        });
+        }, { waitForAvatar: false, timeoutMs: 3000, forceReadyOnTimeout: true });
       }
     });
 
     return () => {
       subscription.remove();
-      if (foregroundReinitUnsubscribeRef.current) {
-        foregroundReinitUnsubscribeRef.current();
-        foregroundReinitUnsubscribeRef.current = null;
-      }
     };
-  }, []);
+  }, [isRunningActive]);
 
-  /**
-   * Reactive sync: 첫 로그인 시 데이터가 늦게 도착하는 경우 처리
-   * Unity가 ready된 후에 equippedItems가 채워지면 아바타를 동기화
-   */
   useEffect(() => {
-    // 조건: Unity 준비됨 + 아직 초기화 안됨
-    if (!isUnityReady || hasInitializedAvatar.current) {
+    if (
+      !isRunningActive
+      || !isUnityReady
+      || !isInitialAvatarSynced
+      || hasInitializedCharacterRef.current
+    ) {
       return;
     }
 
-    const items = Object.values(equippedItems).filter((item): item is Item => !!item);
+    hasInitializedCharacterRef.current = true;
+    console.log('[RunningView] ✅ GameObject Ready! 초기화 시작');
 
-    // 아이템이 없으면 대기 (데이터 아직 안 도착)
-    if (items.length === 0) {
-      console.log('[RunningView] Reactive sync - 아이템 대기 중...');
-      return;
-    }
-
-    // 초기화 완료 표시 (중복 방지)
-    hasInitializedAvatar.current = true;
-    console.log('[RunningView] Reactive sync - 아바타 데이터 도착, 동기화 시작');
-
-    const unsubscribe = unityService.onReady(async () => {
+    void unityService.runWhenReady(async () => {
       try {
-        await unityService.changeAvatar(items);
-        console.log(`✅ [RunningView] Reactive sync 완료 (${items.length}개)`);
-      } catch (error) {
-        console.error('❌ [RunningView] Reactive sync 실패:', error);
-      }
-    });
-
-    return () => unsubscribe();
-  }, [isUnityReady, equippedItems]);
-
-  /**
-   * Unity 준비 완료 이벤트 핸들러
-   */
-  const handleUnityReady = useCallback((event: any) => {
-    console.log('[RunningView] Unity View Ready:', event.nativeEvent);
-
-    if (unityReadyInitUnsubscribeRef.current) {
-      unityReadyInitUnsubscribeRef.current();
-      unityReadyInitUnsubscribeRef.current = null;
-    }
-
-    // unityService.onReady는 이미 ready면 즉시 실행하고,
-    // 아니면 Native 상태도 확인 후 구독 (이벤트 놓침 방지)
-    unityReadyInitUnsubscribeRef.current = unityService.onReady(async () => {
-      console.log('[RunningView] ✅ GameObject Ready! 초기화 시작');
-
-      try {
-        const currentState = useUserStore.getState();
-        const items = Object.values(currentState.equippedItems).filter((item): item is Item => !!item);
-        await unityService.initCharacter(items, currentState.hairColor);
-
-        // 아이템이 있었다면 초기화 완료로 표시
-        if (items.length > 0) {
-          hasInitializedAvatar.current = true;
-        }
-
-        console.log(`✅ [RunningView] 초기화 완료 (${items.length}개 아이템)`);
-        setIsUnityReady(true);
-
-        // ✅ Unity 로딩 완료 후 권한 요청
-        // (권한 팝업이 앱을 inactive 상태로 만들어 Unity 초기화 실패하는 문제 방지)
-        console.log('📱 [RunningView] Unity 로딩 완료 → 권한 요청 시작');
-        requestPermissionsOnFirstLogin();
+        await unityService.stopCharacter();
+        console.log('✅ [RunningView] 초기화 완료 (캐릭터 정지 상태 적용)');
       } catch (error) {
         console.error('❌ [RunningView] 초기화 실패:', error);
-        // 에러가 발생해도 isUnityReady를 true로 설정하여 UI가 진행되도록 함
-        setIsUnityReady(true);
-
-        // ✅ 에러 발생해도 권한 요청 실행 (Unity와 무관하게 권한은 필요)
-        console.log('📱 [RunningView] Unity 초기화 실패해도 권한 요청 시작');
-        requestPermissionsOnFirstLogin();
+      } finally {
+        if (!hasRequestedPermissionRef.current) {
+          hasRequestedPermissionRef.current = true;
+          console.log('📱 [RunningView] Unity 로딩 완료 → 권한 요청 시작');
+          requestPermissionsOnFirstLogin();
+        }
       }
-    });
-  }, [requestPermissionsOnFirstLogin]); // ✅ 의존성 추가
+    }, { waitForAvatar: false, timeoutMs: 3000, forceReadyOnTimeout: true });
+  }, [isInitialAvatarSynced, isRunningActive, isUnityReady, requestPermissionsOnFirstLogin]);
 
   useEffect(() => {
-    return () => {
-      if (unityReadyInitUnsubscribeRef.current) {
-        unityReadyInitUnsubscribeRef.current();
-        unityReadyInitUnsubscribeRef.current = null;
-      }
-    };
-  }, []);
+    if (!isRunningActive || !isUnityReady || !isInitialAvatarSynced) {
+      hasInitializedCharacterRef.current = false;
+    }
+  }, [isInitialAvatarSynced, isRunningActive, isUnityReady]);
+
+  const handleUnityReady = useCallback((event: UnityReadyEvent) => {
+    if (!isRunningActive) {
+      return;
+    }
+    console.log('[RunningView] Unity View Ready:', event.nativeEvent);
+    baseHandleUnityReady(event);
+  }, [baseHandleUnityReady, isRunningActive]);
 
   const isLoading = viewState === ViewState.Loading;
 
@@ -316,9 +305,9 @@ export const RunningView: React.FC = () => {
   }
 
   return (
-    <RunningProvider isUnityReady={isUnityReady}>
+    <RunningProvider isUnityReady={isRunningActive ? isUnityReady : false}>
       <View style={styles.container}>
-        {unityStarted && (
+        {unityStarted && isRunningActive && (
           <View style={[styles.unityContainer, isLoading && styles.hiddenContainer]}>
             <UnityLoadingState
               isLoading={!isUnityReady}

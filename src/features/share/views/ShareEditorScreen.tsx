@@ -92,8 +92,12 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
 
   // 닫기 처리 - 상태 초기화 후 화면 종료
   const handleClose = async () => {
-    await resetAll();
+    await resetAll({ syncUnity: false });
     router.back();
+  };
+
+  const handleReset = () => {
+    void resetAll();
   };
 
   return (
@@ -106,79 +110,81 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
               <Ionicons name="close" size={24} color={GREY[600]} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>기록 공유</Text>
-            <TouchableOpacity onPress={resetAll} style={styles.resetButton}>
+            <TouchableOpacity onPress={handleReset} style={styles.resetButton}>
               <Text style={styles.resetButtonText}>초기화</Text>
             </TouchableOpacity>
           </View>
 
-          {/* 로딩 상태 */}
-          {isLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={GREY[600]} />
-              <Text style={styles.loadingText}>캐릭터 준비 중...</Text>
-            </View>
-          ) : (
-            <ScrollView
-              style={styles.scrollView}
-              contentContainerStyle={styles.scrollContent}
-              showsVerticalScrollIndicator={false}
-            >
-              {/* 미리보기 캔버스 (Unity 뷰 + RN 오버레이) */}
-              <View style={styles.previewContainer}>
-                <SharePreviewCanvas
-                  ref={canvasRef}
-                  statElements={statElements}
-                  onStatTransformChange={updateStatTransform}
-                  runningData={runningData}
-                  onUnityReady={handleUnityReady}
-                  onCharacterPositionChange={updateCharacterPosition}
-                  onCharacterScaleChange={updateCharacterScale}
-                  characterTransform={characterTransform}
-                  avatarVisible={avatarVisible}
-                />
-              </View>
-
-              {/* 포즈 선택 - 카드 래핑 포함 + 타임라인 슬라이더 */}
-              <PoseSelector
-                selectedPose={selectedPose}
-                onSelect={setSelectedPose}
-                disabled={isCapturing}
-                sliderValue={animationTime}
-                onSliderChange={setAnimationTime}
-              />
-
-              {/* 기록 항목 표시/숨김 토글 - 카드 래핑 포함 */}
-              <StatVisibilityToggle
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* 미리보기 캔버스 (Unity 뷰 + RN 오버레이) */}
+            <View style={styles.previewContainer}>
+              <SharePreviewCanvas
+                ref={canvasRef}
                 statElements={statElements}
-                onToggle={toggleStatVisibility}
+                onStatTransformChange={updateStatTransform}
+                runningData={runningData}
+                onUnityReady={handleUnityReady}
+                onCharacterPositionChange={updateCharacterPosition}
+                onCharacterScaleChange={updateCharacterScale}
+                characterTransform={characterTransform}
                 avatarVisible={avatarVisible}
-                onAvatarToggle={toggleAvatarVisibility}
               />
-
-              {/* 더미 GPS 데이터 추가 버튼 (userId=1 전용) */}
-              {isTestUser && !hasLocations && (
-                <View style={styles.dummyButtonContainer}>
-                  <TouchableOpacity
-                    style={styles.dummyButton}
-                    onPress={handleAddDummyData}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="map-outline" size={18} color={GREY.WHITE} />
-                    <Text style={styles.dummyButtonText}>더미 GPS 데이터 추가</Text>
-                  </TouchableOpacity>
-                  <Text style={styles.dummyButtonHint}>
-                    * 지도 테스트용 (userId=1 전용)
-                  </Text>
+              {isLoading && (
+                <View style={styles.previewLoadingOverlay}>
+                  <ActivityIndicator size="large" color={GREY[600]} />
+                  <Text style={styles.loadingText}>캐릭터 준비 중...</Text>
                 </View>
               )}
+            </View>
 
-              {/* 배경 선택 - 카드 래핑 포함 */}
-              <BackgroundSelector
-                selectedBackground={selectedBackground}
-                onSelect={setSelectedBackground}
-              />
-            </ScrollView>
-          )}
+            {!isLoading && (
+              <>
+                {/* 포즈 선택 - 카드 래핑 포함 + 타임라인 슬라이더 */}
+                <PoseSelector
+                  selectedPose={selectedPose}
+                  onSelect={setSelectedPose}
+                  disabled={isCapturing}
+                  sliderValue={animationTime}
+                  onSliderChange={setAnimationTime}
+                />
+
+                {/* 기록 항목 표시/숨김 토글 - 카드 래핑 포함 */}
+                <StatVisibilityToggle
+                  statElements={statElements}
+                  onToggle={toggleStatVisibility}
+                  avatarVisible={avatarVisible}
+                  onAvatarToggle={toggleAvatarVisibility}
+                />
+
+                {/* 더미 GPS 데이터 추가 버튼 (userId=1 전용) */}
+                {isTestUser && !hasLocations && (
+                  <View style={styles.dummyButtonContainer}>
+                    <TouchableOpacity
+                      style={styles.dummyButton}
+                      onPress={handleAddDummyData}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="map-outline" size={18} color={GREY.WHITE} />
+                      <Text style={styles.dummyButtonText}>더미 GPS 데이터 추가</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.dummyButtonHint}>
+                      * 지도 테스트용 (userId=1 전용)
+                    </Text>
+                  </View>
+                )}
+
+                {/* 배경 선택 - 카드 래핑 포함 */}
+                <BackgroundSelector
+                  selectedBackground={selectedBackground}
+                  onSelect={setSelectedBackground}
+                />
+              </>
+            )}
+          </ScrollView>
 
           {/* 취소/공유 버튼 */}
           {!isLoading && (
@@ -244,12 +250,12 @@ const styles = StyleSheet.create({
   previewContainer: {
     marginBottom: 14,
   },
-  loadingContainer: {
-    flex: 1,
+  previewLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 16,
-    backgroundColor: '#f9fafb',
+    backgroundColor: 'rgba(249, 250, 251, 0.92)',
   },
   loadingText: {
     fontSize: 14,

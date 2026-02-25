@@ -10,10 +10,8 @@ const mockSetAnimationNormalizedTime = jest.fn();
 const mockSetCharacterPosition = jest.fn();
 const mockSetCharacterScale = jest.fn();
 const mockSetCharacterVisible = jest.fn();
-const mockSetCharacterSpeed = jest.fn();
-const mockStopCharacter = jest.fn();
-const mockSetCharacterMotion = jest.fn();
-const mockUseUnityReadiness = jest.fn();
+const mockRunWhenReady = jest.fn();
+const mockUseUnityBootstrap = jest.fn();
 
 jest.mock('expo-file-system/legacy', () => ({
   readAsStringAsync: jest.fn(),
@@ -43,14 +41,12 @@ jest.mock('~/features/unity/services/UnityService', () => ({
     setCharacterPosition: (...args: unknown[]) => mockSetCharacterPosition(...args),
     setCharacterScale: (...args: unknown[]) => mockSetCharacterScale(...args),
     setCharacterVisible: (...args: unknown[]) => mockSetCharacterVisible(...args),
-    setCharacterSpeed: (...args: unknown[]) => mockSetCharacterSpeed(...args),
-    stopCharacter: (...args: unknown[]) => mockStopCharacter(...args),
-    setCharacterMotion: (...args: unknown[]) => mockSetCharacterMotion(...args),
+    runWhenReady: (...args: unknown[]) => mockRunWhenReady(...args),
   },
 }));
 
 jest.mock('~/features/unity/hooks', () => ({
-  useUnityReadiness: (...args: unknown[]) => mockUseUnityReadiness(...args),
+  useUnityBootstrap: (...args: unknown[]) => mockUseUnityBootstrap(...args),
 }));
 
 const createRunningData = (): ShareRunningData => ({
@@ -66,6 +62,7 @@ describe('useShareEditor recovery', () => {
   const readinessState = {
     isReady: false,
     canSendMessage: false,
+    isInitialAvatarSynced: false,
     handleUnityReady: jest.fn(),
   };
 
@@ -88,6 +85,7 @@ describe('useShareEditor recovery', () => {
 
     readinessState.isReady = false;
     readinessState.canSendMessage = false;
+    readinessState.isInitialAvatarSynced = false;
     readinessState.handleUnityReady = jest.fn();
 
     mockSetBackground.mockResolvedValue(undefined);
@@ -98,27 +96,33 @@ describe('useShareEditor recovery', () => {
     mockSetCharacterPosition.mockResolvedValue(undefined);
     mockSetCharacterScale.mockResolvedValue(undefined);
     mockSetCharacterVisible.mockResolvedValue(undefined);
-    mockSetCharacterSpeed.mockResolvedValue(undefined);
-    mockStopCharacter.mockResolvedValue(undefined);
-    mockSetCharacterMotion.mockResolvedValue(undefined);
+    mockRunWhenReady.mockImplementation(async (task: () => void | Promise<void>) => {
+      await task();
+      return true;
+    });
 
-    mockUseUnityReadiness.mockImplementation(() => ({
+    mockUseUnityBootstrap.mockImplementation(() => ({
       ...readinessState,
     }));
   });
 
   it('SHARE-UNITY-001 reapplies latest Unity state when canSendMessage recovers', async () => {
-    const { result, rerender } = renderHook(() => useShareEditor({ runningData: createRunningData() }));
+    const { result, rerender } = renderHook(
+      (_props: undefined) => useShareEditor({ runningData: createRunningData() }),
+      { initialProps: undefined }
+    );
 
     act(() => {
       readinessState.isReady = true;
       readinessState.canSendMessage = true;
+      readinessState.isInitialAvatarSynced = true;
     });
-    rerender();
+    rerender(undefined);
 
     await waitFor(() => {
       expect(mockSetPoseForSlider).toHaveBeenCalledTimes(1);
     });
+    expect(mockRunWhenReady).toHaveBeenCalledTimes(1);
 
     mockSetBackgroundColor.mockClear();
     mockSetPoseForSlider.mockClear();
@@ -129,8 +133,9 @@ describe('useShareEditor recovery', () => {
     act(() => {
       readinessState.isReady = false;
       readinessState.canSendMessage = false;
+      readinessState.isInitialAvatarSynced = false;
     });
-    rerender();
+    rerender(undefined);
 
     await act(async () => {
       await result.current.setSelectedBackground(customBackground);
@@ -155,12 +160,14 @@ describe('useShareEditor recovery', () => {
     act(() => {
       readinessState.isReady = true;
       readinessState.canSendMessage = true;
+      readinessState.isInitialAvatarSynced = true;
     });
-    rerender();
+    rerender(undefined);
 
     await waitFor(() => {
       expect(mockSetBackgroundColor).toHaveBeenCalledWith('#112233');
     });
+    expect(mockRunWhenReady).toHaveBeenCalledTimes(2);
 
     expect(mockSetPoseForSlider).toHaveBeenCalledWith('ATTACK');
 
@@ -174,5 +181,70 @@ describe('useShareEditor recovery', () => {
     expect(lastScaleCall?.[0]).toBeCloseTo(1.8, 5);
 
     expect(mockSetCharacterVisible).toHaveBeenCalledWith(false);
+  });
+
+  it('prevents duplicate initialization while staying in the same connected session', async () => {
+    const { rerender } = renderHook(
+      (_props: undefined) => useShareEditor({ runningData: createRunningData() }),
+      { initialProps: undefined }
+    );
+
+    act(() => {
+      readinessState.isReady = true;
+      readinessState.canSendMessage = true;
+      readinessState.isInitialAvatarSynced = true;
+    });
+    rerender(undefined);
+
+    await waitFor(() => {
+      expect(mockRunWhenReady).toHaveBeenCalledTimes(1);
+    });
+
+    rerender(undefined);
+    rerender(undefined);
+
+    await waitFor(() => {
+      expect(mockRunWhenReady).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('skips Unity command sync when resetAll is called with syncUnity false', async () => {
+    const { result, rerender } = renderHook(
+      (_props: undefined) => useShareEditor({ runningData: createRunningData() }),
+      { initialProps: undefined }
+    );
+
+    act(() => {
+      readinessState.isReady = true;
+      readinessState.canSendMessage = true;
+      readinessState.isInitialAvatarSynced = true;
+    });
+    rerender(undefined);
+
+    await waitFor(() => {
+      expect(mockRunWhenReady).toHaveBeenCalledTimes(1);
+    });
+
+    mockSetBackground.mockClear();
+    mockSetBackgroundColor.mockClear();
+    mockSetBackgroundFromPhoto.mockClear();
+    mockSetPoseForSlider.mockClear();
+    mockSetAnimationNormalizedTime.mockClear();
+    mockSetCharacterPosition.mockClear();
+    mockSetCharacterScale.mockClear();
+    mockSetCharacterVisible.mockClear();
+
+    await act(async () => {
+      await result.current.resetAll({ syncUnity: false });
+    });
+
+    expect(mockSetBackground).not.toHaveBeenCalled();
+    expect(mockSetBackgroundColor).not.toHaveBeenCalled();
+    expect(mockSetBackgroundFromPhoto).not.toHaveBeenCalled();
+    expect(mockSetPoseForSlider).not.toHaveBeenCalled();
+    expect(mockSetAnimationNormalizedTime).not.toHaveBeenCalled();
+    expect(mockSetCharacterPosition).not.toHaveBeenCalled();
+    expect(mockSetCharacterScale).not.toHaveBeenCalled();
+    expect(mockSetCharacterVisible).not.toHaveBeenCalled();
   });
 });

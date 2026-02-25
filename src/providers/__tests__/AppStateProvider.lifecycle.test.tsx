@@ -1,19 +1,17 @@
 import React from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, render, waitFor } from '@testing-library/react-native';
-import { AppState, type AppStateStatus, Platform, View } from 'react-native';
+import { AppState, type AppStateStatus, View } from 'react-native';
 import { useAuthStore } from '~/features/auth/stores/authStore';
 import { AppStateProvider } from '~/providers/AppStateProvider';
 import { useUserStore } from '~/stores/user/userStore';
 import { resetAllStores } from '~/test-utils/resetState';
 
 const mockGetUserPoint = jest.fn();
-const mockValidateUnityState = jest.fn();
-const mockForceResetUnity = jest.fn();
-const mockSyncReadyState = jest.fn();
-const mockResetGameObjectReady = jest.fn();
-const mockOnReady = jest.fn();
-const mockChangeAvatar = jest.fn();
+const mockRecoverConnection = jest.fn();
+const mockResetReadyAndResync = jest.fn();
+const mockRunWhenReady = jest.fn();
+const mockSyncAvatar = jest.fn();
 
 jest.mock('~/features', () => {
   const { useAuthStore } = jest.requireActual('~/features/auth/stores/authStore');
@@ -26,19 +24,12 @@ jest.mock('~/features/point/services/pointService', () => ({
   },
 }));
 
-jest.mock('~/features/unity/bridge/UnityBridge', () => ({
-  UnityBridge: {
-    validateUnityState: (...args: unknown[]) => mockValidateUnityState(...args),
-    forceResetUnity: (...args: unknown[]) => mockForceResetUnity(...args),
-    syncReadyState: (...args: unknown[]) => mockSyncReadyState(...args),
-    resetGameObjectReady: (...args: unknown[]) => mockResetGameObjectReady(...args),
-  },
-}));
-
 jest.mock('~/features/unity/services/UnityService', () => ({
   unityService: {
-    onReady: (...args: unknown[]) => mockOnReady(...args),
-    changeAvatar: (...args: unknown[]) => mockChangeAvatar(...args),
+    recoverConnection: (...args: unknown[]) => mockRecoverConnection(...args),
+    resetReadyAndResync: (...args: unknown[]) => mockResetReadyAndResync(...args),
+    runWhenReady: (...args: unknown[]) => mockRunWhenReady(...args),
+    syncAvatar: (...args: unknown[]) => mockSyncAvatar(...args),
   },
 }));
 
@@ -61,7 +52,6 @@ const createDeferred = <T,>(): Deferred<T> => {
 };
 
 describe('AppStateProvider lifecycle', () => {
-  const originalPlatformOS = Platform.OS;
   let appStateHandler: ((nextAppState: AppStateStatus) => void) | null = null;
   let appStateRemoveSpy: jest.Mock;
   let appStateSpy: jest.SpyInstance;
@@ -105,13 +95,18 @@ describe('AppStateProvider lifecycle', () => {
     asyncStorageMock.setItem.mockResolvedValue();
     asyncStorageMock.removeItem.mockResolvedValue();
 
-    mockValidateUnityState.mockResolvedValue(true);
-    mockForceResetUnity.mockResolvedValue(undefined);
-    mockSyncReadyState.mockResolvedValue(true);
-    mockResetGameObjectReady.mockResolvedValue(undefined);
     mockGetUserPoint.mockResolvedValue({ userId: 1, point: 0 });
-    mockOnReady.mockImplementation(() => jest.fn());
-    mockChangeAvatar.mockResolvedValue(undefined);
+    mockRecoverConnection.mockResolvedValue({
+      valid: true,
+      recovered: true,
+      usedForceReset: false,
+    });
+    mockResetReadyAndResync.mockResolvedValue(undefined);
+    mockSyncAvatar.mockResolvedValue('empty');
+    mockRunWhenReady.mockImplementation(async (task: () => Promise<void>) => {
+      await task();
+      return true;
+    });
 
     appStateHandler = null;
     appStateRemoveSpy = jest.fn();
@@ -124,11 +119,6 @@ describe('AppStateProvider lifecycle', () => {
       return { remove: appStateRemoveSpy };
     });
 
-    Object.defineProperty(Platform, 'OS', {
-      configurable: true,
-      value: originalPlatformOS,
-    });
-
     Object.defineProperty(AppState, 'currentState', {
       configurable: true,
       value: 'active',
@@ -136,10 +126,6 @@ describe('AppStateProvider lifecycle', () => {
   });
 
   afterEach(() => {
-    Object.defineProperty(Platform, 'OS', {
-      configurable: true,
-      value: originalPlatformOS,
-    });
     appStateSpy.mockRestore();
     jest.restoreAllMocks();
   });
@@ -165,9 +151,9 @@ describe('AppStateProvider lifecycle', () => {
     emitAppState('active');
 
     await waitFor(() => {
-      expect(mockSyncReadyState).toHaveBeenCalledTimes(1);
+      expect(mockRecoverConnection).toHaveBeenCalledTimes(1);
     });
-    expect(mockResetGameObjectReady).not.toHaveBeenCalled();
+    expect(mockResetReadyAndResync).not.toHaveBeenCalled();
     expect(mockGetUserPoint).not.toHaveBeenCalled();
     expect(asyncStorageMock.removeItem).toHaveBeenCalledWith('backgroundEnterTime');
 
@@ -179,75 +165,31 @@ describe('AppStateProvider lifecycle', () => {
     const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(2_000_000);
     asyncStorageMock.getItem.mockResolvedValue(String(2_000_000 - 301_000));
     mockGetUserPoint.mockResolvedValue({ userId: 7, point: 777 });
-    const unsubscribeSpy = jest.fn();
-    mockOnReady.mockImplementation(() => unsubscribeSpy);
 
     renderProvider();
     emitAppState('active');
 
     await waitFor(() => {
-      expect(mockResetGameObjectReady).toHaveBeenCalledTimes(1);
+      expect(mockResetReadyAndResync).toHaveBeenCalledTimes(1);
     });
     await waitFor(() => {
       expect(mockGetUserPoint).toHaveBeenCalledTimes(1);
     });
+
+    expect(mockRunWhenReady).toHaveBeenCalledTimes(1);
+    expect(mockSyncAvatar).toHaveBeenCalledTimes(1);
+    expect(mockRecoverConnection).toHaveBeenCalledTimes(1);
     expect(useUserStore.getState().totalPoint).toBe(777);
-    expect(mockForceResetUnity).not.toHaveBeenCalled();
-    expect(mockOnReady).toHaveBeenCalledTimes(1);
-    expect(mockChangeAvatar).not.toHaveBeenCalled();
 
     nowSpy.mockRestore();
   });
 
-  it('APP-LC-004 ios skips force reset when syncReadyState recovers stale check', async () => {
-    useAuthStore.getState().setLoggedIn(true);
-    Object.defineProperty(Platform, 'OS', { configurable: true, value: 'ios' });
-    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(3_000_000);
-    asyncStorageMock.getItem.mockResolvedValue(String(3_000_000 - 60_000));
-    mockValidateUnityState.mockResolvedValue(false);
-    mockSyncReadyState.mockResolvedValueOnce(true);
-
-    renderProvider();
-    emitAppState('active');
-
-    await waitFor(() => {
-      expect(mockSyncReadyState).toHaveBeenCalledTimes(1);
-    });
-    expect(mockForceResetUnity).not.toHaveBeenCalled();
-    expect(mockResetGameObjectReady).not.toHaveBeenCalled();
-
-    nowSpy.mockRestore();
-  });
-
-  it('APP-LC-004B ios force resets only after retry sync fails', async () => {
-    useAuthStore.getState().setLoggedIn(true);
-    Object.defineProperty(Platform, 'OS', { configurable: true, value: 'ios' });
-    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(3_100_000);
-    asyncStorageMock.getItem.mockResolvedValue(String(3_100_000 - 40_000));
-    mockValidateUnityState.mockResolvedValue(false);
-    mockSyncReadyState
-      .mockResolvedValueOnce(false)
-      .mockResolvedValueOnce(false)
-      .mockResolvedValueOnce(true);
-
-    renderProvider();
-    emitAppState('active');
-
-    await waitFor(() => {
-      expect(mockForceResetUnity).toHaveBeenCalledTimes(1);
-    }, { timeout: 2000 });
-    expect(mockSyncReadyState).toHaveBeenCalledTimes(3);
-    expect(mockResetGameObjectReady).not.toHaveBeenCalled();
-
-    nowSpy.mockRestore();
-  });
-
-  it('APP-LC-005 blocks duplicate foreground execution while previous run is in flight', async () => {
+  it('APP-LC-004 blocks duplicate foreground execution while previous run is in flight', async () => {
     useAuthStore.getState().setLoggedIn(true);
     const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(4_000_000);
     asyncStorageMock.getItem.mockResolvedValue(String(4_000_000 - 30_000));
-    const deferred = createDeferred<boolean>();
-    mockSyncReadyState.mockReturnValue(deferred.promise);
+    const deferred = createDeferred<{ valid: boolean; recovered: boolean; usedForceReset: boolean }>();
+    mockRecoverConnection.mockReturnValue(deferred.promise);
 
     renderProvider();
 
@@ -257,15 +199,15 @@ describe('AppStateProvider lifecycle', () => {
     await waitFor(() => {
       expect(asyncStorageMock.getItem).toHaveBeenCalledTimes(1);
     });
-    expect(mockSyncReadyState).toHaveBeenCalledTimes(1);
+    expect(mockRecoverConnection).toHaveBeenCalledTimes(1);
 
-    deferred.resolve(true);
+    deferred.resolve({ valid: true, recovered: true, usedForceReset: false });
     await flushAsync();
 
     nowSpy.mockRestore();
   });
 
-  it('APP-LC-006 skips background/foreground work when logged out', async () => {
+  it('APP-LC-005 skips background/foreground work when logged out', async () => {
     useAuthStore.getState().setLoggedIn(false);
     renderProvider();
 
@@ -279,43 +221,6 @@ describe('AppStateProvider lifecycle', () => {
     );
     expect(asyncStorageMock.removeItem).not.toHaveBeenCalledWith('backgroundEnterTime');
     expect(mockGetUserPoint).not.toHaveBeenCalled();
-    expect(mockSyncReadyState).not.toHaveBeenCalled();
-  });
-
-  it('APP-LC-007 android skips force reset when syncReadyState recovers stale check', async () => {
-    useAuthStore.getState().setLoggedIn(true);
-    Object.defineProperty(Platform, 'OS', { configurable: true, value: 'android' });
-
-    mockValidateUnityState.mockResolvedValue(false);
-    mockSyncReadyState.mockResolvedValueOnce(true);
-
-    renderProvider();
-    emitAppState('active');
-
-    await waitFor(() => {
-      expect(mockSyncReadyState).toHaveBeenCalledTimes(1);
-    });
-    expect(mockForceResetUnity).not.toHaveBeenCalled();
-    expect(mockResetGameObjectReady).not.toHaveBeenCalled();
-  });
-
-  it('APP-LC-008 android force resets only after retry sync fails', async () => {
-    useAuthStore.getState().setLoggedIn(true);
-    Object.defineProperty(Platform, 'OS', { configurable: true, value: 'android' });
-
-    mockValidateUnityState.mockResolvedValue(false);
-    mockSyncReadyState
-      .mockResolvedValueOnce(false)
-      .mockResolvedValueOnce(false)
-      .mockResolvedValueOnce(true);
-
-    renderProvider();
-    emitAppState('active');
-
-    await waitFor(() => {
-      expect(mockForceResetUnity).toHaveBeenCalledTimes(1);
-    }, { timeout: 2000 });
-    expect(mockSyncReadyState).toHaveBeenCalledTimes(3);
-    expect(mockResetGameObjectReady).not.toHaveBeenCalled();
+    expect(mockRecoverConnection).not.toHaveBeenCalled();
   });
 });

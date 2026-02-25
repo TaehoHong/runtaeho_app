@@ -7,7 +7,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { Platform, type View } from 'react-native';
+import { type View } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import type {
@@ -28,7 +28,10 @@ import {
 import { shareService } from '../services/shareService';
 import type { UnityReadyEvent } from '~/features/unity/bridge/UnityBridge';
 import { unityService } from '~/features/unity/services/UnityService';
-import { useUnityReadiness } from '~/features/unity/hooks';
+import type { CharacterMotion } from '~/features/unity/types/UnityTypes';
+import type { Item } from '~/features/avatar';
+import { useUnityBootstrap } from '~/features/unity/hooks';
+import { useUserStore } from '~/stores/user/userStore';
 
 // Unity Frustum 비율 보정 스케일 팩터 (SharePreviewCanvas와 동일)
 // RN PREVIEW 좌표계와 Unity Viewport 좌표계 간의 비율 차이 보정
@@ -40,10 +43,21 @@ const UNITY_SCALE_FACTOR_Y = 1.0;
 const INITIAL_CHARACTER_X = 0.5;    // 화면 중앙
 const INITIAL_CHARACTER_Y = 0.9;    // 화면 하단 (RN: 0=상단, 1=하단)
 const INITIAL_CHARACTER_SCALE = 1;  // 기본 스케일
-const SLIDER_MODE_EXIT_SETTLE_MS = 40; // Slider 모드 종료 후 Animator Update 1프레임 대기
+const DEFAULT_POSE_ANIMATION_TIMES: Record<string, number> = {
+  IDLE: 0,
+  MOVE: 0,
+  ATTACK: 0,
+  DAMAGED: 0,
+  DEATH: 0,
+};
+const VALID_POSE_MOTIONS: CharacterMotion[] = ['IDLE', 'MOVE', 'ATTACK', 'DAMAGED', 'DEATH'];
 
 interface UseShareEditorProps {
   runningData: ShareRunningData;
+}
+
+interface ResetAllOptions {
+  syncUnity?: boolean;
 }
 
 interface UseShareEditorReturn {
@@ -69,7 +83,7 @@ interface UseShareEditorReturn {
   toggleAvatarVisibility: () => void;
   shareResult: () => Promise<ShareResult>;
   saveToGallery: () => Promise<boolean>;
-  resetAll: () => void;
+  resetAll: (options?: ResetAllOptions) => Promise<void>;
   handleUnityReady: (event: UnityReadyEvent) => void;
   updateCharacterPosition: (x: number, y: number) => void;
   updateCharacterScale: (scale: number) => void;
@@ -108,6 +122,13 @@ const getDefaultBackground = (): BackgroundOption => {
   return BACKGROUND_OPTIONS[0]!;
 };
 
+const toCharacterMotion = (trigger: string): CharacterMotion => {
+  if (VALID_POSE_MOTIONS.includes(trigger as CharacterMotion)) {
+    return trigger as CharacterMotion;
+  }
+  return 'IDLE';
+};
+
 /**
  * 공유 에디터 훅
  */
@@ -136,27 +157,41 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
 
   // ★ 포즈별 애니메이션 시간 저장 상태
   // 각 포즈(IDLE, MOVE, ATTACK, DAMAGED)마다 개별 슬라이더 값 유지
-  const [poseAnimationTimes, setPoseAnimationTimes] = useState<Record<string, number>>({
-    IDLE: 0,
-    MOVE: 0,
-    ATTACK: 0,
-    DAMAGED: 0,
-    DEATH: 0,
-  });
+  const [poseAnimationTimes, setPoseAnimationTimes] = useState<Record<string, number>>(
+    DEFAULT_POSE_ANIMATION_TIMES
+  );
 
   // throttle을 위한 마지막 호출 시간 ref
   const lastAnimationTimeCallRef = useRef(0);
+  const initRequestIdRef = useRef(0);
+  const isInitializingRef = useRef(false);
+
+  const getInitialAvatarPayload = useCallback(() => {
+    const currentState = useUserStore.getState();
+    const items = Object.values(currentState.equippedItems).filter(
+      (item): item is Item => !!item
+    );
+    return {
+      items,
+      hairColor: currentState.hairColor,
+    };
+  }, []);
 
   /**
-   * Unity 준비 상태 관리 (Store 기반)
-   * - waitForAvatar: false - GameObject만 준비되면 OK (아바타 로딩 불필요, 포즈 변경만 필요)
-   * - timeout: 3000 - 3초 내 미준비 시 강제 ready 처리
-   * - autoStart: false - Unity는 이미 실행 중이므로 자동 시작 불필요
+   * Unity 초기 bootstrap:
+   * 1) GameObject ready 대기
+   * 2) 첫 avatar sync
    */
-  const { isReady: isUnityReady, handleUnityReady, canSendMessage } = useUnityReadiness({
+  const {
+    isReady: isUnityReady,
+    handleUnityReady,
+    canSendMessage,
+    isInitialAvatarSynced,
+  } = useUnityBootstrap({
     waitForAvatar: false,
     timeout: 3000,
     autoStart: false,
+    getInitialAvatarPayload,
   });
 
   const previousCanSendMessageRef = useRef(canSendMessage);
@@ -187,94 +222,91 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
 
     if (wasCanSendMessage && !canSendMessage) {
       console.warn('[useShareEditor] Unity message channel disconnected - waiting for recovery');
+      initRequestIdRef.current += 1;
+      isInitializingRef.current = false;
       setHasInitializedUnity(false);
       setIsLoading(true);
     }
   }, [canSendMessage]);
 
-  /**
-   * Unity 초기화 (배경/포즈 설정)
-   * isUnityReady 또는 canSendMessage가 true가 되면 실행
-   */
-  useEffect(() => {
-    const initializeUnity = async () => {
-      if (!canSendMessage || hasInitializedUnity) {
+  const runUnityInitialization = useCallback(
+    async (requestId: number) => {
+      const initialized = await unityService.runWhenReady(
+        async () => {
+          await applyBackgroundToUnity(selectedBackground);
+          await unityService.setPoseForSlider(toCharacterMotion(selectedPose.trigger));
+          await unityService.setAnimationNormalizedTime(animationTime);
+
+          // RN 상태 기준으로 캐릭터 위치/스케일 재적용
+          const unityY = 1 - characterTransform.y;
+          await unityService.setCharacterPosition(characterTransform.x, unityY);
+          await unityService.setCharacterScale(characterTransform.scale);
+          await unityService.setCharacterVisible(avatarVisible);
+        },
+        { waitForAvatar: false, timeoutMs: 3000, forceReadyOnTimeout: true }
+      );
+
+      if (initRequestIdRef.current !== requestId) {
         return;
       }
 
-      console.log('[useShareEditor] Unity ready, initializing...');
-      setHasInitializedUnity(true);
-
-      try {
-        await applyBackgroundToUnity(selectedBackground);
-        await unityService.setPoseForSlider(selectedPose.trigger as any);
-        await unityService.setAnimationNormalizedTime(animationTime);
-
-        // RN 상태 기준으로 캐릭터 위치/스케일 재적용
-        const unityY = 1 - characterTransform.y;
-        await unityService.setCharacterPosition(characterTransform.x, unityY);
-        await unityService.setCharacterScale(characterTransform.scale);
-        await unityService.setCharacterVisible(avatarVisible);
-      } catch (error) {
-        console.error('[useShareEditor] Failed to initialize Unity:', error);
-      } finally {
-        setIsLoading(false);
+      if (initialized) {
+        setHasInitializedUnity(true);
       }
-    };
-
-    initializeUnity();
-  }, [
-    animationTime,
-    applyBackgroundToUnity,
-    avatarVisible,
-    canSendMessage,
-    characterTransform,
-    hasInitializedUnity,
-    selectedBackground,
-    selectedPose,
-  ]);
-
+    },
+    [
+      animationTime,
+      applyBackgroundToUnity,
+      avatarVisible,
+      characterTransform,
+      selectedBackground,
+      selectedPose.trigger,
+    ]
+  );
 
   /**
-   * 화면 언마운트 시 Unity 상태 초기화
-   * 공유 화면에서 변경된 배경/포즈/위치/스케일을 기본값으로 복원
+   * Unity 초기화 (배경/포즈 설정)
+   * canSendMessage 복구 시 단일 파이프라인으로 실행
    */
   useEffect(() => {
-    return () => {
-      // cleanup에서 Unity 상태 초기화 (iOS, Android)
-      if (Platform.OS === 'ios' || Platform.OS === 'android') {
-        console.log('[useShareEditor] Cleanup: Resetting Unity state');
+    if (
+      !canSendMessage
+      || !isInitialAvatarSynced
+      || hasInitializedUnity
+      || isInitializingRef.current
+    ) {
+      return;
+    }
 
-        // 배경 초기화 (기본 배경으로)
-        const defaultBg = getDefaultBackground();
-        if (defaultBg.type === 'unity' && defaultBg.unityBackgroundId) {
-          unityService.setBackground(defaultBg.unityBackgroundId)
-            .catch(err => console.warn('[useShareEditor] Cleanup background failed:', err));
+    const requestId = initRequestIdRef.current + 1;
+    initRequestIdRef.current = requestId;
+    isInitializingRef.current = true;
+    setIsLoading(true);
+
+    console.log('[useShareEditor] Unity ready, initializing...');
+
+    void runUnityInitialization(requestId)
+      .catch((error) => {
+        if (initRequestIdRef.current !== requestId) {
+          return;
         }
+        console.error('[useShareEditor] Failed to initialize Unity:', error);
+      })
+      .finally(() => {
+        if (initRequestIdRef.current !== requestId) {
+          return;
+        }
+        isInitializingRef.current = false;
+        setIsLoading(false);
+      });
+  }, [canSendMessage, hasInitializedUnity, isInitialAvatarSynced, runUnityInitialization]);
 
-        // 포즈 초기화 (달리기)
-        unityService.setCharacterMotion(DEFAULT_POSE.trigger as any)
-          .catch(err => console.warn('[useShareEditor] Cleanup motion failed:', err));
-
-        // Slider 모드에서 animator.speed=0으로 남는 케이스 보정:
-        // 짧게 speed를 올린 뒤 다시 stopCharacter로 되돌려 IDLE 애니메이션을 복구한다.
-        unityService.setCharacterSpeed(10)
-          .then(() => new Promise<void>((resolve) => {
-            setTimeout(resolve, SLIDER_MODE_EXIT_SETTLE_MS);
-          }))
-          .then(() => unityService.stopCharacter())
-          .catch(err => console.warn('[useShareEditor] Cleanup slider recovery failed:', err));
-
-        // 위치/스케일 초기화
-        // Y축 반전: RN(0=상단, 1=하단) → Unity(0=하단, 1=상단)
-        const unityY = 1 - INITIAL_CHARACTER_Y;
-        unityService.setCharacterPosition(INITIAL_CHARACTER_X, unityY)
-          .catch(err => console.warn('[useShareEditor] Cleanup position failed:', err));
-        unityService.setCharacterScale(INITIAL_CHARACTER_SCALE)
-          .catch(err => console.warn('[useShareEditor] Cleanup scale failed:', err));
-      }
+  useEffect(() => {
+    return () => {
+      initRequestIdRef.current += 1;
+      isInitializingRef.current = false;
     };
-  }, []); // 빈 의존성 - 언마운트 시 한 번만 실행
+  }, []);
 
   /**
    * 배경 선택 (Unity 배경 변경 포함)
@@ -316,7 +348,7 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
       if (canSendMessage) {
         try {
           // 포즈 변경 또는 동일 포즈 재선택 모두 슬라이더 모드로 설정
-          await unityService.setPoseForSlider(pose.trigger as any);
+          await unityService.setPoseForSlider(toCharacterMotion(pose.trigger));
 
           // 포즈가 변경된 경우 저장된 애니메이션 시간으로 Unity도 복원
           if (poseChanged) {
@@ -504,49 +536,40 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
   /**
    * 모든 설정 초기화
    */
-  const resetAll = useCallback(async () => {
-    setStatElements(INITIAL_STAT_ELEMENTS);
-
-    // 배경 초기화 (기본 배경으로)
+  const resetAll = useCallback(async (options: ResetAllOptions = {}) => {
+    const { syncUnity = true } = options;
     const defaultBg = getDefaultBackground();
-    await setSelectedBackground(defaultBg);
 
-    // 포즈 초기화
-    await setSelectedPose(DEFAULT_POSE);
-
-    // 아바타 표시 상태 초기화
+    setStatElements(INITIAL_STAT_ELEMENTS);
+    setSelectedBackgroundState(defaultBg);
+    setSelectedPoseState(DEFAULT_POSE);
     setAvatarVisible(true);
-
-    // 애니메이션 시간 초기화
     setAnimationTimeState(0);
-
-    // ★ 포즈별 애니메이션 시간도 초기화
-    setPoseAnimationTimes({
-      IDLE: 0,
-      MOVE: 0,
-      ATTACK: 0,
-      DAMAGED: 0,
-    });
-
-    // 캐릭터 위치/스케일 초기화 (하단 중앙으로)
+    setPoseAnimationTimes(DEFAULT_POSE_ANIMATION_TIMES);
     setCharacterTransform({
       x: INITIAL_CHARACTER_X,
       y: INITIAL_CHARACTER_Y,
       scale: INITIAL_CHARACTER_SCALE,
     });
-    if (canSendMessage) {
-      try {
-        // Y축 반전: RN 좌표계(0=상단) → Unity Viewport 좌표계(0=하단)
-        const unityY = 1 - INITIAL_CHARACTER_Y;
-        await unityService.setCharacterPosition(INITIAL_CHARACTER_X, unityY);
-        await unityService.setCharacterScale(INITIAL_CHARACTER_SCALE);
-        // 아바타 표시 상태 초기화
-        await unityService.setCharacterVisible(true);
-      } catch (error) {
-        console.error('[useShareEditor] Failed to reset character transform:', error);
-      }
+
+    if (!syncUnity || !canSendMessage) {
+      return;
     }
-  }, [setSelectedBackground, setSelectedPose, canSendMessage]);
+
+    try {
+      await applyBackgroundToUnity(defaultBg);
+      await unityService.setPoseForSlider(toCharacterMotion(DEFAULT_POSE.trigger));
+      await unityService.setAnimationNormalizedTime(0);
+
+      // Y축 반전: RN 좌표계(0=상단) → Unity Viewport 좌표계(0=하단)
+      const unityY = 1 - INITIAL_CHARACTER_Y;
+      await unityService.setCharacterPosition(INITIAL_CHARACTER_X, unityY);
+      await unityService.setCharacterScale(INITIAL_CHARACTER_SCALE);
+      await unityService.setCharacterVisible(true);
+    } catch (error) {
+      console.error('[useShareEditor] Failed to reset Unity state:', error);
+    }
+  }, [applyBackgroundToUnity, canSendMessage]);
 
   return {
     // State

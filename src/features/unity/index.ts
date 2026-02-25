@@ -21,8 +21,12 @@ export {
 export { useUnityViewModel } from '~/features/unity/viewmodels/UnityViewModel';
 
 // ★ Unity Hooks (통합 상태 관리)
-export { useUnityReadiness } from './hooks';
+export { useUnityReadiness, useUnityBootstrap } from './hooks';
 export type {
+  InitialAvatarPayload,
+  UnityBootstrapPhase,
+  UseUnityBootstrapOptions,
+  UseUnityBootstrapResult,
   UseUnityReadinessOptions,
   UseUnityReadinessReturn,
 } from './hooks';
