@@ -35,7 +35,8 @@ class RNUnityContainerView: UIView {
     }
 
     private func setupUnityView() {
-        backgroundColor = .black
+        // 검정 배경 노출을 피하기 위해 투명 배경 사용
+        backgroundColor = .clear
 
         // Container 밖으로 나가는 부분 잘라내기 (Aspect Fill)
         clipsToBounds = true
@@ -55,8 +56,15 @@ class RNUnityContainerView: UIView {
     private func initializeUnity() {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+            let isReusePath = Unity.shared.loaded
 
             print("[RNUnityContainerView] === 동기적 초기화 시작 ===")
+
+            if isReusePath {
+                print("[RNUnityContainerView] ⚡ Reuse path detected, skipping Unity.start()")
+                self.fastPathAttachReusedUnityView()
+                return
+            }
 
             // ✅ Step 1: Unity 시작 및 Metal 준비 대기
             self.step1_startUnity { [weak self] success in
@@ -176,10 +184,50 @@ class RNUnityContainerView: UIView {
         print("[RNUnityContainerView] Step 4: ✅ Unity view 표시 완료")
         print("[RNUnityContainerView] === 동기적 초기화 완료 ===")
 
-        self.onUnityReady?([
-            "message": "Unity loaded successfully",
+        emitUnityReadyEvent(message: "Unity loaded successfully")
+    }
+
+    /// 재사용 경로 fast-path:
+    /// 이미 로드된 Unity는 hidden/show 단계 없이 즉시 attach + layout + ready 통지
+    private func fastPathAttachReusedUnityView() {
+        print("[RNUnityContainerView] ⚡ Fast-path: reusing loaded Unity view")
+
+        guard Unity.shared.isAppActive else {
+            print("[RNUnityContainerView] ⚠️ Fast-path skipped: app not active")
+            pendingReattach = true
+            return
+        }
+
+        UnityViewContainer.shared.attachUnityView(to: self) { [weak self] success in
+            guard let self = self, success else {
+                print("[RNUnityContainerView] ❌ Fast-path attach failed")
+                self?.onUnityError?(["error": "Attach failed"])
+                return
+            }
+
+            self.unityView = Unity.shared.view
+            self.unityView?.isHidden = false
+            self.unityView?.layer.opacity = 1
+            self.isUnityLoaded = true
+            self.setNeedsLayout()
+            self.layoutIfNeeded()
+
+            print("[RNUnityContainerView] ✅ Fast-path attach complete")
+            self.emitUnityReadyEvent(message: "Unity reattached successfully", type: "reattach")
+        }
+    }
+
+    private func emitUnityReadyEvent(message: String, type: String? = nil) {
+        var payload: [String: Any] = [
+            "message": message,
             "timestamp": ISO8601DateFormatter().string(from: Date())
-        ])
+        ]
+
+        if let type = type {
+            payload["type"] = type
+        }
+
+        onUnityReady?(payload)
     }
 
     // Unity View 크기 조정 - Aspect Fill 적용
@@ -281,6 +329,10 @@ class RNUnityContainerView: UIView {
         // 이미 현재 view에 붙어있으면 스킵
         if UnityViewContainer.shared.isAttached(to: self) {
             print("[RNUnityContainerView] Unity view already attached to this view, skipping reattach")
+            self.unityView = Unity.shared.view
+            self.setNeedsLayout()
+            self.layoutIfNeeded()
+            emitUnityReadyEvent(message: "Unity already attached", type: "reattach")
             return
         }
 
@@ -301,11 +353,7 @@ class RNUnityContainerView: UIView {
             print("[RNUnityContainerView] ✅ Unity view reattached via Container")
 
             // React Native에 알림
-            self.onUnityReady?([
-                "message": "Unity reattached successfully",
-                "type": "reattach",
-                "timestamp": ISO8601DateFormatter().string(from: Date())
-            ])
+            self.emitUnityReadyEvent(message: "Unity reattached successfully", type: "reattach")
         }
     }
 

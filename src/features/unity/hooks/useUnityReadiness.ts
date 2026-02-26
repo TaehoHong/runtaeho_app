@@ -9,6 +9,8 @@ import { useUnityStore } from '~/stores/unity/unityStore';
 import { unityService } from '~/features/unity/services/UnityService';
 import type { UnityReadyEvent } from '../bridge/UnityBridge';
 
+const READY_SYNC_POLL_INTERVAL_MS = 400;
+
 export interface UseUnityReadinessOptions {
   /**
    * 아바타 준비까지 대기할지 여부
@@ -138,6 +140,8 @@ export const useUnityReadiness = (
   const hasCalledOnReadyRef = useRef(false);
   const startDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const waitRequestIdRef = useRef(0);
+  const readySyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const readySyncInFlightRef = useRef(false);
 
   // Unity 사용 가능 여부 (iOS, Android 지원)
   const isUnityAvailable = Platform.OS === 'ios' || Platform.OS === 'android';
@@ -153,13 +157,25 @@ export const useUnityReadiness = (
   const startUnity = useCallback(() => {
     if (isUnityStarted) return;
 
+    if (canSendMessage) {
+      console.log('[useUnityReadiness] Unity already ready, starting immediately');
+      setIsUnityStarted(true);
+      return;
+    }
+
+    if (startDelayTimerRef.current) {
+      clearTimeout(startDelayTimerRef.current);
+      startDelayTimerRef.current = null;
+    }
+
     console.log(`[useUnityReadiness] Unity 시작 예약 (${startDelay}ms 지연)`);
 
     startDelayTimerRef.current = setTimeout(() => {
       console.log('[useUnityReadiness] Unity 시작');
       setIsUnityStarted(true);
+      startDelayTimerRef.current = null;
     }, startDelay);
-  }, [startDelay, isUnityStarted]);
+  }, [canSendMessage, startDelay, isUnityStarted]);
 
   /**
    * 상태 리셋
@@ -221,6 +237,55 @@ export const useUnityReadiness = (
   }, [autoStart, isUnityAvailable, startUnity]);
 
   /**
+   * Ready 복구 폴링 (self-heal)
+   * onUnityReady 이벤트 순서가 어긋난 경우 Pull 방식으로 상태 복구
+   */
+  useEffect(() => {
+    if (!isUnityAvailable || !isUnityStarted || canSendMessage) {
+      if (readySyncTimerRef.current) {
+        clearTimeout(readySyncTimerRef.current);
+        readySyncTimerRef.current = null;
+      }
+      readySyncInFlightRef.current = false;
+      return;
+    }
+
+    let cancelled = false;
+
+    const pollReady = async () => {
+      if (cancelled || readySyncInFlightRef.current) {
+        return;
+      }
+
+      readySyncInFlightRef.current = true;
+      try {
+        await unityService.syncReady();
+      } catch (error) {
+        console.error('[useUnityReadiness] syncReady poll failed:', error);
+      } finally {
+        readySyncInFlightRef.current = false;
+        if (cancelled || useUnityStore.getState().isGameObjectReady) {
+          return;
+        }
+        readySyncTimerRef.current = setTimeout(() => {
+          void pollReady();
+        }, READY_SYNC_POLL_INTERVAL_MS);
+      }
+    };
+
+    void pollReady();
+
+    return () => {
+      cancelled = true;
+      if (readySyncTimerRef.current) {
+        clearTimeout(readySyncTimerRef.current);
+        readySyncTimerRef.current = null;
+      }
+      readySyncInFlightRef.current = false;
+    };
+  }, [canSendMessage, isUnityAvailable, isUnityStarted]);
+
+  /**
    * onReady 콜백 실행
    */
   useEffect(() => {
@@ -240,6 +305,10 @@ export const useUnityReadiness = (
       if (startDelayTimerRef.current) {
         clearTimeout(startDelayTimerRef.current);
       }
+      if (readySyncTimerRef.current) {
+        clearTimeout(readySyncTimerRef.current);
+      }
+      readySyncInFlightRef.current = false;
     };
   }, []);
 

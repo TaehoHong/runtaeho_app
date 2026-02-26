@@ -135,6 +135,9 @@ const toCharacterMotion = (trigger: string): CharacterMotion => {
 export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEditorReturn => {
   // Canvas ref for capturing
   const canvasRef = useRef<View>(null);
+  const currentUser = useUserStore((state) => state.currentUser);
+  const equippedItems = useUserStore((state) => state.equippedItems);
+  const hairColor = useUserStore((state) => state.hairColor);
 
   // State
   const [selectedBackground, setSelectedBackgroundState] = useState<BackgroundOption>(
@@ -167,15 +170,19 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
   const isInitializingRef = useRef(false);
 
   const getInitialAvatarPayload = useCallback(() => {
-    const currentState = useUserStore.getState();
-    const items = Object.values(currentState.equippedItems).filter(
+    if (!currentUser) {
+      return null;
+    }
+
+    const items = Object.values(equippedItems).filter(
       (item): item is Item => !!item
     );
+
     return {
       items,
-      hairColor: currentState.hairColor,
+      hairColor,
     };
-  }, []);
+  }, [currentUser, equippedItems, hairColor]);
 
   /**
    * Unity 초기 bootstrap:

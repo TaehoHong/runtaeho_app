@@ -1,5 +1,5 @@
-import React, { useRef, useEffect, useCallback } from 'react';
-import { requireNativeComponent, type ViewProps } from 'react-native';
+import React, { useRef, useEffect, useCallback, useState } from 'react';
+import { requireNativeComponent, StyleSheet, type ViewProps } from 'react-native';
 import { unityService } from '../services/UnityService';
 import { UnityBridge } from '../bridge/UnityBridge';
 
@@ -14,40 +14,103 @@ interface UnityViewProps extends ViewProps {
 
 // Native Unity View 컴포넌트 - iOS에서 'UnityView'로 등록됨
 const NativeUnityView = requireNativeComponent<UnityViewProps>('UnityView');
+const SURFACE_VISIBILITY_FAILSAFE_MS = 400;
 
 export const UnityView: React.FC<UnityViewProps> = (props) => {
-  const { onUnityReady, onUnityError, ...restProps } = props;
+  const { onUnityReady, onUnityError, style, ...restProps } = props;
   const viewRef = useRef(null);
+  const [surfaceVisible, setSurfaceVisible] = useState(false);
+  const readyEventReceivedRef = useRef(false);
+  const visibilityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ⚠️ 중요: UnityView 마운트 시 GameObject Ready 상태 리셋
-  // 이전 UnityView의 상태를 초기화하여 새로운 UnityView의 GameObject Ready를 정확히 감지
+  const clearVisibilityTimer = useCallback(() => {
+    if (visibilityTimerRef.current) {
+      clearTimeout(visibilityTimerRef.current);
+      visibilityTimerRef.current = null;
+    }
+  }, []);
+
+  // 화면 재진입 시에는 기존 Unity를 우선 재사용하고,
+  // 실제로 ready가 아닌 경우에만 기존 reset 경로를 수행한다.
   useEffect(() => {
     let isMounted = true;
+    let shouldScheduleFailsafe = true;
+    readyEventReceivedRef.current = false;
+    setSurfaceVisible(false);
 
     const initialize = async () => {
-      console.log('[UnityView] Mounted - Resetting GameObject Ready state');
-      await unityService.resetGameObjectReady();
+      try {
+        const syncedReady = await UnityBridge.syncReadyState();
+        if (!isMounted) {
+          return;
+        }
 
-      // ✅ Native 정리와 React 마운트 사이클 동기화
-      if (isMounted) {
-        await UnityBridge.syncReadyState();
+        if (syncedReady) {
+          readyEventReceivedRef.current = true;
+          setSurfaceVisible(true);
+          shouldScheduleFailsafe = false;
+          return;
+        }
+
+        if (!syncedReady) {
+          console.log('[UnityView] GameObject not ready, running reset fallback');
+          await unityService.resetGameObjectReady();
+          if (isMounted) {
+            const recoveredReady = await UnityBridge.syncReadyState();
+            if (recoveredReady) {
+              readyEventReceivedRef.current = true;
+              setSurfaceVisible(true);
+              shouldScheduleFailsafe = false;
+            }
+          }
+        }
+      } catch (error) {
+        console.error('[UnityView] Initialization sync failed:', error);
+      } finally {
+        if (!isMounted || !shouldScheduleFailsafe) {
+          return;
+        }
+
+        clearVisibilityTimer();
+        visibilityTimerRef.current = setTimeout(async () => {
+          if (!isMounted || readyEventReceivedRef.current) {
+            return;
+          }
+
+          try {
+            const ready = await UnityBridge.syncReadyState();
+            if (!isMounted || readyEventReceivedRef.current) {
+              return;
+            }
+            if (ready) {
+              console.log('[UnityView] Surface visibility recovered by failsafe sync');
+              setSurfaceVisible(true);
+            }
+          } catch (error) {
+            console.error('[UnityView] Surface failsafe sync failed:', error);
+          }
+        }, SURFACE_VISIBILITY_FAILSAFE_MS);
       }
     };
 
-    initialize();
+    void initialize();
 
     return () => {
       isMounted = false;
+      clearVisibilityTimer();
       console.log('[UnityView] Unmounting - Native cleanup initiated');
     };
-  }, []);
+  }, [clearVisibilityTimer]);
 
   // 디버깅용 이벤트 핸들러
   // ★ 의존성을 props 전체가 아닌 특정 콜백으로 변경 (불필요한 재생성 방지)
   const handleUnityReady = useCallback((event: any) => {
     console.log('[UnityView] onUnityReady event received:', event.nativeEvent);
+    readyEventReceivedRef.current = true;
+    clearVisibilityTimer();
+    setSurfaceVisible(true);
     onUnityReady?.(event);
-  }, [onUnityReady]);
+  }, [clearVisibilityTimer, onUnityReady]);
 
   const handleUnityError = useCallback((event: any) => {
     console.error('[UnityView] onUnityError event received:', event.nativeEvent);
@@ -58,10 +121,17 @@ export const UnityView: React.FC<UnityViewProps> = (props) => {
     <NativeUnityView
       ref={viewRef}
       {...restProps}
+      style={[style, !surfaceVisible && styles.hiddenSurface]}
       onUnityReady={handleUnityReady}
       onUnityError={handleUnityError}
     />
   );
 };
+
+const styles = StyleSheet.create({
+  hiddenSurface: {
+    opacity: 0,
+  },
+});
 
 export default UnityView;

@@ -63,6 +63,12 @@ class Unity: ObservableObject  {
     /// 마지막 didBecomeActive 시각
     private var lastDidBecomeActiveAt: CFTimeInterval = CACurrentMediaTime()
 
+    private enum ValidationState {
+        case valid
+        case transient(reason: String)
+        case stale(reason: String)
+    }
+
     private init() {
         // ⚠️ 중요: init()에서는 UnityFramework를 로드하지 않음
         // start()가 호출될 때까지 지연 초기화
@@ -274,16 +280,22 @@ class Unity: ObservableObject  {
     /// Unity 시작 (completion handler 버전 - Event-Driven 패턴)
     /// - Parameter completion: Metal context 준비 완료 시 호출 (nil이면 무시)
     func start(completion: ((Bool) -> Void)?) {
-        // ✅ 기존 stale 상태 감지 및 정리
-        if _framework != nil && !validateState() {
-            print("[Unity] ⚠️ Stale state detected on start, forcing reset")
-            forceReset()
-        }
-
         guard !loaded else {
-            print("[Unity] ⚠️ Already loaded")
+            print("[Unity] ✅ start skipped (reason=already_loaded)")
             completion?(true)
             return
+        }
+
+        if _framework != nil {
+            switch diagnoseState() {
+            case .valid:
+                break
+            case .transient(let reason):
+                print("[Unity] ℹ️ start validation transient (reason=\(reason))")
+            case .stale(let reason):
+                print("[Unity] ⚠️ start validation stale (reason=\(reason)), forcing reset")
+                forceReset(reason: reason)
+            }
         }
 
         print("[Unity] Starting Unity...")
@@ -415,6 +427,19 @@ class Unity: ObservableObject  {
     /// Unity 싱글톤 상태 유효성 검사
     /// 앱 종료 후 재시작 시 stale 상태 감지
     func validateState() -> Bool {
+        switch diagnoseState() {
+        case .valid:
+            return true
+        case .transient(let reason):
+            print("[Unity] ⚠️ validateState transient (reason=\(reason))")
+            return true
+        case .stale(let reason):
+            print("[Unity] ⚠️ validateState stale (reason=\(reason))")
+            return false
+        }
+    }
+
+    private func diagnoseState() -> ValidationState {
         let elapsedSinceForeground = CACurrentMediaTime() - lastDidBecomeActiveAt
 
         // Framework 참조가 있지만 실제로 유효하지 않은 경우 감지
@@ -422,45 +447,48 @@ class Unity: ObservableObject  {
             // rootView가 없으면 stale
             guard let controller = _framework?.appController(),
                   let rootView = controller.rootView else {
-                print("[Unity] ⚠️ Stale: framework exists but no rootView")
-                return false
+                return .stale(reason: "missing_app_controller_or_root_view")
             }
 
             // rootView가 window hierarchy에 없으면 stale (로드 완료 후에만 체크)
             if rootView.window == nil && loaded {
                 if !isAppActive {
-                    print("[Unity] ⚠️ validateState transient: app inactive while rootView.window is nil")
-                    return true
+                    return .transient(reason: "app_inactive_with_window_nil")
                 }
 
                 if elapsedSinceForeground <= foregroundValidationGraceInterval {
-                    print("[Unity] ⚠️ validateState transient within grace (\(elapsedSinceForeground)s): rootView.window is nil")
-                    return true
+                    return .transient(reason: "foreground_grace_window_nil")
                 }
 
-                print("[Unity] ⚠️ Stale: rootView not in window hierarchy")
-                return false
+                if UnityViewContainer.shared.isAttachTransitioning {
+                    return .transient(reason: "attach_transition_in_progress")
+                }
+
+                if UnityViewContainer.shared.hasAttachmentContainer {
+                    return .transient(reason: "reattach_container_present")
+                }
+
+                // UnityView가 화면에서 잠시 분리된 상태는 정상 전환으로 간주
+                return .transient(reason: "window_nil_without_container")
             }
         }
 
         // 앱이 active인데 Unity가 paused면 불일치
         if isAppActive && isPaused && loaded {
             if elapsedSinceForeground <= foregroundValidationGraceInterval {
-                print("[Unity] ⚠️ validateState transient within grace (\(elapsedSinceForeground)s): app active but Unity paused")
-                return true
+                return .transient(reason: "foreground_grace_active_but_paused")
             }
 
-            print("[Unity] ⚠️ State mismatch: app active but Unity paused")
-            return false
+            return .stale(reason: "active_but_paused")
         }
 
-        return true
+        return .valid
     }
 
     /// Stale 상태 강제 리셋
     /// 앱 재시작 시 이전 인스턴스의 잔여 상태를 정리
-    func forceReset() {
-        print("[Unity] 🔄 Force resetting stale Unity state")
+    func forceReset(reason: String = "manual") {
+        print("[Unity] 🔄 Force resetting stale Unity state (reason=\(reason))")
 
         // 1. 모든 옵저버 제거
         NotificationCenter.default.removeObserver(self)

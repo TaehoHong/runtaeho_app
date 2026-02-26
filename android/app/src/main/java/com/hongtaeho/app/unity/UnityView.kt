@@ -64,8 +64,8 @@ class UnityView(context: Context) : FrameLayout(context) {
     init {
         Log.d(TAG, "UnityView init")
 
-        // 배경색 설정
-        setBackgroundColor(android.graphics.Color.BLACK)
+        // 검정 배경 노출을 피하기 위해 투명 배경 사용
+        setBackgroundColor(android.graphics.Color.TRANSPARENT)
 
         // Container 밖으로 나가는 부분 잘라내기 (Aspect Fill)
         clipChildren = true
@@ -379,6 +379,8 @@ class UnityView(context: Context) : FrameLayout(context) {
             if (reason == "initialize" && !hasSentInitialUnityReadyEvent) {
                 hasSentInitialUnityReadyEvent = true
                 sendUnityReadyEvent("Unity loaded successfully")
+            } else {
+                sendUnityReadyEvent("Unity already attached", "reattach")
             }
             return
         }
@@ -441,8 +443,13 @@ class UnityView(context: Context) : FrameLayout(context) {
         if (reason == "initialize" && !hasSentInitialUnityReadyEvent) {
             hasSentInitialUnityReadyEvent = true
             sendUnityReadyEvent("Unity loaded successfully")
-        } else if (wasAttachedElsewhere) {
-            sendUnityReadyEvent("Unity reattached successfully", "reattach")
+        } else {
+            val message = if (wasAttachedElsewhere) {
+                "Unity reattached successfully"
+            } else {
+                "Unity attached to container"
+            }
+            sendUnityReadyEvent(message, "reattach")
         }
     }
 

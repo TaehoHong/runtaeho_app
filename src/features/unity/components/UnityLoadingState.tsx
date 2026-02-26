@@ -8,7 +8,7 @@
  * - react-native-reanimated로 부드러운 페이드 전환
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -50,67 +50,93 @@ export const UnityLoadingState: React.FC<UnityLoadingStateProps> = ({
   children,
 }) => {
   // 실제로 placeholder를 숨길 준비가 되었는지 (minDisplayTime 경과 + isLoading false)
-  const [showPlaceholder, setShowPlaceholder] = useState(true);
-  const [loadingStartTime, setLoadingStartTime] = useState<number | null>(null);
+  const [showPlaceholder, setShowPlaceholder] = useState(isLoading);
+  const [loadingStartTime, setLoadingStartTime] = useState<number | null>(
+    isLoading ? Date.now() : null
+  );
 
   // Animated values for smooth transitions
-  const placeholderOpacity = useSharedValue(1);
-  const contentOpacity = useSharedValue(0);
-
-  // 로딩 시작 시간 기록
-  useEffect(() => {
-    if (isLoading && loadingStartTime === null) {
-      setLoadingStartTime(Date.now());
-    }
-  }, [isLoading, loadingStartTime]);
-
-  // isLoading이 false가 되면 전환 처리
-  useEffect(() => {
-    if (!isLoading && loadingStartTime !== null) {
-      const elapsed = Date.now() - loadingStartTime;
-      const remainingTime = Math.max(0, minDisplayTime - elapsed);
-
-      const startTransition = () => {
-        // 페이드 아웃 애니메이션
-        placeholderOpacity.value = withTiming(0, {
-          duration: fadeDuration,
-          easing: Easing.out(Easing.ease),
-        });
-
-        // 페이드 인 애니메이션
-        contentOpacity.value = withTiming(
-          1,
-          {
-            duration: fadeDuration,
-            easing: Easing.out(Easing.ease),
-          },
-          (finished) => {
-            if (finished) {
-              scheduleOnRN(setShowPlaceholder, false);
-            }
-          }
-        );
-      };
-
-      if (remainingTime > 0) {
-        // minDisplayTime이 아직 안 지났으면 대기 후 전환
-        const timer = setTimeout(startTransition, remainingTime);
-        return () => clearTimeout(timer);
-      } else {
-        // 이미 minDisplayTime이 지났으면 즉시 전환
-        startTransition();
-      }
-    }
-  }, [isLoading, loadingStartTime, minDisplayTime, fadeDuration, placeholderOpacity, contentOpacity]);
+  const placeholderOpacity = useSharedValue(isLoading ? 1 : 0);
+  const contentOpacity = useSharedValue(isLoading ? 0 : 1);
+  const transitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 컴포넌트 리셋 (새로운 로딩 시작)
   useEffect(() => {
     if (isLoading) {
+      if (transitionTimerRef.current) {
+        clearTimeout(transitionTimerRef.current);
+        transitionTimerRef.current = null;
+      }
+      setLoadingStartTime(Date.now());
       setShowPlaceholder(true);
       placeholderOpacity.value = 1;
       contentOpacity.value = 0;
     }
   }, [isLoading, placeholderOpacity, contentOpacity]);
+
+  // isLoading이 false가 되면 전환 처리
+  useEffect(() => {
+    if (isLoading) {
+      return;
+    }
+
+    const startTransition = () => {
+      // 페이드 아웃 애니메이션
+      placeholderOpacity.value = withTiming(0, {
+        duration: fadeDuration,
+        easing: Easing.out(Easing.ease),
+      });
+
+      // 페이드 인 애니메이션
+      contentOpacity.value = withTiming(
+        1,
+        {
+          duration: fadeDuration,
+          easing: Easing.out(Easing.ease),
+        },
+        (finished) => {
+          if (finished) {
+            scheduleOnRN(setShowPlaceholder, false);
+          }
+        }
+      );
+    };
+
+    if (loadingStartTime === null) {
+      startTransition();
+      return;
+    }
+
+    const elapsed = Date.now() - loadingStartTime;
+    const remainingTime = Math.max(0, minDisplayTime - elapsed);
+
+    if (remainingTime > 0) {
+      // minDisplayTime이 아직 안 지났으면 대기 후 전환
+      transitionTimerRef.current = setTimeout(() => {
+        transitionTimerRef.current = null;
+        startTransition();
+      }, remainingTime);
+    } else {
+      // 이미 minDisplayTime이 지났으면 즉시 전환
+      startTransition();
+    }
+
+    return () => {
+      if (transitionTimerRef.current) {
+        clearTimeout(transitionTimerRef.current);
+        transitionTimerRef.current = null;
+      }
+    };
+  }, [isLoading, loadingStartTime, minDisplayTime, fadeDuration, placeholderOpacity, contentOpacity]);
+
+  // 언마운트 시 타이머 정리
+  useEffect(() => {
+    return () => {
+      if (transitionTimerRef.current) {
+        clearTimeout(transitionTimerRef.current);
+      }
+    };
+  }, []);
 
   // Animated styles
   const placeholderAnimatedStyle = useAnimatedStyle(() => ({

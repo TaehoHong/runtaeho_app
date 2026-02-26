@@ -40,8 +40,12 @@ jest.mock('~/features', () => ({
 
 jest.mock('~/stores/user/userStore', () => ({
   useUserStore: (
-    selector: (state: { equippedItems: Record<string, unknown>; hairColor: string }) => unknown
-  ) => selector({ equippedItems: {}, hairColor: 'black' }),
+    selector: (state: {
+      currentUser: { id: number } | null;
+      equippedItems: Record<string, unknown>;
+      hairColor: string;
+    }) => unknown
+  ) => selector({ currentUser: { id: 1 }, equippedItems: {}, hairColor: 'black' }),
 }));
 
 jest.mock('~/features/league/hooks/useLeagueCheck', () => ({

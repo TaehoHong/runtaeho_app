@@ -136,4 +136,18 @@ class UnityViewContainer {
 
         return currentSuperview
     }
+
+    /// Unity view attach 전환이 진행 중인지 여부
+    var isAttachTransitioning: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return isAttaching
+    }
+
+    /// Unity view를 붙일 컨테이너가 존재하는지 여부
+    var hasAttachmentContainer: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return currentSuperview != nil
+    }
 }

@@ -31,6 +31,9 @@ export interface UnityReadyEvent {
   nativeEvent: {
     ready?: boolean;
     message?: string;
+    type?: string;
+    timestamp?: string;
+    target?: number;
   };
 }
 

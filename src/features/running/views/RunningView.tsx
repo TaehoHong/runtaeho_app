@@ -30,6 +30,9 @@ export const RunningView: React.FC = () => {
   const viewState = useAppStore((state) => state.viewState);
   const runningState = useAppStore((state) => state.runningState);
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
+  const currentUser = useUserStore((state) => state.currentUser);
+  const equippedItems = useUserStore((state) => state.equippedItems);
+  const hairColor = useUserStore((state) => state.hairColor);
 
   // 리그 결과 확인용 상태
   const pendingResult = useLeagueCheckStore((state) => state.pendingResult);
@@ -43,20 +46,19 @@ export const RunningView: React.FC = () => {
   const hasInitializedCharacterRef = useRef(false);
 
   const getInitialAvatarPayload = useCallback(() => {
-    const currentState = useUserStore.getState();
-    const items = Object.values(currentState.equippedItems).filter(
-      (item): item is Item => !!item
-    );
-
-    if (items.length === 0) {
+    if (!currentUser) {
       return null;
     }
 
+    const items = Object.values(equippedItems).filter(
+      (item): item is Item => !!item
+    );
+
     return {
       items,
-      hairColor: currentState.hairColor,
+      hairColor,
     };
-  }, []);
+  }, [currentUser, equippedItems, hairColor]);
 
   const {
     isReady: isUnityReady,
@@ -297,6 +299,7 @@ export const RunningView: React.FC = () => {
   }, [baseHandleUnityReady, isRunningActive]);
 
   const isLoading = viewState === ViewState.Loading;
+  const isUnitySectionLoading = !isUnityReady || !isInitialAvatarSynced;
 
   if (isLoading) {
     console.log('⏳ [RunningView] 로딩 상태');
@@ -310,7 +313,7 @@ export const RunningView: React.FC = () => {
         {unityStarted && isRunningActive && (
           <View style={[styles.unityContainer, isLoading && styles.hiddenContainer]}>
             <UnityLoadingState
-              isLoading={!isUnityReady}
+              isLoading={isUnitySectionLoading}
               variant="running"
               minDisplayTime={500}
             >
