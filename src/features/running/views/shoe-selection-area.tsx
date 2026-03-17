@@ -50,18 +50,20 @@ export const ShoeSelectionArea: React.FC<ShoeSelectionAreaProps> = ({
       const targetIndex = availableShoes.findIndex(shoe => shoe.id === initialSelectedShoeId);
       if (targetIndex !== -1) {
         setSelectedShoeId(initialSelectedShoeId);
+        onShoeSelect?.(initialSelectedShoeId);
         scrollViewRef.current?.scrollTo({
           x: targetIndex * BUCKET,
           animated: true,
         });
       }
     }
-  }, [initialSelectedShoeId, selectedShoeId, availableShoes]);
+  }, [initialSelectedShoeId, selectedShoeId, availableShoes, onShoeSelect]);
 
   // 메인 신발을 기본 선택으로 설정 (initialSelectedShoeId가 없을 때만)
   useEffect(() => {
     if (mainShoe && selectedShoeId === null && !initialSelectedShoeId) {
       setSelectedShoeId(mainShoe.id);
+      onShoeSelect?.(mainShoe.id);
       // 메인 신발의 인덱스로 스크롤
       const mainShoeIndex = availableShoes.findIndex(shoe => shoe.id === mainShoe.id);
       if (mainShoeIndex !== -1) {
@@ -71,7 +73,7 @@ export const ShoeSelectionArea: React.FC<ShoeSelectionAreaProps> = ({
         });
       }
     }
-  }, [mainShoe, selectedShoeId, availableShoes, initialSelectedShoeId]);
+  }, [mainShoe, selectedShoeId, availableShoes, initialSelectedShoeId, onShoeSelect]);
 
   // 스크롤 이벤트 핸들러
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {

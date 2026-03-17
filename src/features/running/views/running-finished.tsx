@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useCallback, useState, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, Dimensions, Alert, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { useAppStore, RunningState } from '~/stores/app/appStore';
@@ -42,7 +42,7 @@ export const RunningFinishedView: React.FC = () => {
   } = useRunning();
 
   // 신발 데이터 가져오기
-  const { shoes, isLoadingShoes } = useShoeViewModel();
+  const { shoes, mainShoe, isLoadingShoes } = useShoeViewModel();
   const [selectedShoeId, setSelectedShoeId] = useState<number | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
 
@@ -129,6 +129,11 @@ export const RunningFinishedView: React.FC = () => {
     return serverLocations;
   };
 
+  const handleShoeSelect = useCallback((shoeId: number) => {
+    console.log(`👟 [RunningFinishedView] 신발 선택됨: ${shoeId}`);
+    setSelectedShoeId(shoeId);
+  }, []);
+
   // 공유 버튼 핸들러
   const handleShare = async () => {
     const resolvedLocations = await resolveShareLocations();
@@ -173,7 +178,7 @@ export const RunningFinishedView: React.FC = () => {
       // 선택된 신발이 있으면 runningRecord 업데이트
       console.log(`👟 [RunningFinishedView] 선택된 신발 ID: ${selectedShoeId}로 업데이트 중...`);
 
-      const newShoeId = selectedShoeId ?? currentRecord.shoeId;
+      const newShoeId = selectedShoeId ?? mainShoe?.id ?? currentRecord.shoeId;
       const updatedRecord: RunningRecord = {
         ...currentRecord,
         ...(newShoeId != null && { shoeId: newShoeId }),
@@ -260,11 +265,8 @@ export const RunningFinishedView: React.FC = () => {
           </View>
         ) : hasShoe ? (
           <ShoeSelectionArea
-            onShoeSelect={(shoeId) => {
-              console.log(`👟 [RunningFinishedView] 신발 선택됨: ${shoeId}`);
-              setSelectedShoeId(shoeId);
-            }}
-            initialSelectedShoeId={selectedShoeId}
+            onShoeSelect={handleShoeSelect}
+            initialSelectedShoeId={selectedShoeId ?? mainShoe?.id ?? currentRecord?.shoeId ?? null}
           />
         ) : (
           <AddShoeCard />
