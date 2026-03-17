@@ -10,6 +10,11 @@
 import { Pedometer } from 'expo-sensors';
 import { DataSource } from './SensorTypes';
 
+const MIN_CADENCE_MEASUREMENT_SECONDS = 10;
+const MIN_CADENCE_MEASUREMENT_STEPS = 8;
+const CADENCE_STALE_MS = 5000;
+const MAX_CADENCE = 255;
+
 /**
  * Pedometer 데이터
  */
@@ -26,6 +31,11 @@ export interface PedometerData {
 export interface PedometerPermissionResult {
   granted: boolean;
   available: boolean;
+}
+
+export interface CadenceSnapshot {
+  cadence: number;
+  isMeasured: boolean;
 }
 
 /**
@@ -46,6 +56,9 @@ export class PedometerService {
   private currentSteps: number = 0;
   private startTime: number = 0;
   private currentCadence: number = 0;
+  private lastMeasuredCadence: number = 0;
+  private lastStepTimestamp: number | null = null;
+  private isCadenceMeasured: boolean = false;
 
   private constructor() {}
 
@@ -129,6 +142,9 @@ export class PedometerService {
       this.startSteps = 0;
       this.currentSteps = 0;
       this.currentCadence = 0;
+      this.lastMeasuredCadence = 0;
+      this.lastStepTimestamp = null;
+      this.isCadenceMeasured = false;
       this.isTracking = true;
 
       console.log('[PedometerService] Starting tracking...');
@@ -136,24 +152,41 @@ export class PedometerService {
       // 3. Pedometer 구독
       this.subscription = Pedometer.watchStepCount((result) => {
         try {
+          const now = Date.now();
+
           // 걸음 수 업데이트
           this.currentSteps = result.steps;
+          if (this.currentSteps > 0) {
+            this.lastStepTimestamp = now;
+          }
 
           // 케이던스 계산 (steps/min)
-          const elapsedMs = Date.now() - this.startTime;
+          const elapsedMs = now - this.startTime;
+          const elapsedSec = elapsedMs / 1000;
           const elapsedMin = elapsedMs / 60000;
+          const hasEnoughWarmup =
+            elapsedSec >= MIN_CADENCE_MEASUREMENT_SECONDS
+            && this.currentSteps >= MIN_CADENCE_MEASUREMENT_STEPS;
+          const isFreshSignal =
+            this.lastStepTimestamp !== null
+            && now - this.lastStepTimestamp <= CADENCE_STALE_MS;
 
-          if (elapsedMin > 0) {
-            this.currentCadence = Math.round(this.currentSteps / elapsedMin);
+          if (elapsedMin > 0 && hasEnoughWarmup && isFreshSignal) {
+            this.currentCadence = this.normalizeCadence(
+              Math.round(this.currentSteps / elapsedMin)
+            );
+            this.lastMeasuredCadence = this.currentCadence;
+            this.isCadenceMeasured = true;
           } else {
             this.currentCadence = 0;
+            this.isCadenceMeasured = false;
           }
 
           // 콜백 호출
           const data: PedometerData = {
             steps: this.currentSteps,
             cadence: this.currentCadence,
-            timestamp: Date.now(),
+            timestamp: now,
             source: DataSource.PHONE_SENSORS,
           };
 
@@ -214,7 +247,42 @@ export class PedometerService {
    * 현재 케이던스 조회 (steps/min)
    */
   getCurrentCadence(): number {
-    return this.currentCadence;
+    return this.getCadenceSnapshot().cadence;
+  }
+
+  /**
+   * 러닝 종료 업로드용 케이던스 조회
+   * 종료 직전 신호만 stale인 경우에는 마지막 유효 측정값을 유지한다.
+   */
+  getFinalCadence(): number {
+    const snapshot = this.getCadenceSnapshot();
+    if (snapshot.isMeasured) {
+      return snapshot.cadence;
+    }
+
+    return this.lastMeasuredCadence;
+  }
+
+  /**
+   * 현재 케이던스 스냅샷 조회
+   * 실측 신뢰 조건 미충족 시 cadence=0, isMeasured=false 반환
+   */
+  getCadenceSnapshot(): CadenceSnapshot {
+    if (
+      !this.isCadenceMeasured
+      || this.lastStepTimestamp === null
+      || Date.now() - this.lastStepTimestamp > CADENCE_STALE_MS
+    ) {
+      return {
+        cadence: 0,
+        isMeasured: false,
+      };
+    }
+
+    return {
+      cadence: this.currentCadence,
+      isMeasured: true,
+    };
   }
 
   /**
@@ -233,6 +301,22 @@ export class PedometerService {
     this.currentSteps = 0;
     this.startTime = 0;
     this.currentCadence = 0;
+    this.lastMeasuredCadence = 0;
+    this.lastStepTimestamp = null;
+    this.isCadenceMeasured = false;
+  }
+
+  private normalizeCadence(value: number): number {
+    if (!Number.isFinite(value)) {
+      return 0;
+    }
+
+    const rounded = Math.round(value);
+    if (rounded < 0) {
+      return 0;
+    }
+
+    return Math.min(rounded, MAX_CADENCE);
   }
 }
 

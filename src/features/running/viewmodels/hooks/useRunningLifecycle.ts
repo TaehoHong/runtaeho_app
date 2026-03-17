@@ -94,10 +94,10 @@ export const useRunningLifecycle = ({
       // 3. GPS 추적 시작
       await startGpsTracking(record.id);
 
-      // 4. 센서 모니터링 (현재 미구현)
+      // 4. 심박 센서 모니터링 (현재 미구현)
       setSensorHeartRate(undefined);
       setSensorCadence(undefined);
-      console.log('[useRunningLifecycle] Sensor monitoring skipped (not implemented)');
+      console.log('[useRunningLifecycle] Heart-rate monitoring skipped (not implemented)');
 
       // 5. Pedometer 시작
       try {
@@ -202,9 +202,10 @@ export const useRunningLifecycle = ({
       // 2. Pedometer 중지
       pedometerService.stopTracking();
       const finalSteps = pedometerService.getCurrentSteps();
-      const finalCadence = pedometerService.getCurrentCadence();
+      const cadenceSnapshot = pedometerService.getCadenceSnapshot();
+      const finalCadence = pedometerService.getFinalCadence();
       console.log(
-        `[useRunningLifecycle] Pedometer stopped - Steps: ${finalSteps}, Cadence: ${finalCadence}`
+        `[useRunningLifecycle] Pedometer stopped - Steps: ${finalSteps}, Cadence: ${finalCadence}, Measured: ${cadenceSnapshot.isMeasured}`
       );
 
       console.log(`[useRunningLifecycle] Final stats:`, {
@@ -220,7 +221,7 @@ export const useRunningLifecycle = ({
       const finalRecord = updateRunningRecord(currentRecord, {
         distance: Math.round(finalDistance),
         steps: finalSteps > 0 ? finalSteps : null,
-        cadence: finalCadence > 0 ? finalCadence : (stats.cadence ?? null),
+        cadence: finalCadence,
         heartRate: stats.bpm ?? null,
         calorie: stats.calories ? Math.round(stats.calories) : 0,
         durationSec: elapsedTime,

@@ -223,4 +223,91 @@ describe('runningService', () => {
       })
     );
   });
+
+  it('normalizes cadence in end payload to database-safe range', async () => {
+    mockApiClient.post.mockResolvedValue({
+      data: {
+        id: 77,
+        distance: 4200,
+        cadence: 255,
+        heartRate: 145,
+        calorie: 280,
+        durationSec: 1500,
+        point: 50,
+      },
+    });
+
+    await runningService.endRunning({
+      ...sampleRecord,
+      cadence: 2400,
+    });
+    await runningService.endRunning({
+      ...sampleRecord,
+      cadence: -5,
+    });
+    await runningService.endRunning({
+      ...sampleRecord,
+      cadence: null,
+    });
+
+    expect(mockApiClient.post).toHaveBeenNthCalledWith(
+      1,
+      API_ENDPOINTS.RUNNING.END(77),
+      expect.objectContaining({ cadence: 255 })
+    );
+    expect(mockApiClient.post).toHaveBeenNthCalledWith(
+      2,
+      API_ENDPOINTS.RUNNING.END(77),
+      expect.objectContaining({ cadence: 0 })
+    );
+    expect(mockApiClient.post).toHaveBeenNthCalledWith(
+      3,
+      API_ENDPOINTS.RUNNING.END(77),
+      expect.objectContaining({ cadence: 0 })
+    );
+  });
+
+  it('normalizes cadence in segment upload payload', async () => {
+    mockApiClient.post.mockResolvedValue({ data: undefined });
+
+    await runningService.saveRunningRecordItems({
+      runningRecordId: 77,
+      items: [
+        {
+          distance: 10,
+          durationSec: 5,
+          cadence: 999,
+          heartRate: 140,
+          minHeartRate: 130,
+          maxHeartRate: 150,
+          orderIndex: 0,
+          startTimeStamp: 100,
+          endTimeStamp: 105,
+          gpsPoints: [],
+        },
+        {
+          distance: 10,
+          durationSec: 5,
+          cadence: -1,
+          heartRate: 140,
+          minHeartRate: 130,
+          maxHeartRate: 150,
+          orderIndex: 1,
+          startTimeStamp: 106,
+          endTimeStamp: 111,
+          gpsPoints: [],
+        },
+      ],
+    });
+
+    expect(mockApiClient.post).toHaveBeenCalledWith(
+      API_ENDPOINTS.RUNNING.ITEMS(77),
+      expect.objectContaining({
+        items: expect.arrayContaining([
+          expect.objectContaining({ orderIndex: 0, cadence: 255 }),
+          expect.objectContaining({ orderIndex: 1, cadence: 0 }),
+        ]),
+      })
+    );
+  });
 });

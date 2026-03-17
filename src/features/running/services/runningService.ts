@@ -13,6 +13,19 @@ import type { CursorResult } from '~/shared/utils/dto/CursorResult';
 import { apiClient } from '../../../services/api/client';
 import { API_ENDPOINTS } from '../../../services/api/config';
 
+const normalizeCadence = (value: number | null | undefined): number => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return 0;
+  }
+
+  const rounded = Math.round(value);
+  if (rounded < 0) {
+    return 0;
+  }
+
+  return Math.min(rounded, 255);
+};
+
 export interface RunningRecordItemGpsPoint {
   latitude: number;
   longitude: number;
@@ -78,7 +91,7 @@ export const runningService = {
       {
         distance: runningRecord.distance, // 미터
         durationSec: runningRecord.durationSec, // 초
-        cadence: runningRecord.cadence || 0,
+        cadence: normalizeCadence(runningRecord.cadence),
         heartRate: runningRecord.heartRate || 0,
         calorie: runningRecord.calorie || 0,
       }
@@ -206,9 +219,14 @@ export const runningService = {
       gpsPoints?: RunningRecordItemGpsPoint[];
     }[];
   }): Promise<void> => {
+    const sanitizedItems = params.items.map((item) => ({
+      ...item,
+      cadence: normalizeCadence(item.cadence),
+    }));
+
     await apiClient.post(
       API_ENDPOINTS.RUNNING.ITEMS(params.runningRecordId),
-      { items: params.items }
+      { items: sanitizedItems }
     );
   },
 

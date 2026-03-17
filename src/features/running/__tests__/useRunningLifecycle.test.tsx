@@ -14,6 +14,8 @@ const mockPedometerStartTracking = jest.fn();
 const mockPedometerStopTracking = jest.fn();
 const mockPedometerGetCurrentSteps = jest.fn();
 const mockPedometerGetCurrentCadence = jest.fn();
+const mockPedometerGetCadenceSnapshot = jest.fn();
+const mockPedometerGetFinalCadence = jest.fn();
 const mockOfflineAddPendingUpload = jest.fn();
 const mockOfflineAddPendingSegmentUpload = jest.fn();
 const mockBackgroundClearData = jest.fn();
@@ -58,6 +60,8 @@ jest.mock('~/features/running/services/sensors/PedometerService', () => ({
     stopTracking: (...args: unknown[]) => mockPedometerStopTracking(...args),
     getCurrentSteps: (...args: unknown[]) => mockPedometerGetCurrentSteps(...args),
     getCurrentCadence: (...args: unknown[]) => mockPedometerGetCurrentCadence(...args),
+    getCadenceSnapshot: (...args: unknown[]) => mockPedometerGetCadenceSnapshot(...args),
+    getFinalCadence: (...args: unknown[]) => mockPedometerGetFinalCadence(...args),
   },
 }));
 
@@ -167,6 +171,11 @@ describe('useRunningLifecycle', () => {
     useAppStore.getState().setRunningState(RunningState.Stopped);
     mockPedometerGetCurrentSteps.mockReturnValue(0);
     mockPedometerGetCurrentCadence.mockReturnValue(0);
+    mockPedometerGetCadenceSnapshot.mockReturnValue({
+      cadence: 0,
+      isMeasured: false,
+    });
+    mockPedometerGetFinalCadence.mockReturnValue(0);
     mockBackgroundClearData.mockResolvedValue(undefined);
     mockBackgroundStopTracking.mockResolvedValue(undefined);
     mockBackgroundPauseTracking.mockResolvedValue(undefined);
@@ -426,6 +435,94 @@ describe('useRunningLifecycle', () => {
     expect(mockOfflineAddPendingUpload).toHaveBeenCalledTimes(1);
     expect(useAppStore.getState().runningState).toBe(RunningState.Finished);
     expect(mockSaveRunningRecordItems).not.toHaveBeenCalled();
+  });
+
+  it('uses cadence=0 when pedometer cadence is not measured', async () => {
+    const record = createRunningRecord(505);
+    mockCheckRequiredPermissions.mockResolvedValue({
+      hasAllPermissions: true,
+      location: true,
+      locationBackground: true,
+      motion: true,
+    });
+    mockStartRunningMutation.mockResolvedValue(record);
+    mockPedometerGetCurrentSteps.mockReturnValue(3);
+    mockPedometerGetCadenceSnapshot.mockReturnValue({
+      cadence: 0,
+      isMeasured: false,
+    });
+    mockPedometerGetFinalCadence.mockReturnValue(0);
+    mockEndRunningMutation.mockResolvedValue({
+      id: 505,
+      distance: 80,
+      cadence: 0,
+      heartRate: 120,
+      calorie: 20,
+      durationSec: 120,
+      point: 0,
+    });
+
+    const { props } = buildHookProps({ stopGpsDistance: 80 });
+    const { result } = renderHook(() => useRunningLifecycle(props));
+
+    await act(async () => {
+      await result.current.startRunning();
+    });
+
+    await act(async () => {
+      await result.current.endRunning();
+    });
+
+    expect(mockEndRunningMutation).toHaveBeenCalledTimes(1);
+    expect(mockEndRunningMutation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cadence: 0,
+      })
+    );
+  });
+
+  it('keeps last measured cadence for upload when current snapshot is stale', async () => {
+    const record = createRunningRecord(506);
+    mockCheckRequiredPermissions.mockResolvedValue({
+      hasAllPermissions: true,
+      location: true,
+      locationBackground: true,
+      motion: true,
+    });
+    mockStartRunningMutation.mockResolvedValue(record);
+    mockPedometerGetCurrentSteps.mockReturnValue(12);
+    mockPedometerGetCadenceSnapshot.mockReturnValue({
+      cadence: 0,
+      isMeasured: false,
+    });
+    mockPedometerGetFinalCadence.mockReturnValue(172);
+    mockEndRunningMutation.mockResolvedValue({
+      id: 506,
+      distance: 90,
+      cadence: 172,
+      heartRate: 120,
+      calorie: 20,
+      durationSec: 120,
+      point: 0,
+    });
+
+    const { props } = buildHookProps({ stopGpsDistance: 90 });
+    const { result } = renderHook(() => useRunningLifecycle(props));
+
+    await act(async () => {
+      await result.current.startRunning();
+    });
+
+    await act(async () => {
+      await result.current.endRunning();
+    });
+
+    expect(mockEndRunningMutation).toHaveBeenCalledTimes(1);
+    expect(mockEndRunningMutation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cadence: 172,
+      })
+    );
   });
 
   it('throws and runs cleanup when stopGpsTracking fails during endRunning', async () => {
