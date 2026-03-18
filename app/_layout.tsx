@@ -1,12 +1,15 @@
 import { Stack } from 'expo-router/stack';
+import { View } from 'react-native';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '~/services/queryClient';
 import { AuthProvider } from '~/providers/AuthProvider';
 import { AppStateProvider } from '~/providers/AppStateProvider';
 import { UpdateProvider } from '~/features/updates';
 import { ForceUpdateProvider } from '~/features/forceUpdate';
+import { GlobalUnityHost } from '~/features/unity/components/GlobalUnityHost';
 import { initializeSentry, Sentry } from '~/config/sentry';
 import { ErrorBoundary } from '~/shared/components/ErrorBoundary';
+import { GREY } from '~/shared/styles';
 
 // Sentry 초기화
 initializeSentry();
@@ -32,57 +35,62 @@ function RootLayout() {
           <AuthProvider>
             <AppStateProvider>
               <UpdateProvider
-              checkOnLaunch={false}
-              checkOnForeground={true}
-              showBanner={false}
-              autoDownload={false}
-            >
-              <Stack>
-              <Stack.Screen
-                name="index"
-                options={{
-                  headerShown: false
-                }}
-              />
-              <Stack.Screen
-                name="(tabs)"
-                options={{
-                  headerShown: false
-                }}
-              />
-              <Stack.Screen
-                name="auth/login"
-                options={{
-                  headerShown: false,
-                  animation: 'none'
-                }}
-              />
-              <Stack.Screen
-                name="shoes/add-shoe"
-                options={{
-                  headerShown: false,
-                  presentation: 'modal'
-                }}
-              />
-              <Stack.Screen
-                name="user"
-                options={{
-                  headerShown: false
-                }}
-              />
-              <Stack.Screen
-                name="league"
-                options={{
-                  headerShown: false
-                }}
-              />
-              <Stack.Screen
-                name="share"
-                options={{
-                  headerShown: false
-                }}
-              />
-              </Stack>
+                checkOnLaunch={false}
+                checkOnForeground={true}
+                showBanner={false}
+                autoDownload={false}
+              >
+                <View style={{ flex: 1, backgroundColor: GREY.WHITE }}>
+                  <GlobalUnityHost />
+                  <Stack>
+                    <Stack.Screen
+                      name="index"
+                      options={{
+                        headerShown: false,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="(tabs)"
+                      options={{
+                        headerShown: false,
+                        contentStyle: { backgroundColor: 'transparent' },
+                      }}
+                    />
+                    <Stack.Screen
+                      name="auth/login"
+                      options={{
+                        headerShown: false,
+                        animation: 'none'
+                      }}
+                    />
+                    <Stack.Screen
+                      name="shoes/add-shoe"
+                      options={{
+                        headerShown: false,
+                        presentation: 'modal'
+                      }}
+                    />
+                    <Stack.Screen
+                      name="user"
+                      options={{
+                        headerShown: false
+                      }}
+                    />
+                    <Stack.Screen
+                      name="league"
+                      options={{
+                        headerShown: false
+                      }}
+                    />
+                    <Stack.Screen
+                      name="share"
+                      options={{
+                        headerShown: false,
+                        contentStyle: { backgroundColor: 'transparent' },
+                      }}
+                    />
+                  </Stack>
+                </View>
               </UpdateProvider>
             </AppStateProvider>
           </AuthProvider>

@@ -7,6 +7,7 @@
  */
 
 import React, { useEffect } from 'react';
+import { BackHandler } from 'react-native';
 import { router } from 'expo-router';
 import { ShareEditorScreen } from '~/features/share';
 import { useShareStore } from '~/features/share/stores/shareStore';
@@ -23,6 +24,15 @@ export default function ShareEditorPage() {
       router.back();
     }
   }, [shareData]);
+
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      console.log('[SHARE_EDITOR] 뒤로가기 차단됨');
+      return true;
+    });
+
+    return () => backHandler.remove();
+  }, []);
 
   // 화면 언마운트 시 store 정리
   useEffect(() => {

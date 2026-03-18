@@ -320,6 +320,46 @@ describe('useUnityBootstrap', () => {
     });
   });
 
+  it('ignores duplicate reattach ready events within cooldown window', async () => {
+    const payload: InitialAvatarPayload = {
+      items: [createItem(33)],
+      hairColor: '#223344',
+    };
+
+    const { result, rerender } = renderHook(
+      (_props: undefined) =>
+        useUnityBootstrap({
+          getInitialAvatarPayload: () => payload,
+        }),
+      { initialProps: undefined }
+    );
+
+    act(() => {
+      readinessState.canSendMessage = true;
+      readinessState.isReady = true;
+    });
+    rerender(undefined);
+
+    await waitFor(() => {
+      expect(mockSyncAvatar).toHaveBeenCalledTimes(1);
+      expect(result.current.isInitialAvatarSynced).toBe(true);
+    });
+
+    const dateNowSpy = jest.spyOn(Date, 'now');
+    act(() => {
+      dateNowSpy.mockReturnValue(1000);
+      result.current.handleUnityReady({ nativeEvent: { type: 'reattach', ready: true } });
+      dateNowSpy.mockReturnValue(1200);
+      result.current.handleUnityReady({ nativeEvent: { type: 'reattach', ready: true } });
+    });
+
+    await waitFor(() => {
+      expect(mockSyncAvatar).toHaveBeenCalledTimes(2);
+    });
+
+    dateNowSpy.mockRestore();
+  });
+
   it('keeps initial sync state and retries when reattach re-sync fails', async () => {
     jest.useFakeTimers();
     const payload: InitialAvatarPayload = {

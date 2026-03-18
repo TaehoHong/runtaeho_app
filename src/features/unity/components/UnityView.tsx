@@ -1,5 +1,11 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
-import { requireNativeComponent, StyleSheet, type ViewProps } from 'react-native';
+import {
+  findNodeHandle,
+  requireNativeComponent,
+  StyleSheet,
+  UIManager,
+  type ViewProps,
+} from 'react-native';
 import { unityService } from '../services/UnityService';
 import { UnityBridge } from '../bridge/UnityBridge';
 
@@ -10,6 +16,8 @@ interface UnityViewProps extends ViewProps {
   onUnityError?: (event: any) => void;
   // 캐릭터 상태 변경 이벤트
   onCharacterStateChanged?: (event: any) => void;
+  // Native reattach recovery trigger
+  reattachToken?: number;
 }
 
 // Native Unity View 컴포넌트 - iOS에서 'UnityView'로 등록됨
@@ -17,11 +25,12 @@ const NativeUnityView = requireNativeComponent<UnityViewProps>('UnityView');
 const SURFACE_VISIBILITY_FAILSAFE_MS = 400;
 
 export const UnityView: React.FC<UnityViewProps> = (props) => {
-  const { onUnityReady, onUnityError, style, ...restProps } = props;
+  const { onUnityReady, onUnityError, reattachToken, style, ...restProps } = props;
   const viewRef = useRef(null);
   const [surfaceVisible, setSurfaceVisible] = useState(false);
   const readyEventReceivedRef = useRef(false);
   const visibilityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastReattachTokenRef = useRef(reattachToken ?? 0);
 
   const clearVisibilityTimer = useCallback(() => {
     if (visibilityTimerRef.current) {
@@ -101,6 +110,26 @@ export const UnityView: React.FC<UnityViewProps> = (props) => {
       console.log('[UnityView] Unmounting - Native cleanup initiated');
     };
   }, [clearVisibilityTimer]);
+
+  useEffect(() => {
+    const currentToken = reattachToken ?? 0;
+    if (currentToken === lastReattachTokenRef.current) {
+      return;
+    }
+
+    lastReattachTokenRef.current = currentToken;
+
+    const reactTag = findNodeHandle(viewRef.current);
+    const command = UIManager.getViewManagerConfig('UnityView')?.Commands?.reattachUnityView;
+    if (!reactTag || command == null) {
+      console.warn('[UnityView] reattach command unavailable');
+      return;
+    }
+
+    readyEventReceivedRef.current = false;
+    setSurfaceVisible(false);
+    UIManager.dispatchViewManagerCommand(reactTag, command, []);
+  }, [reattachToken]);
 
   // 디버깅용 이벤트 핸들러
   // ★ 의존성을 props 전체가 아닌 특정 콜백으로 변경 (불필요한 재생성 방지)

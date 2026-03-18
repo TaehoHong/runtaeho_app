@@ -3,23 +3,33 @@
  * 이미지 캡처 및 공유 기능 서비스
  */
 
-import { Platform, PermissionsAndroid, Alert } from 'react-native';
+import { Platform, PermissionsAndroid, Alert, Dimensions, Image } from 'react-native';
 import type { RefObject } from 'react';
 import type { View } from 'react-native';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import type { ShareResult } from '../models/types';
+import { CANVAS_SIZE } from '../constants/shareOptions';
 
 // react-native-view-shot은 dynamic import로 사용 (선택적 의존성)
-let captureRef: ((view: RefObject<View | null>, options?: object) => Promise<string>) | null = null;
+let captureScreen: ((options?: object) => Promise<string>) | null = null;
 let Share: { open: (options: object) => Promise<any> } | null = null;
+
+interface ViewBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 
 /**
  * 의존성 동적 로드
  */
 const loadDependencies = async () => {
-  if (!captureRef) {
+  if (!captureScreen) {
     try {
-      const viewShot = await import('react-native-view-shot');
-      captureRef = viewShot.captureRef;
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const viewShot = await import('react-native-view-shot').catch(() => require('react-native-view-shot'));
+      captureScreen = viewShot.captureScreen;
     } catch (error) {
       console.warn('[ShareService] react-native-view-shot not available:', error);
     }
@@ -27,7 +37,8 @@ const loadDependencies = async () => {
 
   if (!Share) {
     try {
-      const shareModule = await import('react-native-share');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const shareModule = await import('react-native-share').catch(() => require('react-native-share'));
       Share = shareModule.default;
     } catch (error) {
       console.warn('[ShareService] react-native-share not available:', error);
@@ -40,6 +51,43 @@ const loadDependencies = async () => {
  */
 export class ShareService {
   private static instance: ShareService;
+
+  private async measureViewInWindow(viewRef: RefObject<View | null>): Promise<ViewBounds> {
+    if (!viewRef.current) {
+      throw new Error('View ref is not available');
+    }
+
+    return new Promise((resolve, reject) => {
+      viewRef.current?.measureInWindow((x, y, width, height) => {
+        if (width <= 0 || height <= 0) {
+          reject(new Error('View bounds are invalid'));
+          return;
+        }
+
+        resolve({ x, y, width, height });
+      });
+    });
+  }
+
+  private isViewFullyVisibleInWindow(bounds: ViewBounds): boolean {
+    const windowSize = Dimensions.get('window');
+    return (
+      bounds.x >= 0
+      && bounds.y >= 0
+      && bounds.x + bounds.width <= windowSize.width
+      && bounds.y + bounds.height <= windowSize.height
+    );
+  }
+
+  private async getImageSize(uri: string): Promise<{ width: number; height: number }> {
+    return new Promise((resolve, reject) => {
+      Image.getSize(
+        uri,
+        (width, height) => resolve({ width, height }),
+        reject
+      );
+    });
+  }
 
   static getInstance(): ShareService {
     if (!ShareService.instance) {
@@ -61,23 +109,52 @@ export class ShareService {
   async captureViewAsImage(viewRef: RefObject<View | null>): Promise<string> {
     await loadDependencies();
 
-    if (!captureRef) {
-      throw new Error('react-native-view-shot is not available');
-    }
-
-    if (!viewRef.current) {
-      throw new Error('View ref is not available');
+    if (!captureScreen) {
+      throw new Error('Screen capture is not available');
     }
 
     try {
-      const uri = await captureRef(viewRef, {
+      const bounds = await this.measureViewInWindow(viewRef);
+      if (!this.isViewFullyVisibleInWindow(bounds)) {
+        throw new Error('공유 이미지를 캡처하려면 export stage가 화면 안에 완전히 보여야 합니다.');
+      }
+
+      const screenshotUri = await captureScreen({
         format: 'png',
         quality: 1,
         result: 'tmpfile',
       });
+      const screenshotSize = await this.getImageSize(screenshotUri);
+      const windowSize = Dimensions.get('window');
+      const scaleX = screenshotSize.width / windowSize.width;
+      const scaleY = screenshotSize.height / windowSize.height;
+      const originX = Math.min(
+        Math.max(0, Math.round(bounds.x * scaleX)),
+        Math.max(0, screenshotSize.width - 1)
+      );
+      const originY = Math.min(
+        Math.max(0, Math.round(bounds.y * scaleY)),
+        Math.max(0, screenshotSize.height - 1)
+      );
+      const width = Math.max(1, Math.min(
+        screenshotSize.width - originX,
+        Math.round(bounds.width * scaleX)
+      ));
+      const height = Math.max(1, Math.min(
+        screenshotSize.height - originY,
+        Math.round(bounds.height * scaleY)
+      ));
+      const exportedImage = await manipulateAsync(
+        screenshotUri,
+        [
+          { crop: { originX, originY, width, height } },
+          { resize: CANVAS_SIZE },
+        ],
+        { compress: 1, format: SaveFormat.PNG }
+      );
 
-      console.log('[ShareService] View captured:', uri);
-      return uri;
+      console.log('[ShareService] Screen cropped to export stage:', exportedImage.uri);
+      return exportedImage.uri;
     } catch (error) {
       console.error('[ShareService] Failed to capture view:', error);
       throw error;

@@ -45,6 +45,7 @@ interface UseLeagueResultAnimationProps {
 interface UseLeagueResultAnimationReturn {
   isUnityReady: boolean;
   isUnityAvailable: boolean;
+  isUnityStarted: boolean;
   handleUnityReady: (event: UnityReadyEvent) => void;
 }
 
@@ -74,6 +75,7 @@ export const useLeagueResultAnimation = ({
   const {
     isReady,
     isUnityAvailable,
+    isUnityStarted,
     handleUnityReady,
     isInitialAvatarSynced,
   } = useUnityBootstrap({
@@ -128,6 +130,7 @@ export const useLeagueResultAnimation = ({
   return {
     isUnityReady: isReady,
     isUnityAvailable,
+    isUnityStarted,
     handleUnityReady,
   };
 };

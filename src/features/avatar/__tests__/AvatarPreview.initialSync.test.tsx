@@ -1,11 +1,14 @@
 import React from 'react';
-import { waitFor } from '@testing-library/react-native';
+import { screen, waitFor } from '@testing-library/react-native';
 import type { EquippedItemsMap, Item } from '~/features/avatar';
 import { AvatarPreview } from '~/features/avatar/views/components/AvatarPreview';
 import { renderWithProviders } from '~/test-utils/renderWithProviders';
 
 const mockSyncAvatar = jest.fn<Promise<'applied' | 'empty' | 'failed'>, [Item[], string]>();
 const mockUseUnityBootstrap = jest.fn();
+const mockUseFocusEffect = jest.fn();
+const mockSetActiveViewport = jest.fn();
+const mockClearActiveViewport = jest.fn();
 
 jest.mock('~/features/unity/services/UnityService', () => ({
   unityService: {
@@ -17,12 +20,21 @@ jest.mock('~/features/unity/hooks', () => ({
   useUnityBootstrap: (...args: unknown[]) => mockUseUnityBootstrap(...args),
 }));
 
-jest.mock('~/features/unity/components/UnityView', () => ({
-  UnityView: () => {
-    const React = require('react');
-    const { View } = require('react-native');
-    return React.createElement(View, { testID: 'mock-unity-view' });
-  },
+jest.mock('@react-navigation/native', () => ({
+  useFocusEffect: (...args: unknown[]) => mockUseFocusEffect(...args),
+}));
+
+jest.mock('~/stores/unity/unityStore', () => ({
+  useUnityStore: (
+    selector: (state: {
+      setActiveViewport: typeof mockSetActiveViewport;
+      clearActiveViewport: typeof mockClearActiveViewport;
+    }) => unknown
+  ) =>
+    selector({
+      setActiveViewport: mockSetActiveViewport,
+      clearActiveViewport: mockClearActiveViewport,
+    }),
 }));
 
 jest.mock('~/features/unity/components/UnityLoadingState', () => ({
@@ -54,9 +66,12 @@ describe('AvatarPreview initial sync', () => {
     jest.clearAllMocks();
     mockSyncAvatar.mockResolvedValue('applied');
     mockUseUnityBootstrap.mockReturnValue({
-      handleUnityReady: jest.fn(),
       canSendMessage: true,
       isInitialAvatarSynced: true,
+      isUnityStarted: true,
+    });
+    mockUseFocusEffect.mockImplementation((callback: () => void | (() => void)) => {
+      callback();
     });
   });
 
@@ -69,6 +84,7 @@ describe('AvatarPreview initial sync', () => {
       <AvatarPreview equippedItems={equippedItems} hairColor="#000000" />
     );
 
+    expect(screen.getByTestId('avatar-preview-viewport')).toBeTruthy();
     expect(mockSyncAvatar).toHaveBeenCalledTimes(0);
 
     rerender(<AvatarPreview equippedItems={equippedItems} hairColor="#000000" />);

@@ -18,6 +18,7 @@ export type UnityBootstrapPhase =
 export type InitialAvatarPayload = { items: Item[]; hairColor?: string } | null;
 const AVATAR_SYNC_RETRY_DELAY_MS = 300;
 const REATTACH_RESYNC_RETRY_DELAY_MS = 300;
+const REATTACH_READY_COOLDOWN_MS = 350;
 
 export interface UseUnityBootstrapOptions extends UseUnityReadinessOptions {
   getInitialAvatarPayload?: () => InitialAvatarPayload;
@@ -66,6 +67,7 @@ export const useUnityBootstrap = (
   const reattachRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingReattachResyncRef = useRef(false);
   const reattachSyncInFlightRef = useRef(false);
+  const lastReattachReadyAtRef = useRef(0);
   const attemptReattachResyncRef = useRef<() => void>(() => {});
 
   const clearRetrySchedule = useCallback(() => {
@@ -158,6 +160,11 @@ export const useUnityBootstrap = (
       baseHandleUnityReady(event);
 
       if (event?.nativeEvent?.type === 'reattach') {
+        const now = Date.now();
+        if (now - lastReattachReadyAtRef.current < REATTACH_READY_COOLDOWN_MS) {
+          return;
+        }
+        lastReattachReadyAtRef.current = now;
         pendingReattachResyncRef.current = true;
         attemptReattachResyncRef.current();
       }
@@ -173,6 +180,7 @@ export const useUnityBootstrap = (
     clearReattachRetrySchedule();
     pendingReattachResyncRef.current = false;
     reattachSyncInFlightRef.current = false;
+    lastReattachReadyAtRef.current = 0;
     setIsInitialAvatarSynced(false);
     setBootstrapPhase('idle');
     reset();
@@ -189,6 +197,7 @@ export const useUnityBootstrap = (
       clearRetrySchedule();
       clearReattachRetrySchedule();
       reattachSyncInFlightRef.current = false;
+      lastReattachReadyAtRef.current = 0;
       setIsInitialAvatarSynced(false);
       setBootstrapPhase('waiting-ready');
     }
@@ -273,6 +282,7 @@ export const useUnityBootstrap = (
       clearReattachRetrySchedule();
       pendingReattachResyncRef.current = false;
       reattachSyncInFlightRef.current = false;
+      lastReattachReadyAtRef.current = 0;
     };
   }, [clearReattachRetrySchedule, clearRetrySchedule]);
 

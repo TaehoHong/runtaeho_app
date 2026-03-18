@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { View, Text, StyleSheet } from 'react-native';
-import { UnityView } from '~/features/unity/components/UnityView';
 import { UnityLoadingState } from '~/features/unity/components/UnityLoadingState';
+import { useUnityStore } from '~/stores/unity/unityStore';
 import { GREY } from '~/shared/styles';
 import { LeagueResultStatus } from '../../models';
 import { useLeagueResultAnimation } from '../../hooks/useLeagueResultAnimation';
@@ -52,8 +53,56 @@ const getResultText = (status: LeagueResultStatus): string => {
 export const LeagueResultCharacterView: React.FC<LeagueResultCharacterViewProps> = ({
   resultStatus,
 }) => {
-  const { isUnityReady, isUnityAvailable, handleUnityReady } =
+  const unityViewportRef = useRef<View>(null);
+  const setActiveViewport = useUnityStore((state) => state.setActiveViewport);
+  const clearActiveViewport = useUnityStore((state) => state.clearActiveViewport);
+  const { isUnityReady, isUnityAvailable, isUnityStarted } =
     useLeagueResultAnimation({ resultStatus });
+
+  const syncUnityViewport = useCallback(() => {
+    const viewport = unityViewportRef.current;
+    if (
+      !isUnityStarted
+      || !viewport
+      || typeof viewport.measureInWindow !== 'function'
+    ) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      viewport.measureInWindow((x, y, width, height) => {
+        if (!isUnityStarted || width <= 0 || height <= 0) {
+          return;
+        }
+
+        setActiveViewport({
+          owner: 'league',
+          frame: { x, y, width, height },
+          borderRadius: 0,
+        });
+      });
+    });
+  }, [isUnityStarted, setActiveViewport]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (isUnityStarted) {
+        syncUnityViewport();
+      }
+
+      return () => {
+        clearActiveViewport('league');
+      };
+    }, [clearActiveViewport, isUnityStarted, syncUnityViewport])
+  );
+
+  useEffect(() => {
+    if (!isUnityStarted) {
+      return;
+    }
+
+    syncUnityViewport();
+  }, [isUnityStarted, syncUnityViewport]);
 
   // Android/Web: 폴백 UI
   if (!isUnityAvailable) {
@@ -75,12 +124,12 @@ export const LeagueResultCharacterView: React.FC<LeagueResultCharacterViewProps>
         variant="league"
         minDisplayTime={300}
       >
-        <UnityView
+        <View
+          ref={unityViewportRef}
           style={styles.unityView}
-          onUnityReady={handleUnityReady}
-          onUnityError={(event) => {
-            console.error('[LeagueResultCharacterView] Unity error:', event?.nativeEvent);
-          }}
+          testID="league-result-viewport"
+          onLayout={syncUnityViewport}
+          collapsable={false}
         />
       </UnityLoadingState>
     </View>
@@ -90,7 +139,7 @@ export const LeagueResultCharacterView: React.FC<LeagueResultCharacterViewProps>
 const styles = StyleSheet.create({
   container: {
     height: 280,
-    backgroundColor: GREY[100],
+    backgroundColor: 'transparent',
   },
   unityView: {
     width: '100%',

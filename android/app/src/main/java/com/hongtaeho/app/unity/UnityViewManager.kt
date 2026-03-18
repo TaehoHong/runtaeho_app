@@ -38,8 +38,8 @@ class UnityViewManager(
     }
 
     override fun onDropViewInstance(view: UnityView) {
-        Log.d(TAG, "onDropViewInstance")
-        view.cleanup()
+        Log.d(TAG, "onDropViewInstance: viewHash=${System.identityHashCode(view)}")
+        view.prepareForDrop("onDropViewInstance")
         super.onDropViewInstance(view)
     }
 

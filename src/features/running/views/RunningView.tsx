@@ -4,8 +4,6 @@ import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { GREY } from '~/shared/styles';
 import type { Item } from '~/features/avatar';
-import type { UnityReadyEvent } from '~/features/unity/bridge/UnityBridge';
-import { UnityView } from '~/features/unity/components/UnityView';
 import { UnityLoadingState } from '~/features/unity/components/UnityLoadingState';
 import { useUnityBootstrap } from '~/features/unity/hooks';
 import { unityService } from '~/features/unity/services/UnityService';
@@ -14,6 +12,7 @@ import { usePermissionRequest } from '~/shared/hooks/usePermissionRequest';
 import { ViewState, RunningState, useAppStore, useLeagueCheckStore } from '~/stores';
 import { useAuthStore } from '~/features';
 import { useUserStore } from '~/stores/user/userStore';
+import { useUnityStore } from '~/stores/unity/unityStore';
 import { useLeagueCheck } from '~/features/league/hooks/useLeagueCheck';
 import { RunningProvider } from '../contexts/RunningContext';
 import { ControlPanelView } from './components/ControlPanelView';
@@ -44,6 +43,10 @@ export const RunningView: React.FC = () => {
   const isInitialMount = useRef(true);
   const hasRequestedPermissionRef = useRef(false);
   const hasInitializedCharacterRef = useRef(false);
+  const focusSyncInFlightRef = useRef(false);
+  const unityViewportRef = useRef<View>(null);
+  const setActiveViewport = useUnityStore((state) => state.setActiveViewport);
+  const clearActiveViewport = useUnityStore((state) => state.clearActiveViewport);
 
   const getInitialAvatarPayload = useCallback(() => {
     if (!currentUser) {
@@ -65,7 +68,6 @@ export const RunningView: React.FC = () => {
     isUnityStarted: unityStarted,
     isInitialAvatarSynced,
     startUnity,
-    handleUnityReady: baseHandleUnityReady,
   } = useUnityBootstrap({
     waitForAvatar: false,
     timeout: 5000,
@@ -73,6 +75,9 @@ export const RunningView: React.FC = () => {
     autoStart: false,
     getInitialAvatarPayload,
   });
+
+  const isLoading = viewState === ViewState.Loading;
+  const isUnitySectionLoading = !isUnityReady || !isInitialAvatarSynced;
 
   console.log('🏃 [RunningView] 렌더링, viewState:', viewState, 'runningState:', runningState, 'isLoggedIn:', isLoggedIn, 'isUnityReady:', isUnityReady);
 
@@ -144,22 +149,31 @@ export const RunningView: React.FC = () => {
 
       // 아바타 동기화
       console.log('🔄 [RunningView] 화면 포커스 - 아바타 동기화');
-      void unityService.runWhenReady(async () => {
-        try {
-          const currentState = useUserStore.getState();
-          const items = Object.values(currentState.equippedItems).filter(
-            (item): item is Item => !!item
-          );
-          const syncResult = await unityService.syncAvatar(items, currentState.hairColor, {
-            waitForReady: false,
-          });
-          console.log(
-            `✅ [RunningView] 포커스 동기화 완료 (${items.length}개, result=${syncResult})`
-          );
-        } catch (error) {
-          console.error('❌ [RunningView] 포커스 동기화 실패:', error);
-        }
-      }, { waitForAvatar: false, timeoutMs: 3000, forceReadyOnTimeout: true });
+      if (focusSyncInFlightRef.current) {
+        return;
+      }
+
+      focusSyncInFlightRef.current = true;
+      void unityService
+        .runWhenReady(async () => {
+          try {
+            const currentState = useUserStore.getState();
+            const items = Object.values(currentState.equippedItems).filter(
+              (item): item is Item => !!item
+            );
+            const syncResult = await unityService.syncAvatar(items, currentState.hairColor, {
+              waitForReady: false,
+            });
+            console.log(
+              `✅ [RunningView] 포커스 동기화 완료 (${items.length}개, result=${syncResult})`
+            );
+          } catch (error) {
+            console.error('❌ [RunningView] 포커스 동기화 실패:', error);
+          }
+        }, { waitForAvatar: false, timeoutMs: 3000, forceReadyOnTimeout: true })
+        .finally(() => {
+          focusSyncInFlightRef.current = false;
+        });
     }, [isInitialAvatarSynced, isRunningActive, runningState, checkUncheckedLeagueResult])
   );
 
@@ -290,16 +304,45 @@ export const RunningView: React.FC = () => {
     }
   }, [isInitialAvatarSynced, isRunningActive, isUnityReady]);
 
-  const handleUnityReady = useCallback((event: UnityReadyEvent) => {
-    if (!isRunningActive) {
+  const syncUnityViewport = useCallback(() => {
+    if (!isRunningActive || !unityStarted || !unityViewportRef.current) {
       return;
     }
-    console.log('[RunningView] Unity View Ready:', event.nativeEvent);
-    baseHandleUnityReady(event);
-  }, [baseHandleUnityReady, isRunningActive]);
 
-  const isLoading = viewState === ViewState.Loading;
-  const isUnitySectionLoading = !isUnityReady || !isInitialAvatarSynced;
+    requestAnimationFrame(() => {
+      unityViewportRef.current?.measureInWindow((x, y, width, height) => {
+        if (!isRunningActive || !unityStarted || width <= 0 || height <= 0) {
+          return;
+        }
+
+        setActiveViewport({
+          owner: 'running',
+          frame: { x, y, width, height },
+          borderRadius: 0,
+        });
+      });
+    });
+  }, [isRunningActive, setActiveViewport, unityStarted]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (unityStarted) {
+        syncUnityViewport();
+      }
+
+      return () => {
+        clearActiveViewport('running');
+      };
+    }, [clearActiveViewport, syncUnityViewport, unityStarted])
+  );
+
+  useEffect(() => {
+    if (!isRunningActive || !unityStarted) {
+      return;
+    }
+
+    syncUnityViewport();
+  }, [isLoading, isRunningActive, syncUnityViewport, unityStarted]);
 
   if (isLoading) {
     console.log('⏳ [RunningView] 로딩 상태');
@@ -309,7 +352,7 @@ export const RunningView: React.FC = () => {
 
   return (
     <RunningProvider isUnityReady={isRunningActive ? isUnityReady : false}>
-      <View style={styles.container}>
+      <View style={styles.container} testID="running-root">
         {unityStarted && isRunningActive && (
           <View style={[styles.unityContainer, isLoading && styles.hiddenContainer]}>
             <UnityLoadingState
@@ -317,9 +360,11 @@ export const RunningView: React.FC = () => {
               variant="running"
               minDisplayTime={500}
             >
-              <UnityView
+              <View
+                ref={unityViewportRef}
                 style={styles.unityView}
-                onUnityReady={handleUnityReady}
+                onLayout={syncUnityViewport}
+                collapsable={false}
               />
             </UnityLoadingState>
           </View>
@@ -361,11 +406,11 @@ const RunningAlerts: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: GREY[50],
+    backgroundColor: 'transparent',
   },
   unityContainer: {
     flex: 0.5, // 화면 상단 50%
-    backgroundColor: GREY[100],
+    backgroundColor: 'transparent',
   },
   unityView: {
     flex: 1,

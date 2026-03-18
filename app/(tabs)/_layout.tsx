@@ -31,6 +31,9 @@ export default function TabLayout() {
       }}
       screenOptions={{
         headerShown: false,
+        sceneStyle: {
+          backgroundColor: 'transparent',
+        },
         tabBarStyle: {
           position: 'absolute',
           bottom: 0,

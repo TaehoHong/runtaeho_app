@@ -519,6 +519,7 @@ class UnityBridgeImpl implements UnityBridgeInterface {
       throw error;
     }
   }
+
 }
 
 export const UnityBridge = new UnityBridgeImpl();

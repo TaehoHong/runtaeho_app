@@ -1,14 +1,23 @@
 import React from 'react';
-import { screen } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
+import { screen, waitFor } from '@testing-library/react-native';
 import type { ShareRunningData } from '~/features/share/models/types';
 import { ShareEditorScreen } from '~/features/share/views/ShareEditorScreen';
 import { renderWithProviders } from '~/test-utils/renderWithProviders';
 
 const mockUseShareEditor = jest.fn();
 const mockSetDummyLocations = jest.fn();
+const mockSharePreviewCanvas = jest.fn();
+const mockUseFocusEffect = jest.fn();
+const mockSetActiveViewport = jest.fn();
+const mockClearActiveViewport = jest.fn();
 
 jest.mock('~/features/share/viewmodels/useShareEditor', () => ({
   useShareEditor: (...args: unknown[]) => mockUseShareEditor(...args),
+}));
+
+jest.mock('@react-navigation/native', () => ({
+  useFocusEffect: (...args: unknown[]) => mockUseFocusEffect(...args),
 }));
 
 jest.mock('~/features/share/stores/shareStore', () => ({
@@ -22,6 +31,19 @@ jest.mock('~/stores/user', () => ({
     selector({ currentUser: null }),
 }));
 
+jest.mock('~/stores/unity/unityStore', () => ({
+  useUnityStore: (
+    selector: (state: {
+      setActiveViewport: typeof mockSetActiveViewport;
+      clearActiveViewport: typeof mockClearActiveViewport;
+    }) => unknown
+  ) =>
+    selector({
+      setActiveViewport: mockSetActiveViewport,
+      clearActiveViewport: mockClearActiveViewport,
+    }),
+}));
+
 jest.mock('@expo/vector-icons', () => ({
   Ionicons: () => null,
 }));
@@ -30,7 +52,12 @@ jest.mock('~/features/share/views/components', () => {
   const React = require('react');
   const { View } = require('react-native');
   const MockSharePreviewCanvas = React.forwardRef(
-    function MockSharePreviewCanvas(_props: unknown, _ref: unknown) {
+    function MockSharePreviewCanvas(props: unknown, _ref: unknown) {
+      mockSharePreviewCanvas(props);
+      React.useImperativeHandle(_ref, () => ({
+        measureInWindow: (callback: (x: number, y: number, width: number, height: number) => void) =>
+          callback(0, 0, 280, 350),
+      }));
       return React.createElement(View, { testID: 'share-preview-canvas' });
     }
   );
@@ -87,19 +114,51 @@ describe('ShareEditorScreen loading behavior', () => {
       shareResult: jest.fn(),
       saveToGallery: jest.fn(),
       resetAll: jest.fn().mockResolvedValue(undefined),
-      handleUnityReady: jest.fn(),
+      restoreRunningResultDefaults: jest.fn().mockResolvedValue(undefined),
       updateCharacterPosition: jest.fn(),
       updateCharacterScale: jest.fn(),
       setAnimationTime: jest.fn(),
     });
+
+    mockUseFocusEffect.mockImplementation((callback: () => void | (() => void)) => {
+      callback();
+    });
   });
 
-  it('keeps SharePreviewCanvas mounted while loading', () => {
+  it('keeps SharePreviewCanvas mounted while loading', async () => {
     renderWithProviders(<ShareEditorScreen runningData={runningData} />);
 
     expect(screen.getByTestId('share-preview-canvas')).toBeTruthy();
     expect(screen.getByText('캐릭터 준비 중...')).toBeTruthy();
+    expect(StyleSheet.flatten(screen.getByTestId('share-editor-root').props.style)).toMatchObject({
+      backgroundColor: 'transparent',
+    });
+    expect(StyleSheet.flatten(screen.getByTestId('share-editor-scroll').props.style)).toMatchObject({
+      backgroundColor: 'transparent',
+    });
+    expect(mockSharePreviewCanvas).toHaveBeenCalledWith(
+      expect.objectContaining({
+        avatarVisible: true,
+        characterTransform: { x: 0.5, y: 0.9, scale: 1 },
+      })
+    );
+    expect(mockSharePreviewCanvas.mock.calls[0]?.[0]?.cornerRadius).toBe(16);
+    await waitFor(() => {
+      expect(mockSetActiveViewport).toHaveBeenCalledWith(expect.objectContaining({
+        borderRadius: 16,
+      }));
+    });
     expect(screen.queryByTestId('pose-selector')).toBeNull();
     expect(screen.queryByTestId('share-actions')).toBeNull();
+  });
+
+  it('renders the header inside a top-only safe-area container', () => {
+    renderWithProviders(<ShareEditorScreen runningData={runningData} />);
+
+    expect(StyleSheet.flatten(screen.getByTestId('share-editor-header-safe-area').props.style)).toMatchObject({
+      backgroundColor: '#FFFFFF',
+    });
+    expect(screen.getByTestId('share-editor-header-safe-area').props.edges).toEqual(['top']);
+    expect(screen.queryByTestId('share-editor-top-mask')).toBeNull();
   });
 });

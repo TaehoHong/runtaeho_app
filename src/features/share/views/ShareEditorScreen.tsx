@@ -8,7 +8,7 @@
  */
 
 import { router } from 'expo-router';
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,12 +16,15 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  type ViewStyle,
   View,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { GREY, PRIMARY } from '~/shared/styles';
+import { useUnityStore } from '~/stores/unity/unityStore';
 import { useUserStore } from '~/stores/user';
 import type { ShareRunningData } from '../models/types';
 import { useShareStore } from '../stores/shareStore';
@@ -38,6 +41,17 @@ import {
 interface ShareEditorScreenProps {
   runningData: ShareRunningData;
 }
+
+const PREVIEW_CORNER_RADIUS = 16;
+const EXPORT_CORNER_RADIUS = 0;
+
+const waitForAnimationFrames = async (frameCount: number = 1): Promise<void> => {
+  for (let frame = 0; frame < frameCount; frame += 1) {
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => resolve());
+    });
+  }
+};
 
 export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningData }) => {
   const {
@@ -57,11 +71,17 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
     toggleAvatarVisibility,
     shareResult,
     resetAll,
-    handleUnityReady,
+    restoreRunningResultDefaults,
     characterTransform,
     updateCharacterPosition,
     updateCharacterScale,
   } = useShareEditor({ runningData });
+  const setActiveViewport = useUnityStore((state) => state.setActiveViewport);
+  const clearActiveViewport = useUnityStore((state) => state.clearActiveViewport);
+  const exportStageRef = useRef<View>(null);
+  const exportStageLayoutResolverRef = useRef<(() => void) | null>(null);
+  const isExportSurfaceActiveRef = useRef(false);
+  const [isExportSurfaceVisible, setIsExportSurfaceVisible] = useState(false);
 
   // userId=1 전용 더미 데이터 기능
   const currentUser = useUserStore((state) => state.currentUser);
@@ -76,12 +96,108 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
     Alert.alert('더미 데이터 추가됨', `${dummyLocations.length}개의 GPS 좌표가 추가되었습니다.`);
   }, [setDummyLocations]);
 
+  const syncViewport = useCallback((
+    targetRef: React.RefObject<View | null>,
+    borderRadius: number
+  ) => {
+    requestAnimationFrame(() => {
+      const target = targetRef.current;
+      if (!target || typeof target.measureInWindow !== 'function') {
+        return;
+      }
+
+      target.measureInWindow((x, y, width, height) => {
+        if (width <= 0 || height <= 0) {
+          return;
+        }
+
+        setActiveViewport({
+          owner: 'share',
+          frame: { x, y, width, height },
+          borderRadius,
+        });
+      });
+    });
+  }, [setActiveViewport]);
+
+  const syncPreviewViewport = useCallback(() => {
+    if (isExportSurfaceActiveRef.current) {
+      return;
+    }
+
+    syncViewport(canvasRef, PREVIEW_CORNER_RADIUS);
+  }, [canvasRef, syncViewport]);
+
+  const syncExportStageViewport = useCallback(() => {
+    syncViewport(exportStageRef, EXPORT_CORNER_RADIUS);
+  }, [syncViewport]);
+
+  const handleExportStageLayout = useCallback(() => {
+    syncExportStageViewport();
+    exportStageLayoutResolverRef.current?.();
+    exportStageLayoutResolverRef.current = null;
+  }, [syncExportStageViewport]);
+
+  const closeEditor = useCallback(async (reason: 'close' | 'share-success') => {
+    try {
+      await restoreRunningResultDefaults();
+      await resetAll({ syncUnity: false });
+      router.back();
+      return true;
+    } catch (error) {
+      console.warn(`[ShareEditorScreen] Failed to restore running result defaults on ${reason}:`, error);
+      Alert.alert('복원 실패', '러닝 결과 화면 복원에 실패했습니다. 다시 시도해주세요.');
+      return false;
+    }
+  }, [resetAll, restoreRunningResultDefaults]);
+
+  const showExportSurface = useCallback(async () => {
+    isExportSurfaceActiveRef.current = true;
+
+    const layoutReady = new Promise<void>((resolve) => {
+      exportStageLayoutResolverRef.current = resolve;
+    });
+
+    setIsExportSurfaceVisible(true);
+    await layoutReady;
+    await waitForAnimationFrames(2);
+    syncExportStageViewport();
+    await waitForAnimationFrames(2);
+  }, [syncExportStageViewport]);
+
+  const hideExportSurface = useCallback(async () => {
+    exportStageLayoutResolverRef.current = null;
+    setIsExportSurfaceVisible(false);
+    isExportSurfaceActiveRef.current = false;
+    await waitForAnimationFrames(2);
+    syncPreviewViewport();
+  }, [syncPreviewViewport]);
+
+  const isShareBusy = isCapturing || isExportSurfaceVisible;
+
   // 공유 처리
   const handleShare = async () => {
-    const result = await shareResult();
+    if (isShareBusy) {
+      return;
+    }
+
+    let result = { success: false, message: '캡처 및 공유에 실패했습니다.' };
+
+    try {
+      await showExportSurface();
+      result = await shareResult(exportStageRef);
+    } catch (error: any) {
+      console.error('[ShareEditorScreen] Failed to prepare export surface:', error);
+      result = {
+        success: false,
+        message: error?.message || '캡처 및 공유에 실패했습니다.',
+      };
+    } finally {
+      await hideExportSurface();
+    }
+
     if (result.success) {
-      // 공유 성공 시 이전 화면으로 자동 이동
-      router.back();
+      await closeEditor('share-success');
     } else if (result.message) {
       // 취소가 아닌 경우에만 알림 (취소/실패 시 화면 유지)
       if (!result.message.includes('취소')) {
@@ -92,122 +208,212 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
 
   // 닫기 처리 - 상태 초기화 후 화면 종료
   const handleClose = async () => {
-    await resetAll({ syncUnity: false });
-    router.back();
+    await closeEditor('close');
   };
 
   const handleReset = () => {
     void resetAll();
   };
 
+  useFocusEffect(
+    useCallback(() => {
+      syncPreviewViewport();
+
+      return () => {
+        clearActiveViewport('share');
+      };
+    }, [clearActiveViewport, syncPreviewViewport])
+  );
+
+  useEffect(() => {
+    syncPreviewViewport();
+  }, [isLoading, syncPreviewViewport]);
+
+  const handlePreviewScroll = useCallback(() => {
+    syncPreviewViewport();
+  }, [syncPreviewViewport]);
+
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container} testID="share-editor-root">
         <GestureHandlerRootView style={styles.container}>
-          {/* 헤더 */}
-          <View style={styles.header}>
-            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color={GREY[600]} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>기록 공유</Text>
-            <TouchableOpacity onPress={handleReset} style={styles.resetButton}>
-              <Text style={styles.resetButtonText}>초기화</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
+          <View
+            pointerEvents={isExportSurfaceVisible ? 'none' : 'auto'}
+            style={[styles.editorShell, isExportSurfaceVisible && styles.editorShellHidden]}
+            testID="share-editor-shell"
           >
-            {/* 미리보기 캔버스 (Unity 뷰 + RN 오버레이) */}
-            <View style={styles.previewContainer}>
-              <SharePreviewCanvas
-                ref={canvasRef}
-                statElements={statElements}
-                onStatTransformChange={updateStatTransform}
-                runningData={runningData}
-                onUnityReady={handleUnityReady}
-                onCharacterPositionChange={updateCharacterPosition}
-                onCharacterScaleChange={updateCharacterScale}
-                characterTransform={characterTransform}
-                avatarVisible={avatarVisible}
-              />
-              {isLoading && (
-                <View style={styles.previewLoadingOverlay}>
-                  <ActivityIndicator size="large" color={GREY[600]} />
-                  <Text style={styles.loadingText}>캐릭터 준비 중...</Text>
+            <SafeAreaView
+              edges={['top']}
+              style={styles.headerSafeArea}
+              testID="share-editor-header-safe-area"
+            >
+              {/* 헤더 */}
+              <View style={styles.header}>
+                <TouchableOpacity
+                  onPress={handleClose}
+                  style={styles.closeButton}
+                  testID="share-editor-close-button"
+                >
+                  <Ionicons name="close" size={24} color={GREY[600]} />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>기록 공유</Text>
+                <TouchableOpacity onPress={handleReset} style={styles.resetButton}>
+                  <Text style={styles.resetButtonText}>초기화</Text>
+                </TouchableOpacity>
+              </View>
+            </SafeAreaView>
+
+            <View style={styles.scrollViewport}>
+              <ScrollView
+                testID="share-editor-scroll"
+                style={styles.scrollView}
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+                onScroll={handlePreviewScroll}
+                scrollEventThrottle={16}
+              >
+                {/* 미리보기 캔버스 (전역 Unity host + RN 오버레이) */}
+                <View style={styles.previewContainer} onLayout={syncPreviewViewport}>
+                  <SharePreviewCanvas
+                    ref={canvasRef}
+                    statElements={statElements}
+                    onStatTransformChange={updateStatTransform}
+                    runningData={runningData}
+                    onCharacterPositionChange={updateCharacterPosition}
+                    onCharacterScaleChange={updateCharacterScale}
+                    characterTransform={characterTransform}
+                    avatarVisible={avatarVisible}
+                    cornerRadius={PREVIEW_CORNER_RADIUS}
+                  />
+                  {isLoading && (
+                    <View style={styles.previewLoadingOverlay}>
+                      <ActivityIndicator size="large" color={GREY[600]} />
+                      <Text style={styles.loadingText}>캐릭터 준비 중...</Text>
+                    </View>
+                  )}
                 </View>
-              )}
+
+                {!isLoading && (
+                  <>
+                    {/* 포즈 선택 - 카드 래핑 포함 + 타임라인 슬라이더 */}
+                    <PoseSelector
+                      selectedPose={selectedPose}
+                      onSelect={setSelectedPose}
+                      disabled={isCapturing}
+                      sliderValue={animationTime}
+                      onSliderChange={setAnimationTime}
+                    />
+
+                    {/* 기록 항목 표시/숨김 토글 - 카드 래핑 포함 */}
+                    <StatVisibilityToggle
+                      statElements={statElements}
+                      onToggle={toggleStatVisibility}
+                      avatarVisible={avatarVisible}
+                      onAvatarToggle={toggleAvatarVisibility}
+                    />
+
+                    {/* 더미 GPS 데이터 추가 버튼 (userId=1 전용) */}
+                    {isTestUser && !hasLocations && (
+                      <View style={styles.dummyButtonContainer}>
+                        <TouchableOpacity
+                          style={styles.dummyButton}
+                          onPress={handleAddDummyData}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons name="map-outline" size={18} color={GREY.WHITE} />
+                          <Text style={styles.dummyButtonText}>더미 GPS 데이터 추가</Text>
+                        </TouchableOpacity>
+                        <Text style={styles.dummyButtonHint}>
+                          * 지도 테스트용 (userId=1 전용)
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* 배경 선택 - 카드 래핑 포함 */}
+                    <BackgroundSelector
+                      selectedBackground={selectedBackground}
+                      onSelect={setSelectedBackground}
+                    />
+                  </>
+                )}
+              </ScrollView>
             </View>
 
+            {/* 취소/공유 버튼 */}
             {!isLoading && (
-              <>
-                {/* 포즈 선택 - 카드 래핑 포함 + 타임라인 슬라이더 */}
-                <PoseSelector
-                  selectedPose={selectedPose}
-                  onSelect={setSelectedPose}
-                  disabled={isCapturing}
-                  sliderValue={animationTime}
-                  onSliderChange={setAnimationTime}
+              <SafeAreaView
+                edges={['bottom']}
+                style={styles.actionsSafeArea}
+                testID="share-editor-actions-safe-area"
+              >
+                <ShareActions
+                  onShare={handleShare}
+                  onCancel={handleClose}
+                  isLoading={isShareBusy}
                 />
-
-                {/* 기록 항목 표시/숨김 토글 - 카드 래핑 포함 */}
-                <StatVisibilityToggle
-                  statElements={statElements}
-                  onToggle={toggleStatVisibility}
-                  avatarVisible={avatarVisible}
-                  onAvatarToggle={toggleAvatarVisibility}
-                />
-
-                {/* 더미 GPS 데이터 추가 버튼 (userId=1 전용) */}
-                {isTestUser && !hasLocations && (
-                  <View style={styles.dummyButtonContainer}>
-                    <TouchableOpacity
-                      style={styles.dummyButton}
-                      onPress={handleAddDummyData}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="map-outline" size={18} color={GREY.WHITE} />
-                      <Text style={styles.dummyButtonText}>더미 GPS 데이터 추가</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.dummyButtonHint}>
-                      * 지도 테스트용 (userId=1 전용)
-                    </Text>
-                  </View>
-                )}
-
-                {/* 배경 선택 - 카드 래핑 포함 */}
-                <BackgroundSelector
-                  selectedBackground={selectedBackground}
-                  onSelect={setSelectedBackground}
-                />
-              </>
+              </SafeAreaView>
             )}
-          </ScrollView>
-
-          {/* 취소/공유 버튼 */}
-          {!isLoading && (
-            <ShareActions
-              onShare={handleShare}
-              onCancel={handleClose}
-              isLoading={isCapturing}
-            />
+          </View>
+          {isExportSurfaceVisible && (
+            <View
+              pointerEvents="auto"
+              style={styles.exportSurface}
+              testID="share-export-surface"
+            >
+              <View style={styles.exportTopMask} testID="share-export-top-mask" />
+              <View style={styles.exportCenterRow}>
+                <View style={styles.exportSideMask} />
+                <View
+                  onLayout={handleExportStageLayout}
+                  style={styles.exportStageContainer}
+                  testID="share-export-stage-container"
+                >
+                  <SharePreviewCanvas
+                    ref={exportStageRef}
+                    statElements={statElements}
+                    onStatTransformChange={updateStatTransform}
+                    runningData={runningData}
+                    onCharacterPositionChange={updateCharacterPosition}
+                    onCharacterScaleChange={updateCharacterScale}
+                    characterTransform={characterTransform}
+                    avatarVisible={avatarVisible}
+                    interactive={false}
+                    containerPadding={false}
+                    cornerRadius={EXPORT_CORNER_RADIUS}
+                  />
+                </View>
+                <View style={styles.exportSideMask} />
+              </View>
+              <View style={styles.exportBottomMask}>
+                <View style={styles.exportLoadingContainer} testID="share-export-loader">
+                  <ActivityIndicator size="small" color={GREY[600]} />
+                  <Text style={styles.exportLoadingText}>이미지 준비 중...</Text>
+                </View>
+              </View>
+            </View>
           )}
         </GestureHandlerRootView>
-      </SafeAreaView>
+      </View>
     </SafeAreaProvider>
   );
+};
+
+const HEADER_SAFE_AREA_STYLE: ViewStyle = {
+  backgroundColor: GREY.WHITE,
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: GREY.WHITE,
+    backgroundColor: 'transparent',
   },
-  safeArea: {
+  editorShell: {
     flex: 1,
   },
+  editorShellHidden: {
+    display: 'none',
+  },
+  headerSafeArea: HEADER_SAFE_AREA_STYLE,
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -241,11 +447,17 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    backgroundColor: '#f9fafb', // Figma 기준 섹션 배경색
+    backgroundColor: 'transparent',
   },
   scrollContent: {
     paddingTop: 0,
     paddingBottom: 16,
+  },
+  scrollViewport: {
+    flex: 1,
+  },
+  actionsSafeArea: {
+    backgroundColor: 'transparent',
   },
   previewContainer: {
     marginBottom: 14,
@@ -289,6 +501,49 @@ const styles = StyleSheet.create({
     color: GREY[400],
     fontFamily: 'Pretendard-Regular',
     marginTop: 4,
+  },
+  exportSurface: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10,
+  },
+  exportTopMask: {
+    flex: 1,
+    backgroundColor: GREY.WHITE,
+  },
+  exportCenterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  exportStageContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exportSideMask: {
+    flex: 1,
+    alignSelf: 'stretch',
+    backgroundColor: GREY.WHITE,
+  },
+  exportBottomMask: {
+    flex: 1,
+    backgroundColor: GREY.WHITE,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 20,
+    paddingBottom: 24,
+  },
+  exportLoadingContainer: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: GREY[100],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  exportLoadingText: {
+    fontSize: 13,
+    color: GREY[600],
+    fontFamily: 'Pretendard-Medium',
   },
 });
 

@@ -73,6 +73,10 @@ object UnityHolder {
     @Volatile
     private var _isAppActive: Boolean = true
 
+    /** 현재 UnityView attach owner 식별자 */
+    @Volatile
+    private var _unityAttachOwnerId: String? = null
+
     /** 마지막 Resume 시각 (transient 상태 필터링용) */
     @Volatile
     private var _lastResumeAtMillis: Long = SystemClock.elapsedRealtime()
@@ -100,6 +104,10 @@ object UnityHolder {
     val isAppActive: Boolean
         get() = _isAppActive
 
+    /** 현재 Unity attach owner 조회 */
+    val unityAttachOwnerId: String?
+        get() = _unityAttachOwnerId
+
     /**
      * Unity 엔진 준비 상태 조회
      * iOS의 isEngineReady와 동일한 기능
@@ -108,6 +116,34 @@ object UnityHolder {
      */
     val isUnityReady: Boolean
         get() = _unityPlayer != null && _isAppActive && isUnityLoaded()
+
+    fun claimUnityAttachOwner(ownerId: String): Boolean {
+        synchronized(this) {
+            val currentOwner = _unityAttachOwnerId
+            return when {
+                currentOwner == null -> {
+                    _unityAttachOwnerId = ownerId
+                    Log.d(TAG, "Unity attach owner claimed: $ownerId")
+                    true
+                }
+                currentOwner == ownerId -> true
+                else -> false
+            }
+        }
+    }
+
+    fun releaseUnityAttachOwner(ownerId: String) {
+        synchronized(this) {
+            if (_unityAttachOwnerId == ownerId) {
+                _unityAttachOwnerId = null
+                Log.d(TAG, "Unity attach owner released: $ownerId")
+            }
+        }
+    }
+
+    fun isUnityAttachOwner(ownerId: String): Boolean {
+        return _unityAttachOwnerId == ownerId
+    }
 
     // MARK: - Initialization
 

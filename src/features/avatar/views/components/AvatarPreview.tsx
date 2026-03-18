@@ -1,24 +1,12 @@
-/**
- * 아바타 프리뷰 (Unity View)
- * SRP: Unity 캐릭터 렌더링만 담당
- *
- * ★ useUnityBootstrap Hook 기반 초기화 통합
- * - Ready + 첫 avatar sync는 공통 bootstrap에서 처리
- * - 이후 변경분 sync만 이 컴포넌트에서 처리
- *
- * Push + Pull 패턴으로 Race Condition 없이 안정적으로 Unity 통신
- */
-
 import React, { useCallback, useEffect, useRef } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { View, StyleSheet } from 'react-native';
 import type { EquippedItemsMap, Item } from '~/features/avatar';
 import { UNITY_PREVIEW } from '~/features/avatar';
-import type { UnityReadyEvent } from '~/features/unity/bridge/UnityBridge';
-import { UnityView } from '~/features/unity/components/UnityView';
 import { UnityLoadingState } from '~/features/unity/components/UnityLoadingState';
 import { unityService } from '~/features/unity/services/UnityService';
 import { useUnityBootstrap } from '~/features/unity/hooks';
-import { GREY } from '~/shared/styles';
+import { useUnityStore } from '~/stores/unity/unityStore';
 
 interface Props {
   equippedItems: EquippedItemsMap;
@@ -29,6 +17,9 @@ export const AvatarPreview: React.FC<Props> = ({ equippedItems, hairColor }) => 
   // ★ 이전 장착 아이템/색상 저장 (변경 감지용)
   const prevEquippedItemsRef = useRef<EquippedItemsMap>(equippedItems);
   const prevHairColorRef = useRef<string>(hairColor);
+  const unityViewportRef = useRef<View>(null);
+  const setActiveViewport = useUnityStore((state) => state.setActiveViewport);
+  const clearActiveViewport = useUnityStore((state) => state.clearActiveViewport);
 
   const getInitialAvatarPayload = useCallback(() => {
     const items = Object.values(equippedItems).filter((item): item is Item => !!item);
@@ -37,9 +28,9 @@ export const AvatarPreview: React.FC<Props> = ({ equippedItems, hairColor }) => 
 
   // 초기 bootstrap(Ready + 첫 sync) 후 변경분만 반영
   const {
-    handleUnityReady: baseHandleUnityReady,
     canSendMessage,
     isInitialAvatarSynced,
+    isUnityStarted,
   } = useUnityBootstrap({
     waitForAvatar: true,  // isGameObjectReady && isAvatarReady 모두 체크
     timeout: 5000,        // 5초 타임아웃
@@ -94,16 +85,50 @@ export const AvatarPreview: React.FC<Props> = ({ equippedItems, hairColor }) => 
       });
   }, [equippedItems, hairColor, canSendMessage, isInitialAvatarSynced]);
 
-  /**
-   * Unity 준비 완료 이벤트 핸들러
-   */
-  const handleUnityReady = useCallback(
-    (event: UnityReadyEvent) => {
-      console.log('[AvatarPreview] Unity View Ready:', event.nativeEvent);
-      baseHandleUnityReady(event);
-    },
-    [baseHandleUnityReady]
+  const syncUnityViewport = useCallback(() => {
+    const viewport = unityViewportRef.current;
+    if (
+      !isUnityStarted
+      || !viewport
+      || typeof viewport.measureInWindow !== 'function'
+    ) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      viewport.measureInWindow((x, y, width, height) => {
+        if (!isUnityStarted || width <= 0 || height <= 0) {
+          return;
+        }
+
+        setActiveViewport({
+          owner: 'avatar',
+          frame: { x, y, width, height },
+          borderRadius: 16,
+        });
+      });
+    });
+  }, [isUnityStarted, setActiveViewport]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (isUnityStarted) {
+        syncUnityViewport();
+      }
+
+      return () => {
+        clearActiveViewport('avatar');
+      };
+    }, [clearActiveViewport, isUnityStarted, syncUnityViewport])
   );
+
+  useEffect(() => {
+    if (!isUnityStarted) {
+      return;
+    }
+
+    syncUnityViewport();
+  }, [isUnityStarted, syncUnityViewport]);
 
   return (
     <View style={styles.container}>
@@ -112,9 +137,12 @@ export const AvatarPreview: React.FC<Props> = ({ equippedItems, hairColor }) => 
         variant="avatar"
         minDisplayTime={300}
       >
-        <UnityView
+        <View
+          ref={unityViewportRef}
           style={styles.unity}
-          onUnityReady={handleUnityReady}
+          testID="avatar-preview-viewport"
+          onLayout={syncUnityViewport}
+          collapsable={false}
         />
       </UnityLoadingState>
     </View>
@@ -126,7 +154,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     height: UNITY_PREVIEW.HEIGHT,
     borderRadius: 16,
-    backgroundColor: GREY.WHITE,
+    backgroundColor: 'transparent',
     overflow: 'hidden',
   },
   unity: {

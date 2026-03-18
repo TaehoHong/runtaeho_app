@@ -2,13 +2,11 @@
  * SharePreviewCanvas Component
  * 캡처 대상 미리보기 캔버스
  *
- * Unity 뷰를 전체 화면으로 표시하고
- * RN 오버레이로 기록 항목을 표시
- *
- * Sprint 2: 드래그/핀치 줌으로 캐릭터 위치/스케일 조작
+ * 전역 Unity host가 이 캔버스 위치에 라이브 scene을 표시하고,
+ * RN 오버레이로 기록 항목을 합성한다.
  */
 
-import React, { forwardRef, useMemo, useCallback, useRef } from 'react';
+import React, { forwardRef, useMemo, useCallback, useEffect, useRef } from 'react';
 import { StyleSheet, View, Text, Dimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -26,41 +24,32 @@ import { SCALE_RANGES } from '../../constants/shareOptions';
 import { DraggableStat } from './DraggableStat';
 import { DraggableRouteMap } from './DraggableRouteMap';
 import { PRIMARY } from '~/shared/styles';
-import { UnityView } from '~/features/unity/components/UnityView';
-import type { UnityReadyEvent } from '~/features/unity/bridge/UnityBridge';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CANVAS_PADDING = 16; // container 좌우 패딩
+const CANVAS_PADDING = 16;
 const PREVIEW_WIDTH = SCREEN_WIDTH - CANVAS_PADDING * 2;
-const PREVIEW_HEIGHT = PREVIEW_WIDTH * 1.25; // 4:5 비율 (인스타그램 게시물 최적화)
-
-// 캐릭터 영역 크기 (정규화 좌표 기준) - Single Source of Truth
-// ★ 실제 Unity 캐릭터 크기에 맞게 조정됨
-const CHARACTER_WIDTH = 0.25; // 화면 너비의 30%
-const CHARACTER_HEIGHT = 0.2; // 화면 높이의 35%
-
-// Unity 스케일 팩터는 useShareEditor.ts로 이동 (Unity 전달 시점에 적용)
-
-// 드래그/핀치 중 Unity 호출 간격 (ms)
-const POSITION_UPDATE_INTERVAL = 10; // 10ms = 100fps (더 부드러운 움직임)
+const PREVIEW_HEIGHT = PREVIEW_WIDTH * 1.25;
+const DEFAULT_CANVAS_CORNER_RADIUS = 16;
+const CHARACTER_WIDTH = 0.25;
+const CHARACTER_HEIGHT = 0.2;
+const POSITION_UPDATE_INTERVAL = 10;
+const DEFAULT_CHARACTER_TRANSFORM: CharacterTransform = {
+  x: 0.5,
+  y: 0.5,
+  scale: 1,
+};
 
 interface SharePreviewCanvasProps {
-  /** 통계 요소 설정 배열 */
   statElements: StatElementConfig[];
-  /** 통계 요소 변환 변경 콜백 */
   onStatTransformChange: (type: StatType, transform: ElementTransform) => void;
-  /** 러닝 데이터 */
   runningData: ShareRunningData;
-  /** Unity Ready 콜백 (useUnityReadiness의 handleUnityReady 전달) */
-  onUnityReady?: (event: UnityReadyEvent) => void;
-  /** 캐릭터 위치 변경 콜백 */
   onCharacterPositionChange?: (x: number, y: number) => void;
-  /** 캐릭터 스케일 변경 콜백 */
   onCharacterScaleChange?: (scale: number) => void;
-  /** 현재 캐릭터 변환 정보 (제어용) */
   characterTransform?: CharacterTransform;
-  /** 아바타 표시 여부 (토글 OFF 시 제스처 비활성화) */
   avatarVisible?: boolean;
+  interactive?: boolean;
+  containerPadding?: boolean;
+  cornerRadius?: number;
 }
 
 export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
@@ -69,44 +58,129 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
       statElements,
       onStatTransformChange,
       runningData,
-      onUnityReady,
       onCharacterPositionChange,
       onCharacterScaleChange,
       characterTransform,
       avatarVisible = true,
+      interactive = true,
+      containerPadding = true,
+      cornerRadius = DEFAULT_CANVAS_CORNER_RADIUS,
     },
     ref
   ) => {
-    // 상수를 SharedValue로 래핑 (worklet에서 접근 가능하도록)
     const characterWidth = useSharedValue(CHARACTER_WIDTH);
     const characterHeight = useSharedValue(CHARACTER_HEIGHT);
-
-    // 제스처 상태 (Shared Values - worklet에서 사용)
-    const positionX = useSharedValue(characterTransform?.x ?? 0.5);
-    const positionY = useSharedValue(characterTransform?.y ?? 0.5);
-    const scale = useSharedValue(characterTransform?.scale ?? 1);
-    const savedScale = useSharedValue(characterTransform?.scale ?? 1);
-
-    // 드래그 시작 시 초기 위치 저장
-    const startPositionX = useSharedValue(characterTransform?.x ?? 0.5);
-    const startPositionY = useSharedValue(characterTransform?.y ?? 0.5);
-
-    // Throttle용 마지막 업데이트 시간 (ref로 관리)
+    const initialTransform = {
+      x: characterTransform?.x ?? DEFAULT_CHARACTER_TRANSFORM.x,
+      y: characterTransform?.y ?? DEFAULT_CHARACTER_TRANSFORM.y,
+      scale: characterTransform?.scale ?? DEFAULT_CHARACTER_TRANSFORM.scale,
+    };
+    const positionX = useSharedValue(initialTransform.x);
+    const positionY = useSharedValue(initialTransform.y);
+    const scale = useSharedValue(initialTransform.scale);
+    const savedScale = useSharedValue(initialTransform.scale);
+    const startPositionX = useSharedValue(initialTransform.x);
+    const startPositionY = useSharedValue(initialTransform.y);
     const lastPositionUpdateTime = useRef(0);
     const lastScaleUpdateTime = useRef(0);
-
-    // 캐릭터 드래그 활성화 상태 (Shared Value - worklet에서 동기적으로 접근)
     const isDraggingCharacter = useSharedValue(false);
+    const dragActiveRef = useRef(false);
+    const pinchActiveRef = useRef(false);
+    const pendingExternalSyncRef = useRef(false);
+    const latestExternalTransformRef = useRef<CharacterTransform>(initialTransform);
 
-    /**
-     * 터치 포인트가 캐릭터 영역 내에 있는지 확인 (worklet)
-     * SharedValue를 통해 모듈 레벨 상수 참조 (SPOT 원칙 준수)
-     *
-     * SPUM 캐릭터는 anchor point(기준점)가 발(하단)에 위치합니다.
-     * 따라서 Y축 판정은 중심 기준이 아닌 하단 기준으로 계산합니다:
-     * - Y 상단: transformY - scaledHeight (머리 위치)
-     * - Y 하단: transformY (발 위치 = anchor point)
-     */
+    const normalizeCharacterTransform = useCallback(
+      (transform?: CharacterTransform): CharacterTransform => ({
+        x: transform?.x ?? DEFAULT_CHARACTER_TRANSFORM.x,
+        y: transform?.y ?? DEFAULT_CHARACTER_TRANSFORM.y,
+        scale: transform?.scale ?? DEFAULT_CHARACTER_TRANSFORM.scale,
+      }),
+      []
+    );
+
+    const applyExternalTransform = useCallback(
+      (transform: CharacterTransform) => {
+        positionX.value = transform.x;
+        positionY.value = transform.y;
+        scale.value = transform.scale;
+
+        if (!pinchActiveRef.current) {
+          savedScale.value = transform.scale;
+        }
+      },
+      [positionX, positionY, savedScale, scale]
+    );
+
+    const flushDeferredExternalSync = useCallback(() => {
+      if (dragActiveRef.current || pinchActiveRef.current || !pendingExternalSyncRef.current) {
+        return;
+      }
+
+      pendingExternalSyncRef.current = false;
+      applyExternalTransform(latestExternalTransformRef.current);
+    }, [applyExternalTransform]);
+
+    const setDragInteractionActive = useCallback(
+      (active: boolean) => {
+        dragActiveRef.current = active;
+
+        if (!active) {
+          flushDeferredExternalSync();
+        }
+      },
+      [flushDeferredExternalSync]
+    );
+
+    const setPinchInteractionActive = useCallback(
+      (active: boolean) => {
+        pinchActiveRef.current = active;
+
+        if (!active) {
+          flushDeferredExternalSync();
+        }
+      },
+      [flushDeferredExternalSync]
+    );
+
+    const commitExternalPosition = useCallback(
+      (x: number, y: number) => {
+        latestExternalTransformRef.current = {
+          ...latestExternalTransformRef.current,
+          x,
+          y,
+        };
+        onCharacterPositionChange?.(x, y);
+      },
+      [onCharacterPositionChange]
+    );
+
+    const commitExternalScale = useCallback(
+      (newScale: number) => {
+        latestExternalTransformRef.current = {
+          ...latestExternalTransformRef.current,
+          scale: newScale,
+        };
+        onCharacterScaleChange?.(newScale);
+      },
+      [onCharacterScaleChange]
+    );
+
+    useEffect(() => {
+      const nextTransform = normalizeCharacterTransform(characterTransform);
+      latestExternalTransformRef.current = nextTransform;
+
+      if (dragActiveRef.current || pinchActiveRef.current) {
+        pendingExternalSyncRef.current = true;
+        return;
+      }
+
+      applyExternalTransform(nextTransform);
+    }, [
+      applyExternalTransform,
+      characterTransform,
+      normalizeCharacterTransform,
+    ]);
+
     const isPointInCharacterArea = useCallback(
       (
         normalizedX: number,
@@ -123,30 +197,13 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
         return (
           normalizedX >= transformX - halfWidth &&
           normalizedX <= transformX + halfWidth &&
-          normalizedY >= transformY - scaledHeight && // 전체 높이만큼 위로 (머리)
-          normalizedY <= transformY // y좌표가 하단 (발)
+          normalizedY >= transformY - scaledHeight &&
+          normalizedY <= transformY
         );
       },
       [characterWidth, characterHeight]
     );
 
-    // 위치 변경 콜백 (JS 스레드에서 실행 - 드래그 종료 시)
-    const handlePositionChange = useCallback(
-      (x: number, y: number) => {
-        onCharacterPositionChange?.(x, y);
-      },
-      [onCharacterPositionChange]
-    );
-
-    // 스케일 변경 콜백 (JS 스레드에서 실행 - 핀치 종료 시)
-    const handleScaleChange = useCallback(
-      (newScale: number) => {
-        onCharacterScaleChange?.(newScale);
-      },
-      [onCharacterScaleChange]
-    );
-
-    // Throttled 위치 업데이트 (드래그 중 실시간 호출)
     const throttledPositionUpdate = useCallback(
       (x: number, y: number) => {
         const now = Date.now();
@@ -158,7 +215,6 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
       [onCharacterPositionChange]
     );
 
-    // Throttled 스케일 업데이트 (핀치 줌 중 실시간 호출)
     const throttledScaleUpdate = useCallback(
       (newScale: number) => {
         const now = Date.now();
@@ -170,20 +226,17 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
       [onCharacterScaleChange]
     );
 
-
-    // 드래그 제스처 (manualActivation으로 캐릭터 영역 외 터치 시 ScrollView로 전파)
     const panGesture = Gesture.Pan()
       .manualActivation(true)
       .onTouchesDown((event, stateManager) => {
         'worklet';
         const touch = event.changedTouches[0];
-        if (!touch) return;
+        if (!touch) {
+          return;
+        }
 
-        // 터치 시작 위치를 정규화 좌표로 변환
         const touchX = touch.x / PREVIEW_WIDTH;
         const touchY = touch.y / PREVIEW_HEIGHT;
-
-        // 캐릭터 영역 내 터치인지 확인
         const isInArea = isPointInCharacterArea(
           touchX,
           touchY,
@@ -193,83 +246,77 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
         );
 
         if (isInArea) {
-          // 캐릭터 영역 → 제스처 활성화
           stateManager.activate();
           isDraggingCharacter.value = true;
-        } else {
-          // 캐릭터 영역 외 → 제스처 실패 → ScrollView로 전파
-          stateManager.fail();
+          return;
         }
+
+        stateManager.fail();
       })
       .onStart(() => {
         'worklet';
-        // 시작 위치 저장만 (점프 제거 - 현재 위치에서 드래그 시작)
+        scheduleOnRN(setDragInteractionActive, true);
         startPositionX.value = positionX.value;
         startPositionY.value = positionY.value;
       })
       .onUpdate((event) => {
         'worklet';
-        if (!isDraggingCharacter.value) return;
+        if (!isDraggingCharacter.value) {
+          return;
+        }
 
-        // 정규화된 이동량 계산 (스케일 팩터는 useShareEditor에서 Unity 전달 시 적용)
         const deltaX = event.translationX / PREVIEW_WIDTH;
         const deltaY = event.translationY / PREVIEW_HEIGHT;
-
-        // 0~1 범위로 클램프
         const newX = Math.max(0, Math.min(1, startPositionX.value + deltaX));
         const newY = Math.max(0, Math.min(1, startPositionY.value + deltaY));
 
         positionX.value = newX;
         positionY.value = newY;
-
-        // 드래그 중 실시간 Unity 호출 (throttled)
         scheduleOnRN(throttledPositionUpdate, newX, newY);
       })
       .onEnd(() => {
         'worklet';
-        if (!isDraggingCharacter.value) return;
+        if (!isDraggingCharacter.value) {
+          return;
+        }
 
-        // 최종 위치 보정 (정확도 보장)
-        scheduleOnRN(handlePositionChange, positionX.value, positionY.value);
-        isDraggingCharacter.value = false;
+        scheduleOnRN(commitExternalPosition, positionX.value, positionY.value);
       })
-      .onTouchesUp(() => {
+      .onFinalize(() => {
         'worklet';
-        // 터치 종료 시 드래그 상태 초기화 (예외 상황 대비)
         isDraggingCharacter.value = false;
+        scheduleOnRN(setDragInteractionActive, false);
       });
 
-    // 핀치 줌 제스처
     const pinchGesture = Gesture.Pinch()
       .onStart(() => {
+        scheduleOnRN(setPinchInteractionActive, true);
         savedScale.value = scale.value;
       })
       .onUpdate((event) => {
         const newScale = savedScale.value * event.scale;
-        const clampedScale = Math.max(SCALE_RANGES.character.min, Math.min(SCALE_RANGES.character.max, newScale));
+        const clampedScale = Math.max(
+          SCALE_RANGES.character.min,
+          Math.min(SCALE_RANGES.character.max, newScale)
+        );
         scale.value = clampedScale;
-
-        // 🔥 핀치 줌 중 실시간 Unity 호출 (throttled)
         scheduleOnRN(throttledScaleUpdate, clampedScale);
       })
       .onEnd(() => {
         savedScale.value = scale.value;
-        // 최종 스케일 보정 (기존 로직 유지 - 정확도 보장)
-        scheduleOnRN(handleScaleChange, scale.value);
+        scheduleOnRN(commitExternalScale, scale.value);
+      })
+      .onFinalize(() => {
+        scheduleOnRN(setPinchInteractionActive, false);
       });
 
-    // 드래그 + 핀치 동시 제스처
     const combinedGesture = Gesture.Simultaneous(panGesture, pinchGesture);
 
-    // 통계 데이터를 타입별로 포맷팅 (Figma 프로토타입 기준)
     const formattedStats = useMemo(() => {
       const distanceKm = (runningData.distance / 1000).toFixed(2);
       const minutes = Math.floor(runningData.durationSec / 60);
       const seconds = runningData.durationSec % 60;
-      // 분도 2자리 패딩 (Figma: 32:45 형식)
       const durationStr = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-
-      // 페이스 포맷 변환: "5:30" → "5'30""
       const paceFormatted = runningData.pace.replace(':', "'") + '"';
 
       return {
@@ -277,58 +324,31 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
         time: { value: durationStr, label: '시간' },
         pace: { value: paceFormatted, label: '평균 페이스' },
         points: { value: `+${runningData.earnedPoints}`, label: 'P' },
-        // 'map' 타입은 DraggableRouteMap으로 별도 렌더링 예정
         map: { value: '', label: '' },
       };
     }, [runningData]);
 
-    // 통계 요소 변환 핸들러 생성
     const createStatTransformHandler = (type: StatType) => (transform: ElementTransform) => {
       onStatTransformChange(type, transform);
     };
 
     return (
-      <View style={styles.container}>
-        <View ref={ref} style={styles.canvas} collapsable={false}>
-          {/* Unity 뷰 (전체 화면 - 배경 + 캐릭터) */}
-          <UnityView
-            style={StyleSheet.absoluteFill}
-            {...(onUnityReady && { onUnityReady })}
-          />
-          {/* 투명 제스처 레이어 (캐릭터 조작용) - 아바타 visible일 때만 */}
-          {avatarVisible && (onCharacterPositionChange || onCharacterScaleChange) && (
+      <View style={[styles.container, containerPadding && styles.containerPadded]}>
+        <View
+          ref={ref}
+          style={[styles.canvas, { borderRadius: cornerRadius }]}
+          collapsable={false}
+        >
+          <View pointerEvents="none" style={styles.unityViewport} />
+
+          {interactive && avatarVisible && (onCharacterPositionChange || onCharacterScaleChange) && (
             <GestureDetector gesture={combinedGesture}>
               <Animated.View style={styles.gestureLayer} />
             </GestureDetector>
           )}
-          {/* 디버그: 캐릭터 영역 표시 (빨간색 테두리) - 아바타 visible일 때만
-              SPUM 캐릭터는 anchor point가 발(하단)에 있으므로,
-              박스는 y좌표에서 전체 높이만큼 위로 그려야 함 */}
-          {/* {avatarVisible && (onCharacterPositionChange || onCharacterScaleChange) && (
-            <View
-              style={{
-                position: 'absolute',
-                left:
-                  (characterTransform?.x ?? 0.5) * PREVIEW_WIDTH -
-                  (CHARACTER_WIDTH * (characterTransform?.scale ?? 1) * PREVIEW_WIDTH) / 2,
-                top:
-                  (characterTransform?.y ?? 0.5) * PREVIEW_HEIGHT -
-                  CHARACTER_HEIGHT * (characterTransform?.scale ?? 1) * PREVIEW_HEIGHT,
-                width: CHARACTER_WIDTH * (characterTransform?.scale ?? 1) * PREVIEW_WIDTH,
-                height: CHARACTER_HEIGHT * (characterTransform?.scale ?? 1) * PREVIEW_HEIGHT,
-                borderWidth: 2,
-                borderColor: 'red',
-                backgroundColor: 'rgba(255, 0, 0, 0.1)',
-              }}
-              pointerEvents="none"
-            />
-          )} */}
 
-          {/* RN 오버레이 영역 */}
-          <View style={styles.overlay} pointerEvents="box-none">
-            {/* 개별 통계 요소들 */}
+          <View style={styles.overlay} pointerEvents={interactive ? 'box-none' : 'none'}>
             {statElements.map((element) => {
-              // map 타입은 DraggableRouteMap으로 렌더링
               if (element.type === 'map') {
                 return (
                   <DraggableRouteMap
@@ -341,7 +361,6 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
                 );
               }
 
-              // 나머지는 DraggableStat으로 렌더링
               const statData = formattedStats[element.type];
               return (
                 <DraggableStat
@@ -356,7 +375,6 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
               );
             })}
 
-            {/* 워터마크 */}
             <View style={styles.watermarkContainer}>
               <Text style={styles.watermark}>달려라 태호군</Text>
             </View>
@@ -372,21 +390,25 @@ SharePreviewCanvas.displayName = 'SharePreviewCanvas';
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
+  },
+  containerPadded: {
     paddingHorizontal: 16,
     paddingVertical: 24,
   },
   canvas: {
     width: PREVIEW_WIDTH,
     height: PREVIEW_HEIGHT,
-    borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: '#F5F5F5',
-    // PRIMARY 색상 그림자 (프로토타입)
+    backgroundColor: 'transparent',
     shadowColor: PRIMARY[500],
     shadowOffset: { width: 0, height: 25 },
     shadowOpacity: 0.2,
     shadowRadius: 50,
-    elevation: 20, // Android
+    elevation: 20,
+  },
+  unityViewport: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,

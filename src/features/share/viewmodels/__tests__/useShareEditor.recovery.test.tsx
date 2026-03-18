@@ -2,6 +2,9 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import type { BackgroundOption, PoseOption, ShareRunningData } from '~/features/share/models/types';
 import { useShareEditor } from '~/features/share/viewmodels/useShareEditor';
 
+const mockCaptureAndShare = jest.fn();
+const mockCaptureViewAsImage = jest.fn();
+const mockSaveToGallery = jest.fn();
 const mockSetBackground = jest.fn();
 const mockSetBackgroundColor = jest.fn();
 const mockSetBackgroundFromPhoto = jest.fn();
@@ -12,22 +15,28 @@ const mockSetCharacterScale = jest.fn();
 const mockSetCharacterVisible = jest.fn();
 const mockRunWhenReady = jest.fn();
 const mockUseUnityBootstrap = jest.fn();
+const mockStartUnity = jest.fn();
 
 jest.mock('expo-file-system/legacy', () => ({
-  readAsStringAsync: jest.fn(),
-  EncodingType: { Base64: 'base64' },
+  readAsStringAsync: jest.fn().mockResolvedValue('photo-base64'),
+  EncodingType: {
+    Base64: 'base64',
+  },
 }));
 
 jest.mock('expo-image-manipulator', () => ({
-  manipulateAsync: jest.fn(),
-  SaveFormat: { JPEG: 'jpeg' },
+  manipulateAsync: jest.fn().mockResolvedValue({ uri: 'resized://photo' }),
+  SaveFormat: {
+    JPEG: 'jpeg',
+    PNG: 'png',
+  },
 }));
 
 jest.mock('~/features/share/services/shareService', () => ({
   shareService: {
-    captureAndShare: jest.fn(),
-    captureViewAsImage: jest.fn(),
-    saveToGallery: jest.fn(),
+    captureAndShare: (...args: unknown[]) => mockCaptureAndShare(...args),
+    captureViewAsImage: (...args: unknown[]) => mockCaptureViewAsImage(...args),
+    saveToGallery: (...args: unknown[]) => mockSaveToGallery(...args),
   },
 }));
 
@@ -64,6 +73,7 @@ describe('useShareEditor recovery', () => {
     canSendMessage: false,
     isInitialAvatarSynced: false,
     handleUnityReady: jest.fn(),
+    startUnity: mockStartUnity,
   };
 
   const customBackground: BackgroundOption = {
@@ -88,6 +98,9 @@ describe('useShareEditor recovery', () => {
     readinessState.isInitialAvatarSynced = false;
     readinessState.handleUnityReady = jest.fn();
 
+    mockCaptureAndShare.mockResolvedValue({ success: true });
+    mockCaptureViewAsImage.mockResolvedValue('file://preview.png');
+    mockSaveToGallery.mockResolvedValue(true);
     mockSetBackground.mockResolvedValue(undefined);
     mockSetBackgroundColor.mockResolvedValue(undefined);
     mockSetBackgroundFromPhoto.mockResolvedValue(undefined);
@@ -97,8 +110,12 @@ describe('useShareEditor recovery', () => {
     mockSetCharacterScale.mockResolvedValue(undefined);
     mockSetCharacterVisible.mockResolvedValue(undefined);
     mockRunWhenReady.mockImplementation(async (task: () => void | Promise<void>) => {
-      await task();
-      return true;
+      try {
+        await task();
+        return true;
+      } catch {
+        return false;
+      }
     });
 
     mockUseUnityBootstrap.mockImplementation(() => ({
@@ -106,128 +123,63 @@ describe('useShareEditor recovery', () => {
     }));
   });
 
-  it('SHARE-UNITY-001 reapplies latest Unity state when canSendMessage recovers', async () => {
-    const { result, rerender } = renderHook(
-      (_props: undefined) => useShareEditor({ runningData: createRunningData() }),
-      { initialProps: undefined }
+  it('replays the latest live Unity state when canSendMessage recovers', async () => {
+    const { result, rerender } = renderHook(() =>
+      useShareEditor({ runningData: createRunningData() })
     );
 
-    act(() => {
-      readinessState.isReady = true;
-      readinessState.canSendMessage = true;
-      readinessState.isInitialAvatarSynced = true;
-    });
-    rerender(undefined);
-
-    await waitFor(() => {
-      expect(mockSetPoseForSlider).toHaveBeenCalledTimes(1);
-    });
-    expect(mockRunWhenReady).toHaveBeenCalledTimes(1);
-
-    mockSetBackgroundColor.mockClear();
-    mockSetPoseForSlider.mockClear();
-    mockSetCharacterPosition.mockClear();
-    mockSetCharacterScale.mockClear();
-    mockSetCharacterVisible.mockClear();
-
-    act(() => {
-      readinessState.isReady = false;
-      readinessState.canSendMessage = false;
-      readinessState.isInitialAvatarSynced = false;
-    });
-    rerender(undefined);
+    expect(mockStartUnity).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       await result.current.setSelectedBackground(customBackground);
-    });
-    await act(async () => {
       await result.current.setSelectedPose(customPose);
     });
     act(() => {
+      result.current.setAnimationTime(0.45);
       result.current.updateCharacterPosition(0.7, 0.8);
       result.current.updateCharacterScale(1.8);
-    });
-    await act(async () => {
-      await result.current.toggleAvatarVisibility();
     });
 
     expect(mockSetBackgroundColor).not.toHaveBeenCalled();
     expect(mockSetPoseForSlider).not.toHaveBeenCalled();
+    expect(mockSetAnimationNormalizedTime).not.toHaveBeenCalled();
     expect(mockSetCharacterPosition).not.toHaveBeenCalled();
     expect(mockSetCharacterScale).not.toHaveBeenCalled();
-    expect(mockSetCharacterVisible).not.toHaveBeenCalled();
 
     act(() => {
       readinessState.isReady = true;
       readinessState.canSendMessage = true;
       readinessState.isInitialAvatarSynced = true;
     });
-    rerender(undefined);
+    rerender();
 
     await waitFor(() => {
-      expect(mockSetBackgroundColor).toHaveBeenCalledWith('#112233');
+      expect(mockRunWhenReady).toHaveBeenCalledTimes(1);
     });
-    expect(mockRunWhenReady).toHaveBeenCalledTimes(2);
-
+    expect(mockSetBackgroundColor).toHaveBeenCalledWith('#112233');
     expect(mockSetPoseForSlider).toHaveBeenCalledWith('ATTACK');
-
+    expect(mockSetAnimationNormalizedTime).toHaveBeenCalledWith(0.45);
     const lastPositionCall = mockSetCharacterPosition.mock.calls.at(-1);
-    expect(lastPositionCall).toBeDefined();
-    expect(lastPositionCall?.[0]).toBeCloseTo(0.7, 5);
-    expect(lastPositionCall?.[1]).toBeCloseTo(0.2, 5);
-
-    const lastScaleCall = mockSetCharacterScale.mock.calls.at(-1);
-    expect(lastScaleCall).toBeDefined();
-    expect(lastScaleCall?.[0]).toBeCloseTo(1.8, 5);
-
-    expect(mockSetCharacterVisible).toHaveBeenCalledWith(false);
+    expect(lastPositionCall?.[0]).toBeCloseTo(0.7);
+    expect(lastPositionCall?.[1]).toBeCloseTo(0.2);
+    expect(mockSetCharacterScale).toHaveBeenCalledWith(1.8);
+    expect(mockSetCharacterVisible).toHaveBeenCalledWith(true);
   });
 
-  it('prevents duplicate initialization while staying in the same connected session', async () => {
-    const { rerender } = renderHook(
-      (_props: undefined) => useShareEditor({ runningData: createRunningData() }),
-      { initialProps: undefined }
+  it('updates the live Unity scene immediately while connected', async () => {
+    readinessState.isReady = true;
+    readinessState.canSendMessage = true;
+    readinessState.isInitialAvatarSynced = true;
+
+    const { result } = renderHook(() =>
+      useShareEditor({ runningData: createRunningData() })
     );
 
-    act(() => {
-      readinessState.isReady = true;
-      readinessState.canSendMessage = true;
-      readinessState.isInitialAvatarSynced = true;
-    });
-    rerender(undefined);
-
     await waitFor(() => {
       expect(mockRunWhenReady).toHaveBeenCalledTimes(1);
     });
 
-    rerender(undefined);
-    rerender(undefined);
-
-    await waitFor(() => {
-      expect(mockRunWhenReady).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  it('skips Unity command sync when resetAll is called with syncUnity false', async () => {
-    const { result, rerender } = renderHook(
-      (_props: undefined) => useShareEditor({ runningData: createRunningData() }),
-      { initialProps: undefined }
-    );
-
-    act(() => {
-      readinessState.isReady = true;
-      readinessState.canSendMessage = true;
-      readinessState.isInitialAvatarSynced = true;
-    });
-    rerender(undefined);
-
-    await waitFor(() => {
-      expect(mockRunWhenReady).toHaveBeenCalledTimes(1);
-    });
-
-    mockSetBackground.mockClear();
     mockSetBackgroundColor.mockClear();
-    mockSetBackgroundFromPhoto.mockClear();
     mockSetPoseForSlider.mockClear();
     mockSetAnimationNormalizedTime.mockClear();
     mockSetCharacterPosition.mockClear();
@@ -235,12 +187,164 @@ describe('useShareEditor recovery', () => {
     mockSetCharacterVisible.mockClear();
 
     await act(async () => {
-      await result.current.resetAll({ syncUnity: false });
+      await result.current.setSelectedBackground(customBackground);
+      await result.current.setSelectedPose(customPose);
+    });
+    act(() => {
+      result.current.setAnimationTime(0.6);
+      result.current.updateCharacterPosition(0.65, 0.75);
+      result.current.updateCharacterScale(1.4);
+      result.current.toggleAvatarVisibility();
     });
 
-    expect(mockSetBackground).not.toHaveBeenCalled();
-    expect(mockSetBackgroundColor).not.toHaveBeenCalled();
-    expect(mockSetBackgroundFromPhoto).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(result.current.avatarVisible).toBe(false);
+    });
+
+    act(() => {
+      result.current.toggleAvatarVisibility();
+    });
+
+    expect(mockSetBackgroundColor).toHaveBeenCalledWith('#112233');
+    expect(mockSetPoseForSlider).toHaveBeenCalledWith('ATTACK');
+    await waitFor(() => {
+      expect(mockSetAnimationNormalizedTime).toHaveBeenCalledWith(0.6);
+    });
+    const lastPositionCall = mockSetCharacterPosition.mock.calls.at(-1);
+    expect(lastPositionCall?.[0]).toBeCloseTo(0.65);
+    expect(lastPositionCall?.[1]).toBeCloseTo(0.25);
+    expect(mockSetCharacterScale).toHaveBeenCalledWith(1.4);
+    expect(mockSetCharacterVisible).toHaveBeenNthCalledWith(1, false);
+    expect(mockSetCharacterVisible).toHaveBeenNthCalledWith(2, true);
+  });
+
+  it('restores running result defaults once even if requested repeatedly', async () => {
+    readinessState.isReady = true;
+    readinessState.canSendMessage = true;
+    readinessState.isInitialAvatarSynced = true;
+
+    const { result } = renderHook(() =>
+      useShareEditor({ runningData: createRunningData() })
+    );
+
+    await waitFor(() => {
+      expect(mockRunWhenReady).toHaveBeenCalledTimes(1);
+    });
+
+    mockRunWhenReady.mockClear();
+    mockSetBackground.mockClear();
+    mockSetPoseForSlider.mockClear();
+    mockSetAnimationNormalizedTime.mockClear();
+    mockSetCharacterVisible.mockClear();
+    mockSetCharacterScale.mockClear();
+    mockSetCharacterPosition.mockClear();
+
+    await act(async () => {
+      await Promise.all([
+        result.current.restoreRunningResultDefaults(),
+        result.current.restoreRunningResultDefaults(),
+      ]);
+    });
+
+    expect(mockRunWhenReady).toHaveBeenCalledTimes(1);
+    expect(mockSetBackground).toHaveBeenCalledTimes(1);
+    expect(mockSetBackground).toHaveBeenCalledWith('river');
+    expect(mockSetPoseForSlider).toHaveBeenCalledTimes(1);
+    expect(mockSetPoseForSlider).toHaveBeenCalledWith('IDLE');
+    expect(mockSetAnimationNormalizedTime).toHaveBeenCalledTimes(1);
+    expect(mockSetAnimationNormalizedTime).toHaveBeenCalledWith(0);
+    expect(mockSetCharacterPosition).toHaveBeenCalledTimes(1);
+    const restorePositionCall = mockSetCharacterPosition.mock.calls.at(-1);
+    expect(restorePositionCall?.[0]).toBeCloseTo(0.5);
+    expect(restorePositionCall?.[1]).toBeCloseTo(0.1);
+    expect(mockSetCharacterScale).toHaveBeenCalledTimes(1);
+    expect(mockSetCharacterScale).toHaveBeenCalledWith(1);
+    expect(mockSetCharacterVisible).toHaveBeenCalledTimes(1);
+    expect(mockSetCharacterVisible).toHaveBeenCalledWith(true);
+  });
+
+  it('replays the running result defaults after resetAll', async () => {
+    readinessState.isReady = true;
+    readinessState.canSendMessage = true;
+    readinessState.isInitialAvatarSynced = true;
+
+    const { result } = renderHook(() =>
+      useShareEditor({ runningData: createRunningData() })
+    );
+
+    await waitFor(() => {
+      expect(mockRunWhenReady).toHaveBeenCalledTimes(1);
+    });
+
+    mockRunWhenReady.mockClear();
+    mockSetBackground.mockClear();
+    mockSetPoseForSlider.mockClear();
+    mockSetAnimationNormalizedTime.mockClear();
+    mockSetCharacterPosition.mockClear();
+    mockSetCharacterScale.mockClear();
+    mockSetCharacterVisible.mockClear();
+
+    await act(async () => {
+      await result.current.resetAll();
+    });
+
+    expect(mockSetBackground).toHaveBeenCalledWith('river');
+    expect(mockSetPoseForSlider).toHaveBeenCalledWith('IDLE');
+    expect(mockSetAnimationNormalizedTime).toHaveBeenCalledWith(0);
+
+    mockRunWhenReady.mockClear();
+    mockSetBackground.mockClear();
+    mockSetPoseForSlider.mockClear();
+    mockSetAnimationNormalizedTime.mockClear();
+    mockSetCharacterPosition.mockClear();
+    mockSetCharacterScale.mockClear();
+    mockSetCharacterVisible.mockClear();
+
+    await act(async () => {
+      await result.current.restoreRunningResultDefaults();
+    });
+
+    expect(mockRunWhenReady).toHaveBeenCalledTimes(1);
+    expect(mockSetBackground).toHaveBeenCalledWith('river');
+    expect(mockSetPoseForSlider).toHaveBeenCalledWith('IDLE');
+    expect(mockSetAnimationNormalizedTime).toHaveBeenCalledWith(0);
+    const replayPositionCall = mockSetCharacterPosition.mock.calls.at(-1);
+    expect(replayPositionCall?.[0]).toBeCloseTo(0.5);
+    expect(replayPositionCall?.[1]).toBeCloseTo(0.1);
+    expect(mockSetCharacterScale).toHaveBeenCalledWith(1);
+    expect(mockSetCharacterVisible).toHaveBeenCalledWith(true);
+  });
+
+  it('rejects when the running result default replay fails', async () => {
+    readinessState.isReady = true;
+    readinessState.canSendMessage = true;
+    readinessState.isInitialAvatarSynced = true;
+    mockSetBackground.mockRejectedValue(new Error('background restore failed'));
+
+    const { result } = renderHook(() =>
+      useShareEditor({ runningData: createRunningData() })
+    );
+
+    await waitFor(() => {
+      expect(mockRunWhenReady).toHaveBeenCalledTimes(1);
+    });
+
+    mockRunWhenReady.mockClear();
+    mockSetBackground.mockClear();
+    mockSetPoseForSlider.mockClear();
+    mockSetAnimationNormalizedTime.mockClear();
+    mockSetCharacterPosition.mockClear();
+    mockSetCharacterScale.mockClear();
+    mockSetCharacterVisible.mockClear();
+
+    await expect(
+      act(async () => {
+        await result.current.restoreRunningResultDefaults();
+      })
+    ).rejects.toThrow('Failed to restore running result defaults');
+
+    expect(mockRunWhenReady).toHaveBeenCalledTimes(1);
+    expect(mockSetBackground).toHaveBeenCalledTimes(1);
     expect(mockSetPoseForSlider).not.toHaveBeenCalled();
     expect(mockSetAnimationNormalizedTime).not.toHaveBeenCalled();
     expect(mockSetCharacterPosition).not.toHaveBeenCalled();

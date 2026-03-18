@@ -15,6 +15,19 @@ import type {
   UnityStatus,
 } from '../../features/unity/types/UnityTypes';
 
+export interface UnityViewportFrame {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface UnityViewport {
+  owner: 'running' | 'share' | 'avatar' | 'league';
+  frame: UnityViewportFrame;
+  borderRadius?: number;
+}
+
 /**
  * Unity State Interface
  * 순수한 상태만 관리
@@ -38,6 +51,7 @@ interface UnityState {
   // UI State
   isUnityViewVisible: boolean;
   lastInteraction: string | null;
+  activeViewport: UnityViewport | null;
 
   // State Update Actions (Sync only)
   setConnected: (isConnected: boolean) => void;
@@ -47,6 +61,8 @@ interface UnityState {
   updateCharacterState: (characterState: CharacterState) => void;
   updateUnityStatus: (unityStatus: UnityStatus) => void;
   setUnityViewVisible: (isVisible: boolean) => void;
+  setActiveViewport: (viewport: UnityViewport) => void;
+  clearActiveViewport: (owner?: UnityViewport['owner']) => void;
   resetUnityState: () => void;
 
   // ★ Unity Ready 상태 액션
@@ -74,6 +90,7 @@ const initialState = {
   unityStatus: null,
   isUnityViewVisible: false,
   lastInteraction: null,
+  activeViewport: null,
 };
 
 /**
@@ -125,6 +142,30 @@ export const useUnityStore = create<UnityState>((set) => ({
     set({
       isUnityViewVisible,
       lastInteraction: new Date().toISOString(),
+    }),
+
+  setActiveViewport: (activeViewport) =>
+    set({
+      activeViewport,
+      isUnityViewVisible: true,
+      lastInteraction: new Date().toISOString(),
+    }),
+
+  clearActiveViewport: (owner) =>
+    set((state) => {
+      if (!state.activeViewport) {
+        return state;
+      }
+
+      if (owner && state.activeViewport.owner !== owner) {
+        return state;
+      }
+
+      return {
+        activeViewport: null,
+        isUnityViewVisible: false,
+        lastInteraction: new Date().toISOString(),
+      };
     }),
 
   resetUnityState: () => set(initialState),

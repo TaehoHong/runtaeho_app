@@ -11,7 +11,13 @@ import { Stack } from 'expo-router/stack';
 
 export default function ShareLayout() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        gestureEnabled: false,
+        contentStyle: { backgroundColor: 'transparent' },
+      }}
+    >
       <Stack.Screen name="editor" />
     </Stack>
   );
