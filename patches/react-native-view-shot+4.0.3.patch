@@ -27,7 +27,7 @@ index 38413de..858d6e2 100644
          captureRef((double) -1, options, promise);
      }
 diff --git a/node_modules/react-native-view-shot/android/src/main/java/fr/greweb/reactnativeviewshot/ViewShot.java b/node_modules/react-native-view-shot/android/src/main/java/fr/greweb/reactnativeviewshot/ViewShot.java
-index ce81dda..923e0ed 100644
+index ce81dda..19cafb5 100644
 --- a/node_modules/react-native-view-shot/android/src/main/java/fr/greweb/reactnativeviewshot/ViewShot.java
 +++ b/node_modules/react-native-view-shot/android/src/main/java/fr/greweb/reactnativeviewshot/ViewShot.java
 @@ -26,6 +26,7 @@ import android.widget.ScrollView;
@@ -61,3 +61,97 @@ index ce81dda..923e0ed 100644
      private void executeImpl(final NativeViewHierarchyManager nativeViewHierarchyManager, final UIBlockViewResolver uiBlockViewResolver) {
          executor.execute(new Runnable () {
              @Override
+@@ -411,20 +415,46 @@ public class ViewShot implements UIBlock, com.facebook.react.fabric.interop.UIBl
+ 
+                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                     final Bitmap childBitmapBuffer = getExactBitmapForScreenshot(child.getWidth(), child.getHeight());
++                    final int[] pixelCopyResultHolder = new int[] { Integer.MIN_VALUE };
++                    final boolean[] bitmapConsumed = new boolean[] { false };
+                     try {
++                        Log.d(TAG, "PixelCopy request for " + svChild + " size=" + child.getWidth() + "x" + child.getHeight());
+                         PixelCopy.request(svChild, childBitmapBuffer, new PixelCopy.OnPixelCopyFinishedListener() {
+                             @Override
+                             public void onPixelCopyFinished(int copyResult) {
+-                                final int countCanvasSave = c.save();
+-                                applyTransformations(c, view, child);
+-                                c.drawBitmap(childBitmapBuffer, 0, 0, paint);
+-                                c.restoreToCount(countCanvasSave);
+-                                recycleBitmap(childBitmapBuffer);
++                                pixelCopyResultHolder[0] = copyResult;
++                                if (copyResult == PixelCopy.SUCCESS) {
++                                    final int countCanvasSave = c.save();
++                                    applyTransformations(c, view, child);
++                                    c.drawBitmap(childBitmapBuffer, 0, 0, paint);
++                                    c.restoreToCount(countCanvasSave);
++                                    recycleBitmap(childBitmapBuffer);
++                                    bitmapConsumed[0] = true;
++                                    Log.d(TAG, "PixelCopy success for " + svChild);
++                                } else {
++                                    Log.e(TAG, "PixelCopy failed for " + svChild + " result=" + copyResult);
++                                }
+                                 latch.countDown();
+                             }
+                         }, new Handler(Looper.getMainLooper()));
+-                        latch.await(SURFACE_VIEW_READ_PIXELS_TIMEOUT, TimeUnit.SECONDS);
++                        final boolean completed = latch.await(SURFACE_VIEW_READ_PIXELS_TIMEOUT, TimeUnit.SECONDS);
++                        if (!completed) {
++                            Log.e(TAG, "PixelCopy timed out for " + svChild + " after " + SURFACE_VIEW_READ_PIXELS_TIMEOUT + " seconds");
++                            if (!bitmapConsumed[0]) {
++                                recycleBitmap(childBitmapBuffer);
++                            }
++                            continue;
++                        }
++                        if (pixelCopyResultHolder[0] != PixelCopy.SUCCESS) {
++                            if (!bitmapConsumed[0]) {
++                                recycleBitmap(childBitmapBuffer);
++                            }
++                            continue;
++                        }
+                     } catch (Exception e) {
++                        if (!bitmapConsumed[0]) {
++                            recycleBitmap(childBitmapBuffer);
++                        }
+                         Log.e(TAG, "Cannot PixelCopy for " + svChild, e);
+                     }
+                 } else {
+@@ -489,6 +519,7 @@ public class ViewShot implements UIBlock, com.facebook.react.fabric.interop.UIBl
+             c.translate(dx, dy);
+             c.rotate(v.getRotation(), v.getPivotX(), v.getPivotY());
+             c.scale(v.getScaleX(), v.getScaleY());
++            applyAncestorClipping(c, v, v == child);
+ 
+             // compute the matrix just for any future use
+             transform.postTranslate(dx, dy);
+@@ -499,6 +530,32 @@ public class ViewShot implements UIBlock, com.facebook.react.fabric.interop.UIBl
+         return transform;
+     }
+ 
++    private void applyAncestorClipping(@NonNull final Canvas c, @NonNull final View view, final boolean isChild) {
++        if (isChild || !(view instanceof ViewGroup)) {
++            return;
++        }
++
++        final ViewGroup viewGroup = (ViewGroup) view;
++        final boolean clipChildren = viewGroup.getClipChildren();
++        final boolean clipToPadding = viewGroup.getClipToPadding();
++        if (!clipChildren && !clipToPadding) {
++            return;
++        }
++
++        final int clipLeft = clipToPadding ? viewGroup.getPaddingLeft() : 0;
++        final int clipTop = clipToPadding ? viewGroup.getPaddingTop() : 0;
++        final int clipRight = clipToPadding
++                ? viewGroup.getWidth() - viewGroup.getPaddingRight()
++                : viewGroup.getWidth();
++        final int clipBottom = clipToPadding
++                ? viewGroup.getHeight() - viewGroup.getPaddingBottom()
++                : viewGroup.getHeight();
++
++        if (clipRight > clipLeft && clipBottom > clipTop) {
++            c.clipRect(clipLeft, clipTop, clipRight, clipBottom);
++        }
++    }
++
+     @SuppressWarnings("unchecked")
+     private static <T extends A, A> T cast(final A instance) {
+         return (T) instance;

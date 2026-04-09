@@ -649,11 +649,20 @@ describe('UnityView mount initialization', () => {
 });
 
 describe('UnityLoadingState', () => {
+  const UnityLoadingStateElement = UnityLoadingState as React.ComponentType<
+    Omit<React.ComponentProps<typeof UnityLoadingState>, 'children'>
+  >;
+
   it('hides placeholder when mounted with isLoading=false', () => {
     const { queryByText, getByTestId } = render(
       createElement(
-        UnityLoadingState,
-        { isLoading: false, variant: 'running', minDisplayTime: 300, fadeDuration: 0 },
+        UnityLoadingStateElement,
+        {
+          isLoading: false,
+          variant: 'running',
+          minDisplayTime: 300,
+          fadeDuration: 0,
+        },
         createElement(View, { testID: 'unity-content' })
       )
     );
@@ -667,8 +676,13 @@ describe('UnityLoadingState', () => {
 
     const { queryByText, rerender } = render(
       createElement(
-        UnityLoadingState,
-        { isLoading: true, variant: 'running', minDisplayTime: 80, fadeDuration: 0 },
+        UnityLoadingStateElement,
+        {
+          isLoading: true,
+          variant: 'running',
+          minDisplayTime: 80,
+          fadeDuration: 0,
+        },
         createElement(View, { testID: 'unity-content' })
       )
     );
@@ -677,8 +691,13 @@ describe('UnityLoadingState', () => {
 
     rerender(
       createElement(
-        UnityLoadingState,
-        { isLoading: false, variant: 'running', minDisplayTime: 80, fadeDuration: 0 },
+        UnityLoadingStateElement,
+        {
+          isLoading: false,
+          variant: 'running',
+          minDisplayTime: 80,
+          fadeDuration: 0,
+        },
         createElement(View, { testID: 'unity-content' })
       )
     );

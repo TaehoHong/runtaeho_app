@@ -27,6 +27,7 @@ import { GREY, PRIMARY } from '~/shared/styles';
 import { useUnityStore } from '~/stores/unity/unityStore';
 import { useUserStore } from '~/stores/user';
 import type { ShareRunningData } from '../models/types';
+import type { ViewBounds } from '../services/shareService';
 import { useShareStore } from '../stores/shareStore';
 import { generateDummyLocations } from '../utils/dummyGpsData';
 import { useShareEditor } from '../viewmodels/useShareEditor';
@@ -44,6 +45,8 @@ interface ShareEditorScreenProps {
 
 const PREVIEW_CORNER_RADIUS = 16;
 const EXPORT_CORNER_RADIUS = 0;
+const VIEWPORT_MATCH_EPSILON = 2;
+const UNITY_EXPORT_VIEWPORT_TIMEOUT_MS = 1200;
 
 const waitForAnimationFrames = async (frameCount: number = 1): Promise<void> => {
   for (let frame = 0; frame < frameCount; frame += 1) {
@@ -52,6 +55,12 @@ const waitForAnimationFrames = async (frameCount: number = 1): Promise<void> => 
     });
   }
 };
+
+const doViewportFramesMatch = (expected: ViewBounds, actual: ViewBounds): boolean =>
+  Math.abs(expected.x - actual.x) <= VIEWPORT_MATCH_EPSILON
+  && Math.abs(expected.y - actual.y) <= VIEWPORT_MATCH_EPSILON
+  && Math.abs(expected.width - actual.width) <= VIEWPORT_MATCH_EPSILON
+  && Math.abs(expected.height - actual.height) <= VIEWPORT_MATCH_EPSILON;
 
 export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningData }) => {
   const {
@@ -79,6 +88,7 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
   const setActiveViewport = useUnityStore((state) => state.setActiveViewport);
   const clearActiveViewport = useUnityStore((state) => state.clearActiveViewport);
   const exportStageRef = useRef<View>(null);
+  const exportStageBoundsRef = useRef<ViewBounds | null>(null);
   const exportStageLayoutResolverRef = useRef<(() => void) | null>(null);
   const isExportSurfaceActiveRef = useRef(false);
   const [isExportSurfaceVisible, setIsExportSurfaceVisible] = useState(false);
@@ -96,9 +106,9 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
     Alert.alert('더미 데이터 추가됨', `${dummyLocations.length}개의 GPS 좌표가 추가되었습니다.`);
   }, [setDummyLocations]);
 
-  const syncViewport = useCallback((
+  const measureView = useCallback((
     targetRef: React.RefObject<View | null>,
-    borderRadius: number
+    onMeasured?: (frame: ViewBounds) => void
   ) => {
     requestAnimationFrame(() => {
       const target = targetRef.current;
@@ -111,14 +121,25 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
           return;
         }
 
-        setActiveViewport({
-          owner: 'share',
-          frame: { x, y, width, height },
-          borderRadius,
-        });
+        onMeasured?.({ x, y, width, height });
       });
     });
-  }, [setActiveViewport]);
+  }, []);
+
+  const syncViewport = useCallback((
+    targetRef: React.RefObject<View | null>,
+    borderRadius: number,
+    onMeasured?: (frame: ViewBounds) => void
+  ) => {
+    measureView(targetRef, (frame) => {
+      onMeasured?.(frame);
+      setActiveViewport({
+        owner: 'share',
+        frame,
+        borderRadius,
+      });
+    });
+  }, [measureView, setActiveViewport]);
 
   const syncPreviewViewport = useCallback(() => {
     if (isExportSurfaceActiveRef.current) {
@@ -129,7 +150,9 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
   }, [canvasRef, syncViewport]);
 
   const syncExportStageViewport = useCallback(() => {
-    syncViewport(exportStageRef, EXPORT_CORNER_RADIUS);
+    syncViewport(exportStageRef, EXPORT_CORNER_RADIUS, (frame) => {
+      exportStageBoundsRef.current = frame;
+    });
   }, [syncViewport]);
 
   const handleExportStageLayout = useCallback(() => {
@@ -137,6 +160,34 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
     exportStageLayoutResolverRef.current?.();
     exportStageLayoutResolverRef.current = null;
   }, [syncExportStageViewport]);
+
+  const waitForExportViewportRender = useCallback(async () => {
+    const expectedBounds = exportStageBoundsRef.current;
+    if (!expectedBounds) {
+      throw new Error('Export stage bounds are not ready');
+    }
+
+    const startedAt = Date.now();
+
+    while (Date.now() - startedAt < UNITY_EXPORT_VIEWPORT_TIMEOUT_MS) {
+      const renderedViewport = useUnityStore.getState().renderedViewport;
+      if (
+        renderedViewport?.owner === 'share'
+        && doViewportFramesMatch(expectedBounds, renderedViewport.frame)
+      ) {
+        return;
+      }
+
+      await waitForAnimationFrames(1);
+    }
+
+    const renderedViewport = useUnityStore.getState().renderedViewport;
+    console.warn('[ShareEditorScreen] Unity export viewport did not settle before capture', {
+      expectedBounds,
+      renderedViewport,
+    });
+    throw new Error('Unity export viewport did not settle before capture');
+  }, []);
 
   const closeEditor = useCallback(async (reason: 'close' | 'share-success') => {
     try {
@@ -153,6 +204,7 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
 
   const showExportSurface = useCallback(async () => {
     isExportSurfaceActiveRef.current = true;
+    exportStageBoundsRef.current = null;
 
     const layoutReady = new Promise<void>((resolve) => {
       exportStageLayoutResolverRef.current = resolve;
@@ -162,8 +214,8 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
     await layoutReady;
     await waitForAnimationFrames(2);
     syncExportStageViewport();
-    await waitForAnimationFrames(2);
-  }, [syncExportStageViewport]);
+    await waitForExportViewportRender();
+  }, [syncExportStageViewport, waitForExportViewportRender]);
 
   const hideExportSurface = useCallback(async () => {
     exportStageLayoutResolverRef.current = null;
@@ -185,7 +237,10 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
 
     try {
       await showExportSurface();
-      result = await shareResult(exportStageRef);
+      result = await shareResult(
+        exportStageRef,
+        exportStageBoundsRef.current ?? undefined
+      );
     } catch (error: any) {
       console.error('[ShareEditorScreen] Failed to prepare export surface:', error);
       result = {

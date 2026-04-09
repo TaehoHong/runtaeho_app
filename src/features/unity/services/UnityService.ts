@@ -8,6 +8,7 @@
 
 import { UnityBridge } from '../bridge/UnityBridge';
 import { type CharacterMotion, type UnityAvatarDtoList } from '../types/UnityTypes';
+import { unitySessionController } from './UnitySessionController';
 import type { Item } from '~/features/avatar';
 import { getUnityPartName } from '~/features/avatar/models/avatarConstants';
 import { useUnityStore } from '~/stores/unity/unityStore';
@@ -186,9 +187,15 @@ export class UnityService {
     const validItems = this.validateAvatarItems(items);
     const hasAvatarPayload = validItems.length > 0 || !!hairColor;
     const store = useUnityStore.getState();
+    const payload = hairColor
+      ? { items: validItems, hairColor }
+      : { items: validItems };
+
+    unitySessionController.setCurrentAvatarPayload(payload);
 
     if (!hasAvatarPayload) {
       store.setAvatarReady(true);
+      unitySessionController.markAvatarApplied(payload);
       return 'empty';
     }
 
@@ -211,6 +218,7 @@ export class UnityService {
         store.setAvatarReady(true);
         return 'failed';
       }
+      unitySessionController.markAvatarApplied(payload);
       return 'applied';
     } catch (error) {
       this.logError('syncAvatar failed', error);
@@ -245,6 +253,7 @@ export class UnityService {
     }
 
     await UnityBridge.forceResetUnity();
+    unitySessionController.recordHardReset('recoverConnection:forceResetUnity');
     const recovered = await this.syncReady();
     return { valid: false, recovered, usedForceReset: true };
   }
@@ -435,7 +444,7 @@ export class UnityService {
     // 진행 중이면 대기열에 추가하고 리턴 (최신 요청만 유지)
     if (this.isChangingAvatar) {
       this.log('⏳ Avatar change in progress, queueing request');
-      this.pendingAvatarChange = { items, hairColor };
+      this.pendingAvatarChange = hairColor ? { items, hairColor } : { items };
       return true;
     }
 

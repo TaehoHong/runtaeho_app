@@ -12,7 +12,9 @@ const mockStartUnity = jest.fn();
 const mockRunWhenReady = jest.fn();
 const mockInitCharacter = jest.fn();
 const mockSyncAvatar = jest.fn();
+const mockStopCharacter = jest.fn();
 const mockCheckUncheckedLeagueResult = jest.fn();
+const mockRequestPermissionsOnFirstLogin = jest.fn();
 let mockIsLoggedIn = false;
 
 jest.mock('@react-navigation/native', () => ({
@@ -53,7 +55,7 @@ jest.mock('~/features/league/hooks/useLeagueCheck', () => ({
 
 jest.mock('~/shared/hooks/usePermissionRequest', () => ({
   usePermissionRequest: () => ({
-    requestPermissionsOnFirstLogin: jest.fn(),
+    requestPermissionsOnFirstLogin: mockRequestPermissionsOnFirstLogin,
     isPermissionChecked: true,
   }),
 }));
@@ -63,6 +65,7 @@ jest.mock('~/features/unity/services/UnityService', () => ({
     runWhenReady: (...args: unknown[]) => mockRunWhenReady(...args),
     initCharacter: (...args: unknown[]) => mockInitCharacter(...args),
     syncAvatar: (...args: unknown[]) => mockSyncAvatar(...args),
+    stopCharacter: (...args: unknown[]) => mockStopCharacter(...args),
   },
 }));
 
@@ -100,9 +103,15 @@ describe('RunningView unity recovery', () => {
       isInitialAvatarSynced: true,
       startUnity: mockStartUnity,
     });
-    mockRunWhenReady.mockResolvedValue(true);
+    mockRunWhenReady.mockImplementation(async (task?: () => void | Promise<void>) => {
+      if (typeof task === 'function') {
+        await task();
+      }
+      return true;
+    });
     mockInitCharacter.mockResolvedValue(undefined);
     mockSyncAvatar.mockResolvedValue('applied');
+    mockStopCharacter.mockResolvedValue(undefined);
   });
 
   it('starts Unity when the running screen is focused and the user is logged in', async () => {
@@ -125,5 +134,25 @@ describe('RunningView unity recovery', () => {
     await waitFor(() => {
       expect(mockStartUnity).not.toHaveBeenCalled();
     });
+  });
+
+  it('applies idle initialization when running has not started yet', async () => {
+    renderWithProviders(<RunningView />);
+
+    await waitFor(() => {
+      expect(mockStopCharacter).toHaveBeenCalledTimes(1);
+    });
+    expect(mockRequestPermissionsOnFirstLogin).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not override running animation when bootstrap finishes after running starts', async () => {
+    useAppStore.getState().setRunningState(RunningState.Running);
+
+    renderWithProviders(<RunningView />);
+
+    await waitFor(() => {
+      expect(mockRequestPermissionsOnFirstLogin).toHaveBeenCalledTimes(1);
+    });
+    expect(mockStopCharacter).not.toHaveBeenCalled();
   });
 });

@@ -3,6 +3,7 @@ package com.hongtaeho.app.unity
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.view.View
 import com.facebook.react.bridge.*
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import org.json.JSONArray
@@ -335,6 +336,50 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
         } catch (e: Exception) {
             Log.e(TAG, "Force reset failed: ${e.message}", e)
             promise.reject("RESET_ERROR", e.message, e)
+        }
+    }
+
+    @ReactMethod
+    fun getCaptureRootBounds(promise: Promise) {
+        val activity = reactApplicationContext.currentActivity
+        if (activity == null) {
+            promise.reject("CAPTURE_ROOT_ERROR", "Current activity is null")
+            return
+        }
+
+        activity.runOnUiThread {
+            try {
+                val contentRoot = activity.findViewById<View>(android.R.id.content)
+                if (contentRoot == null) {
+                    promise.reject("CAPTURE_ROOT_ERROR", "Android content root is not available")
+                    return@runOnUiThread
+                }
+
+                val width = contentRoot.width
+                val height = contentRoot.height
+                if (width <= 0 || height <= 0) {
+                    promise.reject(
+                        "CAPTURE_ROOT_ERROR",
+                        "Android content root bounds are invalid: ${width}x${height}"
+                    )
+                    return@runOnUiThread
+                }
+
+                val location = IntArray(2)
+                contentRoot.getLocationInWindow(location)
+
+                val result = Arguments.createMap().apply {
+                    putDouble("x", location[0].toDouble())
+                    putDouble("y", location[1].toDouble())
+                    putDouble("width", width.toDouble())
+                    putDouble("height", height.toDouble())
+                }
+
+                promise.resolve(result)
+            } catch (e: Exception) {
+                Log.e(TAG, "getCaptureRootBounds error: ${e.message}", e)
+                promise.reject("CAPTURE_ROOT_ERROR", "Failed to resolve Android content root bounds", e)
+            }
         }
     }
 

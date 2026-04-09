@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { useUnityStore } from '~/stores/unity/unityStore';
 import { unityService } from '~/features/unity/services/UnityService';
+import { unitySessionController } from '../services/UnitySessionController';
 import type { UnityReadyEvent } from '../bridge/UnityBridge';
 
 const READY_SYNC_POLL_INTERVAL_MS = 400;
@@ -150,6 +151,7 @@ export const useUnityReadiness = (
   const isFullyReady = isGameObjectReady && isAvatarReady && !error;
   const canSendMessage = isGameObjectReady && !error;
   const isReady = waitForAvatar ? isFullyReady : canSendMessage;
+  const previousCanSendMessageRef = useRef(canSendMessage);
 
   /**
    * Unity 시작 함수
@@ -159,6 +161,7 @@ export const useUnityReadiness = (
 
     if (canSendMessage) {
       console.log('[useUnityReadiness] Unity already ready, starting immediately');
+      unitySessionController.markMessageChannelReady('startUnity:already_ready');
       setIsUnityStarted(true);
       return;
     }
@@ -169,6 +172,7 @@ export const useUnityReadiness = (
     }
 
     console.log(`[useUnityReadiness] Unity 시작 예약 (${startDelay}ms 지연)`);
+    unitySessionController.markBooting('startUnity:scheduled');
 
     startDelayTimerRef.current = setTimeout(() => {
       console.log('[useUnityReadiness] Unity 시작');
@@ -199,7 +203,7 @@ export const useUnityReadiness = (
       void unityService
         .waitForReady({
           waitForAvatar,
-          timeoutMs: timeout,
+          ...(typeof timeout === 'number' ? { timeoutMs: timeout } : {}),
           forceReadyOnTimeout: true,
         })
         .then((result) => {
@@ -235,6 +239,20 @@ export const useUnityReadiness = (
       }
     };
   }, [autoStart, isUnityAvailable, startUnity]);
+
+  useEffect(() => {
+    const wasCanSendMessage = previousCanSendMessageRef.current;
+    previousCanSendMessageRef.current = canSendMessage;
+
+    if (canSendMessage && isUnityStarted) {
+      unitySessionController.markMessageChannelReady('canSendMessage:true');
+      return;
+    }
+
+    if (wasCanSendMessage && !canSendMessage) {
+      unitySessionController.markMessageChannelLost('canSendMessage:false');
+    }
+  }, [canSendMessage, isUnityStarted]);
 
   /**
    * Ready 복구 폴링 (self-heal)

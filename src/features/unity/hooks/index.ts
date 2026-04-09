@@ -8,6 +8,7 @@ export type {
   UseUnityReadinessReturn,
 } from './useUnityReadiness';
 export { useUnityBootstrap } from './useUnityBootstrap';
+export { useUnitySessionController } from './useUnitySessionController';
 export type {
   InitialAvatarPayload,
   UnityBootstrapPhase,

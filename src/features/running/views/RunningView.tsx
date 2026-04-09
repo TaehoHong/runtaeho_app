@@ -284,8 +284,12 @@ export const RunningView: React.FC = () => {
 
     void unityService.runWhenReady(async () => {
       try {
-        await unityService.stopCharacter();
-        console.log('✅ [RunningView] 초기화 완료 (캐릭터 정지 상태 적용)');
+        if (runningState === RunningState.Running) {
+          console.log('✅ [RunningView] 초기화 완료 (러닝 중 상태 유지)');
+        } else {
+          await unityService.stopCharacter();
+          console.log('✅ [RunningView] 초기화 완료 (캐릭터 정지 상태 적용)');
+        }
       } catch (error) {
         console.error('❌ [RunningView] 초기화 실패:', error);
       } finally {
@@ -296,7 +300,13 @@ export const RunningView: React.FC = () => {
         }
       }
     }, { waitForAvatar: false, timeoutMs: 3000, forceReadyOnTimeout: true });
-  }, [isInitialAvatarSynced, isRunningActive, isUnityReady, requestPermissionsOnFirstLogin]);
+  }, [
+    isInitialAvatarSynced,
+    isRunningActive,
+    isUnityReady,
+    requestPermissionsOnFirstLogin,
+    runningState,
+  ]);
 
   useEffect(() => {
     if (!isRunningActive || !isUnityReady || !isInitialAvatarSynced) {

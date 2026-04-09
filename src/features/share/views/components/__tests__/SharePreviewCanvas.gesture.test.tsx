@@ -1,5 +1,5 @@
 import React from 'react';
-import { Dimensions } from 'react-native';
+import { Dimensions, StyleSheet } from 'react-native';
 import { act, render } from '@testing-library/react-native';
 import type { CharacterTransform, ShareRunningData } from '~/features/share/models/types';
 import { SharePreviewCanvas } from '../SharePreviewCanvas';
@@ -259,5 +259,21 @@ describe('SharePreviewCanvas gesture sync', () => {
     const lastCall = onCharacterPositionChange.mock.calls.at(-1);
     expect(lastCall?.[0]).toBeCloseTo(0.75);
     expect(lastCall?.[1]).toBeCloseTo(0.5);
+  });
+
+  it('does not apply canvas glow shadow styles', () => {
+    const { UNSAFE_getAllByProps } = renderCanvas(
+      { x: 0.5, y: 0.5, scale: 1 },
+      jest.fn()
+    );
+
+    const canvas = UNSAFE_getAllByProps({ collapsable: false })[0];
+    const style = StyleSheet.flatten(canvas.props.style);
+
+    expect(style.shadowColor).toBeUndefined();
+    expect(style.shadowOffset).toBeUndefined();
+    expect(style.shadowOpacity).toBeUndefined();
+    expect(style.shadowRadius).toBeUndefined();
+    expect(style.elevation).toBeUndefined();
   });
 });

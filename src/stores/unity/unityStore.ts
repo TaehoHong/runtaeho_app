@@ -28,6 +28,43 @@ export interface UnityViewport {
   borderRadius?: number;
 }
 
+export interface RenderedUnityViewport {
+  owner: UnityViewport['owner'];
+  frame: UnityViewportFrame;
+}
+
+export type UnitySessionStatus =
+  | 'cold'
+  | 'booting'
+  | 'ready_hidden'
+  | 'attached_visible'
+  | 'backgrounded'
+  | 'reattaching'
+  | 'recovering';
+
+export interface UnityReadyEventSnapshot {
+  version: number;
+  ready?: boolean;
+  message?: string;
+  type?: string;
+  timestamp: string;
+  target?: number;
+}
+
+export interface UnitySessionTransition {
+  status: UnitySessionStatus;
+  reason: string;
+  timestamp: string;
+  owner: UnityViewport['owner'] | null;
+}
+
+export interface UnitySessionDebugCounters {
+  attachCount: number;
+  hardResetCount: number;
+  readyEventCount: number;
+  reattachRequestCount: number;
+}
+
 /**
  * Unity State Interface
  * 순수한 상태만 관리
@@ -52,6 +89,14 @@ interface UnityState {
   isUnityViewVisible: boolean;
   lastInteraction: string | null;
   activeViewport: UnityViewport | null;
+  renderedViewport: RenderedUnityViewport | null;
+  sessionStatus: UnitySessionStatus;
+  reattachToken: number;
+  lastUnityReadyEvent: UnityReadyEventSnapshot | null;
+  sessionTransitions: UnitySessionTransition[];
+  currentAvatarPayloadHash: string | null;
+  lastAppliedAvatarHash: string | null;
+  debugCounters: UnitySessionDebugCounters;
 
   // State Update Actions (Sync only)
   setConnected: (isConnected: boolean) => void;
@@ -63,12 +108,24 @@ interface UnityState {
   setUnityViewVisible: (isVisible: boolean) => void;
   setActiveViewport: (viewport: UnityViewport) => void;
   clearActiveViewport: (owner?: UnityViewport['owner']) => void;
+  setRenderedViewport: (viewport: RenderedUnityViewport | null) => void;
   resetUnityState: () => void;
 
   // ★ Unity Ready 상태 액션
   setGameObjectReady: (ready: boolean) => void;
   setAvatarReady: (ready: boolean) => void;
   resetReadyStates: () => void;
+  setSessionStatus: (
+    status: UnitySessionStatus,
+    reason: string,
+    owner?: UnityViewport['owner'] | null
+  ) => void;
+  bumpReattachToken: () => void;
+  publishUnityReadyEvent: (event: Omit<UnityReadyEventSnapshot, 'version' | 'timestamp'>) => void;
+  setCurrentAvatarPayloadHash: (hash: string | null) => void;
+  markAvatarPayloadApplied: (hash: string | null) => void;
+  invalidateAvatarPayloadApplication: () => void;
+  bumpDebugCounter: (counter: keyof UnitySessionDebugCounters) => void;
 }
 
 /**
@@ -91,6 +148,19 @@ const initialState = {
   isUnityViewVisible: false,
   lastInteraction: null,
   activeViewport: null,
+  renderedViewport: null,
+  sessionStatus: 'cold' as UnitySessionStatus,
+  reattachToken: 0,
+  lastUnityReadyEvent: null,
+  sessionTransitions: [] as UnitySessionTransition[],
+  currentAvatarPayloadHash: null,
+  lastAppliedAvatarHash: null,
+  debugCounters: {
+    attachCount: 0,
+    hardResetCount: 0,
+    readyEventCount: 0,
+    reattachRequestCount: 0,
+  } as UnitySessionDebugCounters,
 };
 
 /**
@@ -163,9 +233,16 @@ export const useUnityStore = create<UnityState>((set) => ({
 
       return {
         activeViewport: null,
+        renderedViewport: null,
         isUnityViewVisible: false,
         lastInteraction: new Date().toISOString(),
       };
+    }),
+
+  setRenderedViewport: (renderedViewport) =>
+    set({
+      renderedViewport,
+      lastInteraction: new Date().toISOString(),
     }),
 
   resetUnityState: () => set(initialState),
@@ -189,6 +266,83 @@ export const useUnityStore = create<UnityState>((set) => ({
       isAvatarReady: false,
       lastInteraction: new Date().toISOString(),
     }),
+
+  setSessionStatus: (sessionStatus, reason, owner) =>
+    set((state) => {
+      const resolvedOwner = owner ?? state.activeViewport?.owner ?? null;
+      const lastTransition = state.sessionTransitions[state.sessionTransitions.length - 1];
+      const timestamp = new Date().toISOString();
+
+      const nextState: Partial<UnityState> = {
+        sessionStatus,
+        lastInteraction: timestamp,
+      };
+
+      if (
+        lastTransition
+        && lastTransition.status === sessionStatus
+        && lastTransition.reason === reason
+        && lastTransition.owner === resolvedOwner
+      ) {
+        return nextState as UnityState;
+      }
+
+      const nextTransition: UnitySessionTransition = {
+        status: sessionStatus,
+        reason,
+        timestamp,
+        owner: resolvedOwner,
+      };
+
+      return {
+        ...nextState,
+        sessionTransitions: [...state.sessionTransitions, nextTransition].slice(-50),
+      } as UnityState;
+    }),
+
+  bumpReattachToken: () =>
+    set((state) => ({
+      reattachToken: state.reattachToken + 1,
+      lastInteraction: new Date().toISOString(),
+    })),
+
+  publishUnityReadyEvent: (event) =>
+    set((state) => ({
+      lastUnityReadyEvent: {
+        ...event,
+        version: (state.lastUnityReadyEvent?.version ?? 0) + 1,
+        timestamp: new Date().toISOString(),
+      },
+      lastInteraction: new Date().toISOString(),
+    })),
+
+  setCurrentAvatarPayloadHash: (currentAvatarPayloadHash) =>
+    set({
+      currentAvatarPayloadHash,
+      lastInteraction: new Date().toISOString(),
+    }),
+
+  markAvatarPayloadApplied: (hash) =>
+    set({
+      currentAvatarPayloadHash: hash,
+      lastAppliedAvatarHash: hash,
+      lastInteraction: new Date().toISOString(),
+    }),
+
+  invalidateAvatarPayloadApplication: () =>
+    set({
+      lastAppliedAvatarHash: null,
+      lastInteraction: new Date().toISOString(),
+    }),
+
+  bumpDebugCounter: (counter) =>
+    set((state) => ({
+      debugCounters: {
+        ...state.debugCounters,
+        [counter]: state.debugCounters[counter] + 1,
+      },
+      lastInteraction: new Date().toISOString(),
+    })),
 }));
 
 /**

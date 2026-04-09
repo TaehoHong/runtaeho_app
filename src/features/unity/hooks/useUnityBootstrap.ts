@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Item } from '~/features/avatar';
+import { useUnityStore } from '~/stores/unity/unityStore';
 import { unityService } from '../services/UnityService';
+import { unitySessionController } from '../services/UnitySessionController';
 import type { UnityReadyEvent } from '../bridge/UnityBridge';
 import {
   useUnityReadiness,
@@ -58,6 +60,7 @@ export const useUnityBootstrap = (
 
   const [bootstrapPhase, setBootstrapPhase] = useState<UnityBootstrapPhase>('idle');
   const [isInitialAvatarSynced, setIsInitialAvatarSynced] = useState(false);
+  const readyEventVersion = useUnityStore((state) => state.lastUnityReadyEvent?.version ?? 0);
   const requestIdRef = useRef(0);
   const inFlightRef = useRef(false);
   const hasSyncedSuccessfullyRef = useRef(false);
@@ -69,6 +72,7 @@ export const useUnityBootstrap = (
   const reattachSyncInFlightRef = useRef(false);
   const lastReattachReadyAtRef = useRef(0);
   const attemptReattachResyncRef = useRef<() => void>(() => {});
+  const lastHandledReadyEventVersionRef = useRef(0);
 
   const clearRetrySchedule = useCallback(() => {
     if (retryTimerRef.current) {
@@ -105,6 +109,13 @@ export const useUnityBootstrap = (
 
     const payload = getInitialAvatarPayload();
     if (!payload) {
+      pendingReattachResyncRef.current = false;
+      return;
+    }
+
+    if (!unitySessionController.shouldSyncAvatarPayload(payload)) {
+      clearReattachRetrySchedule();
+      pendingReattachResyncRef.current = false;
       return;
     }
 
@@ -172,6 +183,27 @@ export const useUnityBootstrap = (
     [baseHandleUnityReady]
   );
 
+  useEffect(() => {
+    const readyEvent = useUnityStore.getState().lastUnityReadyEvent;
+    if (!readyEvent || readyEvent.version === lastHandledReadyEventVersionRef.current) {
+      return;
+    }
+
+    lastHandledReadyEventVersionRef.current = readyEvent.version;
+
+    const nativeEvent: UnityReadyEvent['nativeEvent'] = {
+      timestamp: readyEvent.timestamp,
+      ...(typeof readyEvent.ready === 'boolean' ? { ready: readyEvent.ready } : {}),
+      ...(readyEvent.message ? { message: readyEvent.message } : {}),
+      ...(readyEvent.type ? { type: readyEvent.type } : {}),
+      ...(typeof readyEvent.target === 'number' ? { target: readyEvent.target } : {}),
+    };
+
+    handleUnityReady({
+      nativeEvent,
+    });
+  }, [handleUnityReady, readyEventVersion]);
+
   const resetBootstrap = useCallback(() => {
     requestIdRef.current += 1;
     inFlightRef.current = false;
@@ -230,6 +262,14 @@ export const useUnityBootstrap = (
     const payload = getInitialAvatarPayload();
     if (!payload) {
       setBootstrapPhase('waiting-payload');
+      return;
+    }
+
+    if (!unitySessionController.shouldSyncAvatarPayload(payload)) {
+      clearRetrySchedule();
+      hasSyncedSuccessfullyRef.current = true;
+      setIsInitialAvatarSynced(true);
+      setBootstrapPhase('done');
       return;
     }
 

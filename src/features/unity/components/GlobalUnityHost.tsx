@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { UnityView } from './UnityView';
+import { useUnitySessionController } from '../hooks/useUnitySessionController';
 import { useUnityStore, type UnityViewport } from '~/stores/unity/unityStore';
 
 const MIN_HOST_SIZE = 1;
@@ -11,6 +12,8 @@ const MIN_HOST_SIZE = 1;
  */
 export const GlobalUnityHost: React.FC = () => {
   const activeViewport = useUnityStore((state) => state.activeViewport);
+  const setRenderedViewport = useUnityStore((state) => state.setRenderedViewport);
+  const { reattachToken, handleUnityReady, handleUnityError } = useUnitySessionController();
   const [hasMountedUnity, setHasMountedUnity] = useState(false);
   const [lastViewport, setLastViewport] = useState<UnityViewport | null>(null);
 
@@ -40,14 +43,34 @@ export const GlobalUnityHost: React.FC = () => {
     };
   }, [activeViewport, resolvedViewport]);
 
+  const handleHostLayout = useCallback(() => {
+    if (!activeViewport || !resolvedViewport) {
+      return;
+    }
+
+    setRenderedViewport({
+      owner: activeViewport.owner,
+      frame: resolvedViewport.frame,
+    });
+  }, [activeViewport, resolvedViewport, setRenderedViewport]);
+
   if (!hasMountedUnity) {
     return null;
   }
 
   return (
     <View pointerEvents="none" style={styles.overlay}>
-      <View pointerEvents="none" style={[styles.host, hostStyle]}>
-        <UnityView style={styles.unityView} />
+      <View
+        pointerEvents="none"
+        onLayout={handleHostLayout}
+        style={[styles.host, hostStyle]}
+      >
+        <UnityView
+          style={styles.unityView}
+          reattachToken={reattachToken}
+          onUnityReady={handleUnityReady}
+          onUnityError={handleUnityError}
+        />
       </View>
     </View>
   );

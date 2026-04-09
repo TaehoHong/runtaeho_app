@@ -25,7 +25,7 @@ import {
   INITIAL_STAT_ELEMENTS,
   BACKGROUND_OPTIONS,
 } from '../constants/shareOptions';
-import { shareService } from '../services/shareService';
+import { shareService, type ViewBounds } from '../services/shareService';
 import type { UnityReadyEvent } from '~/features/unity/bridge/UnityBridge';
 import { unityService } from '~/features/unity/services/UnityService';
 import type { CharacterMotion } from '~/features/unity/types/UnityTypes';
@@ -71,8 +71,14 @@ interface UseShareEditorReturn {
   updateStatTransform: (type: StatType, transform: ElementTransform) => void;
   toggleStatVisibility: (type: StatType) => void;
   toggleAvatarVisibility: () => void;
-  shareResult: (exportStageRef: React.RefObject<View | null>) => Promise<ShareResult>;
-  saveToGallery: (exportStageRef: React.RefObject<View | null>) => Promise<boolean>;
+  shareResult: (
+    exportStageRef: React.RefObject<View | null>,
+    exportStageBounds?: ViewBounds
+  ) => Promise<ShareResult>;
+  saveToGallery: (
+    exportStageRef: React.RefObject<View | null>,
+    exportStageBounds?: ViewBounds
+  ) => Promise<boolean>;
   resetAll: (options?: ResetAllOptions) => Promise<void>;
   restoreRunningResultDefaults: () => Promise<void>;
   handleUnityReady: (event: UnityReadyEvent) => void;
@@ -197,18 +203,21 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
     }
   }, []);
 
-  const applyDefaultUnityState = useCallback(async () => {
+  const applyDefaultUnityVisualState = useCallback(async () => {
     const defaultBackground = getDefaultBackground();
+    const unityY = 1 - INITIAL_CHARACTER_Y;
 
     await applyBackgroundToUnity(defaultBackground);
-    await unityService.setPoseForSlider(toCharacterMotion(DEFAULT_POSE.trigger));
-    await unityService.setAnimationNormalizedTime(0);
-
-    const unityY = 1 - INITIAL_CHARACTER_Y;
     await unityService.setCharacterPosition(INITIAL_CHARACTER_X, unityY);
     await unityService.setCharacterScale(INITIAL_CHARACTER_SCALE);
     await unityService.setCharacterVisible(true);
   }, [applyBackgroundToUnity]);
+
+  const applyDefaultShareEditorUnityState = useCallback(async () => {
+    await applyDefaultUnityVisualState();
+    await unityService.setPoseForSlider(toCharacterMotion(DEFAULT_POSE.trigger));
+    await unityService.setAnimationNormalizedTime(0);
+  }, [applyDefaultUnityVisualState]);
 
   useEffect(() => {
     const wasCanSendMessage = previousCanSendMessageRef.current;
@@ -270,7 +279,8 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
     const restoreTask = (async () => {
       const restored = await unityService.runWhenReady(
         async () => {
-          await applyDefaultUnityState();
+          await applyDefaultUnityVisualState();
+          await unityService.stopCharacter();
         },
         { waitForAvatar: false, timeoutMs: 3000, forceReadyOnTimeout: true }
       );
@@ -291,7 +301,7 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
     } finally {
       restoreInFlightRef.current = null;
     }
-  }, [applyDefaultUnityState]);
+  }, [applyDefaultUnityVisualState]);
 
   useEffect(() => {
     if (
@@ -488,7 +498,8 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
   }, [avatarVisible, canSendMessage]);
 
   const shareResult = useCallback(async (
-    exportStageRef: React.RefObject<View | null>
+    exportStageRef: React.RefObject<View | null>,
+    exportStageBounds?: ViewBounds
   ): Promise<ShareResult> => {
     if (!exportStageRef.current) {
       return {
@@ -505,7 +516,8 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
       return await shareService.captureAndShare(
         exportStageRef,
         'RunTaeho 러닝 기록',
-        message
+        message,
+        exportStageBounds
       );
     } finally {
       setIsCapturing(false);
@@ -513,7 +525,8 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
   }, [runningData]);
 
   const saveToGallery = useCallback(async (
-    exportStageRef: React.RefObject<View | null>
+    exportStageRef: React.RefObject<View | null>,
+    exportStageBounds?: ViewBounds
   ): Promise<boolean> => {
     if (!exportStageRef.current) {
       return false;
@@ -521,7 +534,10 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
 
     setIsCapturing(true);
     try {
-      const imageUri = await shareService.captureViewAsImage(exportStageRef);
+      const imageUri = await shareService.captureViewAsImage(
+        exportStageRef,
+        exportStageBounds
+      );
       return await shareService.saveToGallery(imageUri);
     } catch (error) {
       console.error('[useShareEditor] Save to gallery failed:', error);
@@ -552,11 +568,11 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
     }
 
     try {
-      await applyDefaultUnityState();
+      await applyDefaultShareEditorUnityState();
     } catch (error) {
       console.error('[useShareEditor] Failed to reset Unity state:', error);
     }
-  }, [applyDefaultUnityState, canSendMessage]);
+  }, [applyDefaultShareEditorUnityState, canSendMessage]);
 
   return {
     selectedBackground,

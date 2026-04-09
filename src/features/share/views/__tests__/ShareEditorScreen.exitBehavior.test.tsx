@@ -16,6 +16,14 @@ const mockSharePreviewCanvas = jest.fn();
 const mockUseFocusEffect = jest.fn();
 const mockSetActiveViewport = jest.fn();
 const mockClearActiveViewport = jest.fn();
+const mockUnityStoreState = {
+  setActiveViewport: mockSetActiveViewport,
+  clearActiveViewport: mockClearActiveViewport,
+  renderedViewport: null as null | {
+    owner: 'share';
+    frame: { x: number; y: number; width: number; height: number };
+  },
+};
 let mockCanvasRef: { current: null };
 let alertSpy: jest.SpyInstance;
 
@@ -43,13 +51,17 @@ jest.mock('~/stores/unity/unityStore', () => ({
     selector: (state: {
       setActiveViewport: typeof mockSetActiveViewport;
       clearActiveViewport: typeof mockClearActiveViewport;
+      renderedViewport: typeof mockUnityStoreState.renderedViewport;
     }) => unknown
   ) =>
-    selector({
-      setActiveViewport: mockSetActiveViewport,
-      clearActiveViewport: mockClearActiveViewport,
-    }),
+    selector(mockUnityStoreState),
 }));
+
+(useUnityStore => {
+  (useUnityStore as typeof useUnityStore & {
+    getState?: () => typeof mockUnityStoreState;
+  }).getState = () => mockUnityStoreState;
+})(require('~/stores/unity/unityStore').useUnityStore);
 
 jest.mock('@expo/vector-icons', () => ({
   Ionicons: () => null,
@@ -100,6 +112,7 @@ describe('ShareEditorScreen exit behavior', () => {
     jest.clearAllMocks();
     mockCanvasRef = { current: null };
     alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    mockUnityStoreState.renderedViewport = null;
 
     mockResetAll.mockResolvedValue(undefined);
     mockRestoreRunningResultDefaults.mockResolvedValue(undefined);
@@ -214,11 +227,22 @@ describe('ShareEditorScreen exit behavior', () => {
         layout: { x: 0, y: 0, width: 280, height: 350 },
       },
     });
+    mockUnityStoreState.renderedViewport = {
+      owner: 'share',
+      frame: { x: 0, y: 0, width: 280, height: 350 },
+    };
 
     await waitFor(() => {
       expect(mockShareResult).toHaveBeenCalledTimes(1);
     });
     expect(mockShareResult.mock.calls[0]?.[0]).not.toBe(mockCanvasRef);
+    expect(mockShareResult.mock.calls[0]?.[1]).toEqual({
+      x: 0,
+      y: 0,
+      width: 280,
+      height: 350,
+    });
+    expect(mockShareResult.mock.calls[0]?.[2]).toBeUndefined();
     expect(mockSetActiveViewport).toHaveBeenCalledWith(expect.objectContaining({
       borderRadius: 0,
     }));
@@ -261,6 +285,10 @@ describe('ShareEditorScreen exit behavior', () => {
         layout: { x: 0, y: 0, width: 280, height: 350 },
       },
     });
+    mockUnityStoreState.renderedViewport = {
+      owner: 'share',
+      frame: { x: 0, y: 0, width: 280, height: 350 },
+    };
 
     await waitFor(() => {
       expect(mockShareResult).toHaveBeenCalledTimes(1);
@@ -315,6 +343,10 @@ describe('ShareEditorScreen exit behavior', () => {
         layout: { x: 0, y: 0, width: 280, height: 350 },
       },
     });
+    mockUnityStoreState.renderedViewport = {
+      owner: 'share',
+      frame: { x: 0, y: 0, width: 280, height: 350 },
+    };
 
     await waitFor(() => {
       expect(mockShareResult).toHaveBeenCalledTimes(1);

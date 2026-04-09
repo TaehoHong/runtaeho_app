@@ -13,6 +13,7 @@ const mockSetAnimationNormalizedTime = jest.fn();
 const mockSetCharacterPosition = jest.fn();
 const mockSetCharacterScale = jest.fn();
 const mockSetCharacterVisible = jest.fn();
+const mockStopCharacter = jest.fn();
 const mockRunWhenReady = jest.fn();
 const mockUseUnityBootstrap = jest.fn();
 const mockStartUnity = jest.fn();
@@ -50,6 +51,7 @@ jest.mock('~/features/unity/services/UnityService', () => ({
     setCharacterPosition: (...args: unknown[]) => mockSetCharacterPosition(...args),
     setCharacterScale: (...args: unknown[]) => mockSetCharacterScale(...args),
     setCharacterVisible: (...args: unknown[]) => mockSetCharacterVisible(...args),
+    stopCharacter: (...args: unknown[]) => mockStopCharacter(...args),
     runWhenReady: (...args: unknown[]) => mockRunWhenReady(...args),
   },
 }));
@@ -109,6 +111,7 @@ describe('useShareEditor recovery', () => {
     mockSetCharacterPosition.mockResolvedValue(undefined);
     mockSetCharacterScale.mockResolvedValue(undefined);
     mockSetCharacterVisible.mockResolvedValue(undefined);
+    mockStopCharacter.mockResolvedValue(undefined);
     mockRunWhenReady.mockImplementation(async (task: () => void | Promise<void>) => {
       try {
         await task();
@@ -238,6 +241,7 @@ describe('useShareEditor recovery', () => {
     mockSetCharacterVisible.mockClear();
     mockSetCharacterScale.mockClear();
     mockSetCharacterPosition.mockClear();
+    mockStopCharacter.mockClear();
 
     await act(async () => {
       await Promise.all([
@@ -249,10 +253,8 @@ describe('useShareEditor recovery', () => {
     expect(mockRunWhenReady).toHaveBeenCalledTimes(1);
     expect(mockSetBackground).toHaveBeenCalledTimes(1);
     expect(mockSetBackground).toHaveBeenCalledWith('river');
-    expect(mockSetPoseForSlider).toHaveBeenCalledTimes(1);
-    expect(mockSetPoseForSlider).toHaveBeenCalledWith('IDLE');
-    expect(mockSetAnimationNormalizedTime).toHaveBeenCalledTimes(1);
-    expect(mockSetAnimationNormalizedTime).toHaveBeenCalledWith(0);
+    expect(mockSetPoseForSlider).not.toHaveBeenCalled();
+    expect(mockSetAnimationNormalizedTime).not.toHaveBeenCalled();
     expect(mockSetCharacterPosition).toHaveBeenCalledTimes(1);
     const restorePositionCall = mockSetCharacterPosition.mock.calls.at(-1);
     expect(restorePositionCall?.[0]).toBeCloseTo(0.5);
@@ -261,6 +263,7 @@ describe('useShareEditor recovery', () => {
     expect(mockSetCharacterScale).toHaveBeenCalledWith(1);
     expect(mockSetCharacterVisible).toHaveBeenCalledTimes(1);
     expect(mockSetCharacterVisible).toHaveBeenCalledWith(true);
+    expect(mockStopCharacter).toHaveBeenCalledTimes(1);
   });
 
   it('replays the running result defaults after resetAll', async () => {
@@ -283,6 +286,7 @@ describe('useShareEditor recovery', () => {
     mockSetCharacterPosition.mockClear();
     mockSetCharacterScale.mockClear();
     mockSetCharacterVisible.mockClear();
+    mockStopCharacter.mockClear();
 
     await act(async () => {
       await result.current.resetAll();
@@ -299,6 +303,7 @@ describe('useShareEditor recovery', () => {
     mockSetCharacterPosition.mockClear();
     mockSetCharacterScale.mockClear();
     mockSetCharacterVisible.mockClear();
+    mockStopCharacter.mockClear();
 
     await act(async () => {
       await result.current.restoreRunningResultDefaults();
@@ -306,13 +311,14 @@ describe('useShareEditor recovery', () => {
 
     expect(mockRunWhenReady).toHaveBeenCalledTimes(1);
     expect(mockSetBackground).toHaveBeenCalledWith('river');
-    expect(mockSetPoseForSlider).toHaveBeenCalledWith('IDLE');
-    expect(mockSetAnimationNormalizedTime).toHaveBeenCalledWith(0);
+    expect(mockSetPoseForSlider).not.toHaveBeenCalled();
+    expect(mockSetAnimationNormalizedTime).not.toHaveBeenCalled();
     const replayPositionCall = mockSetCharacterPosition.mock.calls.at(-1);
     expect(replayPositionCall?.[0]).toBeCloseTo(0.5);
     expect(replayPositionCall?.[1]).toBeCloseTo(0.1);
     expect(mockSetCharacterScale).toHaveBeenCalledWith(1);
     expect(mockSetCharacterVisible).toHaveBeenCalledWith(true);
+    expect(mockStopCharacter).toHaveBeenCalledTimes(1);
   });
 
   it('rejects when the running result default replay fails', async () => {
@@ -336,6 +342,7 @@ describe('useShareEditor recovery', () => {
     mockSetCharacterPosition.mockClear();
     mockSetCharacterScale.mockClear();
     mockSetCharacterVisible.mockClear();
+    mockStopCharacter.mockClear();
 
     await expect(
       act(async () => {
@@ -350,5 +357,6 @@ describe('useShareEditor recovery', () => {
     expect(mockSetCharacterPosition).not.toHaveBeenCalled();
     expect(mockSetCharacterScale).not.toHaveBeenCalled();
     expect(mockSetCharacterVisible).not.toHaveBeenCalled();
+    expect(mockStopCharacter).not.toHaveBeenCalled();
   });
 });

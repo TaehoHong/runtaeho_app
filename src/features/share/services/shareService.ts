@@ -3,7 +3,7 @@
  * 이미지 캡처 및 공유 기능 서비스
  */
 
-import { Platform, PermissionsAndroid, Alert, Dimensions, Image } from 'react-native';
+import { Platform, PermissionsAndroid, Alert, Dimensions, Image, NativeModules } from 'react-native';
 import type { RefObject } from 'react';
 import type { View } from 'react-native';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
@@ -14,11 +14,22 @@ import { CANVAS_SIZE } from '../constants/shareOptions';
 let captureScreen: ((options?: object) => Promise<string>) | null = null;
 let Share: { open: (options: object) => Promise<any> } | null = null;
 
-interface ViewBounds {
+export interface ViewBounds {
   x: number;
   y: number;
   width: number;
   height: number;
+}
+
+interface CaptureRootBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface NativeCaptureRootBridge {
+  getCaptureRootBounds?: () => Promise<CaptureRootBounds>;
 }
 
 /**
@@ -89,6 +100,84 @@ export class ShareService {
     });
   }
 
+  private async resolveCaptureRootBounds(): Promise<CaptureRootBounds> {
+    const windowSize = Dimensions.get('window');
+
+    if (Platform.OS !== 'android') {
+      return {
+        x: 0,
+        y: 0,
+        width: windowSize.width,
+        height: windowSize.height,
+      };
+    }
+
+    const nativeBridge = NativeModules.RNUnityBridge as NativeCaptureRootBridge | undefined;
+    if (!nativeBridge?.getCaptureRootBounds) {
+      throw new Error('Android capture root lookup is not available');
+    }
+
+    const bounds = await nativeBridge.getCaptureRootBounds();
+    if (bounds.width <= 0 || bounds.height <= 0) {
+      throw new Error('Android capture root bounds are invalid');
+    }
+
+    return bounds;
+  }
+
+  private normalizeCropBounds(
+    bounds: ViewBounds,
+    captureRootBounds: CaptureRootBounds
+  ): ViewBounds {
+    if (Platform.OS !== 'android') {
+      return bounds;
+    }
+
+    // Android captureScreen() snapshots the activity content root, not full window coordinates.
+    return {
+      x: bounds.x - captureRootBounds.x,
+      y: bounds.y - captureRootBounds.y,
+      width: bounds.width,
+      height: bounds.height,
+    };
+  }
+
+  private logAndroidCropDebug(
+    stageBounds: ViewBounds,
+    captureRootBounds: CaptureRootBounds,
+    cropBounds: ViewBounds,
+    cropRect: { originX: number; originY: number; width: number; height: number },
+    screenshotSize: { width: number; height: number },
+    screenshotUri: string
+  ): void {
+    if (!__DEV__ || Platform.OS !== 'android') {
+      return;
+    }
+
+    console.log('[ShareService] Android crop debug:', {
+      screenshotUri,
+      rootBounds: captureRootBounds,
+      stageBounds,
+      cropBounds,
+      cropRect,
+      screenshotSize,
+    });
+  }
+
+  private logAndroidExportResultDebug(
+    screenshotUri: string,
+    exportedImageUri: string
+  ): void {
+    if (!__DEV__ || Platform.OS !== 'android') {
+      return;
+    }
+
+    console.log('[ShareService] Android export result:', {
+      screenshotUri,
+      exportedImageUri,
+    });
+  }
+
   static getInstance(): ShareService {
     if (!ShareService.instance) {
       ShareService.instance = new ShareService();
@@ -106,7 +195,10 @@ export class ShareService {
    * @param viewRef 캡처할 View의 ref
    * @returns 캡처된 이미지의 URI
    */
-  async captureViewAsImage(viewRef: RefObject<View | null>): Promise<string> {
+  async captureViewAsImage(
+    viewRef: RefObject<View | null>,
+    boundsOverride?: ViewBounds
+  ): Promise<string> {
     await loadDependencies();
 
     if (!captureScreen) {
@@ -114,36 +206,44 @@ export class ShareService {
     }
 
     try {
-      const bounds = await this.measureViewInWindow(viewRef);
+      const bounds = boundsOverride ?? await this.measureViewInWindow(viewRef);
       if (!this.isViewFullyVisibleInWindow(bounds)) {
         throw new Error('공유 이미지를 캡처하려면 export stage가 화면 안에 완전히 보여야 합니다.');
       }
+      const captureRootBounds = await this.resolveCaptureRootBounds();
+      const cropBounds = this.normalizeCropBounds(bounds, captureRootBounds);
 
       const screenshotUri = await captureScreen({
         format: 'png',
         quality: 1,
         result: 'tmpfile',
+        ...(Platform.OS === 'android' && { handleGLSurfaceViewOnAndroid: true }),
       });
       const screenshotSize = await this.getImageSize(screenshotUri);
-      const windowSize = Dimensions.get('window');
-      const scaleX = screenshotSize.width / windowSize.width;
-      const scaleY = screenshotSize.height / windowSize.height;
+      const scaleX = screenshotSize.width / captureRootBounds.width;
+      const scaleY = screenshotSize.height / captureRootBounds.height;
       const originX = Math.min(
-        Math.max(0, Math.round(bounds.x * scaleX)),
+        Math.max(0, Math.round(cropBounds.x * scaleX)),
         Math.max(0, screenshotSize.width - 1)
       );
       const originY = Math.min(
-        Math.max(0, Math.round(bounds.y * scaleY)),
+        Math.max(0, Math.round(cropBounds.y * scaleY)),
         Math.max(0, screenshotSize.height - 1)
       );
       const width = Math.max(1, Math.min(
         screenshotSize.width - originX,
-        Math.round(bounds.width * scaleX)
+        Math.round(cropBounds.width * scaleX)
       ));
       const height = Math.max(1, Math.min(
         screenshotSize.height - originY,
-        Math.round(bounds.height * scaleY)
+        Math.round(cropBounds.height * scaleY)
       ));
+      this.logAndroidCropDebug(bounds, captureRootBounds, cropBounds, {
+        originX,
+        originY,
+        width,
+        height,
+      }, screenshotSize, screenshotUri);
       const exportedImage = await manipulateAsync(
         screenshotUri,
         [
@@ -153,6 +253,7 @@ export class ShareService {
         { compress: 1, format: SaveFormat.PNG }
       );
 
+      this.logAndroidExportResultDebug(screenshotUri, exportedImage.uri);
       console.log('[ShareService] Screen cropped to export stage:', exportedImage.uri);
       return exportedImage.uri;
     } catch (error) {
@@ -289,10 +390,11 @@ export class ShareService {
   async captureAndShare(
     viewRef: RefObject<View | null>,
     title?: string,
-    message?: string
+    message?: string,
+    boundsOverride?: ViewBounds
   ): Promise<ShareResult> {
     try {
-      const imageUri = await this.captureViewAsImage(viewRef);
+      const imageUri = await this.captureViewAsImage(viewRef, boundsOverride);
       return await this.shareImage(imageUri, title, message);
     } catch (error: any) {
       console.error('[ShareService] captureAndShare failed:', error);

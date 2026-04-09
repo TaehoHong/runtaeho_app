@@ -400,11 +400,6 @@ const styles = StyleSheet.create({
     height: PREVIEW_HEIGHT,
     overflow: 'hidden',
     backgroundColor: 'transparent',
-    shadowColor: PRIMARY[500],
-    shadowOffset: { width: 0, height: 25 },
-    shadowOpacity: 0.2,
-    shadowRadius: 50,
-    elevation: 20,
   },
   unityViewport: {
     ...StyleSheet.absoluteFillObject,
