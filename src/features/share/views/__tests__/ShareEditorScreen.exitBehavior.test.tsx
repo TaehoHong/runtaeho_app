@@ -95,6 +95,7 @@ jest.mock('~/features/share/views/components', () => {
     PoseSelector: () => React.createElement(View, { testID: 'pose-selector' }),
     StatVisibilityToggle: () => React.createElement(View, { testID: 'stat-visibility-toggle' }),
     BackgroundSelector: () => React.createElement(View, { testID: 'background-selector' }),
+    ShareEditorTestTools: () => React.createElement(View, { testID: 'share-editor-test-tools' }),
     ShareActions: ({ onShare, onCancel }: { onShare: () => void; onCancel: () => void }) =>
       React.createElement(
         View,
@@ -155,7 +156,6 @@ describe('ShareEditorScreen exit behavior', () => {
       toggleStatVisibility: jest.fn(),
       toggleAvatarVisibility: jest.fn(),
       shareResult: (...args: unknown[]) => mockShareResult(...args),
-      saveToGallery: jest.fn(),
       resetAll: (...args: unknown[]) => mockResetAll(...args),
       restoreRunningResultDefaults: (...args: unknown[]) => mockRestoreRunningResultDefaults(...args),
       updateCharacterPosition: jest.fn(),

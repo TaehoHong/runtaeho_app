@@ -67,6 +67,7 @@ jest.mock('~/features/share/views/components', () => {
     PoseSelector: () => React.createElement(View, { testID: 'pose-selector' }),
     StatVisibilityToggle: () => React.createElement(View, { testID: 'stat-visibility-toggle' }),
     BackgroundSelector: () => React.createElement(View, { testID: 'background-selector' }),
+    ShareEditorTestTools: () => React.createElement(View, { testID: 'share-editor-test-tools' }),
     ShareActions: () => React.createElement(View, { testID: 'share-actions' }),
   };
 });
@@ -112,7 +113,6 @@ describe('ShareEditorScreen loading behavior', () => {
       toggleStatVisibility: jest.fn(),
       toggleAvatarVisibility: jest.fn(),
       shareResult: jest.fn(),
-      saveToGallery: jest.fn(),
       resetAll: jest.fn().mockResolvedValue(undefined),
       restoreRunningResultDefaults: jest.fn().mockResolvedValue(undefined),
       updateCharacterPosition: jest.fn(),

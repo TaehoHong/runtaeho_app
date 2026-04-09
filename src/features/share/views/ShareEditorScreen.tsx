@@ -8,11 +8,10 @@
  */
 
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,26 +19,24 @@ import {
   type ViewStyle,
   View,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { GREY, PRIMARY } from '~/shared/styles';
-import { useUnityStore } from '~/stores/unity/unityStore';
+import { GREY } from '~/shared/styles';
 import { useUserStore } from '~/stores/user';
 import type { ShareRunningData } from '../models/types';
-import type { ViewBounds } from '../services/shareService';
 import { useShareStore } from '../stores/shareStore';
 import { generateDummyLocations } from '../utils/dummyGpsData';
 import { useShareEditor } from '../viewmodels/useShareEditor';
+import { useShareExportSurface } from './hooks/useShareExportSurface';
 import {
   BackgroundSelector,
   PoseSelector,
   ShareActions,
+  ShareEditorTestTools,
   SharePreviewCanvas,
   StatVisibilityToggle,
 } from './components';
-import { ANDROID_SHARE_DIAGNOSTIC_MODE } from '../constants/shareDiagnostics';
 
 interface ShareEditorScreenProps {
   runningData: ShareRunningData;
@@ -47,22 +44,6 @@ interface ShareEditorScreenProps {
 
 const PREVIEW_CORNER_RADIUS = 16;
 const EXPORT_CORNER_RADIUS = 0;
-const VIEWPORT_MATCH_EPSILON = 2;
-const UNITY_EXPORT_VIEWPORT_TIMEOUT_MS = 1200;
-
-const waitForAnimationFrames = async (frameCount: number = 1): Promise<void> => {
-  for (let frame = 0; frame < frameCount; frame += 1) {
-    await new Promise<void>((resolve) => {
-      requestAnimationFrame(() => resolve());
-    });
-  }
-};
-
-const doViewportFramesMatch = (expected: ViewBounds, actual: ViewBounds): boolean =>
-  Math.abs(expected.x - actual.x) <= VIEWPORT_MATCH_EPSILON
-  && Math.abs(expected.y - actual.y) <= VIEWPORT_MATCH_EPSILON
-  && Math.abs(expected.width - actual.width) <= VIEWPORT_MATCH_EPSILON
-  && Math.abs(expected.height - actual.height) <= VIEWPORT_MATCH_EPSILON;
 
 export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningData }) => {
   const {
@@ -87,15 +68,17 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
     updateCharacterPosition,
     updateCharacterScale,
   } = useShareEditor({ runningData });
-  const setActiveViewport = useUnityStore((state) => state.setActiveViewport);
-  const clearActiveViewport = useUnityStore((state) => state.clearActiveViewport);
-  const exportStageRef = useRef<View>(null);
-  const exportStageBoundsRef = useRef<ViewBounds | null>(null);
-  const exportStageLayoutResolverRef = useRef<(() => void) | null>(null);
-  const isExportSurfaceActiveRef = useRef(false);
-  const [isExportSurfaceVisible, setIsExportSurfaceVisible] = useState(false);
-  const shouldShowDiagnosticAnchors = Platform.OS === 'android'
-    && ANDROID_SHARE_DIAGNOSTIC_MODE === 'crop-proof';
+  const {
+    exportStageRef,
+    isExportSurfaceVisible,
+    syncPreviewViewport,
+    handleExportStageLayout,
+    prepareExportSurface,
+    restorePreviewSurface,
+  } = useShareExportSurface({
+    previewRef: canvasRef,
+    isLoading,
+  });
 
   // userId=1 전용 더미 데이터 기능
   const currentUser = useUserStore((state) => state.currentUser);
@@ -110,90 +93,6 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
     Alert.alert('더미 데이터 추가됨', `${dummyLocations.length}개의 GPS 좌표가 추가되었습니다.`);
   }, [setDummyLocations]);
 
-  const measureView = useCallback((
-    targetRef: React.RefObject<View | null>,
-    onMeasured?: (frame: ViewBounds) => void
-  ) => {
-    requestAnimationFrame(() => {
-      const target = targetRef.current;
-      if (!target || typeof target.measureInWindow !== 'function') {
-        return;
-      }
-
-      target.measureInWindow((x, y, width, height) => {
-        if (width <= 0 || height <= 0) {
-          return;
-        }
-
-        onMeasured?.({ x, y, width, height });
-      });
-    });
-  }, []);
-
-  const syncViewport = useCallback((
-    targetRef: React.RefObject<View | null>,
-    borderRadius: number,
-    onMeasured?: (frame: ViewBounds) => void
-  ) => {
-    measureView(targetRef, (frame) => {
-      onMeasured?.(frame);
-      setActiveViewport({
-        owner: 'share',
-        frame,
-        borderRadius,
-      });
-    });
-  }, [measureView, setActiveViewport]);
-
-  const syncPreviewViewport = useCallback(() => {
-    if (isExportSurfaceActiveRef.current) {
-      return;
-    }
-
-    syncViewport(canvasRef, PREVIEW_CORNER_RADIUS);
-  }, [canvasRef, syncViewport]);
-
-  const syncExportStageViewport = useCallback(() => {
-    syncViewport(exportStageRef, EXPORT_CORNER_RADIUS, (frame) => {
-      exportStageBoundsRef.current = frame;
-    });
-  }, [syncViewport]);
-
-  const handleExportStageLayout = useCallback(() => {
-    syncExportStageViewport();
-    exportStageLayoutResolverRef.current?.();
-    exportStageLayoutResolverRef.current = null;
-  }, [syncExportStageViewport]);
-
-  const waitForExportViewportRender = useCallback(async () => {
-    const expectedBounds = exportStageBoundsRef.current;
-    if (!expectedBounds) {
-      throw new Error('Export stage bounds are not ready');
-    }
-
-    const startedAt = Date.now();
-
-    while (Date.now() - startedAt < UNITY_EXPORT_VIEWPORT_TIMEOUT_MS) {
-      const renderedViewport = useUnityStore.getState().renderedViewport;
-      if (
-        renderedViewport?.owner === 'share'
-        && doViewportFramesMatch(expectedBounds, renderedViewport.frame)
-      ) {
-        exportStageBoundsRef.current = renderedViewport.frame;
-        return;
-      }
-
-      await waitForAnimationFrames(1);
-    }
-
-    const renderedViewport = useUnityStore.getState().renderedViewport;
-    console.warn('[ShareEditorScreen] Unity export viewport did not settle before capture', {
-      expectedBounds,
-      renderedViewport,
-    });
-    throw new Error('Unity export viewport did not settle before capture');
-  }, []);
-
   const closeEditor = useCallback(async (reason: 'close' | 'share-success') => {
     try {
       await restoreRunningResultDefaults();
@@ -207,29 +106,6 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
     }
   }, [resetAll, restoreRunningResultDefaults]);
 
-  const showExportSurface = useCallback(async () => {
-    isExportSurfaceActiveRef.current = true;
-    exportStageBoundsRef.current = null;
-
-    const layoutReady = new Promise<void>((resolve) => {
-      exportStageLayoutResolverRef.current = resolve;
-    });
-
-    setIsExportSurfaceVisible(true);
-    await layoutReady;
-    await waitForAnimationFrames(2);
-    syncExportStageViewport();
-    await waitForExportViewportRender();
-  }, [syncExportStageViewport, waitForExportViewportRender]);
-
-  const hideExportSurface = useCallback(async () => {
-    exportStageLayoutResolverRef.current = null;
-    setIsExportSurfaceVisible(false);
-    isExportSurfaceActiveRef.current = false;
-    await waitForAnimationFrames(2);
-    syncPreviewViewport();
-  }, [syncPreviewViewport]);
-
   const isShareBusy = isCapturing || isExportSurfaceVisible;
 
   // 공유 처리
@@ -241,11 +117,8 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
     let result = { success: false, message: '캡처 및 공유에 실패했습니다.' };
 
     try {
-      await showExportSurface();
-      result = await shareResult(
-        exportStageRef,
-        exportStageBoundsRef.current ?? undefined
-      );
+      const exportStageBounds = await prepareExportSurface();
+      result = await shareResult(exportStageRef, exportStageBounds);
     } catch (error: any) {
       console.error('[ShareEditorScreen] Failed to prepare export surface:', error);
       result = {
@@ -253,7 +126,7 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
         message: error?.message || '캡처 및 공유에 실패했습니다.',
       };
     } finally {
-      await hideExportSurface();
+      await restorePreviewSurface();
     }
 
     if (result.success) {
@@ -274,20 +147,6 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
   const handleReset = () => {
     void resetAll();
   };
-
-  useFocusEffect(
-    useCallback(() => {
-      syncPreviewViewport();
-
-      return () => {
-        clearActiveViewport('share');
-      };
-    }, [clearActiveViewport, syncPreviewViewport])
-  );
-
-  useEffect(() => {
-    syncPreviewViewport();
-  }, [isLoading, syncPreviewViewport]);
 
   const handlePreviewScroll = useCallback(() => {
     syncPreviewViewport();
@@ -372,22 +231,10 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
                       onAvatarToggle={toggleAvatarVisibility}
                     />
 
-                    {/* 더미 GPS 데이터 추가 버튼 (userId=1 전용) */}
-                    {isTestUser && !hasLocations && (
-                      <View style={styles.dummyButtonContainer}>
-                        <TouchableOpacity
-                          style={styles.dummyButton}
-                          onPress={handleAddDummyData}
-                          activeOpacity={0.7}
-                        >
-                          <Ionicons name="map-outline" size={18} color={GREY.WHITE} />
-                          <Text style={styles.dummyButtonText}>더미 GPS 데이터 추가</Text>
-                        </TouchableOpacity>
-                        <Text style={styles.dummyButtonHint}>
-                          * 지도 테스트용 (userId=1 전용)
-                        </Text>
-                      </View>
-                    )}
+                    <ShareEditorTestTools
+                      visible={isTestUser && !hasLocations}
+                      onAddDummyData={handleAddDummyData}
+                    />
 
                     {/* 배경 선택 - 카드 래핑 포함 */}
                     <BackgroundSelector
@@ -440,7 +287,6 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
                     interactive={false}
                     containerPadding={false}
                     cornerRadius={EXPORT_CORNER_RADIUS}
-                    diagnosticAnchors={shouldShowDiagnosticAnchors}
                   />
                 </View>
                 <View style={styles.exportSideMask} />
@@ -534,34 +380,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: GREY[500],
     fontFamily: 'Pretendard-Regular',
-  },
-  dummyButtonContainer: {
-    marginHorizontal: 16,
-    marginTop: 8,
-    marginBottom: 8,
-    alignItems: 'center',
-  },
-  dummyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: PRIMARY[600],
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    gap: 8,
-  },
-  dummyButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: GREY.WHITE,
-    fontFamily: 'Pretendard-SemiBold',
-  },
-  dummyButtonHint: {
-    fontSize: 11,
-    color: GREY[400],
-    fontFamily: 'Pretendard-Regular',
-    marginTop: 4,
   },
   exportSurface: {
     ...StyleSheet.absoluteFillObject,

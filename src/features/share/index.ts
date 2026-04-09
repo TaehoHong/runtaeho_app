@@ -11,7 +11,7 @@ export * from './views/components';
 export { useShareEditor } from './viewmodels/useShareEditor';
 
 // Services
-export { shareService, ShareService } from './services/shareService';
+export { captureAndShare, captureViewAsImage, shareImage, shareService } from './services/shareService';
 
 // Stores
 export { useShareStore } from './stores/shareStore';
@@ -37,7 +37,10 @@ export {
   DEFAULT_BACKGROUND,
   DEFAULT_POSE,
   INITIAL_AVATAR_TRANSFORM,
+  INITIAL_CHARACTER_TRANSFORM,
   INITIAL_STAT_ELEMENTS,
+  INITIAL_POSE_ANIMATION_TIMES,
   CANVAS_SIZE,
   SCALE_RANGES,
+  createInitialShareEditorState,
 } from './constants/shareOptions';

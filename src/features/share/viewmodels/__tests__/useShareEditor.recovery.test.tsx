@@ -3,8 +3,6 @@ import type { BackgroundOption, PoseOption, ShareRunningData } from '~/features/
 import { useShareEditor } from '~/features/share/viewmodels/useShareEditor';
 
 const mockCaptureAndShare = jest.fn();
-const mockCaptureViewAsImage = jest.fn();
-const mockSaveToGallery = jest.fn();
 const mockSetBackground = jest.fn();
 const mockSetBackgroundColor = jest.fn();
 const mockSetBackgroundFromPhoto = jest.fn();
@@ -34,11 +32,7 @@ jest.mock('expo-image-manipulator', () => ({
 }));
 
 jest.mock('~/features/share/services/shareService', () => ({
-  shareService: {
-    captureAndShare: (...args: unknown[]) => mockCaptureAndShare(...args),
-    captureViewAsImage: (...args: unknown[]) => mockCaptureViewAsImage(...args),
-    saveToGallery: (...args: unknown[]) => mockSaveToGallery(...args),
-  },
+  captureAndShare: (...args: unknown[]) => mockCaptureAndShare(...args),
 }));
 
 jest.mock('~/features/unity/services/UnityService', () => ({
@@ -101,8 +95,6 @@ describe('useShareEditor recovery', () => {
     readinessState.handleUnityReady = jest.fn();
 
     mockCaptureAndShare.mockResolvedValue({ success: true });
-    mockCaptureViewAsImage.mockResolvedValue('file://preview.png');
-    mockSaveToGallery.mockResolvedValue(true);
     mockSetBackground.mockResolvedValue(undefined);
     mockSetBackgroundColor.mockResolvedValue(undefined);
     mockSetBackgroundFromPhoto.mockResolvedValue(undefined);

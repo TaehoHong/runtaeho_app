@@ -21,12 +21,6 @@ import type {
   CharacterTransform,
 } from '../../models/types';
 import { SCALE_RANGES } from '../../constants/shareOptions';
-import {
-  SHARE_DIAGNOSTIC_MARKERS,
-  SHARE_DIAGNOSTIC_MARKER_INSET,
-  SHARE_DIAGNOSTIC_MARKER_SIZE,
-  type ShareDiagnosticMarker,
-} from '../../constants/shareDiagnostics';
 import { DraggableStat } from './DraggableStat';
 import { DraggableRouteMap } from './DraggableRouteMap';
 import { PRIMARY } from '~/shared/styles';
@@ -56,7 +50,6 @@ interface SharePreviewCanvasProps {
   interactive?: boolean;
   containerPadding?: boolean;
   cornerRadius?: number;
-  diagnosticAnchors?: boolean;
 }
 
 export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
@@ -72,7 +65,6 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
       interactive = true,
       containerPadding = true,
       cornerRadius = DEFAULT_CANVAS_CORNER_RADIUS,
-      diagnosticAnchors = false,
     },
     ref
   ) => {
@@ -340,43 +332,6 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
       onStatTransformChange(type, transform);
     };
 
-    const getDiagnosticMarkerStyle = useCallback((marker: ShareDiagnosticMarker) => {
-      const halfSize = SHARE_DIAGNOSTIC_MARKER_SIZE / 2;
-
-      switch (marker.placement) {
-        case 'topLeft':
-          return {
-            left: SHARE_DIAGNOSTIC_MARKER_INSET,
-            top: SHARE_DIAGNOSTIC_MARKER_INSET,
-          };
-        case 'topRight':
-          return {
-            left: PREVIEW_WIDTH - SHARE_DIAGNOSTIC_MARKER_INSET - SHARE_DIAGNOSTIC_MARKER_SIZE,
-            top: SHARE_DIAGNOSTIC_MARKER_INSET,
-          };
-        case 'bottomLeft':
-          return {
-            left: SHARE_DIAGNOSTIC_MARKER_INSET,
-            top: PREVIEW_HEIGHT - SHARE_DIAGNOSTIC_MARKER_INSET - SHARE_DIAGNOSTIC_MARKER_SIZE,
-          };
-        case 'bottomRight':
-          return {
-            left: PREVIEW_WIDTH - SHARE_DIAGNOSTIC_MARKER_INSET - SHARE_DIAGNOSTIC_MARKER_SIZE,
-            top: PREVIEW_HEIGHT - SHARE_DIAGNOSTIC_MARKER_INSET - SHARE_DIAGNOSTIC_MARKER_SIZE,
-          };
-        case 'center':
-          return {
-            left: PREVIEW_WIDTH / 2 - halfSize,
-            top: PREVIEW_HEIGHT / 2 - halfSize,
-          };
-        default:
-          return {
-            left: SHARE_DIAGNOSTIC_MARKER_INSET,
-            top: SHARE_DIAGNOSTIC_MARKER_INSET,
-          };
-      }
-    }, []);
-
     return (
       <View style={[styles.container, containerPadding && styles.containerPadded]}>
         <View
@@ -423,21 +378,6 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
             <View style={styles.watermarkContainer}>
               <Text style={styles.watermark}>달려라 태호군</Text>
             </View>
-
-            {diagnosticAnchors && (
-              <View pointerEvents="none" style={styles.diagnosticAnchorLayer}>
-                {SHARE_DIAGNOSTIC_MARKERS.map((marker) => (
-                  <View
-                    key={marker.id}
-                    style={[
-                      styles.diagnosticAnchor,
-                      getDiagnosticMarkerStyle(marker),
-                      { backgroundColor: marker.colorHex },
-                    ]}
-                  />
-                ))}
-              </View>
-            )}
           </View>
         </View>
       </View>
@@ -489,15 +429,6 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
-  },
-  diagnosticAnchorLayer: {
-    ...StyleSheet.absoluteFillObject,
-    pointerEvents: 'none',
-  },
-  diagnosticAnchor: {
-    position: 'absolute',
-    width: SHARE_DIAGNOSTIC_MARKER_SIZE,
-    height: SHARE_DIAGNOSTIC_MARKER_SIZE,
   },
 });
 

@@ -5,18 +5,14 @@
 
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-} from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
+import { GestureDetector } from 'react-native-gesture-handler';
+import Animated from 'react-native-reanimated';
 import Svg, { Path, Circle, Defs, Filter, FeGaussianBlur } from 'react-native-svg';
 import type { Location } from '~/features/running/models';
 import type { ElementTransform } from '../../models/types';
 import { SCALE_RANGES } from '../../constants/shareOptions';
 import { gpsToSVGPath } from '../../utils/gpsToPath';
+import { useDraggableTransformGesture } from './useDraggableTransformGesture';
 import { PRIMARY } from '~/shared/styles';
 
 interface DraggableRouteMapProps {
@@ -44,83 +40,11 @@ export const DraggableRouteMap: React.FC<DraggableRouteMapProps> = ({
   onTransformChange,
   visible,
 }) => {
-  // Animated values
-  const translateX = useSharedValue(transform.x);
-  const translateY = useSharedValue(transform.y);
-  const scale = useSharedValue(transform.scale);
-
-  // Offset values for gesture tracking
-  const offsetX = useSharedValue(transform.x);
-  const offsetY = useSharedValue(transform.y);
-  const savedScale = useSharedValue(transform.scale);
-
-  // 드래그 중 시각적 피드백용 스케일
-  const dragScale = useSharedValue(1);
-
-  // Update shared values when transform prop changes
-  React.useEffect(() => {
-    translateX.value = transform.x;
-    translateY.value = transform.y;
-    offsetX.value = transform.x;
-    offsetY.value = transform.y;
-    scale.value = transform.scale;
-    savedScale.value = transform.scale;
-  }, [
-    offsetX,
-    offsetY,
-    savedScale,
-    scale,
-    transform.x,
-    transform.y,
-    transform.scale,
-    translateX,
-    translateY,
-  ]);
-
-  // 변환 업데이트 함수 (JS 스레드에서 실행)
-  const updateTransform = (x: number, y: number, s: number) => {
-    onTransformChange({ x, y, scale: s });
-  };
-
-  // Pan gesture for dragging
-  const panGesture = Gesture.Pan()
-    .onStart(() => {
-      dragScale.value = withSpring(1.05);
-    })
-    .onUpdate((event) => {
-      translateX.value = event.translationX + offsetX.value;
-      translateY.value = event.translationY + offsetY.value;
-    })
-    .onEnd(() => {
-      offsetX.value = translateX.value;
-      offsetY.value = translateY.value;
-      dragScale.value = withSpring(1);
-
-      scheduleOnRN(updateTransform, translateX.value, translateY.value, scale.value);
-    });
-
-  // Pinch gesture for scaling
-  const pinchGesture = Gesture.Pinch()
-    .onUpdate((event) => {
-      const newScale = savedScale.value * event.scale;
-      scale.value = Math.max(SCALE_RANGES.map.min, Math.min(newScale, SCALE_RANGES.map.max));
-    })
-    .onEnd(() => {
-      savedScale.value = scale.value;
-      scheduleOnRN(updateTransform, translateX.value, translateY.value, scale.value);
-    });
-
-  // Combine gestures
-  const combinedGesture = Gesture.Simultaneous(panGesture, pinchGesture);
-
-  // Animated style
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-      { scale: scale.value * dragScale.value },
-    ],
-  }));
+  const { combinedGesture, animatedStyle } = useDraggableTransformGesture({
+    transform,
+    scaleRange: SCALE_RANGES.map,
+    onTransformChange,
+  });
 
   // 숨김 처리
   if (!visible) {
