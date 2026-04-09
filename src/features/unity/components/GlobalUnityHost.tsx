@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { UnityView } from './UnityView';
 import { useUnitySessionController } from '../hooks/useUnitySessionController';
@@ -16,6 +16,7 @@ export const GlobalUnityHost: React.FC = () => {
   const { reattachToken, handleUnityReady, handleUnityError } = useUnitySessionController();
   const [hasMountedUnity, setHasMountedUnity] = useState(false);
   const [lastViewport, setLastViewport] = useState<UnityViewport | null>(null);
+  const hostRef = useRef<View>(null);
 
   useEffect(() => {
     if (!activeViewport) {
@@ -27,6 +28,25 @@ export const GlobalUnityHost: React.FC = () => {
   }, [activeViewport]);
 
   const resolvedViewport = activeViewport ?? lastViewport;
+
+  const measureRenderedViewport = useCallback(() => {
+    if (!activeViewport || !resolvedViewport) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      hostRef.current?.measureInWindow((x, y, width, height) => {
+        if (width <= 0 || height <= 0) {
+          return;
+        }
+
+        setRenderedViewport({
+          owner: activeViewport.owner,
+          frame: { x, y, width, height },
+        });
+      });
+    });
+  }, [activeViewport, resolvedViewport, setRenderedViewport]);
 
   const hostStyle = useMemo(() => {
     if (!resolvedViewport) {
@@ -44,15 +64,12 @@ export const GlobalUnityHost: React.FC = () => {
   }, [activeViewport, resolvedViewport]);
 
   const handleHostLayout = useCallback(() => {
-    if (!activeViewport || !resolvedViewport) {
-      return;
-    }
+    measureRenderedViewport();
+  }, [measureRenderedViewport]);
 
-    setRenderedViewport({
-      owner: activeViewport.owner,
-      frame: resolvedViewport.frame,
-    });
-  }, [activeViewport, resolvedViewport, setRenderedViewport]);
+  useEffect(() => {
+    measureRenderedViewport();
+  }, [measureRenderedViewport]);
 
   if (!hasMountedUnity) {
     return null;
@@ -61,6 +78,7 @@ export const GlobalUnityHost: React.FC = () => {
   return (
     <View pointerEvents="none" style={styles.overlay}>
       <View
+        ref={hostRef}
         pointerEvents="none"
         onLayout={handleHostLayout}
         style={[styles.host, hostStyle]}

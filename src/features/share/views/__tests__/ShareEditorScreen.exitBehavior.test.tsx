@@ -71,11 +71,20 @@ jest.mock('~/features/share/views/components', () => {
   const React = require('react');
   const { TouchableOpacity, View } = require('react-native');
   const MockSharePreviewCanvas = React.forwardRef(
-    function MockSharePreviewCanvas(props: unknown, ref: unknown) {
+    function MockSharePreviewCanvas(
+      props: { interactive?: boolean; containerPadding?: boolean } | undefined,
+      ref: unknown
+    ) {
       mockSharePreviewCanvas(props);
       React.useImperativeHandle(ref, () => ({
-        measureInWindow: (callback: (x: number, y: number, width: number, height: number) => void) =>
-          callback(0, 0, 280, 350),
+        measureInWindow: (callback: (x: number, y: number, width: number, height: number) => void) => {
+          if (props?.interactive === false && props?.containerPadding === false) {
+            callback(16, 412, 280, 350);
+            return;
+          }
+
+          callback(16, 115, 280, 350);
+        },
       }));
       return React.createElement(View, { testID: 'share-preview-canvas' });
     }
@@ -229,16 +238,22 @@ describe('ShareEditorScreen exit behavior', () => {
     });
     mockUnityStoreState.renderedViewport = {
       owner: 'share',
-      frame: { x: 0, y: 0, width: 280, height: 350 },
+      frame: { x: 16, y: 115, width: 280, height: 350 },
     };
+    setTimeout(() => {
+      mockUnityStoreState.renderedViewport = {
+        owner: 'share',
+        frame: { x: 16, y: 412, width: 280, height: 350 },
+      };
+    }, 0);
 
     await waitFor(() => {
       expect(mockShareResult).toHaveBeenCalledTimes(1);
     });
     expect(mockShareResult.mock.calls[0]?.[0]).not.toBe(mockCanvasRef);
     expect(mockShareResult.mock.calls[0]?.[1]).toEqual({
-      x: 0,
-      y: 0,
+      x: 16,
+      y: 412,
       width: 280,
       height: 350,
     });
@@ -287,7 +302,7 @@ describe('ShareEditorScreen exit behavior', () => {
     });
     mockUnityStoreState.renderedViewport = {
       owner: 'share',
-      frame: { x: 0, y: 0, width: 280, height: 350 },
+      frame: { x: 16, y: 412, width: 280, height: 350 },
     };
 
     await waitFor(() => {
@@ -345,7 +360,7 @@ describe('ShareEditorScreen exit behavior', () => {
     });
     mockUnityStoreState.renderedViewport = {
       owner: 'share',
-      frame: { x: 0, y: 0, width: 280, height: 350 },
+      frame: { x: 16, y: 412, width: 280, height: 350 },
     };
 
     await waitFor(() => {

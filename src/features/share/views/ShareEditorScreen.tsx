@@ -12,6 +12,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -38,6 +39,7 @@ import {
   SharePreviewCanvas,
   StatVisibilityToggle,
 } from './components';
+import { ANDROID_SHARE_DIAGNOSTIC_MODE } from '../constants/shareDiagnostics';
 
 interface ShareEditorScreenProps {
   runningData: ShareRunningData;
@@ -92,6 +94,8 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
   const exportStageLayoutResolverRef = useRef<(() => void) | null>(null);
   const isExportSurfaceActiveRef = useRef(false);
   const [isExportSurfaceVisible, setIsExportSurfaceVisible] = useState(false);
+  const shouldShowDiagnosticAnchors = Platform.OS === 'android'
+    && ANDROID_SHARE_DIAGNOSTIC_MODE === 'crop-proof';
 
   // userId=1 전용 더미 데이터 기능
   const currentUser = useUserStore((state) => state.currentUser);
@@ -175,6 +179,7 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
         renderedViewport?.owner === 'share'
         && doViewportFramesMatch(expectedBounds, renderedViewport.frame)
       ) {
+        exportStageBoundsRef.current = renderedViewport.frame;
         return;
       }
 
@@ -435,6 +440,7 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
                     interactive={false}
                     containerPadding={false}
                     cornerRadius={EXPORT_CORNER_RADIUS}
+                    diagnosticAnchors={shouldShowDiagnosticAnchors}
                   />
                 </View>
                 <View style={styles.exportSideMask} />

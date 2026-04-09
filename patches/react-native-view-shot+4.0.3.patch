@@ -1,5 +1,5 @@
 diff --git a/node_modules/react-native-view-shot/android/src/main/java/fr/greweb/reactnativeviewshot/RNViewShotModule.java b/node_modules/react-native-view-shot/android/src/main/java/fr/greweb/reactnativeviewshot/RNViewShotModule.java
-index 38413de..858d6e2 100644
+index 38413de..20695d1 100644
 --- a/node_modules/react-native-view-shot/android/src/main/java/fr/greweb/reactnativeviewshot/RNViewShotModule.java
 +++ b/node_modules/react-native-view-shot/android/src/main/java/fr/greweb/reactnativeviewshot/RNViewShotModule.java
 @@ -16,6 +16,7 @@ import com.facebook.react.bridge.ReactApplicationContext;
@@ -18,7 +18,27 @@ index 38413de..858d6e2 100644
      public void captureRef(Double tagFromJs, ReadableMap options, Promise promise) {
          int tag = tagFromJs == null ? -1 : tagFromJs.intValue();
          final ReactApplicationContext context = getReactApplicationContext();
-@@ -110,6 +112,7 @@ public class RNViewShotModule extends NativeRNViewShotSpec {
+@@ -82,6 +84,9 @@ public class RNViewShotModule extends NativeRNViewShotSpec {
+         final String fileName = options.hasKey("fileName") ? options.getString("fileName") : null;
+         final Boolean snapshotContentContainer = options.getBoolean("snapshotContentContainer");
+         final boolean handleGLSurfaceView = options.hasKey("handleGLSurfaceViewOnAndroid") && options.getBoolean("handleGLSurfaceViewOnAndroid");
++        final String surfaceViewCompositionMode = options.hasKey("surfaceViewCompositionMode")
++                ? options.getString("surfaceViewCompositionMode")
++                : ViewShot.SURFACE_VIEW_COMPOSITION_AFTER;
+ 
+         try {
+             File outputFile = null;
+@@ -93,7 +98,8 @@ public class RNViewShotModule extends NativeRNViewShotSpec {
+             ViewShot uiBlock = new ViewShot(
+                     tag, extension, imageFormat, quality,
+                     scaleWidth, scaleHeight, outputFile, resultStreamFormat,
+-                    snapshotContentContainer, reactContext, activity, handleGLSurfaceView, promise, executor
++                    snapshotContentContainer, reactContext, activity, handleGLSurfaceView,
++                    surfaceViewCompositionMode, promise, executor
+             );
+ 
+             if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
+@@ -110,6 +116,7 @@ public class RNViewShotModule extends NativeRNViewShotSpec {
      }
  
      @ReactMethod
@@ -27,7 +47,7 @@ index 38413de..858d6e2 100644
          captureRef((double) -1, options, promise);
      }
 diff --git a/node_modules/react-native-view-shot/android/src/main/java/fr/greweb/reactnativeviewshot/ViewShot.java b/node_modules/react-native-view-shot/android/src/main/java/fr/greweb/reactnativeviewshot/ViewShot.java
-index ce81dda..19cafb5 100644
+index ce81dda..a240049 100644
 --- a/node_modules/react-native-view-shot/android/src/main/java/fr/greweb/reactnativeviewshot/ViewShot.java
 +++ b/node_modules/react-native-view-shot/android/src/main/java/fr/greweb/reactnativeviewshot/ViewShot.java
 @@ -26,6 +26,7 @@ import android.widget.ScrollView;
@@ -46,7 +66,43 @@ index ce81dda..19cafb5 100644
  public class ViewShot implements UIBlock, com.facebook.react.fabric.interop.UIBlock {
      //region Constants
      /**
-@@ -188,12 +190,14 @@ public class ViewShot implements UIBlock, com.facebook.react.fabric.interop.UIBl
+@@ -80,6 +82,9 @@ public class ViewShot implements UIBlock, com.facebook.react.fabric.interop.UIBl
+      * Wait timeout for surface view capture.
+      */
+     private static final int SURFACE_VIEW_READ_PIXELS_TIMEOUT = 5;
++    public static final String SURFACE_VIEW_COMPOSITION_AFTER = "after";
++    public static final String SURFACE_VIEW_COMPOSITION_BEFORE = "before";
++    public static final String SURFACE_VIEW_COMPOSITION_SKIP = "skip";
+ 
+     @SuppressWarnings("WeakerAccess")
+     @IntDef({Formats.JPEG, Formats.PNG, Formats.WEBP, Formats.RAW})
+@@ -143,6 +148,7 @@ public class ViewShot implements UIBlock, com.facebook.react.fabric.interop.UIBl
+     @SuppressWarnings({"unused", "FieldCanBeLocal"})
+     private final ReactApplicationContext reactContext;
+     private final boolean handleGLSurfaceView;
++    private final String surfaceViewCompositionMode;
+     private final Activity currentActivity;
+     private final Executor executor;
+     //endregion
+@@ -162,6 +168,7 @@ public class ViewShot implements UIBlock, com.facebook.react.fabric.interop.UIBl
+             final ReactApplicationContext reactContext,
+             final Activity currentActivity,
+             final boolean handleGLSurfaceView,
++            final String surfaceViewCompositionMode,
+             final Promise promise,
+             final Executor executor) {
+         this.tag = tag;
+@@ -176,6 +183,9 @@ public class ViewShot implements UIBlock, com.facebook.react.fabric.interop.UIBl
+         this.reactContext = reactContext;
+         this.currentActivity = currentActivity;
+         this.handleGLSurfaceView = handleGLSurfaceView;
++        this.surfaceViewCompositionMode = surfaceViewCompositionMode == null
++                ? SURFACE_VIEW_COMPOSITION_AFTER
++                : surfaceViewCompositionMode;
+         this.promise = promise;
+         this.executor = executor;
+     }
+@@ -188,12 +198,14 @@ public class ViewShot implements UIBlock, com.facebook.react.fabric.interop.UIBl
      }
  
      @Override
@@ -61,60 +117,159 @@ index ce81dda..19cafb5 100644
      private void executeImpl(final NativeViewHierarchyManager nativeViewHierarchyManager, final UIBlockViewResolver uiBlockViewResolver) {
          executor.execute(new Runnable () {
              @Override
-@@ -411,20 +415,46 @@ public class ViewShot implements UIBlock, com.facebook.react.fabric.interop.UIBl
+@@ -379,10 +391,19 @@ public class ViewShot implements UIBlock, com.facebook.react.fabric.interop.UIBl
+         //   Debug.waitForDebugger();
  
-                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                     final Bitmap childBitmapBuffer = getExactBitmapForScreenshot(child.getWidth(), child.getHeight());
-+                    final int[] pixelCopyResultHolder = new int[] { Integer.MIN_VALUE };
-+                    final boolean[] bitmapConsumed = new boolean[] { false };
-                     try {
-+                        Log.d(TAG, "PixelCopy request for " + svChild + " size=" + child.getWidth() + "x" + child.getHeight());
-                         PixelCopy.request(svChild, childBitmapBuffer, new PixelCopy.OnPixelCopyFinishedListener() {
-                             @Override
-                             public void onPixelCopyFinished(int copyResult) {
+         final Canvas c = new Canvas(bitmap);
+-        view.draw(c);
+-
+-        //after view is drawn, go through children
+         final List<View> childrenList = getAllChildren(view);
++        final boolean composeSurfaceViewsBefore = shouldComposeSurfaceViewsBeforeViewHierarchy();
++        final boolean skipSurfaceViews = shouldSkipSurfaceViews();
++
++        if (composeSurfaceViewsBefore) {
++            for (final View child : childrenList) {
++                if (child instanceof SurfaceView && handleGLSurfaceView) {
++                    drawSurfaceViewChild(c, paint, view, child);
++                }
++            }
++        }
++
++        view.draw(c);
+ 
+         for (final View child : childrenList) {
+             // skip any child that we don't know how to process
+@@ -406,33 +427,11 @@ public class ViewShot implements UIBlock, com.facebook.react.fabric.interop.UIBl
+                 c.restoreToCount(countCanvasSave);
+                 recycleBitmap(childBitmapBuffer);
+             } else if (child instanceof SurfaceView && handleGLSurfaceView) {
+-                final SurfaceView svChild = (SurfaceView)child;
+-                final CountDownLatch latch = new CountDownLatch(1);
+-
+-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+-                    final Bitmap childBitmapBuffer = getExactBitmapForScreenshot(child.getWidth(), child.getHeight());
+-                    try {
+-                        PixelCopy.request(svChild, childBitmapBuffer, new PixelCopy.OnPixelCopyFinishedListener() {
+-                            @Override
+-                            public void onPixelCopyFinished(int copyResult) {
 -                                final int countCanvasSave = c.save();
 -                                applyTransformations(c, view, child);
 -                                c.drawBitmap(childBitmapBuffer, 0, 0, paint);
 -                                c.restoreToCount(countCanvasSave);
 -                                recycleBitmap(childBitmapBuffer);
-+                                pixelCopyResultHolder[0] = copyResult;
-+                                if (copyResult == PixelCopy.SUCCESS) {
-+                                    final int countCanvasSave = c.save();
-+                                    applyTransformations(c, view, child);
-+                                    c.drawBitmap(childBitmapBuffer, 0, 0, paint);
-+                                    c.restoreToCount(countCanvasSave);
-+                                    recycleBitmap(childBitmapBuffer);
-+                                    bitmapConsumed[0] = true;
-+                                    Log.d(TAG, "PixelCopy success for " + svChild);
-+                                } else {
-+                                    Log.e(TAG, "PixelCopy failed for " + svChild + " result=" + copyResult);
-+                                }
-                                 latch.countDown();
-                             }
-                         }, new Handler(Looper.getMainLooper()));
+-                                latch.countDown();
+-                            }
+-                        }, new Handler(Looper.getMainLooper()));
 -                        latch.await(SURFACE_VIEW_READ_PIXELS_TIMEOUT, TimeUnit.SECONDS);
-+                        final boolean completed = latch.await(SURFACE_VIEW_READ_PIXELS_TIMEOUT, TimeUnit.SECONDS);
-+                        if (!completed) {
-+                            Log.e(TAG, "PixelCopy timed out for " + svChild + " after " + SURFACE_VIEW_READ_PIXELS_TIMEOUT + " seconds");
-+                            if (!bitmapConsumed[0]) {
-+                                recycleBitmap(childBitmapBuffer);
-+                            }
-+                            continue;
-+                        }
-+                        if (pixelCopyResultHolder[0] != PixelCopy.SUCCESS) {
-+                            if (!bitmapConsumed[0]) {
-+                                recycleBitmap(childBitmapBuffer);
-+                            }
-+                            continue;
-+                        }
-                     } catch (Exception e) {
-+                        if (!bitmapConsumed[0]) {
+-                    } catch (Exception e) {
+-                        Log.e(TAG, "Cannot PixelCopy for " + svChild, e);
+-                    }
+-                } else {
+-                    Bitmap cache = svChild.getDrawingCache();
+-                    if (cache != null) {
+-                        c.drawBitmap(svChild.getDrawingCache(), 0, 0, paint);
+-                    }
++                if (composeSurfaceViewsBefore || skipSurfaceViews) {
++                    continue;
+                 }
++
++                drawSurfaceViewChild(c, paint, view, child);
+             }
+         }
+ 
+@@ -460,6 +459,90 @@ public class ViewShot implements UIBlock, com.facebook.react.fabric.interop.UIBl
+         return resolution; // return image width and height
+     }
+ 
++    private boolean shouldComposeSurfaceViewsBeforeViewHierarchy() {
++        return SURFACE_VIEW_COMPOSITION_BEFORE.equals(surfaceViewCompositionMode);
++    }
++
++    private boolean shouldSkipSurfaceViews() {
++        return SURFACE_VIEW_COMPOSITION_SKIP.equals(surfaceViewCompositionMode);
++    }
++
++    private void drawSurfaceViewChild(
++            @NonNull final Canvas c,
++            @NonNull final Paint paint,
++            @NonNull final View root,
++            @NonNull final View child
++    ) {
++        final SurfaceView svChild = (SurfaceView) child;
++        final CountDownLatch latch = new CountDownLatch(1);
++
++        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
++            final Bitmap childBitmapBuffer = getExactBitmapForScreenshot(child.getWidth(), child.getHeight());
++            final int[] pixelCopyResultHolder = new int[] { Integer.MIN_VALUE };
++            final boolean[] bitmapConsumed = new boolean[] { false };
++            try {
++                Log.d(
++                        TAG,
++                        "PixelCopy request for " + svChild
++                                + " size=" + child.getWidth() + "x" + child.getHeight()
++                                + " composition=" + surfaceViewCompositionMode
++                );
++                PixelCopy.request(svChild, childBitmapBuffer, new PixelCopy.OnPixelCopyFinishedListener() {
++                    @Override
++                    public void onPixelCopyFinished(int copyResult) {
++                        pixelCopyResultHolder[0] = copyResult;
++                        if (copyResult == PixelCopy.SUCCESS) {
++                            final int countCanvasSave = c.save();
++                            applyTransformations(c, root, child);
++                            c.drawBitmap(childBitmapBuffer, 0, 0, paint);
++                            c.restoreToCount(countCanvasSave);
 +                            recycleBitmap(childBitmapBuffer);
++                            bitmapConsumed[0] = true;
++                            Log.d(TAG, "PixelCopy success for " + svChild + " composition=" + surfaceViewCompositionMode);
++                        } else {
++                            Log.e(
++                                    TAG,
++                                    "PixelCopy failed for " + svChild
++                                            + " result=" + copyResult
++                                            + " composition=" + surfaceViewCompositionMode
++                            );
 +                        }
-                         Log.e(TAG, "Cannot PixelCopy for " + svChild, e);
-                     }
-                 } else {
-@@ -489,6 +519,7 @@ public class ViewShot implements UIBlock, com.facebook.react.fabric.interop.UIBl
++                        latch.countDown();
++                    }
++                }, new Handler(Looper.getMainLooper()));
++                final boolean completed = latch.await(SURFACE_VIEW_READ_PIXELS_TIMEOUT, TimeUnit.SECONDS);
++                if (!completed) {
++                    Log.e(
++                            TAG,
++                            "PixelCopy timed out for " + svChild
++                                    + " after " + SURFACE_VIEW_READ_PIXELS_TIMEOUT + " seconds"
++                                    + " composition=" + surfaceViewCompositionMode
++                    );
++                    if (!bitmapConsumed[0]) {
++                        recycleBitmap(childBitmapBuffer);
++                    }
++                    return;
++                }
++                if (pixelCopyResultHolder[0] != PixelCopy.SUCCESS) {
++                    if (!bitmapConsumed[0]) {
++                        recycleBitmap(childBitmapBuffer);
++                    }
++                    return;
++                }
++            } catch (Exception e) {
++                if (!bitmapConsumed[0]) {
++                    recycleBitmap(childBitmapBuffer);
++                }
++                Log.e(TAG, "Cannot PixelCopy for " + svChild + " composition=" + surfaceViewCompositionMode, e);
++            }
++        } else {
++            Bitmap cache = svChild.getDrawingCache();
++            if (cache != null) {
++                c.drawBitmap(svChild.getDrawingCache(), 0, 0, paint);
++            }
++        }
++    }
++
+     /**
+      * Concat all the transformation matrix's from parent to child.
+      */
+@@ -489,6 +572,7 @@ public class ViewShot implements UIBlock, com.facebook.react.fabric.interop.UIBl
              c.translate(dx, dy);
              c.rotate(v.getRotation(), v.getPivotX(), v.getPivotY());
              c.scale(v.getScaleX(), v.getScaleY());
@@ -122,7 +277,7 @@ index ce81dda..19cafb5 100644
  
              // compute the matrix just for any future use
              transform.postTranslate(dx, dy);
-@@ -499,6 +530,32 @@ public class ViewShot implements UIBlock, com.facebook.react.fabric.interop.UIBl
+@@ -499,6 +583,32 @@ public class ViewShot implements UIBlock, com.facebook.react.fabric.interop.UIBl
          return transform;
      }
  

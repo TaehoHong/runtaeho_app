@@ -1,16 +1,29 @@
 package com.hongtaeho.app.unity
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.RectF
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.view.PixelCopy
+import android.view.SurfaceView
 import android.view.View
+import android.view.ViewGroup
 import com.facebook.react.bridge.*
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
 import java.lang.ref.WeakReference
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.math.abs
 
 /**
  * React Native Unity Bridge Module
@@ -381,6 +394,552 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
                 promise.reject("CAPTURE_ROOT_ERROR", "Failed to resolve Android content root bounds", e)
             }
         }
+    }
+
+    @ReactMethod
+    fun cropAndResizeImage(
+        sourceUri: String,
+        originX: Double,
+        originY: Double,
+        width: Double,
+        height: Double,
+        targetWidth: Double,
+        targetHeight: Double,
+        promise: Promise
+    ) {
+        try {
+            val sourceBitmap = decodeBitmapFromUri(sourceUri)
+            val cropX = originX.toInt()
+            val cropY = originY.toInt()
+            val cropWidth = width.toInt()
+            val cropHeight = height.toInt()
+
+            if (
+                cropX < 0 ||
+                cropY < 0 ||
+                cropWidth <= 0 ||
+                cropHeight <= 0 ||
+                cropX + cropWidth > sourceBitmap.width ||
+                cropY + cropHeight > sourceBitmap.height
+            ) {
+                promise.reject(
+                    "IMAGE_EXPORT_ERROR",
+                    "Crop rect is out of bounds: (${cropX}, ${cropY}, ${cropWidth}, ${cropHeight}) in ${sourceBitmap.width}x${sourceBitmap.height}"
+                )
+                return
+            }
+
+            val croppedBitmap = Bitmap.createBitmap(sourceBitmap, cropX, cropY, cropWidth, cropHeight)
+            val shouldResize = targetWidth > 0 && targetHeight > 0
+            val outputBitmap = if (shouldResize) {
+                Bitmap.createScaledBitmap(
+                    croppedBitmap,
+                    targetWidth.toInt(),
+                    targetHeight.toInt(),
+                    true
+                )
+            } else {
+                croppedBitmap
+            }
+
+            val outputFile = saveBitmapToShareExport(outputBitmap)
+
+            val result = Arguments.createMap().apply {
+                putString("uri", Uri.fromFile(outputFile).toString())
+                putDouble("width", outputBitmap.width.toDouble())
+                putDouble("height", outputBitmap.height.toDouble())
+            }
+
+            promise.resolve(result)
+        } catch (e: Exception) {
+            Log.e(TAG, "cropAndResizeImage error: ${e.message}", e)
+            promise.reject("IMAGE_EXPORT_ERROR", "Failed to crop and resize image", e)
+        }
+    }
+
+    @ReactMethod
+    fun annotateImageRect(
+        sourceUri: String,
+        originX: Double,
+        originY: Double,
+        width: Double,
+        height: Double,
+        colorHex: String,
+        promise: Promise
+    ) {
+        try {
+            val sourceBitmap = decodeBitmapFromUri(sourceUri)
+            val mutableBitmap = sourceBitmap.copy(Bitmap.Config.ARGB_8888, true)
+            val canvas = Canvas(mutableBitmap)
+            val strokeWidth = maxOf(4f, mutableBitmap.width / 120f)
+            val strokeInset = strokeWidth / 2f
+            val rectPaint = Paint().apply {
+                style = Paint.Style.STROKE
+                color = Color.parseColor(colorHex)
+                this.strokeWidth = strokeWidth
+                isAntiAlias = true
+            }
+
+            canvas.drawRect(
+                originX.toFloat() + strokeInset,
+                originY.toFloat() + strokeInset,
+                (originX + width).toFloat() - strokeInset,
+                (originY + height).toFloat() - strokeInset,
+                rectPaint
+            )
+
+            val outputFile = saveBitmapToShareExport(mutableBitmap)
+            val result = Arguments.createMap().apply {
+                putString("uri", Uri.fromFile(outputFile).toString())
+                putDouble("width", mutableBitmap.width.toDouble())
+                putDouble("height", mutableBitmap.height.toDouble())
+            }
+
+            promise.resolve(result)
+        } catch (e: Exception) {
+            Log.e(TAG, "annotateImageRect error: ${e.message}", e)
+            promise.reject("IMAGE_ANNOTATION_ERROR", "Failed to annotate image rect", e)
+        }
+    }
+
+    @ReactMethod
+    fun composeDebugComparison(
+        afterUri: String,
+        beforeUri: String,
+        skipUri: String,
+        overlayUri: String,
+        promise: Promise
+    ) {
+        try {
+            val panels = listOf(
+                "after" to decodeBitmapFromUri(afterUri),
+                "before" to decodeBitmapFromUri(beforeUri),
+                "skip" to decodeBitmapFromUri(skipUri),
+                "overlay-only" to decodeBitmapFromUri(overlayUri),
+            )
+            val contentWidth = panels.maxOf { (_, bitmap) -> bitmap.width }
+            val outerPadding = maxOf(24, contentWidth / 24)
+            val sectionGap = maxOf(18, contentWidth / 40)
+            val labelGap = maxOf(10, contentWidth / 72)
+            val labelTextSize = maxOf(20f, contentWidth / 24f)
+            val labelMetricsPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.parseColor("#111827")
+                textSize = labelTextSize
+                isFakeBoldText = true
+            }
+            val labelHeights = panels.map { (label, _) ->
+                val metrics = labelMetricsPaint.fontMetrics
+                kotlin.math.ceil((metrics.descent - metrics.ascent).toDouble()).toInt()
+            }
+            val totalHeight = outerPadding +
+                panels.indices.sumOf { index ->
+                    labelHeights[index] + labelGap + panels[index].second.height + sectionGap
+                } - sectionGap +
+                outerPadding
+
+            val outputBitmap = Bitmap.createBitmap(
+                contentWidth + outerPadding * 2,
+                totalHeight,
+                Bitmap.Config.ARGB_8888
+            )
+            val canvas = Canvas(outputBitmap)
+            canvas.drawColor(Color.WHITE)
+
+            val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.parseColor("#111827")
+                textSize = labelTextSize
+                isFakeBoldText = true
+            }
+            val separatorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.parseColor("#E5E7EB")
+                strokeWidth = maxOf(2f, contentWidth / 360f)
+            }
+
+            var cursorY = outerPadding.toFloat()
+            panels.forEachIndexed { index, (label, bitmap) ->
+                val labelBaseline = cursorY - labelPaint.fontMetrics.ascent
+                canvas.drawText(label, outerPadding.toFloat(), labelBaseline, labelPaint)
+                cursorY = labelBaseline + labelPaint.fontMetrics.descent + labelGap
+
+                val bitmapLeft = outerPadding + (contentWidth - bitmap.width) / 2f
+                canvas.drawBitmap(bitmap, bitmapLeft, cursorY, null)
+                cursorY += bitmap.height.toFloat()
+
+                if (index < panels.lastIndex) {
+                    val separatorY = cursorY + sectionGap / 2f
+                    canvas.drawLine(
+                        outerPadding.toFloat(),
+                        separatorY,
+                        (outerPadding + contentWidth).toFloat(),
+                        separatorY,
+                        separatorPaint
+                    )
+                }
+
+                cursorY += sectionGap
+            }
+
+            val outputFile = saveBitmapToShareExport(outputBitmap)
+            panels.forEach { (_, bitmap) ->
+                if (!bitmap.isRecycled) {
+                    bitmap.recycle()
+                }
+            }
+            if (!outputBitmap.isRecycled) {
+                outputBitmap.recycle()
+            }
+
+            val result = Arguments.createMap().apply {
+                putString("uri", Uri.fromFile(outputFile).toString())
+                putDouble("width", (contentWidth + outerPadding * 2).toDouble())
+                putDouble("height", totalHeight.toDouble())
+            }
+
+            promise.resolve(result)
+        } catch (e: Exception) {
+            Log.e(TAG, "composeDebugComparison error: ${e.message}", e)
+            promise.reject("IMAGE_COMPARISON_ERROR", "Failed to compose debug comparison image", e)
+        }
+    }
+
+    @ReactMethod
+    fun composeShareExportFromUnityAndOverlay(
+        overlayUri: String,
+        targetWidth: Double,
+        targetHeight: Double,
+        promise: Promise
+    ) {
+        val outputWidth = targetWidth.toInt()
+        val outputHeight = targetHeight.toInt()
+        if (outputWidth <= 0 || outputHeight <= 0) {
+            promise.reject(
+                "IMAGE_EXPORT_ERROR",
+                "Target export size is invalid: ${outputWidth}x${outputHeight}"
+            )
+            return
+        }
+
+        val activity = reactApplicationContext.currentActivity
+        if (activity == null) {
+            promise.reject("IMAGE_EXPORT_ERROR", "Current activity is null")
+            return
+        }
+
+        activity.runOnUiThread {
+            try {
+                val unityRootView = UnityHolder.getUnityView()
+                if (unityRootView == null) {
+                    promise.reject("IMAGE_EXPORT_ERROR", "Unity root view is not available")
+                    return@runOnUiThread
+                }
+
+                val unityContainer = unityRootView.parent as? ViewGroup
+                if (unityContainer == null) {
+                    promise.reject("IMAGE_EXPORT_ERROR", "Unity container is not available")
+                    return@runOnUiThread
+                }
+
+                if (unityContainer.width <= 0 || unityContainer.height <= 0) {
+                    promise.reject(
+                        "IMAGE_EXPORT_ERROR",
+                        "Unity container size is invalid: ${unityContainer.width}x${unityContainer.height}"
+                    )
+                    return@runOnUiThread
+                }
+
+                val unitySurfaceView = findFirstSurfaceView(unityRootView)
+                if (unitySurfaceView == null) {
+                    promise.reject("IMAGE_EXPORT_ERROR", "Unity SurfaceView is not available")
+                    return@runOnUiThread
+                }
+
+                if (unitySurfaceView.width <= 0 || unitySurfaceView.height <= 0) {
+                    promise.reject(
+                        "IMAGE_EXPORT_ERROR",
+                        "Unity SurfaceView size is invalid: ${unitySurfaceView.width}x${unitySurfaceView.height}"
+                    )
+                    return@runOnUiThread
+                }
+
+                val unitySurfaceBounds = calculateDescendantBoundsRelativeToAncestor(
+                    unitySurfaceView,
+                    unityContainer
+                )
+                val unityBitmap = Bitmap.createBitmap(
+                    unitySurfaceView.width,
+                    unitySurfaceView.height,
+                    Bitmap.Config.ARGB_8888
+                )
+
+                Log.d(
+                    TAG,
+                    "composeShareExportFromUnityAndOverlay: container=${unityContainer.width}x${unityContainer.height}, " +
+                        "surfaceBounds=$unitySurfaceBounds, output=${outputWidth}x${outputHeight}"
+                )
+
+                PixelCopy.request(unitySurfaceView, unityBitmap, { copyResult ->
+                    if (copyResult != PixelCopy.SUCCESS) {
+                        if (!unityBitmap.isRecycled) {
+                            unityBitmap.recycle()
+                        }
+                        promise.reject(
+                            "IMAGE_EXPORT_ERROR",
+                            "Failed to capture Unity SurfaceView: PixelCopy result=$copyResult"
+                        )
+                        return@request
+                    }
+
+                    try {
+                        val overlayBitmap = decodeBitmapFromUri(overlayUri)
+                        val outputBitmap = Bitmap.createBitmap(
+                            outputWidth,
+                            outputHeight,
+                            Bitmap.Config.ARGB_8888
+                        )
+                        val canvas = Canvas(outputBitmap)
+                        canvas.drawColor(Color.TRANSPARENT)
+
+                        val bitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                            isFilterBitmap = true
+                            isDither = true
+                        }
+
+                        val scaleX = outputWidth.toFloat() / unityContainer.width.toFloat()
+                        val scaleY = outputHeight.toFloat() / unityContainer.height.toFloat()
+                        val unityDestRect = RectF(
+                            unitySurfaceBounds.left * scaleX,
+                            unitySurfaceBounds.top * scaleY,
+                            unitySurfaceBounds.right * scaleX,
+                            unitySurfaceBounds.bottom * scaleY
+                        )
+                        val overlayDestRect = RectF(
+                            0f,
+                            0f,
+                            outputWidth.toFloat(),
+                            outputHeight.toFloat()
+                        )
+
+                        canvas.drawBitmap(unityBitmap, null, unityDestRect, bitmapPaint)
+                        canvas.drawBitmap(overlayBitmap, null, overlayDestRect, bitmapPaint)
+
+                        val outputFile = saveBitmapToShareExport(outputBitmap)
+
+                        if (!overlayBitmap.isRecycled) {
+                            overlayBitmap.recycle()
+                        }
+                        if (!outputBitmap.isRecycled) {
+                            outputBitmap.recycle()
+                        }
+                        if (!unityBitmap.isRecycled) {
+                            unityBitmap.recycle()
+                        }
+
+                        val result = Arguments.createMap().apply {
+                            putString("uri", Uri.fromFile(outputFile).toString())
+                            putDouble("width", outputWidth.toDouble())
+                            putDouble("height", outputHeight.toDouble())
+                        }
+
+                        promise.resolve(result)
+                    } catch (e: Exception) {
+                        if (!unityBitmap.isRecycled) {
+                            unityBitmap.recycle()
+                        }
+                        Log.e(TAG, "composeShareExportFromUnityAndOverlay error: ${e.message}", e)
+                        promise.reject(
+                            "IMAGE_EXPORT_ERROR",
+                            "Failed to compose Unity share export",
+                            e
+                        )
+                    }
+                }, mainHandler)
+            } catch (e: Exception) {
+                Log.e(TAG, "composeShareExportFromUnityAndOverlay setup error: ${e.message}", e)
+                promise.reject("IMAGE_EXPORT_ERROR", "Failed to compose Unity share export", e)
+            }
+        }
+    }
+
+    @ReactMethod
+    fun detectDiagnosticMarkers(
+        sourceUri: String,
+        markerColorHexes: ReadableArray,
+        promise: Promise
+    ) {
+        try {
+            val sourceBitmap = decodeBitmapFromUri(sourceUri)
+            val pixels = IntArray(sourceBitmap.width * sourceBitmap.height)
+            sourceBitmap.getPixels(
+                pixels,
+                0,
+                sourceBitmap.width,
+                0,
+                0,
+                sourceBitmap.width,
+                sourceBitmap.height
+            )
+
+            val result = Arguments.createArray()
+            for (index in 0 until markerColorHexes.size()) {
+                val colorHex = markerColorHexes.getString(index)
+                val detection = if (colorHex.isNullOrBlank()) {
+                    null
+                } else {
+                    detectColorBounds(
+                        pixels,
+                        sourceBitmap.width,
+                        sourceBitmap.height,
+                        Color.parseColor(colorHex)
+                    )
+                }
+
+                val markerMap = Arguments.createMap().apply {
+                    putString("colorHex", colorHex)
+                    putBoolean("detected", detection != null)
+
+                    if (detection != null) {
+                        putDouble("x", detection[0].toDouble())
+                        putDouble("y", detection[1].toDouble())
+                        putDouble("width", detection[2].toDouble())
+                        putDouble("height", detection[3].toDouble())
+                    }
+                }
+                result.pushMap(markerMap)
+            }
+
+            promise.resolve(result)
+        } catch (e: Exception) {
+            Log.e(TAG, "detectDiagnosticMarkers error: ${e.message}", e)
+            promise.reject("IMAGE_MARKER_DETECTION_ERROR", "Failed to detect diagnostic markers", e)
+        }
+    }
+
+    private fun detectColorBounds(
+        pixels: IntArray,
+        bitmapWidth: Int,
+        bitmapHeight: Int,
+        targetColor: Int
+    ): IntArray? {
+        var minX = bitmapWidth
+        var minY = bitmapHeight
+        var maxX = -1
+        var maxY = -1
+
+        for (pixelIndex in pixels.indices) {
+            val pixel = pixels[pixelIndex]
+            if (!colorsMatch(pixel, targetColor)) {
+                continue
+            }
+
+            val x = pixelIndex % bitmapWidth
+            val y = pixelIndex / bitmapWidth
+            if (x < minX) minX = x
+            if (y < minY) minY = y
+            if (x > maxX) maxX = x
+            if (y > maxY) maxY = y
+        }
+
+        if (maxX < minX || maxY < minY) {
+            return null
+        }
+
+        return intArrayOf(
+            minX,
+            minY,
+            maxX - minX + 1,
+            maxY - minY + 1
+        )
+    }
+
+    private fun colorsMatch(pixelColor: Int, targetColor: Int): Boolean {
+        if (Color.alpha(pixelColor) < 180) {
+            return false
+        }
+
+        return abs(Color.red(pixelColor) - Color.red(targetColor)) <= 24 &&
+            abs(Color.green(pixelColor) - Color.green(targetColor)) <= 24 &&
+            abs(Color.blue(pixelColor) - Color.blue(targetColor)) <= 24
+    }
+
+    private fun findFirstSurfaceView(root: View): SurfaceView? {
+        if (root is SurfaceView) {
+            return root
+        }
+
+        if (root !is ViewGroup) {
+            return null
+        }
+
+        for (childIndex in 0 until root.childCount) {
+            val child = root.getChildAt(childIndex)
+            val matchedSurfaceView = findFirstSurfaceView(child)
+            if (matchedSurfaceView != null) {
+                return matchedSurfaceView
+            }
+        }
+
+        return null
+    }
+
+    private fun calculateDescendantBoundsRelativeToAncestor(
+        descendant: View,
+        ancestor: View
+    ): RectF {
+        var left = 0f
+        var top = 0f
+        var current: View? = descendant
+
+        while (current != null && current !== ancestor) {
+            val parentView = current.parent as? View
+                ?: throw IllegalStateException("Ancestor is not in the descendant view hierarchy")
+
+            left += current.left - parentView.scrollX
+            top += current.top - parentView.scrollY
+            current = parentView
+        }
+
+        if (current !== ancestor) {
+            throw IllegalStateException("Ancestor is not in the descendant view hierarchy")
+        }
+
+        return RectF(
+            left,
+            top,
+            left + descendant.width,
+            top + descendant.height
+        )
+    }
+
+    private fun decodeBitmapFromUri(sourceUri: String): Bitmap {
+        val parsedUri = Uri.parse(sourceUri)
+        val options = BitmapFactory.Options().apply {
+            inPreferredConfig = Bitmap.Config.ARGB_8888
+        }
+
+        val bitmap = if (parsedUri.scheme == "content") {
+            reactApplicationContext.contentResolver.openInputStream(parsedUri)?.use { inputStream ->
+                BitmapFactory.decodeStream(inputStream, null, options)
+            }
+        } else {
+            BitmapFactory.decodeFile(parsedUri.path ?: sourceUri, options)
+        }
+
+        return bitmap ?: throw IllegalStateException("Failed to decode bitmap from $sourceUri")
+    }
+
+    private fun saveBitmapToShareExport(bitmap: Bitmap): File {
+        val outputDir = File(reactApplicationContext.cacheDir, "ShareExport").apply {
+            if (!exists()) {
+                mkdirs()
+            }
+        }
+        val outputFile = File(outputDir, "${UUID.randomUUID()}.png")
+
+        FileOutputStream(outputFile).use { fileOut ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, fileOut)
+        }
+
+        return outputFile
     }
 
     // MARK: - Promise-based Avatar Change Method
