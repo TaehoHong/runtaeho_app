@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { ShareRunningData } from '~/features/share/models/types';
 import { ShareEditorScreen } from '~/features/share/views/ShareEditorScreen';
 import { renderWithProviders } from '~/test-utils/renderWithProviders';
@@ -11,6 +11,7 @@ const mockSharePreviewCanvas = jest.fn();
 const mockUseFocusEffect = jest.fn();
 const mockSetActiveViewport = jest.fn();
 const mockClearActiveViewport = jest.fn();
+const mockEndEntryTransition = jest.fn();
 
 jest.mock('~/features/share/viewmodels/useShareEditor', () => ({
   useShareEditor: (...args: unknown[]) => mockUseShareEditor(...args),
@@ -22,8 +23,14 @@ jest.mock('@react-navigation/native', () => ({
 
 jest.mock('~/features/share/stores/shareStore', () => ({
   useShareStore: (
-    selector: (state: { setDummyLocations: typeof mockSetDummyLocations; shareData: null }) => unknown
-  ) => selector({ setDummyLocations: mockSetDummyLocations, shareData: null }),
+    selector: (state: {
+      setDummyLocations: typeof mockSetDummyLocations;
+      shareData: null;
+    }) => unknown
+  ) => selector({
+    setDummyLocations: mockSetDummyLocations,
+    shareData: null,
+  }),
 }));
 
 jest.mock('~/stores/user', () => ({
@@ -42,6 +49,14 @@ jest.mock('~/stores/unity/unityStore', () => ({
       setActiveViewport: mockSetActiveViewport,
       clearActiveViewport: mockClearActiveViewport,
     }),
+}));
+
+jest.mock('~/features/share/stores/shareEntryTransitionStore', () => ({
+  useShareEntryTransitionStore: (
+    selector: (state: { endEntryTransition: typeof mockEndEntryTransition }) => unknown
+  ) => selector({
+    endEntryTransition: mockEndEntryTransition,
+  }),
 }));
 
 jest.mock('@expo/vector-icons', () => ({
@@ -152,6 +167,61 @@ describe('ShareEditorScreen loading behavior', () => {
     expect(screen.queryByTestId('share-actions')).toBeNull();
   });
 
+  it('ends the root entry transition after the editor root lays out', async () => {
+    renderWithProviders(<ShareEditorScreen runningData={runningData} />);
+
+    fireEvent(screen.getByTestId('share-editor-root'), 'layout', {
+      nativeEvent: {
+        layout: { x: 0, y: 0, width: 320, height: 640 },
+      },
+    });
+
+    await waitFor(() => {
+      expect(mockEndEntryTransition).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('renders the share controls once the editor becomes ready', async () => {
+    mockUseShareEditor.mockReturnValue({
+      canvasRef: { current: null },
+      selectedBackground: {
+        id: 'bg-default',
+        name: '기본',
+        source: 'river',
+        type: 'unity',
+        unityBackgroundId: 'river',
+      },
+      selectedPose: {
+        id: 'pose-idle',
+        name: '기본',
+        trigger: 'IDLE',
+        icon: 'walk',
+      },
+      statElements: [],
+      isLoading: false,
+      isCapturing: false,
+      isUnityReady: true,
+      characterTransform: { x: 0.5, y: 0.9, scale: 1 },
+      avatarVisible: true,
+      animationTime: 0,
+      setSelectedBackground: jest.fn(),
+      setSelectedPose: jest.fn(),
+      updateStatTransform: jest.fn(),
+      toggleStatVisibility: jest.fn(),
+      toggleAvatarVisibility: jest.fn(),
+      shareResult: jest.fn(),
+      resetAll: jest.fn().mockResolvedValue(undefined),
+      restoreRunningResultDefaults: jest.fn().mockResolvedValue(undefined),
+      updateCharacterPosition: jest.fn(),
+      updateCharacterScale: jest.fn(),
+      setAnimationTime: jest.fn(),
+    });
+
+    renderWithProviders(<ShareEditorScreen runningData={runningData} />);
+    expect(screen.getByTestId('pose-selector')).toBeTruthy();
+    expect(screen.getByTestId('share-actions')).toBeTruthy();
+  });
+
   it('renders the header inside a top-only safe-area container', () => {
     renderWithProviders(<ShareEditorScreen runningData={runningData} />);
 
@@ -160,5 +230,14 @@ describe('ShareEditorScreen loading behavior', () => {
     });
     expect(screen.getByTestId('share-editor-header-safe-area').props.edges).toEqual(['top']);
     expect(screen.queryByTestId('share-editor-top-mask')).toBeNull();
+  });
+
+  it('disables iOS automatic scroll inset adjustment for the preview scroll view', () => {
+    renderWithProviders(<ShareEditorScreen runningData={runningData} />);
+
+    const scrollView = screen.getByTestId('share-editor-scroll');
+    expect(scrollView.props.automaticallyAdjustContentInsets).toBe(false);
+    expect(scrollView.props.automaticallyAdjustsScrollIndicatorInsets).toBe(false);
+    expect(scrollView.props.contentInsetAdjustmentBehavior).toBe('never');
   });
 });

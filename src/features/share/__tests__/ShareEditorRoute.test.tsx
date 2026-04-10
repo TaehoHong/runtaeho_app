@@ -6,6 +6,7 @@ import { routerMock } from '~/test-utils/mocks/native';
 import { renderWithProviders } from '~/test-utils/renderWithProviders';
 
 const mockClearShareData = jest.fn();
+const mockEndEntryTransition = jest.fn();
 const mockBackHandlerRemove = jest.fn();
 let hardwareBackPressHandler: (() => boolean | null | undefined) | null = null;
 let mockShareData: {
@@ -35,6 +36,14 @@ jest.mock('~/features/share/stores/shareStore', () => ({
   ) => selector({
     shareData: mockShareData,
     clearShareData: mockClearShareData,
+  }),
+}));
+
+jest.mock('~/features/share/stores/shareEntryTransitionStore', () => ({
+  useShareEntryTransitionStore: (
+    selector: (state: { endEntryTransition: typeof mockEndEntryTransition }) => unknown
+  ) => selector({
+    endEntryTransition: mockEndEntryTransition,
   }),
 }));
 
@@ -82,6 +91,7 @@ describe('ShareEditorPage navigation policy', () => {
 
     expect(mockBackHandlerRemove).toHaveBeenCalledTimes(1);
     expect(mockClearShareData).toHaveBeenCalledTimes(1);
+    expect(mockEndEntryTransition).toHaveBeenCalledTimes(1);
   });
 
   it('navigates back immediately when share data is missing', () => {
@@ -89,6 +99,7 @@ describe('ShareEditorPage navigation policy', () => {
 
     renderWithProviders(<ShareEditorPage />);
 
+    expect(mockEndEntryTransition).toHaveBeenCalledTimes(1);
     expect(routerMock.back).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId('share-editor-page-screen')).toBeNull();
   });

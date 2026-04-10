@@ -8,7 +8,7 @@
  */
 
 import { router } from 'expo-router';
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -27,6 +27,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { GREY } from '~/shared/styles';
 import { useUserStore } from '~/stores/user';
 import type { ShareRunningData } from '../models/types';
+import { useShareEntryTransitionStore } from '../stores/shareEntryTransitionStore';
 import { useShareStore } from '../stores/shareStore';
 import { generateDummyLocations } from '../utils/dummyGpsData';
 import { useShareEditor } from '../viewmodels/useShareEditor';
@@ -48,6 +49,8 @@ const PREVIEW_CORNER_RADIUS = 16;
 const EXPORT_CORNER_RADIUS = 0;
 
 export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningData }) => {
+  const endEntryTransition = useShareEntryTransitionStore((state) => state.endEntryTransition);
+  const hasCompletedEntryTransitionRef = useRef(false);
   const {
     canvasRef,
     selectedBackground,
@@ -155,9 +158,28 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
     syncPreviewViewportForScroll(event.nativeEvent.contentOffset.y);
   }, [syncPreviewViewportForScroll]);
 
+  const handleRootLayout = useCallback(() => {
+    if (hasCompletedEntryTransitionRef.current) {
+      return;
+    }
+
+    hasCompletedEntryTransitionRef.current = true;
+    requestAnimationFrame(() => {
+      endEntryTransition();
+    });
+  }, [endEntryTransition]);
+
+  useEffect(() => () => {
+    endEntryTransition();
+  }, [endEntryTransition]);
+
   return (
     <SafeAreaProvider>
-      <View style={styles.container} testID="share-editor-root">
+      <View
+        style={styles.container}
+        testID="share-editor-root"
+        onLayout={handleRootLayout}
+      >
         <GestureHandlerRootView style={styles.container}>
           <View
             pointerEvents={isExportSurfaceVisible ? 'none' : 'auto'}
@@ -191,6 +213,9 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
                 style={styles.scrollView}
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
+                automaticallyAdjustContentInsets={false}
+                automaticallyAdjustsScrollIndicatorInsets={false}
+                contentInsetAdjustmentBehavior="never"
                 onScroll={handlePreviewScroll}
                 scrollEventThrottle={16}
               >
@@ -319,6 +344,7 @@ const styles = StyleSheet.create({
   },
   editorShell: {
     flex: 1,
+    backgroundColor: 'transparent',
   },
   editorShellHidden: {
     opacity: 0,
@@ -367,7 +393,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   actionsSafeArea: {
-    backgroundColor: 'transparent',
+    backgroundColor: GREY.WHITE,
   },
   previewContainer: {
     marginBottom: 14,

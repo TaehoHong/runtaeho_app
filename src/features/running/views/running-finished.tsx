@@ -16,6 +16,7 @@ import { type Location, type RunningRecord } from '../models';
 import { useShoeViewModel } from '~/features/shoes/viewmodels';
 import { leagueService } from '~/features/league/services/leagueService';
 import { useShareStore } from '~/features/share/stores/shareStore';
+import { useShareEntryTransitionStore } from '~/features/share/stores/shareEntryTransitionStore';
 import { useBottomActionOffset } from '~/shared/hooks';
 import { GREY } from '~/shared/styles';
 
@@ -137,10 +138,12 @@ export const RunningFinishedView: React.FC = () => {
   // 공유 버튼 핸들러
   const handleShare = async () => {
     const resolvedLocations = await resolveShareLocations();
+    const { setShareData } = useShareStore.getState();
+    const { beginEntryTransition } = useShareEntryTransitionStore.getState();
 
     // Store에 공유 데이터 저장 (GPS locations 포함)
     // URL params로는 배열 전달이 불가능하므로 Zustand store 사용
-    useShareStore.getState().setShareData({
+    setShareData({
       distance,
       durationSec: elapsedTime,
       pace: formatPace(stats.pace.minutes, stats.pace.seconds),
@@ -148,6 +151,8 @@ export const RunningFinishedView: React.FC = () => {
       earnedPoints,
       locations: resolvedLocations,
     });
+
+    beginEntryTransition();
 
     // 공유 에디터 화면으로 이동 (params 불필요)
     router.push('/share/editor' as any);

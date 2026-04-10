@@ -1,5 +1,5 @@
 import { Stack } from 'expo-router/stack';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '~/services/queryClient';
 import { AuthProvider } from '~/providers/AuthProvider';
@@ -10,6 +10,7 @@ import { GlobalUnityHost } from '~/features/unity/components/GlobalUnityHost';
 import { initializeSentry, Sentry } from '~/config/sentry';
 import { ErrorBoundary } from '~/shared/components/ErrorBoundary';
 import { GREY } from '~/shared/styles';
+import { useShareEntryTransitionStore } from '~/features/share/stores/shareEntryTransitionStore';
 
 // Sentry 초기화
 initializeSentry();
@@ -24,6 +25,9 @@ const isSentryEnabled = (process.env.EXPO_PUBLIC_ENV || 'production') !== 'local
 
 function RootLayout() {
   // 권한 요청은 AuthProvider에서 로그인 후 한 번만 실행 (중복 제거)
+  const isShareEntryTransitionActive = useShareEntryTransitionStore(
+    (state) => state.isEntryTransitionActive
+  );
 
   return (
     <ErrorBoundary>
@@ -86,10 +90,18 @@ function RootLayout() {
                       name="share"
                       options={{
                         headerShown: false,
+                        animation: 'none',
                         contentStyle: { backgroundColor: 'transparent' },
                       }}
                     />
                   </Stack>
+                  {isShareEntryTransitionActive && (
+                    <View
+                      pointerEvents="none"
+                      style={styles.shareEntryTransitionCover}
+                      testID="share-entry-transition-cover"
+                    />
+                  )}
                 </View>
               </UpdateProvider>
             </AppStateProvider>
@@ -99,6 +111,14 @@ function RootLayout() {
     </ErrorBoundary>
   );
 }
+
+const styles = StyleSheet.create({
+  shareEntryTransitionCover: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: GREY[50],
+    zIndex: 10,
+  },
+});
 
 // Sentry가 활성화되어 있으면 wrap, 아니면 그냥 export
 export default isSentryEnabled ? Sentry.wrap(RootLayout) : RootLayout;

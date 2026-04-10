@@ -11,10 +11,13 @@ const mockUpdateRunningRecord = jest.fn();
 const mockGetCurrentLeague = jest.fn();
 const mockUpdateParticipantDistance = jest.fn();
 const mockRouterReplace = jest.fn();
+const mockRouterPush = jest.fn();
+const mockSetShareData = jest.fn();
+const mockBeginEntryTransition = jest.fn();
 
 jest.mock('expo-router', () => ({
   router: {
-    push: jest.fn(),
+    push: (...args: unknown[]) => mockRouterPush(...args),
     replace: (...args: unknown[]) => mockRouterReplace(...args),
   },
 }));
@@ -49,7 +52,15 @@ jest.mock('~/shared/hooks', () => ({
 jest.mock('~/features/share/stores/shareStore', () => ({
   useShareStore: {
     getState: () => ({
-      setShareData: jest.fn(),
+      setShareData: mockSetShareData,
+    }),
+  },
+}));
+
+jest.mock('~/features/share/stores/shareEntryTransitionStore', () => ({
+  useShareEntryTransitionStore: {
+    getState: () => ({
+      beginEntryTransition: mockBeginEntryTransition,
     }),
   },
 }));
@@ -67,7 +78,15 @@ jest.mock('~/features/running/views/components/point-info-bar', () => ({
 }));
 
 jest.mock('~/features/running/views/components/share-button', () => ({
-  ShareButton: () => null,
+  ShareButton: ({ onPress }: { onPress: () => void }) => {
+    const React = require('react');
+    const { TouchableOpacity, Text } = require('react-native');
+    return React.createElement(
+      TouchableOpacity,
+      { testID: 'running-finished-share-button', onPress },
+      React.createElement(Text, null, '공유')
+    );
+  },
 }));
 
 jest.mock('~/features/running/views/components/add-shoe-card', () => ({
@@ -133,5 +152,29 @@ describe('RunningFinishedView', () => {
         })
       );
     });
+  });
+
+  it('begins the share entry transition before navigating to the share editor', async () => {
+    renderWithProviders(<RunningFinishedView />);
+
+    fireEvent.press(screen.getByTestId('running-finished-share-button'));
+
+    await waitFor(() => {
+      expect(mockSetShareData).toHaveBeenCalledWith(expect.objectContaining({
+        distance: 1500,
+        durationSec: 600,
+        pace: '05:00',
+      }));
+    });
+
+    expect(mockBeginEntryTransition).toHaveBeenCalledTimes(1);
+    expect(mockRouterPush).toHaveBeenCalledWith('/share/editor');
+
+    const setShareDataOrder = mockSetShareData.mock.invocationCallOrder[0] ?? 0;
+    const beginTransitionOrder = mockBeginEntryTransition.mock.invocationCallOrder[0] ?? 0;
+    const pushOrder = mockRouterPush.mock.invocationCallOrder[0] ?? 0;
+
+    expect(beginTransitionOrder).toBeGreaterThan(setShareDataOrder);
+    expect(pushOrder).toBeGreaterThan(beginTransitionOrder);
   });
 });

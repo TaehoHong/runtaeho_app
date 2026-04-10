@@ -16,6 +16,7 @@ const mockSharePreviewCanvas = jest.fn();
 const mockUseFocusEffect = jest.fn();
 const mockSetActiveViewport = jest.fn();
 const mockClearActiveViewport = jest.fn();
+const mockEndEntryTransition = jest.fn();
 let previewMeasureInWindowCalls = 0;
 const mockUnityStoreState = {
   setActiveViewport: mockSetActiveViewport,
@@ -38,8 +39,14 @@ jest.mock('@react-navigation/native', () => ({
 
 jest.mock('~/features/share/stores/shareStore', () => ({
   useShareStore: (
-    selector: (state: { setDummyLocations: typeof mockSetDummyLocations; shareData: null }) => unknown
-  ) => selector({ setDummyLocations: mockSetDummyLocations, shareData: null }),
+    selector: (state: {
+      setDummyLocations: typeof mockSetDummyLocations;
+      shareData: null;
+    }) => unknown
+  ) => selector({
+    setDummyLocations: mockSetDummyLocations,
+    shareData: null,
+  }),
 }));
 
 jest.mock('~/stores/user', () => ({
@@ -63,6 +70,14 @@ jest.mock('~/stores/unity/unityStore', () => ({
     getState?: () => typeof mockUnityStoreState;
   }).getState = () => mockUnityStoreState;
 })(require('~/stores/unity/unityStore').useUnityStore);
+
+jest.mock('~/features/share/stores/shareEntryTransitionStore', () => ({
+  useShareEntryTransitionStore: (
+    selector: (state: { endEntryTransition: typeof mockEndEntryTransition }) => unknown
+  ) => selector({
+    endEntryTransition: mockEndEntryTransition,
+  }),
+}));
 
 jest.mock('@expo/vector-icons', () => ({
   Ionicons: () => null,
