@@ -16,6 +16,7 @@ const mockSharePreviewCanvas = jest.fn();
 const mockUseFocusEffect = jest.fn();
 const mockSetActiveViewport = jest.fn();
 const mockClearActiveViewport = jest.fn();
+let previewMeasureInWindowCalls = 0;
 const mockUnityStoreState = {
   setActiveViewport: mockSetActiveViewport,
   clearActiveViewport: mockClearActiveViewport,
@@ -78,6 +79,7 @@ jest.mock('~/features/share/views/components', () => {
       mockSharePreviewCanvas(props);
       React.useImperativeHandle(ref, () => ({
         measureInWindow: (callback: (x: number, y: number, width: number, height: number) => void) => {
+          previewMeasureInWindowCalls += 1;
           if (props?.interactive === false && props?.containerPadding === false) {
             callback(16, 412, 280, 350);
             return;
@@ -121,6 +123,7 @@ describe('ShareEditorScreen exit behavior', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockCanvasRef = { current: null };
+    previewMeasureInWindowCalls = 0;
     alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
     mockUnityStoreState.renderedViewport = null;
 
@@ -199,6 +202,35 @@ describe('ShareEditorScreen exit behavior', () => {
     expect(restoreCallOrder).toBeGreaterThan(0);
     expect(resetCallOrder).toBeGreaterThan(restoreCallOrder);
     expect(backCallOrder).toBeGreaterThan(resetCallOrder);
+  });
+
+  it('reuses the measured preview frame while scrolling instead of measuring on every scroll event', async () => {
+    renderWithProviders(<ShareEditorScreen runningData={runningData} />);
+
+    await waitFor(() => {
+      expect(mockSetActiveViewport).toHaveBeenCalledWith(expect.objectContaining({
+        frame: expect.objectContaining({ x: 16, y: 115, width: 280, height: 350 }),
+      }));
+    });
+
+    const measureCallsBeforeScroll = previewMeasureInWindowCalls;
+    mockSetActiveViewport.mockClear();
+
+    fireEvent.scroll(screen.getByTestId('share-editor-scroll'), {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 40 },
+        contentSize: { width: 320, height: 1200 },
+        layoutMeasurement: { width: 320, height: 640 },
+      },
+    });
+
+    await waitFor(() => {
+      expect(mockSetActiveViewport).toHaveBeenCalledWith(expect.objectContaining({
+        frame: expect.objectContaining({ x: 16, y: 75, width: 280, height: 350 }),
+      }));
+    });
+
+    expect(previewMeasureInWindowCalls).toBe(measureCallsBeforeScroll);
   });
 
   it('restores running result defaults before navigating back on successful share', async () => {

@@ -12,6 +12,8 @@ import React, { useCallback } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   ScrollView,
   StyleSheet,
   Text,
@@ -72,6 +74,7 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
     exportStageRef,
     isExportSurfaceVisible,
     syncPreviewViewport,
+    syncPreviewViewportForScroll,
     handleExportStageLayout,
     prepareExportSurface,
     restorePreviewSurface,
@@ -148,9 +151,9 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
     void resetAll();
   };
 
-  const handlePreviewScroll = useCallback(() => {
-    syncPreviewViewport();
-  }, [syncPreviewViewport]);
+  const handlePreviewScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    syncPreviewViewportForScroll(event.nativeEvent.contentOffset.y);
+  }, [syncPreviewViewportForScroll]);
 
   return (
     <SafeAreaProvider>

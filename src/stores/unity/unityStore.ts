@@ -65,6 +65,34 @@ export interface UnitySessionDebugCounters {
   reattachRequestCount: number;
 }
 
+const VIEWPORT_FRAME_EPSILON = 0.5;
+
+const areViewportFramesEqual = (
+  left: UnityViewportFrame,
+  right: UnityViewportFrame
+): boolean =>
+  Math.abs(left.x - right.x) <= VIEWPORT_FRAME_EPSILON
+  && Math.abs(left.y - right.y) <= VIEWPORT_FRAME_EPSILON
+  && Math.abs(left.width - right.width) <= VIEWPORT_FRAME_EPSILON
+  && Math.abs(left.height - right.height) <= VIEWPORT_FRAME_EPSILON;
+
+const areActiveViewportsEqual = (
+  left: UnityViewport | null,
+  right: UnityViewport
+): boolean =>
+  !!left
+  && left.owner === right.owner
+  && (left.borderRadius ?? 0) === (right.borderRadius ?? 0)
+  && areViewportFramesEqual(left.frame, right.frame);
+
+const areRenderedViewportsEqual = (
+  left: RenderedUnityViewport | null,
+  right: RenderedUnityViewport
+): boolean =>
+  !!left
+  && left.owner === right.owner
+  && areViewportFramesEqual(left.frame, right.frame);
+
 /**
  * Unity State Interface
  * 순수한 상태만 관리
@@ -215,10 +243,19 @@ export const useUnityStore = create<UnityState>((set) => ({
     }),
 
   setActiveViewport: (activeViewport) =>
-    set({
-      activeViewport,
-      isUnityViewVisible: true,
-      lastInteraction: new Date().toISOString(),
+    set((state) => {
+      if (
+        state.isUnityViewVisible
+        && areActiveViewportsEqual(state.activeViewport, activeViewport)
+      ) {
+        return state;
+      }
+
+      return {
+        activeViewport,
+        isUnityViewVisible: true,
+        lastInteraction: new Date().toISOString(),
+      };
     }),
 
   clearActiveViewport: (owner) =>
@@ -240,9 +277,19 @@ export const useUnityStore = create<UnityState>((set) => ({
     }),
 
   setRenderedViewport: (renderedViewport) =>
-    set({
-      renderedViewport,
-      lastInteraction: new Date().toISOString(),
+    set((state) => {
+      if (renderedViewport && areRenderedViewportsEqual(state.renderedViewport, renderedViewport)) {
+        return state;
+      }
+
+      if (!renderedViewport && !state.renderedViewport) {
+        return state;
+      }
+
+      return {
+        renderedViewport,
+        lastInteraction: new Date().toISOString(),
+      };
     }),
 
   resetUnityState: () => set(initialState),
@@ -284,7 +331,7 @@ export const useUnityStore = create<UnityState>((set) => ({
         && lastTransition.reason === reason
         && lastTransition.owner === resolvedOwner
       ) {
-        return nextState as UnityState;
+        return state;
       }
 
       const nextTransition: UnitySessionTransition = {
