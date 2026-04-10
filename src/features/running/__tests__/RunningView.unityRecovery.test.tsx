@@ -3,6 +3,7 @@ import { StyleSheet } from 'react-native';
 import { waitFor } from '@testing-library/react-native';
 import { RunningView } from '~/features/running/views/RunningView';
 import { RunningState, ViewState, useAppStore } from '~/stores/app/appStore';
+import { useUnityStore } from '~/stores/unity/unityStore';
 import { renderWithProviders } from '~/test-utils/renderWithProviders';
 
 const mockUseFocusEffect = jest.fn();
@@ -15,6 +16,7 @@ const mockSyncAvatar = jest.fn();
 const mockStopCharacter = jest.fn();
 const mockCheckUncheckedLeagueResult = jest.fn();
 const mockRequestPermissionsOnFirstLogin = jest.fn();
+const mockUnityLoadingState = jest.fn();
 let mockIsLoggedIn = false;
 
 jest.mock('@react-navigation/native', () => ({
@@ -78,7 +80,10 @@ jest.mock('~/features/running/views/components/ControlPanelView', () => ({
 }));
 
 jest.mock('~/features/unity/components/UnityLoadingState', () => ({
-  UnityLoadingState: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  UnityLoadingState: (props: { children: React.ReactNode; isLoading: boolean }) => {
+    mockUnityLoadingState(props);
+    return <>{props.children}</>;
+  },
 }));
 
 jest.mock('~/shared/components', () => ({
@@ -89,6 +94,7 @@ describe('RunningView unity recovery', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     useAppStore.getState().resetAppState();
+    useUnityStore.getState().resetUnityState();
     useAppStore.getState().setViewState(ViewState.Loaded);
     useAppStore.getState().setRunningState(RunningState.Stopped);
 
@@ -154,5 +160,20 @@ describe('RunningView unity recovery', () => {
       expect(mockRequestPermissionsOnFirstLogin).toHaveBeenCalledTimes(1);
     });
     expect(mockStopCharacter).not.toHaveBeenCalled();
+  });
+
+  it('keeps the loading placeholder active until the Unity surface is actually visible', async () => {
+    useUnityStore.getState().setSurfaceVisible(false);
+
+    renderWithProviders(<RunningView />);
+
+    await waitFor(() => {
+      expect(mockUnityLoadingState).toHaveBeenCalled();
+    });
+
+    const lastCall =
+      mockUnityLoadingState.mock.calls[mockUnityLoadingState.mock.calls.length - 1]?.[0];
+
+    expect(lastCall?.isLoading).toBe(true);
   });
 });

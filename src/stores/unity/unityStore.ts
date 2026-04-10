@@ -115,6 +115,7 @@ interface UnityState {
 
   // UI State
   isUnityViewVisible: boolean;
+  isSurfaceVisible: boolean;
   lastInteraction: string | null;
   activeViewport: UnityViewport | null;
   renderedViewport: RenderedUnityViewport | null;
@@ -134,6 +135,7 @@ interface UnityState {
   updateCharacterState: (characterState: CharacterState) => void;
   updateUnityStatus: (unityStatus: UnityStatus) => void;
   setUnityViewVisible: (isVisible: boolean) => void;
+  setSurfaceVisible: (isVisible: boolean) => void;
   setActiveViewport: (viewport: UnityViewport) => void;
   clearActiveViewport: (owner?: UnityViewport['owner']) => void;
   setRenderedViewport: (viewport: RenderedUnityViewport | null) => void;
@@ -174,6 +176,7 @@ const initialState = {
   },
   unityStatus: null,
   isUnityViewVisible: false,
+  isSurfaceVisible: false,
   lastInteraction: null,
   activeViewport: null,
   renderedViewport: null,
@@ -239,6 +242,12 @@ export const useUnityStore = create<UnityState>((set) => ({
   setUnityViewVisible: (isUnityViewVisible) =>
     set({
       isUnityViewVisible,
+      lastInteraction: new Date().toISOString(),
+    }),
+
+  setSurfaceVisible: (isSurfaceVisible) =>
+    set({
+      isSurfaceVisible,
       lastInteraction: new Date().toISOString(),
     }),
 

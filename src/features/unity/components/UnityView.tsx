@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { unityService } from '../services/UnityService';
 import { UnityBridge } from '../bridge/UnityBridge';
+import { useUnityStore } from '~/stores/unity/unityStore';
 
 interface UnityViewProps extends ViewProps {
   // Unity Ready 이벤트
@@ -26,6 +27,7 @@ const SURFACE_VISIBILITY_FAILSAFE_MS = 400;
 
 export const UnityView: React.FC<UnityViewProps> = (props) => {
   const { onUnityReady, onUnityError, reattachToken, style, ...restProps } = props;
+  const setSurfaceVisibleInStore = useUnityStore((state) => state.setSurfaceVisible);
   const viewRef = useRef(null);
   const [surfaceVisible, setSurfaceVisible] = useState(false);
   const readyEventReceivedRef = useRef(false);
@@ -46,6 +48,7 @@ export const UnityView: React.FC<UnityViewProps> = (props) => {
     let shouldScheduleFailsafe = true;
     readyEventReceivedRef.current = false;
     setSurfaceVisible(false);
+    setSurfaceVisibleInStore(false);
 
     const initialize = async () => {
       try {
@@ -55,9 +58,7 @@ export const UnityView: React.FC<UnityViewProps> = (props) => {
         }
 
         if (syncedReady) {
-          readyEventReceivedRef.current = true;
-          setSurfaceVisible(true);
-          shouldScheduleFailsafe = false;
+          console.log('[UnityView] GameObject ready, waiting for native surface attach event');
           return;
         }
 
@@ -67,9 +68,7 @@ export const UnityView: React.FC<UnityViewProps> = (props) => {
           if (isMounted) {
             const recoveredReady = await UnityBridge.syncReadyState();
             if (recoveredReady) {
-              readyEventReceivedRef.current = true;
-              setSurfaceVisible(true);
-              shouldScheduleFailsafe = false;
+              console.log('[UnityView] Ready state recovered, waiting for native surface attach event');
             }
           }
         }
@@ -94,6 +93,7 @@ export const UnityView: React.FC<UnityViewProps> = (props) => {
             if (ready) {
               console.log('[UnityView] Surface visibility recovered by failsafe sync');
               setSurfaceVisible(true);
+              setSurfaceVisibleInStore(true);
             }
           } catch (error) {
             console.error('[UnityView] Surface failsafe sync failed:', error);
@@ -109,7 +109,7 @@ export const UnityView: React.FC<UnityViewProps> = (props) => {
       clearVisibilityTimer();
       console.log('[UnityView] Unmounting - Native cleanup initiated');
     };
-  }, [clearVisibilityTimer]);
+  }, [clearVisibilityTimer, setSurfaceVisibleInStore]);
 
   useEffect(() => {
     const currentToken = reattachToken ?? 0;
@@ -128,8 +128,9 @@ export const UnityView: React.FC<UnityViewProps> = (props) => {
 
     readyEventReceivedRef.current = false;
     setSurfaceVisible(false);
+    setSurfaceVisibleInStore(false);
     UIManager.dispatchViewManagerCommand(reactTag, command, []);
-  }, [reattachToken]);
+  }, [reattachToken, setSurfaceVisibleInStore]);
 
   // 디버깅용 이벤트 핸들러
   // ★ 의존성을 props 전체가 아닌 특정 콜백으로 변경 (불필요한 재생성 방지)
@@ -138,8 +139,9 @@ export const UnityView: React.FC<UnityViewProps> = (props) => {
     readyEventReceivedRef.current = true;
     clearVisibilityTimer();
     setSurfaceVisible(true);
+    setSurfaceVisibleInStore(true);
     onUnityReady?.(event);
-  }, [clearVisibilityTimer, onUnityReady]);
+  }, [clearVisibilityTimer, onUnityReady, setSurfaceVisibleInStore]);
 
   const handleUnityError = useCallback((event: any) => {
     console.error('[UnityView] onUnityError event received:', event.nativeEvent);

@@ -38,4 +38,14 @@ describe('unityStore viewport dedupe', () => {
     expect(subscriber).toHaveBeenCalledTimes(1);
     expect(useUnityStore.getState().sessionTransitions).toHaveLength(1);
   });
+
+  it('resets surface visibility when unity state is reset', () => {
+    useUnityStore.getState().setSurfaceVisible(true);
+
+    expect(useUnityStore.getState().isSurfaceVisible).toBe(true);
+
+    useUnityStore.getState().resetUnityState();
+
+    expect(useUnityStore.getState().isSurfaceVisible).toBe(false);
+  });
 });

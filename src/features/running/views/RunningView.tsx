@@ -47,6 +47,7 @@ export const RunningView: React.FC = () => {
   const unityViewportRef = useRef<View>(null);
   const setActiveViewport = useUnityStore((state) => state.setActiveViewport);
   const clearActiveViewport = useUnityStore((state) => state.clearActiveViewport);
+  const isUnitySurfaceVisible = useUnityStore((state) => state.isSurfaceVisible);
 
   const getInitialAvatarPayload = useCallback(() => {
     if (!currentUser) {
@@ -77,7 +78,7 @@ export const RunningView: React.FC = () => {
   });
 
   const isLoading = viewState === ViewState.Loading;
-  const isUnitySectionLoading = !isUnityReady || !isInitialAvatarSynced;
+  const isUnitySectionLoading = !isUnityReady || !isInitialAvatarSynced || !isUnitySurfaceVisible;
 
   console.log('🏃 [RunningView] 렌더링, viewState:', viewState, 'runningState:', runningState, 'isLoggedIn:', isLoggedIn, 'isUnityReady:', isUnityReady);
 

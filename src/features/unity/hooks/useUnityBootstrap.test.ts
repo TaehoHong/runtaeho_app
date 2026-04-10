@@ -628,8 +628,12 @@ describe('UnityView mount initialization', () => {
     await view.unmount();
   });
 
-  it('reveals unity surface immediately when initial sync is ready', async () => {
+  it('waits for a surface attach signal before revealing when initial sync is ready', async () => {
     const view = await renderUnityViewWithSyncState(true);
+
+    expect(view.getNativeOpacity()).toBe(0);
+
+    await view.emitReadyEvent();
 
     expect(view.getNativeOpacity()).not.toBe(0);
     await view.unmount();
