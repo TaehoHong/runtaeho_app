@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import { Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from '~/features/auth/hooks/useAuth';
-import { AvatarView } from '~/features/avatar/views';
 import { PointHistoryView } from '~/features/point/views';
 import { ShoesListView } from '~/features/shoes/views';
 import { Text } from '~/shared/components/typography';
@@ -20,9 +19,9 @@ import type { User } from '../models';
 export const MyInfoView: React.FC = () => {
   // useAuth Hook 사용 (현업 표준 패턴)
   const { user: currentUser, totalPoint } = useAuth();
+  const router = useRouter();
   const [showPointModal, setShowPointModal] = useState(false);
   const [showShoesModal, setShowShoesModal] = useState(false);
-  const [showAvatarModal, setShowAvatarModal] = useState(false);
 
   console.log('👤 [MyInfoView] 내정보 화면 렌더링');
 
@@ -39,7 +38,7 @@ export const MyInfoView: React.FC = () => {
         {/* 메인 메뉴 카드 */}
         <MainMenuCard
           onShoesPress={() => setShowShoesModal(true)}
-          onAvatarPress={() => setShowAvatarModal(true)}
+          onAvatarPress={() => router.push('/user/avatar')}
         />
         
         {/* 메뉴 설정 카드 */}
@@ -49,7 +48,6 @@ export const MyInfoView: React.FC = () => {
       {/* 모달들 - iOS fullScreenCover 대응 */}
       <PointModal visible={showPointModal} onClose={() => setShowPointModal(false)} />
       <ShoesModal visible={showShoesModal} onClose={() => setShowShoesModal(false)} />
-      <AvatarModal visible={showAvatarModal} onClose={() => setShowAvatarModal(false)} />
     </SafeAreaView>
   );
 };
@@ -216,14 +214,6 @@ const ShoesModal: React.FC<ModalProps> = ({ visible, onClose }) => {
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
       <ShoesListView onClose={onClose} />
-    </Modal>
-  );
-};
-
-const AvatarModal: React.FC<ModalProps> = ({ visible, onClose }) => {
-  return (
-    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
-      <AvatarView onClose={onClose} />
     </Modal>
   );
 };

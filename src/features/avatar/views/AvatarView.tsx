@@ -4,6 +4,7 @@
 
 import React, { useCallback } from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
+import { UNITY_PREVIEW } from '../models/avatarConstants';
 import { useAvatarViewModel } from '../viewmodels/useAvatarViewModel';
 import { AvatarHeader } from './components/AvatarHeader';
 import { AvatarPreview } from './components/AvatarPreview';
@@ -46,17 +47,16 @@ const AvatarViewContent: React.FC<AvatarViewProps> = ({ onClose }) => {
   }, [cancelChanges, onClose]);
 
   return (
-    <View style={[
-      styles.container,
-      {
-        paddingTop: insets.top,
-        paddingBottom: insets.bottom,
-      }
-    ]}>
+    <View style={styles.container} testID="avatar-view-root">
+      <View style={[styles.safeAreaInset, { height: insets.top }]} />
       {/* Header */}
       <AvatarHeader onClose={handleClose} points={viewModel.totalPoint} />
       {/* Unity Character Preview */}
-      <AvatarPreview equippedItems={viewModel.previewItems} hairColor={viewModel.pendingHairColor} />
+      <View style={styles.previewRow}>
+        <View style={styles.previewSideMask} />
+        <AvatarPreview equippedItems={viewModel.previewItems} hairColor={viewModel.pendingHairColor} />
+        <View style={styles.previewSideMask} />
+      </View>
 
       <ScrollView
         style={styles.scrollView}
@@ -100,6 +100,7 @@ const AvatarViewContent: React.FC<AvatarViewProps> = ({ onClose }) => {
         onConfirm={viewModel.confirmChanges}
         isLoading={viewModel.isLoading}
       />
+      <View style={[styles.safeAreaInset, { height: insets.bottom }]} />
 
       {/* Purchase Modal */}
       {viewModel.showPurchaseModal && (
@@ -128,10 +129,24 @@ const AvatarViewContent: React.FC<AvatarViewProps> = ({ onClose }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: 'transparent',
+  },
+  safeAreaInset: {
+    backgroundColor: GREY[50],
+  },
+  previewRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    height: UNITY_PREVIEW.HEIGHT,
+    backgroundColor: 'transparent',
+  },
+  previewSideMask: {
+    width: 20,
     backgroundColor: GREY[50],
   },
   scrollView: {
     flex: 1,
+    backgroundColor: GREY[50],
   },
   content: {
     paddingHorizontal: 20,

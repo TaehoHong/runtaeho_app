@@ -77,7 +77,8 @@ function RootLayout() {
                     <Stack.Screen
                       name="user"
                       options={{
-                        headerShown: false
+                        headerShown: false,
+                        contentStyle: { backgroundColor: 'transparent' },
                       }}
                     />
                     <Stack.Screen

@@ -20,6 +20,7 @@ export const AvatarPreview: React.FC<Props> = ({ equippedItems, hairColor }) => 
   const unityViewportRef = useRef<View>(null);
   const setActiveViewport = useUnityStore((state) => state.setActiveViewport);
   const clearActiveViewport = useUnityStore((state) => state.clearActiveViewport);
+  const isUnitySurfaceVisible = useUnityStore((state) => state.isSurfaceVisible);
 
   const getInitialAvatarPayload = useCallback(() => {
     const items = Object.values(equippedItems).filter((item): item is Item => !!item);
@@ -133,7 +134,7 @@ export const AvatarPreview: React.FC<Props> = ({ equippedItems, hairColor }) => 
   return (
     <View style={styles.container}>
       <UnityLoadingState
-        isLoading={!isInitialAvatarSynced}
+        isLoading={!isInitialAvatarSynced || !isUnitySurfaceVisible}
         variant="avatar"
         minDisplayTime={300}
       >
@@ -151,7 +152,7 @@ export const AvatarPreview: React.FC<Props> = ({ equippedItems, hairColor }) => 
 
 const styles = StyleSheet.create({
   container: {
-    marginHorizontal: 20,
+    flex: 1,
     height: UNITY_PREVIEW.HEIGHT,
     borderRadius: 16,
     backgroundColor: 'transparent',

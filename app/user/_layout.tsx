@@ -12,6 +12,13 @@ export default function UserLayout() {
       }}
     >
       <Stack.Screen
+        name="avatar"
+        options={{
+          headerShown: false,
+          contentStyle: { backgroundColor: 'transparent' },
+        }}
+      />
+      <Stack.Screen
         name="account-connection"
         options={{
           headerShown: false,
