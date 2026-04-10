@@ -211,13 +211,14 @@ export class BackgroundTaskService {
    */
   async startBackgroundTracking(runningRecordId: number): Promise<void> {
     try {
-      // 권한 확인
-      const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
+      // 권한 상태만 확인한다.
+      // 권한 요청 UI는 RunningStartView/PermissionManager에서만 담당해야 한다.
+      const { status: foregroundStatus } = await Location.getForegroundPermissionsAsync();
       if (foregroundStatus !== 'granted') {
         throw new Error('Foreground location permission required');
       }
 
-      const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
+      const { status: backgroundStatus } = await Location.getBackgroundPermissionsAsync();
       if (backgroundStatus !== 'granted') {
         console.warn('[BackgroundTask] Background permission not granted, using foreground only');
       }

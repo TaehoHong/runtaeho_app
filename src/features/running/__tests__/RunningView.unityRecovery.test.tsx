@@ -1,6 +1,6 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
-import { waitFor } from '@testing-library/react-native';
+import { AppState, type AppStateStatus, type NativeEventSubscription, StyleSheet } from 'react-native';
+import { act, waitFor } from '@testing-library/react-native';
 import { RunningView } from '~/features/running/views/RunningView';
 import { RunningState, ViewState, useAppStore } from '~/stores/app/appStore';
 import { useUnityStore } from '~/stores/unity/unityStore';
@@ -18,6 +18,8 @@ const mockCheckUncheckedLeagueResult = jest.fn();
 const mockRequestPermissionsOnFirstLogin = jest.fn();
 const mockUnityLoadingState = jest.fn();
 let mockIsLoggedIn = false;
+let appStateHandler: ((nextAppState: AppStateStatus) => void) | null = null;
+const mockAppStateRemove = jest.fn();
 
 jest.mock('@react-navigation/native', () => ({
   useFocusEffect: (...args: unknown[]) => mockUseFocusEffect(...args),
@@ -91,6 +93,16 @@ jest.mock('~/shared/components', () => ({
 }));
 
 describe('RunningView unity recovery', () => {
+  const emitAppState = (nextAppState: AppStateStatus) => {
+    if (!appStateHandler) {
+      throw new Error('AppState handler is not registered');
+    }
+
+    act(() => {
+      appStateHandler?.(nextAppState);
+    });
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
     useAppStore.getState().resetAppState();
@@ -118,6 +130,20 @@ describe('RunningView unity recovery', () => {
     mockInitCharacter.mockResolvedValue(undefined);
     mockSyncAvatar.mockResolvedValue('applied');
     mockStopCharacter.mockResolvedValue(undefined);
+    appStateHandler = null;
+    mockAppStateRemove.mockReset();
+
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((type, handler) => {
+      if (type === 'change') {
+        appStateHandler = handler;
+      }
+
+      return { remove: mockAppStateRemove } as NativeEventSubscription;
+    });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('starts Unity when the running screen is focused and the user is logged in', async () => {
@@ -159,6 +185,28 @@ describe('RunningView unity recovery', () => {
     await waitFor(() => {
       expect(mockRequestPermissionsOnFirstLogin).toHaveBeenCalledTimes(1);
     });
+    expect(mockStopCharacter).not.toHaveBeenCalled();
+  });
+
+  it('keeps running motion when the app becomes active during an active run', async () => {
+    useAppStore.getState().setRunningState(RunningState.Running);
+
+    renderWithProviders(<RunningView />);
+
+    await waitFor(() => {
+      expect(mockRequestPermissionsOnFirstLogin).toHaveBeenCalledTimes(1);
+    });
+
+    mockInitCharacter.mockClear();
+    mockSyncAvatar.mockClear();
+    mockStopCharacter.mockClear();
+
+    emitAppState('active');
+
+    await waitFor(() => {
+      expect(mockSyncAvatar).toHaveBeenCalledTimes(1);
+    });
+    expect(mockInitCharacter).not.toHaveBeenCalled();
     expect(mockStopCharacter).not.toHaveBeenCalled();
   });
 

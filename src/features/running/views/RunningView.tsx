@@ -253,9 +253,21 @@ export const RunningView: React.FC = () => {
         void unityService.runWhenReady(async () => {
           try {
             const currentState = useUserStore.getState();
+            const currentRunningState = useAppStore.getState().runningState;
             const items = Object.values(currentState.equippedItems).filter(
               (item): item is Item => !!item
             );
+
+            if (currentRunningState === RunningState.Running) {
+              const syncResult = await unityService.syncAvatar(items, currentState.hairColor, {
+                waitForReady: false,
+              });
+              console.log(
+                `✅ [RunningView] 포그라운드 재동기화 완료 (${items.length}개, result=${syncResult})`
+              );
+              return;
+            }
+
             await unityService.initCharacter(items, currentState.hairColor);
             console.log(`✅ [RunningView] 포그라운드 재초기화 완료 (${items.length}개)`);
           } catch (error) {
