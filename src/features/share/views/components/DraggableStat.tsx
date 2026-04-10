@@ -25,6 +25,8 @@ interface DraggableStatProps {
   onTransformChange: (transform: ElementTransform) => void;
   /** 표시 여부 */
   visible: boolean;
+  /** 제스처 활성화 여부 */
+  interactive?: boolean;
 }
 
 export const DraggableStat: React.FC<DraggableStatProps> = ({
@@ -34,6 +36,7 @@ export const DraggableStat: React.FC<DraggableStatProps> = ({
   transform,
   onTransformChange,
   visible,
+  interactive = true,
 }) => {
   const { combinedGesture, animatedStyle } = useDraggableTransformGesture({
     transform,
@@ -76,22 +79,30 @@ export const DraggableStat: React.FC<DraggableStatProps> = ({
 
   const { valueStyle, labelStyle } = getStatStyle();
 
+  const content = (
+    <Animated.View style={[styles.container, animatedStyle]}>
+      {/* time, pace: 세로 레이아웃 (라벨 위, 값 아래) */}
+      {(type === 'time' || type === 'pace') ? (
+        <View style={styles.verticalWrapper}>
+          <Text style={[styles.label, labelStyle]}>{label}</Text>
+          <Text style={[styles.value, valueStyle]}>{value}</Text>
+        </View>
+      ) : (
+        <View style={styles.contentWrapper}>
+          <Text style={[styles.value, valueStyle]}>{value}</Text>
+          <Text style={[styles.label, labelStyle]}>{label}</Text>
+        </View>
+      )}
+    </Animated.View>
+  );
+
+  if (!interactive) {
+    return content;
+  }
+
   return (
     <GestureDetector gesture={combinedGesture}>
-      <Animated.View style={[styles.container, animatedStyle]}>
-        {/* time, pace: 세로 레이아웃 (라벨 위, 값 아래) */}
-        {(type === 'time' || type === 'pace') ? (
-          <View style={styles.verticalWrapper}>
-            <Text style={[styles.label, labelStyle]}>{label}</Text>
-            <Text style={[styles.value, valueStyle]}>{value}</Text>
-          </View>
-        ) : (
-          <View style={styles.contentWrapper}>
-            <Text style={[styles.value, valueStyle]}>{value}</Text>
-            <Text style={[styles.label, labelStyle]}>{label}</Text>
-          </View>
-        )}
-      </Animated.View>
+      {content}
     </GestureDetector>
   );
 };

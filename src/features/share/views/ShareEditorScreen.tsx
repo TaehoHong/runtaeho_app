@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   editorShellHidden: {
-    display: 'none',
+    opacity: 0,
   },
   headerSafeArea: HEADER_SAFE_AREA_STYLE,
   header: {

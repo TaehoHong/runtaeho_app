@@ -250,7 +250,7 @@ describe('ShareEditorScreen exit behavior', () => {
     });
     expect(screen.getByTestId('share-export-loader')).toBeTruthy();
     expect(StyleSheet.flatten(getEditorShell().props.style)).toMatchObject({
-      display: 'none',
+      opacity: 0,
     });
     expect(StyleSheet.flatten(screen.getByTestId('share-export-top-mask').props.style)).toMatchObject({
       backgroundColor: GREY.WHITE,
@@ -324,7 +324,7 @@ describe('ShareEditorScreen exit behavior', () => {
     });
     expect(screen.getByTestId('share-export-loader')).toBeTruthy();
     expect(StyleSheet.flatten(getEditorShell().props.style)).toMatchObject({
-      display: 'none',
+      opacity: 0,
     });
 
     fireEvent(screen.getByTestId('share-export-stage-container'), 'layout', {
@@ -347,7 +347,7 @@ describe('ShareEditorScreen exit behavior', () => {
     expect(routerMock.back).not.toHaveBeenCalled();
     expect(mockRestoreRunningResultDefaults).not.toHaveBeenCalled();
     expect(StyleSheet.flatten(getEditorShell().props.style)).not.toMatchObject({
-      display: 'none',
+      opacity: 0,
     });
     expect(screen.getByTestId('share-preview-canvas')).toBeTruthy();
     expect(screen.getByTestId('share-actions')).toBeTruthy();

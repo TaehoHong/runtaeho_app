@@ -357,6 +357,7 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
                     transform={element.transform}
                     onTransformChange={createStatTransformHandler('map')}
                     visible={element.visible}
+                    interactive={interactive}
                   />
                 );
               }
@@ -371,6 +372,7 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
                   transform={element.transform}
                   onTransformChange={createStatTransformHandler(element.type)}
                   visible={element.visible}
+                  interactive={interactive}
                 />
               );
             })}

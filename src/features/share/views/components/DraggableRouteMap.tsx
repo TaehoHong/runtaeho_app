@@ -24,6 +24,8 @@ interface DraggableRouteMapProps {
   onTransformChange: (transform: ElementTransform) => void;
   /** 표시 여부 */
   visible: boolean;
+  /** 제스처 활성화 여부 */
+  interactive?: boolean;
 }
 
 // SVG ViewBox 크기 (Figma 기준)
@@ -39,6 +41,7 @@ export const DraggableRouteMap: React.FC<DraggableRouteMapProps> = ({
   transform,
   onTransformChange,
   visible,
+  interactive = true,
 }) => {
   const { combinedGesture, animatedStyle } = useDraggableTransformGesture({
     transform,
@@ -59,70 +62,78 @@ export const DraggableRouteMap: React.FC<DraggableRouteMapProps> = ({
     return null;
   }
 
+  const content = (
+    <Animated.View style={[styles.container, animatedStyle]}>
+      <Svg
+        width={SVG_WIDTH}
+        height={SVG_HEIGHT}
+        viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
+      >
+        <Defs>
+          {/* 글로우 효과를 위한 필터 */}
+          <Filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+            <FeGaussianBlur stdDeviation="2" result="blur" />
+          </Filter>
+        </Defs>
+
+        {/* 글로우 효과 (외곽선) */}
+        <Path
+          d={pathData.path}
+          stroke={`${PRIMARY[500]}4D`} // 30% 투명도
+          strokeWidth={8}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+
+        {/* 메인 경로 라인 */}
+        <Path
+          d={pathData.path}
+          stroke={PRIMARY[500]}
+          strokeWidth={4}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+
+        {/* 시작점 (초록색) */}
+        <Circle
+          cx={pathData.startPoint.x}
+          cy={pathData.startPoint.y}
+          r={MARKER_OUTER_RADIUS}
+          fill={PRIMARY[500]}
+        />
+        <Circle
+          cx={pathData.startPoint.x}
+          cy={pathData.startPoint.y}
+          r={MARKER_INNER_RADIUS}
+          fill="white"
+        />
+
+        {/* 종료점 (빨간색) */}
+        <Circle
+          cx={pathData.endPoint.x}
+          cy={pathData.endPoint.y}
+          r={MARKER_OUTER_RADIUS}
+          fill="#ef4444"
+        />
+        <Circle
+          cx={pathData.endPoint.x}
+          cy={pathData.endPoint.y}
+          r={MARKER_INNER_RADIUS}
+          fill="white"
+        />
+      </Svg>
+    </Animated.View>
+  );
+
+  if (!interactive) {
+    return content;
+  }
+
   return (
     <GestureDetector gesture={combinedGesture}>
-      <Animated.View style={[styles.container, animatedStyle]}>
-        <Svg
-          width={SVG_WIDTH}
-          height={SVG_HEIGHT}
-          viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
-        >
-          <Defs>
-            {/* 글로우 효과를 위한 필터 */}
-            <Filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-              <FeGaussianBlur stdDeviation="2" result="blur" />
-            </Filter>
-          </Defs>
-
-          {/* 글로우 효과 (외곽선) */}
-          <Path
-            d={pathData.path}
-            stroke={`${PRIMARY[500]}4D`} // 30% 투명도
-            strokeWidth={8}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill="none"
-          />
-
-          {/* 메인 경로 라인 */}
-          <Path
-            d={pathData.path}
-            stroke={PRIMARY[500]}
-            strokeWidth={4}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill="none"
-          />
-
-          {/* 시작점 (초록색) */}
-          <Circle
-            cx={pathData.startPoint.x}
-            cy={pathData.startPoint.y}
-            r={MARKER_OUTER_RADIUS}
-            fill={PRIMARY[500]}
-          />
-          <Circle
-            cx={pathData.startPoint.x}
-            cy={pathData.startPoint.y}
-            r={MARKER_INNER_RADIUS}
-            fill="white"
-          />
-
-          {/* 종료점 (빨간색) */}
-          <Circle
-            cx={pathData.endPoint.x}
-            cy={pathData.endPoint.y}
-            r={MARKER_OUTER_RADIUS}
-            fill="#ef4444"
-          />
-          <Circle
-            cx={pathData.endPoint.x}
-            cy={pathData.endPoint.y}
-            r={MARKER_INNER_RADIUS}
-            fill="white"
-          />
-        </Svg>
-      </Animated.View>
+      {content}
     </GestureDetector>
   );
 };
