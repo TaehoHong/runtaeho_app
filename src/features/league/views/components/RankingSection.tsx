@@ -33,7 +33,7 @@ export const RankingSection = ({
   onRefresh,
 }: RankingSectionProps) => {
   const [isAnimating, setIsAnimating] = useState(false);
-  const [displayOrder, setDisplayOrder] = useState<LeagueParticipant[]>([]);
+  const [displayOrder, setDisplayOrder] = useState<LeagueParticipant[]>(() => [...participants]);
 
   // FlatList ref
   const flatListRef = useRef<FlatList<LeagueParticipant>>(null);
@@ -70,31 +70,32 @@ export const RankingSection = ({
     index,
   }), []);
 
-  // 초기 스크롤 인덱스 계산 (중앙 배치를 위해 약간 위쪽 인덱스)
-  // viewPosition 0.5를 사용하여 중앙에 배치
-  const initialScrollIndex = myIndex >= 0 ? myIndex : 0;
-
   // "나"를 중앙에 배치하는 스크롤 함수
-  const scrollToMyRankCenter = useCallback(() => {
+  const scrollToMyRankCenter = useCallback((animated = false) => {
     if (myIndex >= 0 && displayOrder.length > 0) {
       flatListRef.current?.scrollToIndex({
         index: myIndex,
-        animated: false,
+        animated,
         viewPosition: 0.5, // 중앙 배치
       });
     }
   }, [myIndex, displayOrder.length]);
 
+  const centerMyRankWhenReady = useCallback(() => {
+    if (isAnimating || myIndex < 0 || displayOrder.length === 0) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      scrollToMyRankCenter(false);
+    });
+  }, [displayOrder.length, isAnimating, myIndex, scrollToMyRankCenter]);
+
   // 탭 포커스 시 "나"를 중앙에 배치
   useFocusEffect(
     useCallback(() => {
-      if (isAnimating) return;
-
-      // 즉시 스크롤 (딜레이 최소화)
-      requestAnimationFrame(() => {
-        scrollToMyRankCenter();
-      });
-    }, [isAnimating, scrollToMyRankCenter])
+      centerMyRankWhenReady();
+    }, [centerMyRankWhenReady])
   );
 
   // onScrollToIndexFailed 핸들러 (아이템이 아직 렌더링되지 않은 경우)
@@ -103,15 +104,26 @@ export const RankingSection = ({
     highestMeasuredFrameIndex: number;
     averageItemLength: number;
   }) => {
-    // 약간의 딜레이 후 재시도
-    setTimeout(() => {
+    if (displayOrder.length === 0) {
+      return;
+    }
+
+    const fallbackOffset = Math.max(0, info.averageItemLength * info.index);
+    const safeIndex = Math.min(info.index, displayOrder.length - 1);
+
+    flatListRef.current?.scrollToOffset({
+      offset: fallbackOffset,
+      animated: false,
+    });
+
+    requestAnimationFrame(() => {
       flatListRef.current?.scrollToIndex({
-        index: info.index,
+        index: safeIndex,
         animated: false,
         viewPosition: 0.5,
       });
-    }, 100);
-  }, []);
+    });
+  }, [displayOrder.length]);
 
   // 애니메이션 실행
   useEffect(() => {
@@ -300,8 +312,8 @@ export const RankingSection = ({
           renderItem={renderItem}
           keyExtractor={keyExtractor}
           getItemLayout={getItemLayout}
-          initialScrollIndex={initialScrollIndex}
           onScrollToIndexFailed={onScrollToIndexFailed}
+          onLayout={centerMyRankWhenReady}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContent}
           refreshControl={
