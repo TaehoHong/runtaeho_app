@@ -1,157 +1,280 @@
 /**
  * Dummy GPS Data
- * 테스트용 더미 GPS 좌표 데이터 (userId=1 전용)
+ * 테스트용 더미 공유 데이터 (userId=1 전용)
  *
- * 강남역 근처에서 역삼역 방향으로 약 1km 러닝 경로
- * 15개의 GPS 좌표 포인트 생성
+ * 여의도 한강공원 근처를 도는 약 6.52km 러닝 경로
  */
 
 import type { Location } from '~/features/running/models';
+import type { ShareRunningData } from '../models/types';
+
+const DUMMY_SHARE_DISTANCE_METERS = 6520;
+const DUMMY_SHARE_DURATION_SEC = 38 * 60 + 20;
+const DUMMY_SHARE_PACE = '05:53';
+const DUMMY_SHARE_EARNED_POINTS = Math.floor(DUMMY_SHARE_DISTANCE_METERS / 100);
 
 /**
- * 강남역(37.4979, 127.0276) → 역삼역 방향 약 1km 러닝 경로
+ * 여의도 한강공원 근처를 한 바퀴 반 정도 도는 더미 경로
  * 실제 러닝 데이터처럼 자연스럽게 약간의 변동을 포함
  */
 export const DUMMY_GPS_LOCATIONS: Location[] = [
-  // 시작: 강남역 2번 출구 부근
   {
-    latitude: 37.4979,
-    longitude: 127.0276,
-    timestamp: new Date(Date.now() - 600000), // 10분 전
-    speed: 2.5,
-    altitude: 25,
-    accuracy: 5,
-  },
-  // 강남대로 북쪽으로 이동
-  {
-    latitude: 37.4985,
-    longitude: 127.0279,
-    timestamp: new Date(Date.now() - 560000),
-    speed: 2.8,
-    altitude: 26,
-    accuracy: 4,
-  },
-  {
-    latitude: 37.4992,
-    longitude: 127.0282,
-    timestamp: new Date(Date.now() - 520000),
+    latitude: 37.52682,
+    longitude: 126.92978,
+    timestamp: new Date(0),
     speed: 2.7,
-    altitude: 26,
-    accuracy: 5,
-  },
-  // 테헤란로 방향으로 우회전
-  {
-    latitude: 37.4998,
-    longitude: 127.0288,
-    timestamp: new Date(Date.now() - 480000),
-    speed: 2.6,
-    altitude: 27,
+    altitude: 9,
     accuracy: 4,
   },
   {
-    latitude: 37.5004,
-    longitude: 127.0296,
-    timestamp: new Date(Date.now() - 440000),
-    speed: 2.9,
-    altitude: 27,
-    accuracy: 5,
-  },
-  // 역삼역 방향 직진
-  {
-    latitude: 37.5008,
-    longitude: 127.0305,
-    timestamp: new Date(Date.now() - 400000),
+    latitude: 37.52695,
+    longitude: 126.9321,
+    timestamp: new Date(0),
     speed: 2.8,
-    altitude: 28,
+    altitude: 9,
     accuracy: 4,
   },
   {
-    latitude: 37.5012,
-    longitude: 127.0315,
-    timestamp: new Date(Date.now() - 360000),
-    speed: 2.7,
-    altitude: 28,
-    accuracy: 5,
-  },
-  {
-    latitude: 37.5015,
-    longitude: 127.0325,
-    timestamp: new Date(Date.now() - 320000),
+    latitude: 37.52718,
+    longitude: 126.9346,
+    timestamp: new Date(0),
     speed: 2.9,
-    altitude: 29,
-    accuracy: 4,
-  },
-  // 중간 지점
-  {
-    latitude: 37.5018,
-    longitude: 127.0335,
-    timestamp: new Date(Date.now() - 280000),
-    speed: 2.6,
-    altitude: 29,
+    altitude: 10,
     accuracy: 5,
   },
   {
-    latitude: 37.5022,
-    longitude: 127.0345,
-    timestamp: new Date(Date.now() - 240000),
+    latitude: 37.52762,
+    longitude: 126.93745,
+    timestamp: new Date(0),
     speed: 2.8,
-    altitude: 30,
+    altitude: 10,
     accuracy: 4,
   },
-  // 역삼역 접근
   {
-    latitude: 37.5026,
-    longitude: 127.0355,
-    timestamp: new Date(Date.now() - 200000),
-    speed: 2.7,
-    altitude: 30,
-    accuracy: 5,
-  },
-  {
-    latitude: 37.5030,
-    longitude: 127.0365,
-    timestamp: new Date(Date.now() - 160000),
+    latitude: 37.52805,
+    longitude: 126.94035,
+    timestamp: new Date(0),
     speed: 2.9,
-    altitude: 31,
-    accuracy: 4,
-  },
-  {
-    latitude: 37.5034,
-    longitude: 127.0375,
-    timestamp: new Date(Date.now() - 120000),
-    speed: 2.6,
-    altitude: 31,
+    altitude: 10,
     accuracy: 5,
   },
-  // 역삼역 도착 직전
   {
-    latitude: 37.5038,
-    longitude: 127.0385,
-    timestamp: new Date(Date.now() - 80000),
-    speed: 2.5,
-    altitude: 32,
+    latitude: 37.52862,
+    longitude: 126.9431,
+    timestamp: new Date(0),
+    speed: 3,
+    altitude: 10,
     accuracy: 4,
   },
-  // 종료: 역삼역 3번 출구 부근
   {
-    latitude: 37.5042,
-    longitude: 127.0395,
-    timestamp: new Date(Date.now() - 40000),
-    speed: 2.3,
-    altitude: 32,
+    latitude: 37.52968,
+    longitude: 126.9456,
+    timestamp: new Date(0),
+    speed: 2.9,
+    altitude: 11,
+    accuracy: 4,
+  },
+  {
+    latitude: 37.53105,
+    longitude: 126.9472,
+    timestamp: new Date(0),
+    speed: 2.8,
+    altitude: 11,
+    accuracy: 5,
+  },
+  {
+    latitude: 37.53255,
+    longitude: 126.94755,
+    timestamp: new Date(0),
+    speed: 2.7,
+    altitude: 12,
+    accuracy: 4,
+  },
+  {
+    latitude: 37.53375,
+    longitude: 126.94585,
+    timestamp: new Date(0),
+    speed: 2.7,
+    altitude: 12,
+    accuracy: 5,
+  },
+  {
+    latitude: 37.53418,
+    longitude: 126.94295,
+    timestamp: new Date(0),
+    speed: 2.8,
+    altitude: 13,
+    accuracy: 4,
+  },
+  {
+    latitude: 37.5341,
+    longitude: 126.93975,
+    timestamp: new Date(0),
+    speed: 2.6,
+    altitude: 13,
+    accuracy: 5,
+  },
+  {
+    latitude: 37.53368,
+    longitude: 126.93645,
+    timestamp: new Date(0),
+    speed: 2.7,
+    altitude: 12,
+    accuracy: 4,
+  },
+  {
+    latitude: 37.53295,
+    longitude: 126.9333,
+    timestamp: new Date(0),
+    speed: 2.8,
+    altitude: 12,
+    accuracy: 5,
+  },
+  {
+    latitude: 37.5318,
+    longitude: 126.93095,
+    timestamp: new Date(0),
+    speed: 2.9,
+    altitude: 11,
+    accuracy: 4,
+  },
+  {
+    latitude: 37.52995,
+    longitude: 126.92945,
+    timestamp: new Date(0),
+    speed: 2.7,
+    altitude: 10,
+    accuracy: 5,
+  },
+  {
+    latitude: 37.52815,
+    longitude: 126.92895,
+    timestamp: new Date(0),
+    speed: 2.6,
+    altitude: 9,
+    accuracy: 4,
+  },
+  {
+    latitude: 37.52682,
+    longitude: 126.92978,
+    timestamp: new Date(0),
+    speed: 2.7,
+    altitude: 9,
+    accuracy: 5,
+  },
+  {
+    latitude: 37.52695,
+    longitude: 126.9321,
+    timestamp: new Date(0),
+    speed: 2.8,
+    altitude: 9,
+    accuracy: 4,
+  },
+  {
+    latitude: 37.52718,
+    longitude: 126.9346,
+    timestamp: new Date(0),
+    speed: 2.9,
+    altitude: 10,
+    accuracy: 5,
+  },
+  {
+    latitude: 37.52762,
+    longitude: 126.93745,
+    timestamp: new Date(0),
+    speed: 2.8,
+    altitude: 10,
+    accuracy: 4,
+  },
+  {
+    latitude: 37.52805,
+    longitude: 126.94035,
+    timestamp: new Date(0),
+    speed: 2.9,
+    altitude: 10,
+    accuracy: 5,
+  },
+  {
+    latitude: 37.52862,
+    longitude: 126.9431,
+    timestamp: new Date(0),
+    speed: 3,
+    altitude: 10,
+    accuracy: 4,
+  },
+  {
+    latitude: 37.52968,
+    longitude: 126.9456,
+    timestamp: new Date(0),
+    speed: 2.9,
+    altitude: 11,
+    accuracy: 5,
+  },
+  {
+    latitude: 37.53105,
+    longitude: 126.9472,
+    timestamp: new Date(0),
+    speed: 2.8,
+    altitude: 11,
+    accuracy: 4,
+  },
+  {
+    latitude: 37.53255,
+    longitude: 126.94755,
+    timestamp: new Date(0),
+    speed: 2.7,
+    altitude: 12,
+    accuracy: 5,
+  },
+  {
+    latitude: 37.53375,
+    longitude: 126.94585,
+    timestamp: new Date(0),
+    speed: 2.7,
+    altitude: 12,
+    accuracy: 4,
+  },
+  {
+    latitude: 37.53418,
+    longitude: 126.94295,
+    timestamp: new Date(0),
+    speed: 2.8,
+    altitude: 13,
+    accuracy: 5,
+  },
+  {
+    latitude: 37.5342,
+    longitude: 126.94555,
+    timestamp: new Date(0),
+    speed: 2.6,
+    altitude: 13,
     accuracy: 5,
   },
 ];
 
 /**
  * 더미 GPS 데이터를 현재 시간 기준으로 재생성
- * 타임스탬프를 현재 시간 기준으로 조정
  */
-export const generateDummyLocations = (): Location[] => {
-  const now = Date.now();
+export const generateDummyLocations = (endTime = Date.now()): Location[] => {
+  const intervalMs = Math.round(
+    (DUMMY_SHARE_DURATION_SEC * 1000) / Math.max(DUMMY_GPS_LOCATIONS.length - 1, 1)
+  );
+
   return DUMMY_GPS_LOCATIONS.map((loc, index) => ({
     ...loc,
-    // 40초 간격으로 타임스탬프 재생성 (약 10분 러닝)
-    timestamp: new Date(now - (DUMMY_GPS_LOCATIONS.length - 1 - index) * 40000),
+    timestamp: new Date(endTime - (DUMMY_GPS_LOCATIONS.length - 1 - index) * intervalMs),
   }));
 };
+
+export const generateDummyShareRunningData = (
+  baseData?: ShareRunningData,
+  endTime = Date.now()
+): ShareRunningData => ({
+  distance: DUMMY_SHARE_DISTANCE_METERS,
+  durationSec: DUMMY_SHARE_DURATION_SEC,
+  pace: DUMMY_SHARE_PACE,
+  startTimestamp:
+    baseData?.startTimestamp ?? new Date(endTime - DUMMY_SHARE_DURATION_SEC * 1000).toISOString(),
+  earnedPoints: DUMMY_SHARE_EARNED_POINTS,
+  locations: generateDummyLocations(endTime),
+});

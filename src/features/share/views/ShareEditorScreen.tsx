@@ -26,17 +26,16 @@ import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { GREY } from '~/shared/styles';
 import { useUserStore } from '~/stores/user';
-import type { ShareRunningData } from '../models/types';
+import type { ShareResult, ShareRunningData } from '../models/types';
 import { useShareEntryTransitionStore } from '../stores/shareEntryTransitionStore';
 import { useShareStore } from '../stores/shareStore';
-import { generateDummyLocations } from '../utils/dummyGpsData';
+import { generateDummyShareRunningData } from '../utils/dummyGpsData';
 import { useShareEditor } from '../viewmodels/useShareEditor';
 import { useShareExportSurface } from './hooks/useShareExportSurface';
 import {
   BackgroundSelector,
   PoseSelector,
   ShareActions,
-  ShareEditorTestTools,
   SharePreviewCanvas,
   StatVisibilityToggle,
 } from './components';
@@ -86,18 +85,15 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
     isLoading,
   });
 
-  // userId=1 전용 더미 데이터 기능
   const currentUser = useUserStore((state) => state.currentUser);
-  const setDummyLocations = useShareStore((state) => state.setDummyLocations);
-  const shareData = useShareStore((state) => state.shareData);
-  const isTestUser = currentUser?.id === 1;
-  const hasLocations = (shareData?.locations?.length ?? 0) > 0;
+  const setShareData = useShareStore((state) => state.setShareData);
+  const isDummyDataUser = currentUser?.id === 1;
 
   const handleAddDummyData = useCallback(() => {
-    const dummyLocations = generateDummyLocations();
-    setDummyLocations(dummyLocations);
-    Alert.alert('더미 데이터 추가됨', `${dummyLocations.length}개의 GPS 좌표가 추가되었습니다.`);
-  }, [setDummyLocations]);
+    const dummyShareData = generateDummyShareRunningData(runningData);
+    setShareData(dummyShareData);
+    Alert.alert('더미 데이터 추가됨', '6.52km / 38:20 / 여의도 한강공원 경로를 적용했습니다.');
+  }, [runningData, setShareData]);
 
   const closeEditor = useCallback(async (reason: 'close' | 'share-success') => {
     try {
@@ -120,7 +116,7 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
       return;
     }
 
-    let result = { success: false, message: '캡처 및 공유에 실패했습니다.' };
+    let result: ShareResult = { success: false, message: '캡처 및 공유에 실패했습니다.' };
 
     try {
       const exportStageBounds = await prepareExportSurface();
@@ -200,10 +196,23 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
                 >
                   <Ionicons name="close" size={24} color={GREY[600]} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>기록 공유</Text>
-                <TouchableOpacity onPress={handleReset} style={styles.resetButton}>
-                  <Text style={styles.resetButtonText}>초기화</Text>
-                </TouchableOpacity>
+                <View pointerEvents="none" style={styles.headerTitleContainer}>
+                  <Text style={styles.headerTitle}>기록 공유</Text>
+                </View>
+                <View style={styles.headerActions}>
+                  {isDummyDataUser && (
+                    <TouchableOpacity
+                      onPress={handleAddDummyData}
+                      style={styles.dummyButton}
+                      testID="share-editor-add-dummy-button"
+                    >
+                      <Text style={styles.dummyButtonText}>더미 추가</Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity onPress={handleReset} style={styles.resetButton}>
+                    <Text style={styles.resetButtonText}>초기화</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </SafeAreaView>
 
@@ -257,11 +266,6 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
                       onToggle={toggleStatVisibility}
                       avatarVisible={avatarVisible}
                       onAvatarToggle={toggleAvatarVisibility}
-                    />
-
-                    <ShareEditorTestTools
-                      visible={isTestUser && !hasLocations}
-                      onAddDummyData={handleAddDummyData}
                     />
 
                     {/* 배경 선택 - 카드 래핑 포함 */}
@@ -351,6 +355,7 @@ const styles = StyleSheet.create({
   },
   headerSafeArea: HEADER_SAFE_AREA_STYLE,
   header: {
+    position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -366,11 +371,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  headerTitleContainer: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: GREY[900],
     fontFamily: 'Pretendard-SemiBold',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginLeft: 'auto',
+  },
+  dummyButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: GREY[100],
+  },
+  dummyButtonText: {
+    fontSize: 14,
+    color: GREY[700],
+    fontFamily: 'Pretendard-Medium',
   },
   resetButton: {
     paddingHorizontal: 12,

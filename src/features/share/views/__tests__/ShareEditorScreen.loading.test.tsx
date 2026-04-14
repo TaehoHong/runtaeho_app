@@ -1,17 +1,18 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { ShareRunningData } from '~/features/share/models/types';
 import { ShareEditorScreen } from '~/features/share/views/ShareEditorScreen';
 import { renderWithProviders } from '~/test-utils/renderWithProviders';
 
 const mockUseShareEditor = jest.fn();
-const mockSetDummyLocations = jest.fn();
+const mockSetShareData = jest.fn();
 const mockSharePreviewCanvas = jest.fn();
 const mockUseFocusEffect = jest.fn();
 const mockSetActiveViewport = jest.fn();
 const mockClearActiveViewport = jest.fn();
 const mockEndEntryTransition = jest.fn();
+let mockCurrentUser: { id: number } | null = null;
 
 jest.mock('~/features/share/viewmodels/useShareEditor', () => ({
   useShareEditor: (...args: unknown[]) => mockUseShareEditor(...args),
@@ -24,18 +25,16 @@ jest.mock('@react-navigation/native', () => ({
 jest.mock('~/features/share/stores/shareStore', () => ({
   useShareStore: (
     selector: (state: {
-      setDummyLocations: typeof mockSetDummyLocations;
-      shareData: null;
+      setShareData: typeof mockSetShareData;
     }) => unknown
   ) => selector({
-    setDummyLocations: mockSetDummyLocations,
-    shareData: null,
+    setShareData: mockSetShareData,
   }),
 }));
 
 jest.mock('~/stores/user', () => ({
-  useUserStore: (selector: (state: { currentUser: null }) => unknown) =>
-    selector({ currentUser: null }),
+  useUserStore: (selector: (state: { currentUser: typeof mockCurrentUser }) => unknown) =>
+    selector({ currentUser: mockCurrentUser }),
 }));
 
 jest.mock('~/stores/unity/unityStore', () => ({
@@ -99,6 +98,7 @@ const runningData: ShareRunningData = {
 describe('ShareEditorScreen loading behavior', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockCurrentUser = null;
 
     mockUseShareEditor.mockReturnValue({
       canvasRef: { current: null },
@@ -239,5 +239,33 @@ describe('ShareEditorScreen loading behavior', () => {
     expect(scrollView.props.automaticallyAdjustContentInsets).toBe(false);
     expect(scrollView.props.automaticallyAdjustsScrollIndicatorInsets).toBe(false);
     expect(scrollView.props.contentInsetAdjustmentBehavior).toBe('never');
+  });
+
+  it('shows the dummy button only for user 1 and seeds Yeouido dummy share data', () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    mockCurrentUser = { id: 1 };
+
+    renderWithProviders(<ShareEditorScreen runningData={runningData} />);
+
+    fireEvent.press(screen.getByTestId('share-editor-add-dummy-button'));
+
+    expect(mockSetShareData).toHaveBeenCalledWith(expect.objectContaining({
+      distance: 6520,
+      durationSec: 2300,
+      pace: '05:53',
+      earnedPoints: 65,
+      locations: expect.arrayContaining([
+        expect.objectContaining({
+          latitude: 37.52682,
+          longitude: 126.92978,
+        }),
+      ]),
+    }));
+    expect(alertSpy).toHaveBeenCalledWith(
+      '더미 데이터 추가됨',
+      '6.52km / 38:20 / 여의도 한강공원 경로를 적용했습니다.'
+    );
+
+    alertSpy.mockRestore();
   });
 });

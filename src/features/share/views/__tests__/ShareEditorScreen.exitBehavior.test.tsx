@@ -8,7 +8,7 @@ import { routerMock } from '~/test-utils/mocks/native';
 import { renderWithProviders } from '~/test-utils/renderWithProviders';
 
 const mockUseShareEditor = jest.fn();
-const mockSetDummyLocations = jest.fn();
+const mockSetShareData = jest.fn();
 const mockResetAll = jest.fn();
 const mockRestoreRunningResultDefaults = jest.fn();
 const mockShareResult = jest.fn();
@@ -17,6 +17,7 @@ const mockUseFocusEffect = jest.fn();
 const mockSetActiveViewport = jest.fn();
 const mockClearActiveViewport = jest.fn();
 const mockEndEntryTransition = jest.fn();
+let mockCurrentUser: { id: number } | null = null;
 let previewMeasureInWindowCalls = 0;
 const mockUnityStoreState = {
   setActiveViewport: mockSetActiveViewport,
@@ -40,18 +41,16 @@ jest.mock('@react-navigation/native', () => ({
 jest.mock('~/features/share/stores/shareStore', () => ({
   useShareStore: (
     selector: (state: {
-      setDummyLocations: typeof mockSetDummyLocations;
-      shareData: null;
+      setShareData: typeof mockSetShareData;
     }) => unknown
   ) => selector({
-    setDummyLocations: mockSetDummyLocations,
-    shareData: null,
+    setShareData: mockSetShareData,
   }),
 }));
 
 jest.mock('~/stores/user', () => ({
-  useUserStore: (selector: (state: { currentUser: null }) => unknown) =>
-    selector({ currentUser: null }),
+  useUserStore: (selector: (state: { currentUser: typeof mockCurrentUser }) => unknown) =>
+    selector({ currentUser: mockCurrentUser }),
 }));
 
 jest.mock('~/stores/unity/unityStore', () => ({
@@ -137,6 +136,7 @@ describe('ShareEditorScreen exit behavior', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockCurrentUser = null;
     mockCanvasRef = { current: null };
     previewMeasureInWindowCalls = 0;
     alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
