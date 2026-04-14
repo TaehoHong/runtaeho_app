@@ -7,16 +7,21 @@ import {
 import { Text } from '~/shared/components/typography';
 import { useRunning } from '~/features/running/contexts';
 
+interface MainDistanceCardProps {
+  distanceMeters?: number;
+}
+
 /**
  * 현재 누적 거리 카드
  * Figma 디자인 기반: "현재 누적 거리" + "00.0 km"
  */
-export const MainDistanceCard: React.FC = () => {
+export const MainDistanceCard: React.FC<MainDistanceCardProps> = ({ distanceMeters }) => {
   const { distance } = useRunning();
+  const resolvedDistance = distanceMeters ?? distance;
 
   // 거리를 km 단위로 변환 (distance는 미터 단위)
   // 1의 자리 버림 처리 (예: 299m → 290m → 0.29km)
-  const truncatedDistance = Math.floor(distance / 10) * 10;
+  const truncatedDistance = Math.floor(resolvedDistance / 10) * 10;
   const distanceKm = (truncatedDistance / 1000).toFixed(2);
 
   return (

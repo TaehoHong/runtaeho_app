@@ -12,6 +12,12 @@ interface StatItemProps {
   subtitle: string;
 }
 
+interface DetailedStatisticsCardProps {
+  distanceMeters?: number;
+  durationSec?: number;
+  heartRate?: number | null;
+}
+
 const StateItemCompactView: React.FC<StatItemProps> = ({ title, subtitle }) => {
   return (
     <View style={styles.statItem}>
@@ -21,11 +27,18 @@ const StateItemCompactView: React.FC<StatItemProps> = ({ title, subtitle }) => {
   );
 };
 
-export const DetailedStatisticsCard: React.FC = () => {
+export const DetailedStatisticsCard: React.FC<DetailedStatisticsCardProps> = ({
+  distanceMeters,
+  durationSec,
+  heartRate,
+}) => {
   const { currentRecord, formatElapsedTime, formatBpm, formatPace } = useRunning();
+  const resolvedDistance = distanceMeters ?? currentRecord?.distance;
+  const resolvedDurationSec = durationSec ?? currentRecord?.durationSec;
+  const resolvedHeartRate = heartRate ?? currentRecord?.heartRate;
 
   // 러닝 종료 후 데이터가 없으면 기본값 표시
-  if (!currentRecord) {
+  if (resolvedDistance == null || resolvedDurationSec == null) {
     return (
       <View style={styles.container}>
         <View style={styles.row}>
@@ -38,18 +51,20 @@ export const DetailedStatisticsCard: React.FC = () => {
   }
 
   // 심박수 포맷팅
-  const heartRateText = formatBpm(currentRecord.heartRate && currentRecord.heartRate > 0 ? currentRecord.heartRate : undefined);
+  const heartRateText = formatBpm(
+    resolvedHeartRate && resolvedHeartRate > 0 ? resolvedHeartRate : undefined
+  );
 
   // 페이스 계산 및 포맷팅 (분:초/km)
-  const paceSeconds = currentRecord.distance > 0
-    ? Math.floor((currentRecord.durationSec / currentRecord.distance) * 1000)
+  const paceSeconds = resolvedDistance > 0
+    ? Math.floor((resolvedDurationSec / resolvedDistance) * 1000)
     : 0;
   const paceMinutes = Math.floor(paceSeconds / 60);
   const paceSecondsRemainder = paceSeconds % 60;
   const paceText = formatPace(paceMinutes, paceSecondsRemainder);
 
   // 러닝 시간 포맷팅 (분:초)
-  const timeText = formatElapsedTime(currentRecord.durationSec);
+  const timeText = formatElapsedTime(resolvedDurationSec);
 
   return (
     <View style={styles.container}>

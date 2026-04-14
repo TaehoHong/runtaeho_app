@@ -58,12 +58,38 @@ export const RunningFinishedView: React.FC = () => {
 
   const hasShoe = availableShoes.length > 0; 
 
-  // 획득 포인트 계산 (100m당 1포인트)
-  // NOTE: currentRecord.distance는 초기값(0)이므로, 실시간 distance state 사용
-  const earnedPoints = Math.floor(distance / 100);
-
   // 보유 포인트
   const totalPoints = totalPoint;
+
+  const buildPaceText = useCallback((distanceMeters: number, durationSeconds: number): string => {
+    if (distanceMeters <= 0 || durationSeconds <= 0) {
+      return '00:00';
+    }
+
+    const paceSeconds = Math.floor((durationSeconds / distanceMeters) * 1000);
+    const paceMinutes = Math.floor(paceSeconds / 60);
+    const paceSecondsRemainder = paceSeconds % 60;
+
+    return formatPace(paceMinutes, paceSecondsRemainder);
+  }, [formatPace]);
+
+  const finalSummary = useMemo(() => {
+    const distanceMeters = Math.max(currentRecord?.distance ?? 0, distance);
+    const durationSec = Math.max(currentRecord?.durationSec ?? 0, elapsedTime);
+    const heartRate = currentRecord?.heartRate ?? stats.bpm ?? null;
+    const startTimestamp = currentRecord
+      ? new Date(currentRecord.startTimestamp * 1000).toISOString()
+      : new Date().toISOString();
+
+    return {
+      distanceMeters,
+      durationSec,
+      heartRate,
+      earnedPoints: Math.floor(distanceMeters / 100),
+      pace: buildPaceText(distanceMeters, durationSec),
+      startTimestamp,
+    };
+  }, [buildPaceText, currentRecord, distance, elapsedTime, stats.bpm]);
 
   // 신발 추가 후 자동으로 React Query가 신발 목록을 갱신하고,
   // 첫 신발이므로 자동으로 메인 설정되어 ShoeSelectionArea가 표시됩니다.
@@ -144,11 +170,11 @@ export const RunningFinishedView: React.FC = () => {
     // Store에 공유 데이터 저장 (GPS locations 포함)
     // URL params로는 배열 전달이 불가능하므로 Zustand store 사용
     setShareData({
-      distance,
-      durationSec: elapsedTime,
-      pace: formatPace(stats.pace.minutes, stats.pace.seconds),
-      startTimestamp: new Date().toISOString(),
-      earnedPoints,
+      distance: finalSummary.distanceMeters,
+      durationSec: finalSummary.durationSec,
+      pace: finalSummary.pace,
+      startTimestamp: finalSummary.startTimestamp,
+      earnedPoints: finalSummary.earnedPoints,
       locations: resolvedLocations,
     });
 
@@ -162,7 +188,7 @@ export const RunningFinishedView: React.FC = () => {
     console.log('🏁 [RunningFinishedView] 러닝 완료 확인 버튼 눌러짐');
 
     // 10m 미만이면 API 호출 없이 초기화
-    if (distance < 10) {
+    if (finalSummary.distanceMeters < 10) {
       console.log('🏁 [RunningFinishedView] 거리 10m 미만, API 호출 스킵');
       resetRunning();
       setRunningState(RunningState.Stopped);
@@ -215,8 +241,8 @@ export const RunningFinishedView: React.FC = () => {
             console.log(`🏆 [RunningFinishedView] 이전 순위: ${previousRank}`);
 
             // 2. 리그 참가자 거리 업데이트
-            await leagueService.updateParticipantDistance(myParticipant.id, distance);
-            console.log(`📊 [RunningFinishedView] 리그 거리 업데이트 완료: ${distance}m`);
+            await leagueService.updateParticipantDistance(myParticipant.id, finalSummary.distanceMeters);
+            console.log(`📊 [RunningFinishedView] 리그 거리 업데이트 완료: ${finalSummary.distanceMeters}m`);
 
             // 3. 이전 순위 저장 (애니메이션용)
             setPreviousLeagueRank(previousRank);
@@ -253,15 +279,19 @@ export const RunningFinishedView: React.FC = () => {
       >
         {/* 포인트 정보 바 - 획득/보유 포인트 */}
         <PointInfoBar
-          earnedPoints={earnedPoints}
+          earnedPoints={finalSummary.earnedPoints}
           totalPoints={totalPoints}
         />
 
         {/* 상세 통계 카드 - BPM, 페이스, 러닝 시간 */}
-        <DetailedStatisticsCard />
+        <DetailedStatisticsCard
+          distanceMeters={finalSummary.distanceMeters}
+          durationSec={finalSummary.durationSec}
+          heartRate={finalSummary.heartRate}
+        />
 
         {/* 메인 거리 카드 */}
-        <MainDistanceCard />
+        <MainDistanceCard distanceMeters={finalSummary.distanceMeters} />
 
         {/* 신발 선택 영역 - 조건부 렌더링 */}
         {isLoadingShoes ? (

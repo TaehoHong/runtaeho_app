@@ -8,12 +8,16 @@ import { resetAllStores } from '~/test-utils/resetState';
 const mockUseRunning = jest.fn();
 const mockUseShoeViewModel = jest.fn();
 const mockUpdateRunningRecord = jest.fn();
+const mockGetRunningRecordItems = jest.fn();
 const mockGetCurrentLeague = jest.fn();
 const mockUpdateParticipantDistance = jest.fn();
 const mockRouterReplace = jest.fn();
 const mockRouterPush = jest.fn();
 const mockSetShareData = jest.fn();
 const mockBeginEntryTransition = jest.fn();
+const mockDetailedStatisticsCard = jest.fn();
+const mockMainDistanceCard = jest.fn();
+const mockPointInfoBar = jest.fn();
 
 jest.mock('expo-router', () => ({
   router: {
@@ -33,7 +37,7 @@ jest.mock('~/features/shoes/viewmodels', () => ({
 jest.mock('~/features/running/services/runningService', () => ({
   runningService: {
     updateRunningRecord: (...args: unknown[]) => mockUpdateRunningRecord(...args),
-    getRunningRecordItems: jest.fn(),
+    getRunningRecordItems: (...args: unknown[]) => mockGetRunningRecordItems(...args),
   },
 }));
 
@@ -66,15 +70,24 @@ jest.mock('~/features/share/stores/shareEntryTransitionStore', () => ({
 }));
 
 jest.mock('~/features/running/views/detailed-statistics-card', () => ({
-  DetailedStatisticsCard: () => null,
+  DetailedStatisticsCard: (props: unknown) => {
+    mockDetailedStatisticsCard(props);
+    return null;
+  },
 }));
 
 jest.mock('~/features/running/views/components/main-distance-card', () => ({
-  MainDistanceCard: () => null,
+  MainDistanceCard: (props: unknown) => {
+    mockMainDistanceCard(props);
+    return null;
+  },
 }));
 
 jest.mock('~/features/running/views/components/point-info-bar', () => ({
-  PointInfoBar: () => null,
+  PointInfoBar: (props: unknown) => {
+    mockPointInfoBar(props);
+    return null;
+  },
 }));
 
 jest.mock('~/features/running/views/components/share-button', () => ({
@@ -106,7 +119,7 @@ describe('RunningFinishedView', () => {
     mockUseRunning.mockReturnValue({
       currentRecord: {
         id: 303,
-        distance: 1500,
+        distance: 2000,
         steps: 2000,
         cadence: 170,
         heartRate: 145,
@@ -115,14 +128,16 @@ describe('RunningFinishedView', () => {
         startTimestamp: 1735689600,
       },
       resetRunning: jest.fn(),
-      distance: 1500,
+      distance: 2000,
       stats: {
         bpm: 145,
         calories: 120,
         pace: { minutes: 5, seconds: 0 },
       },
       elapsedTime: 600,
-      formatPace: jest.fn(() => '05:00'),
+      formatPace: jest.fn((minutes: number, seconds: number) => (
+        `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+      )),
       locations: [],
       currentSegmentItems: [],
     });
@@ -136,6 +151,7 @@ describe('RunningFinishedView', () => {
     });
 
     mockUpdateRunningRecord.mockResolvedValue(undefined);
+    mockGetRunningRecordItems.mockResolvedValue([]);
     mockGetCurrentLeague.mockRejectedValue(new Error('skip league'));
   });
 
@@ -161,7 +177,7 @@ describe('RunningFinishedView', () => {
 
     await waitFor(() => {
       expect(mockSetShareData).toHaveBeenCalledWith(expect.objectContaining({
-        distance: 1500,
+        distance: 2000,
         durationSec: 600,
         pace: '05:00',
       }));
@@ -176,5 +192,59 @@ describe('RunningFinishedView', () => {
 
     expect(beginTransitionOrder).toBeGreaterThan(setShareDataOrder);
     expect(pushOrder).toBeGreaterThan(beginTransitionOrder);
+  });
+
+  it('prefers finalized record data over live stats when preparing the finished-screen summary', async () => {
+    mockUseRunning.mockReturnValue({
+      currentRecord: {
+        id: 303,
+        distance: 2000,
+        steps: 2000,
+        cadence: 170,
+        heartRate: 152,
+        calorie: 120,
+        durationSec: 600,
+        startTimestamp: 1735689600,
+      },
+      resetRunning: jest.fn(),
+      distance: 1200,
+      stats: {
+        bpm: 99,
+        calories: 120,
+        pace: { minutes: 0, seconds: 0 },
+      },
+      elapsedTime: 420,
+      formatPace: jest.fn((minutes: number, seconds: number) => (
+        `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+      )),
+      locations: [],
+      currentSegmentItems: [],
+    });
+
+    renderWithProviders(<RunningFinishedView />);
+
+    expect(mockPointInfoBar).toHaveBeenCalledWith(expect.objectContaining({
+      earnedPoints: 20,
+    }));
+    expect(mockDetailedStatisticsCard).toHaveBeenCalledWith(expect.objectContaining({
+      distanceMeters: 2000,
+      durationSec: 600,
+      heartRate: 152,
+    }));
+    expect(mockMainDistanceCard).toHaveBeenCalledWith(expect.objectContaining({
+      distanceMeters: 2000,
+    }));
+
+    fireEvent.press(screen.getByTestId('running-finished-share-button'));
+
+    await waitFor(() => {
+      expect(mockSetShareData).toHaveBeenCalledWith(expect.objectContaining({
+        distance: 2000,
+        durationSec: 600,
+        pace: '05:00',
+        earnedPoints: 20,
+        startTimestamp: '2025-01-01T00:00:00.000Z',
+      }));
+    });
   });
 });
