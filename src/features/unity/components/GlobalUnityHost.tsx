@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { UnityView } from './UnityView';
+import { areWindowOriginsEqual, toHostLocalFrame, type WindowOrigin } from './globalUnityHostLayout';
+import { doesViewportMeasurementMatch } from './viewportMeasurementGuard';
 import { useUnitySessionController } from '../hooks/useUnitySessionController';
 import { useUnityStore, type UnityViewport } from '~/stores/unity/unityStore';
 
@@ -16,7 +18,10 @@ export const GlobalUnityHost: React.FC = () => {
   const { reattachToken, handleUnityReady, handleUnityError } = useUnitySessionController();
   const [hasMountedUnity, setHasMountedUnity] = useState(false);
   const [lastViewport, setLastViewport] = useState<UnityViewport | null>(null);
+  const [overlayWindowOrigin, setOverlayWindowOrigin] = useState<WindowOrigin | null>(null);
+  const overlayRef = useRef<View>(null);
   const hostRef = useRef<View>(null);
+  const renderedViewportMeasureTokenRef = useRef(0);
 
   useEffect(() => {
     if (!activeViewport) {
@@ -28,44 +33,87 @@ export const GlobalUnityHost: React.FC = () => {
   }, [activeViewport]);
 
   const resolvedViewport = activeViewport ?? lastViewport;
-
-  const measureRenderedViewport = useCallback(() => {
-    if (!activeViewport || !resolvedViewport) {
-      return;
+  const resolvedHostFrame = useMemo(() => {
+    if (!resolvedViewport || !overlayWindowOrigin) {
+      return null;
     }
 
+    return toHostLocalFrame(resolvedViewport.frame, overlayWindowOrigin);
+  }, [overlayWindowOrigin, resolvedViewport]);
+
+  const measureOverlayWindowOrigin = useCallback(() => {
     requestAnimationFrame(() => {
-      hostRef.current?.measureInWindow((x, y, width, height) => {
+      overlayRef.current?.measureInWindow((x, y, width, height) => {
         if (width <= 0 || height <= 0) {
           return;
         }
 
+        const nextOrigin = { x, y };
+        setOverlayWindowOrigin((currentOrigin) =>
+          areWindowOriginsEqual(currentOrigin, nextOrigin) ? currentOrigin : nextOrigin
+        );
+      });
+    });
+  }, []);
+
+  const measureRenderedViewport = useCallback(() => {
+    if (!activeViewport || !resolvedViewport || !resolvedHostFrame) {
+      return;
+    }
+
+    renderedViewportMeasureTokenRef.current += 1;
+    const measureToken = renderedViewportMeasureTokenRef.current;
+
+    requestAnimationFrame(() => {
+      if (measureToken !== renderedViewportMeasureTokenRef.current) {
+        return;
+      }
+
+      hostRef.current?.measureInWindow((x, y, width, height) => {
+        const currentViewport = useUnityStore.getState().activeViewport;
+        if (
+          measureToken !== renderedViewportMeasureTokenRef.current
+          || width <= MIN_HOST_SIZE
+          || height <= MIN_HOST_SIZE
+          || !doesViewportMeasurementMatch(currentViewport, resolvedViewport)
+        ) {
+          return;
+        }
+
         setRenderedViewport({
-          owner: activeViewport.owner,
+          owner: currentViewport.owner,
           frame: { x, y, width, height },
         });
       });
     });
-  }, [activeViewport, resolvedViewport, setRenderedViewport]);
+  }, [activeViewport, resolvedHostFrame, resolvedViewport, setRenderedViewport]);
 
   const hostStyle = useMemo(() => {
-    if (!resolvedViewport) {
+    if (!resolvedViewport || !resolvedHostFrame) {
       return styles.hiddenHost;
     }
 
     return {
-      left: resolvedViewport.frame.x,
-      top: resolvedViewport.frame.y,
-      width: Math.max(resolvedViewport.frame.width, MIN_HOST_SIZE),
-      height: Math.max(resolvedViewport.frame.height, MIN_HOST_SIZE),
+      left: resolvedHostFrame.x,
+      top: resolvedHostFrame.y,
+      width: Math.max(resolvedHostFrame.width, MIN_HOST_SIZE),
+      height: Math.max(resolvedHostFrame.height, MIN_HOST_SIZE),
       borderRadius: resolvedViewport.borderRadius ?? 0,
       opacity: activeViewport ? 1 : 0,
     };
-  }, [activeViewport, resolvedViewport]);
+  }, [activeViewport, resolvedHostFrame, resolvedViewport]);
 
   const handleHostLayout = useCallback(() => {
     measureRenderedViewport();
   }, [measureRenderedViewport]);
+
+  const handleOverlayLayout = useCallback(() => {
+    measureOverlayWindowOrigin();
+  }, [measureOverlayWindowOrigin]);
+
+  useEffect(() => {
+    measureOverlayWindowOrigin();
+  }, [measureOverlayWindowOrigin, resolvedViewport]);
 
   useEffect(() => {
     measureRenderedViewport();
@@ -76,7 +124,13 @@ export const GlobalUnityHost: React.FC = () => {
   }
 
   return (
-    <View pointerEvents="none" style={styles.overlay}>
+    <View
+      ref={overlayRef}
+      pointerEvents="none"
+      collapsable={false}
+      onLayout={handleOverlayLayout}
+      style={styles.overlay}
+    >
       <View
         ref={hostRef}
         pointerEvents="none"

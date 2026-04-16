@@ -2,6 +2,7 @@ import { createElement } from 'react';
 import { View } from 'react-native';
 import { act, render, renderHook, waitFor } from '@testing-library/react-native';
 import type { Item } from '~/features/avatar';
+import { useUnityStore } from '~/stores/unity/unityStore';
 import { UnityLoadingState } from '../components/UnityLoadingState';
 import type { InitialAvatarPayload } from './useUnityBootstrap';
 import { useUnityBootstrap } from './useUnityBootstrap';
@@ -105,6 +106,7 @@ describe('useUnityBootstrap', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    useUnityStore.getState().resetUnityState();
     mockSyncAvatar.mockReset();
     mockUseUnityReadiness.mockReset();
     mockResetGameObjectReady.mockReset();
@@ -121,6 +123,47 @@ describe('useUnityBootstrap', () => {
     mockUseUnityReadiness.mockImplementation(() => ({
       ...readinessState,
     }));
+  });
+
+  it('ignores ready events that were published before the hook mounted', async () => {
+    const payload: InitialAvatarPayload = {
+      items: [createItem(10)],
+      hairColor: '#010203',
+    };
+
+    act(() => {
+      useUnityStore.getState().publishUnityReadyEvent({
+        ready: true,
+        type: 'reattach',
+        message: 'stale ready event',
+      });
+    });
+
+    renderHook(
+      (_props: undefined) =>
+        useUnityBootstrap({
+          getInitialAvatarPayload: () => payload,
+        }),
+      { initialProps: undefined }
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(mockBaseHandleUnityReady).toHaveBeenCalledTimes(0);
+
+    act(() => {
+      useUnityStore.getState().publishUnityReadyEvent({
+        ready: true,
+        type: 'reattach',
+        message: 'fresh ready event',
+      });
+    });
+
+    await waitFor(() => {
+      expect(mockBaseHandleUnityReady).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('calls syncAvatar once even when onUnityReady is fired multiple times', async () => {

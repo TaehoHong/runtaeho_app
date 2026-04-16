@@ -45,6 +45,9 @@ export const RunningView: React.FC = () => {
   const hasInitializedCharacterRef = useRef(false);
   const focusSyncInFlightRef = useRef(false);
   const unityViewportRef = useRef<View>(null);
+  const viewportSyncTokenRef = useRef(0);
+  const isRunningActiveRef = useRef(isRunningActive);
+  const unityStartedRef = useRef(unityStarted);
   const setActiveViewport = useUnityStore((state) => state.setActiveViewport);
   const clearActiveViewport = useUnityStore((state) => state.clearActiveViewport);
   const isUnitySurfaceVisible = useUnityStore((state) => state.isSurfaceVisible);
@@ -322,19 +325,47 @@ export const RunningView: React.FC = () => {
   ]);
 
   useEffect(() => {
+    isRunningActiveRef.current = isRunningActive;
+    if (!isRunningActive) {
+      viewportSyncTokenRef.current += 1;
+    }
+  }, [isRunningActive]);
+
+  useEffect(() => {
+    unityStartedRef.current = unityStarted;
+    if (!unityStarted) {
+      viewportSyncTokenRef.current += 1;
+    }
+  }, [unityStarted]);
+
+  useEffect(() => {
     if (!isRunningActive || !isUnityReady || !isInitialAvatarSynced) {
       hasInitializedCharacterRef.current = false;
     }
   }, [isInitialAvatarSynced, isRunningActive, isUnityReady]);
 
   const syncUnityViewport = useCallback(() => {
-    if (!isRunningActive || !unityStarted || !unityViewportRef.current) {
+    const viewport = unityViewportRef.current;
+    if (!isRunningActiveRef.current || !unityStartedRef.current || !viewport) {
       return;
     }
 
+    viewportSyncTokenRef.current += 1;
+    const syncToken = viewportSyncTokenRef.current;
+
     requestAnimationFrame(() => {
-      unityViewportRef.current?.measureInWindow((x, y, width, height) => {
-        if (!isRunningActive || !unityStarted || width <= 0 || height <= 0) {
+      if (syncToken !== viewportSyncTokenRef.current) {
+        return;
+      }
+
+      viewport.measureInWindow((x, y, width, height) => {
+        if (
+          syncToken !== viewportSyncTokenRef.current
+          || !isRunningActiveRef.current
+          || !unityStartedRef.current
+          || width <= 0
+          || height <= 0
+        ) {
           return;
         }
 
@@ -345,18 +376,19 @@ export const RunningView: React.FC = () => {
         });
       });
     });
-  }, [isRunningActive, setActiveViewport, unityStarted]);
+  }, [setActiveViewport]);
 
   useFocusEffect(
     useCallback(() => {
-      if (unityStarted) {
+      if (unityStartedRef.current) {
         syncUnityViewport();
       }
 
       return () => {
+        viewportSyncTokenRef.current += 1;
         clearActiveViewport('running');
       };
-    }, [clearActiveViewport, syncUnityViewport, unityStarted])
+    }, [clearActiveViewport, syncUnityViewport])
   );
 
   useEffect(() => {

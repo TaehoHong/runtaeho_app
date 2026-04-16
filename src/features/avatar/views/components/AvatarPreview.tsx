@@ -18,6 +18,9 @@ export const AvatarPreview: React.FC<Props> = ({ equippedItems, hairColor }) => 
   const prevEquippedItemsRef = useRef<EquippedItemsMap>(equippedItems);
   const prevHairColorRef = useRef<string>(hairColor);
   const unityViewportRef = useRef<View>(null);
+  const viewportSyncTokenRef = useRef(0);
+  const isViewportFocusedRef = useRef(false);
+  const isUnityStartedRef = useRef(false);
   const setActiveViewport = useUnityStore((state) => state.setActiveViewport);
   const clearActiveViewport = useUnityStore((state) => state.clearActiveViewport);
   const isUnitySurfaceVisible = useUnityStore((state) => state.isSurfaceVisible);
@@ -37,6 +40,13 @@ export const AvatarPreview: React.FC<Props> = ({ equippedItems, hairColor }) => 
     timeout: 5000,        // 5초 타임아웃
     getInitialAvatarPayload,
   });
+
+  useEffect(() => {
+    isUnityStartedRef.current = isUnityStarted;
+    if (!isUnityStarted) {
+      viewportSyncTokenRef.current += 1;
+    }
+  }, [isUnityStarted]);
 
   /**
    * 장착 아이템 또는 헤어 색상 변경 시 Unity 아바타 동기화
@@ -89,16 +99,30 @@ export const AvatarPreview: React.FC<Props> = ({ equippedItems, hairColor }) => 
   const syncUnityViewport = useCallback(() => {
     const viewport = unityViewportRef.current;
     if (
-      !isUnityStarted
+      !isViewportFocusedRef.current
+      || !isUnityStartedRef.current
       || !viewport
       || typeof viewport.measureInWindow !== 'function'
     ) {
       return;
     }
 
+    viewportSyncTokenRef.current += 1;
+    const syncToken = viewportSyncTokenRef.current;
+
     requestAnimationFrame(() => {
+      if (syncToken !== viewportSyncTokenRef.current) {
+        return;
+      }
+
       viewport.measureInWindow((x, y, width, height) => {
-        if (!isUnityStarted || width <= 0 || height <= 0) {
+        if (
+          syncToken !== viewportSyncTokenRef.current
+          || !isViewportFocusedRef.current
+          || !isUnityStartedRef.current
+          || width <= 0
+          || height <= 0
+        ) {
           return;
         }
 
@@ -109,18 +133,21 @@ export const AvatarPreview: React.FC<Props> = ({ equippedItems, hairColor }) => 
         });
       });
     });
-  }, [isUnityStarted, setActiveViewport]);
+  }, [setActiveViewport]);
 
   useFocusEffect(
     useCallback(() => {
-      if (isUnityStarted) {
+      isViewportFocusedRef.current = true;
+      if (isUnityStartedRef.current) {
         syncUnityViewport();
       }
 
       return () => {
+        isViewportFocusedRef.current = false;
+        viewportSyncTokenRef.current += 1;
         clearActiveViewport('avatar');
       };
-    }, [clearActiveViewport, isUnityStarted, syncUnityViewport])
+    }, [clearActiveViewport, syncUnityViewport])
   );
 
   useEffect(() => {

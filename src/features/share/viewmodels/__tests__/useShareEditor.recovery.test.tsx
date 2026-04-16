@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import type { BackgroundOption, PoseOption, ShareRunningData } from '~/features/share/models/types';
 import { useShareEditor } from '~/features/share/viewmodels/useShareEditor';
+import { useUnityStore } from '~/stores/unity/unityStore';
 
 const mockCaptureAndShare = jest.fn();
 const mockSetBackground = jest.fn();
@@ -88,6 +89,9 @@ describe('useShareEditor recovery', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    act(() => {
+      useUnityStore.getState().resetUnityState();
+    });
 
     readinessState.isReady = false;
     readinessState.canSendMessage = false;
@@ -116,6 +120,12 @@ describe('useShareEditor recovery', () => {
     mockUseUnityBootstrap.mockImplementation(() => ({
       ...readinessState,
     }));
+  });
+
+  afterEach(() => {
+    act(() => {
+      useUnityStore.getState().resetUnityState();
+    });
   });
 
   it('replays the latest live Unity state when canSendMessage recovers', async () => {
@@ -211,6 +221,52 @@ describe('useShareEditor recovery', () => {
     expect(mockSetCharacterScale).toHaveBeenCalledWith(1.4);
     expect(mockSetCharacterVisible).toHaveBeenNthCalledWith(1, false);
     expect(mockSetCharacterVisible).toHaveBeenNthCalledWith(2, true);
+  });
+
+  it('keeps the editor out of loading state after the share surface was rendered once', async () => {
+    readinessState.isReady = true;
+    readinessState.canSendMessage = true;
+    readinessState.isInitialAvatarSynced = true;
+
+    const shareFrame = { x: 16, y: 148, width: 398, height: 497.66668701171875 };
+    const { result, unmount } = renderHook(() =>
+      useShareEditor({ runningData: createRunningData() })
+    );
+
+    act(() => {
+      useUnityStore.getState().setSurfaceVisible(true);
+      useUnityStore.getState().setActiveViewport({
+        owner: 'share',
+        frame: shareFrame,
+        borderRadius: 16,
+      });
+      useUnityStore.getState().setRenderedViewport({
+        owner: 'share',
+        frame: shareFrame,
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    act(() => {
+      useUnityStore.getState().setActiveViewport({
+        owner: 'share',
+        frame: {
+          ...shareFrame,
+          y: shareFrame.y - 120,
+        },
+        borderRadius: 16,
+      });
+    });
+
+    expect(result.current.isLoading).toBe(false);
+
+    await act(async () => {
+      unmount();
+      await Promise.resolve();
+    });
   });
 
   it('restores running result defaults once even if requested repeatedly', async () => {

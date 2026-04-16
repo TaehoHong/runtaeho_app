@@ -16,7 +16,9 @@ import { useUnityBootstrap } from '~/features/unity/hooks';
 import { unityService } from '~/features/unity/services/UnityService';
 import type { CharacterMotion } from '~/features/unity/types/UnityTypes';
 import type { Item } from '~/features/avatar';
+import { useUnityStore } from '~/stores/unity/unityStore';
 import { useUserStore } from '~/stores/user/userStore';
+import { isShareSurfaceReady } from './shareUnitySurfaceReady';
 
 const VALID_POSE_MOTIONS: CharacterMotion[] = ['IDLE', 'MOVE', 'ATTACK', 'DAMAGED', 'DEATH'];
 const POSITION_UPDATE_INTERVAL_MS = 16;
@@ -82,8 +84,9 @@ export const useShareUnitySync = ({
   const equippedItems = useUserStore((state) => state.equippedItems);
   const hairColor = useUserStore((state) => state.hairColor);
 
-  const [isLoading, setIsLoading] = useState(true);
+  const [isInitializing, setIsInitializing] = useState(true);
   const [hasInitializedUnity, setHasInitializedUnity] = useState(false);
+  const [hasRenderedShareSurface, setHasRenderedShareSurface] = useState(false);
   const lastAnimationTimeCallRef = useRef(0);
   const initRequestIdRef = useRef(0);
   const isInitializingRef = useRef(false);
@@ -117,6 +120,9 @@ export const useShareUnitySync = ({
   });
 
   const previousCanSendMessageRef = useRef(canSendMessage);
+  const isSurfaceVisible = useUnityStore((state) => state.isSurfaceVisible);
+  const activeViewport = useUnityStore((state) => state.activeViewport);
+  const renderedViewport = useUnityStore((state) => state.renderedViewport);
 
   useEffect(() => {
     startUnity();
@@ -237,7 +243,8 @@ export const useShareUnitySync = ({
       initRequestIdRef.current += 1;
       isInitializingRef.current = false;
       setHasInitializedUnity(false);
-      setIsLoading(true);
+      setHasRenderedShareSurface(false);
+      setIsInitializing(true);
     }
   }, [canSendMessage]);
 
@@ -254,7 +261,7 @@ export const useShareUnitySync = ({
     const requestId = initRequestIdRef.current + 1;
     initRequestIdRef.current = requestId;
     isInitializingRef.current = true;
-    setIsLoading(true);
+    setIsInitializing(true);
     hasRestoredDefaultsRef.current = false;
 
     void runUnityInitialization(requestId)
@@ -271,7 +278,7 @@ export const useShareUnitySync = ({
         }
 
         isInitializingRef.current = false;
-        setIsLoading(false);
+        setIsInitializing(false);
       });
   }, [
     canSendMessage,
@@ -381,8 +388,22 @@ export const useShareUnitySync = ({
     }
   }, [applyDefaultShareEditorUnityState, canSendMessage]);
 
+  const shareSurfaceReady = isShareSurfaceReady(
+    activeViewport,
+    renderedViewport,
+    isSurfaceVisible
+  );
+
+  useEffect(() => {
+    if (!shareSurfaceReady) {
+      return;
+    }
+
+    setHasRenderedShareSurface(true);
+  }, [shareSurfaceReady]);
+
   return {
-    isLoading,
+    isLoading: isInitializing || !hasRenderedShareSurface,
     isUnityReady,
     handleUnityReady,
     syncBackground,

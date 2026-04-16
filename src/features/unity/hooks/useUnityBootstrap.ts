@@ -72,7 +72,9 @@ export const useUnityBootstrap = (
   const reattachSyncInFlightRef = useRef(false);
   const lastReattachReadyAtRef = useRef(0);
   const attemptReattachResyncRef = useRef<() => void>(() => {});
-  const lastHandledReadyEventVersionRef = useRef(0);
+  const lastHandledReadyEventVersionRef = useRef(
+    useUnityStore.getState().lastUnityReadyEvent?.version ?? 0
+  );
 
   const clearRetrySchedule = useCallback(() => {
     if (retryTimerRef.current) {
