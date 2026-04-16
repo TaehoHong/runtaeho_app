@@ -223,7 +223,7 @@ describe('useShareEditor recovery', () => {
     expect(mockSetCharacterVisible).toHaveBeenNthCalledWith(2, true);
   });
 
-  it('keeps the editor out of loading state after the share surface was rendered once', async () => {
+  it('keeps the editor ready during share viewport drift and returns to loading on real detach', async () => {
     readinessState.isReady = true;
     readinessState.canSendMessage = true;
     readinessState.isInitialAvatarSynced = true;
@@ -262,6 +262,14 @@ describe('useShareEditor recovery', () => {
     });
 
     expect(result.current.isLoading).toBe(false);
+
+    act(() => {
+      useUnityStore.getState().clearActiveViewport('share');
+    });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(true);
+    });
 
     await act(async () => {
       unmount();

@@ -6,7 +6,7 @@ import type {
 
 const VIEWPORT_FRAME_EPSILON = 2;
 
-const doViewportFramesMatch = (
+export const doShareViewportFramesMatch = (
   left: UnityViewportFrame,
   right: UnityViewportFrame
 ): boolean =>
@@ -15,7 +15,7 @@ const doViewportFramesMatch = (
   && Math.abs(left.width - right.width) <= VIEWPORT_FRAME_EPSILON
   && Math.abs(left.height - right.height) <= VIEWPORT_FRAME_EPSILON;
 
-export const isShareSurfaceReady = (
+export const isShareSurfaceAttached = (
   activeViewport: UnityViewport | null,
   renderedViewport: RenderedUnityViewport | null,
   isSurfaceVisible: boolean
@@ -32,5 +32,13 @@ export const isShareSurfaceReady = (
     return false;
   }
 
-  return doViewportFramesMatch(activeViewport.frame, renderedViewport.frame);
+  return true;
 };
+
+export const isShareExportViewportSettled = (
+  expectedFrame: UnityViewportFrame,
+  renderedViewport: RenderedUnityViewport | null
+): boolean =>
+  !!renderedViewport
+  && renderedViewport.owner === 'share'
+  && doShareViewportFramesMatch(expectedFrame, renderedViewport.frame);

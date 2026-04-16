@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import type { View } from 'react-native';
 import type { ViewBounds } from '../../services/shareService';
+import { isShareExportViewportSettled } from '../../viewmodels/shareUnitySurfaceReady';
 import type { UnityViewport, UnityViewportFrame } from '~/stores/unity/unityStore';
 import { useUnityStore } from '~/stores/unity/unityStore';
 
@@ -258,10 +259,7 @@ export const useShareExportSurface = ({
 
     while (Date.now() - startedAt < UNITY_EXPORT_VIEWPORT_TIMEOUT_MS) {
       const renderedViewport = useUnityStore.getState().renderedViewport;
-      if (
-        renderedViewport?.owner === 'share'
-        && doViewportFramesMatch(expectedBounds, renderedViewport.frame)
-      ) {
+      if (renderedViewport && isShareExportViewportSettled(expectedBounds, renderedViewport)) {
         exportStageBoundsRef.current = renderedViewport.frame;
         return renderedViewport.frame;
       }

@@ -18,7 +18,7 @@ import type { CharacterMotion } from '~/features/unity/types/UnityTypes';
 import type { Item } from '~/features/avatar';
 import { useUnityStore } from '~/stores/unity/unityStore';
 import { useUserStore } from '~/stores/user/userStore';
-import { isShareSurfaceReady } from './shareUnitySurfaceReady';
+import { isShareSurfaceAttached } from './shareUnitySurfaceReady';
 
 const VALID_POSE_MOTIONS: CharacterMotion[] = ['IDLE', 'MOVE', 'ATTACK', 'DAMAGED', 'DEATH'];
 const POSITION_UPDATE_INTERVAL_MS = 16;
@@ -86,7 +86,6 @@ export const useShareUnitySync = ({
 
   const [isInitializing, setIsInitializing] = useState(true);
   const [hasInitializedUnity, setHasInitializedUnity] = useState(false);
-  const [hasRenderedShareSurface, setHasRenderedShareSurface] = useState(false);
   const lastAnimationTimeCallRef = useRef(0);
   const initRequestIdRef = useRef(0);
   const isInitializingRef = useRef(false);
@@ -243,7 +242,6 @@ export const useShareUnitySync = ({
       initRequestIdRef.current += 1;
       isInitializingRef.current = false;
       setHasInitializedUnity(false);
-      setHasRenderedShareSurface(false);
       setIsInitializing(true);
     }
   }, [canSendMessage]);
@@ -388,22 +386,14 @@ export const useShareUnitySync = ({
     }
   }, [applyDefaultShareEditorUnityState, canSendMessage]);
 
-  const shareSurfaceReady = isShareSurfaceReady(
+  const shareSurfaceAttached = isShareSurfaceAttached(
     activeViewport,
     renderedViewport,
     isSurfaceVisible
   );
 
-  useEffect(() => {
-    if (!shareSurfaceReady) {
-      return;
-    }
-
-    setHasRenderedShareSurface(true);
-  }, [shareSurfaceReady]);
-
   return {
-    isLoading: isInitializing || !hasRenderedShareSurface,
+    isLoading: isInitializing || !shareSurfaceAttached,
     isUnityReady,
     handleUnityReady,
     syncBackground,

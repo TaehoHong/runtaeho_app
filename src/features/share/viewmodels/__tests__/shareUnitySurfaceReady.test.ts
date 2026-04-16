@@ -1,9 +1,12 @@
-import { isShareSurfaceReady } from '../shareUnitySurfaceReady';
+import {
+  isShareExportViewportSettled,
+  isShareSurfaceAttached,
+} from '../shareUnitySurfaceReady';
 
-describe('isShareSurfaceReady', () => {
+describe('isShareSurfaceAttached', () => {
   it('returns false when the Unity surface is not visible yet', () => {
     expect(
-      isShareSurfaceReady(
+      isShareSurfaceAttached(
         {
           owner: 'share',
           frame: { x: 16, y: 120, width: 328, height: 410 },
@@ -17,15 +20,15 @@ describe('isShareSurfaceReady', () => {
     ).toBe(false);
   });
 
-  it('returns false when the rendered viewport does not match the share viewport', () => {
+  it('returns false when the rendered viewport is not owned by share', () => {
     expect(
-      isShareSurfaceReady(
+      isShareSurfaceAttached(
         {
           owner: 'share',
           frame: { x: 16, y: 120, width: 328, height: 410 },
         },
         {
-          owner: 'share',
+          owner: 'running',
           frame: { x: 16, y: 96, width: 328, height: 410 },
         },
         true
@@ -33,9 +36,9 @@ describe('isShareSurfaceReady', () => {
     ).toBe(false);
   });
 
-  it('returns true when the share viewport is visible and rendered in the expected frame', () => {
+  it('returns true when the share surface is visible and both active/rendered owners are share', () => {
     expect(
-      isShareSurfaceReady(
+      isShareSurfaceAttached(
         {
           owner: 'share',
           frame: { x: 16, y: 120, width: 328, height: 410 },
@@ -45,6 +48,32 @@ describe('isShareSurfaceReady', () => {
           frame: { x: 16.5, y: 119, width: 329, height: 410.5 },
         },
         true
+      )
+    ).toBe(true);
+  });
+});
+
+describe('isShareExportViewportSettled', () => {
+  it('returns false when the rendered viewport frame does not match the export frame', () => {
+    expect(
+      isShareExportViewportSettled(
+        { x: 16, y: 120, width: 328, height: 410 },
+        {
+          owner: 'share',
+          frame: { x: 16, y: 96, width: 328, height: 410 },
+        }
+      )
+    ).toBe(false);
+  });
+
+  it('returns true when the rendered viewport matches the export frame within epsilon', () => {
+    expect(
+      isShareExportViewportSettled(
+        { x: 16, y: 120, width: 328, height: 410 },
+        {
+          owner: 'share',
+          frame: { x: 16.5, y: 119, width: 329, height: 410.5 },
+        }
       )
     ).toBe(true);
   });
