@@ -11,6 +11,7 @@ import { StyleSheet, View, Text, Dimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
+  useAnimatedStyle,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import type {
@@ -20,7 +21,7 @@ import type {
   StatType,
   CharacterTransform,
 } from '../../models/types';
-import { SCALE_RANGES } from '../../constants/shareOptions';
+import { DEFAULT_GESTURE_HIT_SLOP, SCALE_RANGES } from '../../constants/shareOptions';
 import { DraggableStat } from './DraggableStat';
 import { DraggableRouteMap } from './DraggableRouteMap';
 import { PRIMARY } from '~/shared/styles';
@@ -83,7 +84,6 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
     const startPositionY = useSharedValue(initialTransform.y);
     const lastPositionUpdateTime = useRef(0);
     const lastScaleUpdateTime = useRef(0);
-    const isDraggingCharacter = useSharedValue(false);
     const dragActiveRef = useRef(false);
     const pinchActiveRef = useRef(false);
     const pendingExternalSyncRef = useRef(false);
@@ -181,29 +181,6 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
       normalizeCharacterTransform,
     ]);
 
-    const isPointInCharacterArea = useCallback(
-      (
-        normalizedX: number,
-        normalizedY: number,
-        transformX: number,
-        transformY: number,
-        transformScale: number
-      ): boolean => {
-        'worklet';
-        const scaledWidth = characterWidth.value * transformScale;
-        const scaledHeight = characterHeight.value * transformScale;
-        const halfWidth = scaledWidth / 2;
-
-        return (
-          normalizedX >= transformX - halfWidth &&
-          normalizedX <= transformX + halfWidth &&
-          normalizedY >= transformY - scaledHeight &&
-          normalizedY <= transformY
-        );
-      },
-      [characterWidth, characterHeight]
-    );
-
     const throttledPositionUpdate = useCallback(
       (x: number, y: number) => {
         const now = Date.now();
@@ -226,33 +203,31 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
       [onCharacterScaleChange]
     );
 
+    const characterGestureSurfaceStyle = useAnimatedStyle(() => {
+      const gesturePaddingHorizontal =
+        DEFAULT_GESTURE_HIT_SLOP.left + DEFAULT_GESTURE_HIT_SLOP.right;
+      const gesturePaddingVertical =
+        DEFAULT_GESTURE_HIT_SLOP.top + DEFAULT_GESTURE_HIT_SLOP.bottom;
+      const visibleWidth = PREVIEW_WIDTH * characterWidth.value * scale.value;
+      const visibleHeight = PREVIEW_HEIGHT * characterHeight.value * scale.value;
+      const gestureWidth = visibleWidth + gesturePaddingHorizontal;
+      const gestureHeight = visibleHeight + gesturePaddingVertical;
+
+      return {
+        width: gestureWidth,
+        height: gestureHeight,
+        left:
+          positionX.value * PREVIEW_WIDTH
+          - visibleWidth / 2
+          - DEFAULT_GESTURE_HIT_SLOP.left,
+        top:
+          positionY.value * PREVIEW_HEIGHT
+          - visibleHeight
+          - DEFAULT_GESTURE_HIT_SLOP.top,
+      };
+    });
+
     const panGesture = Gesture.Pan()
-      .manualActivation(true)
-      .onTouchesDown((event, stateManager) => {
-        'worklet';
-        const touch = event.changedTouches[0];
-        if (!touch) {
-          return;
-        }
-
-        const touchX = touch.x / PREVIEW_WIDTH;
-        const touchY = touch.y / PREVIEW_HEIGHT;
-        const isInArea = isPointInCharacterArea(
-          touchX,
-          touchY,
-          positionX.value,
-          positionY.value,
-          scale.value
-        );
-
-        if (isInArea) {
-          stateManager.activate();
-          isDraggingCharacter.value = true;
-          return;
-        }
-
-        stateManager.fail();
-      })
       .onStart(() => {
         'worklet';
         scheduleOnRN(setDragInteractionActive, true);
@@ -261,10 +236,6 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
       })
       .onUpdate((event) => {
         'worklet';
-        if (!isDraggingCharacter.value) {
-          return;
-        }
-
         const deltaX = event.translationX / PREVIEW_WIDTH;
         const deltaY = event.translationY / PREVIEW_HEIGHT;
         const newX = Math.max(0, Math.min(1, startPositionX.value + deltaX));
@@ -276,15 +247,10 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
       })
       .onEnd(() => {
         'worklet';
-        if (!isDraggingCharacter.value) {
-          return;
-        }
-
         scheduleOnRN(commitExternalPosition, positionX.value, positionY.value);
       })
       .onFinalize(() => {
         'worklet';
-        isDraggingCharacter.value = false;
         scheduleOnRN(setDragInteractionActive, false);
       });
 
@@ -343,7 +309,11 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
 
           {interactive && avatarVisible && (onCharacterPositionChange || onCharacterScaleChange) && (
             <GestureDetector gesture={combinedGesture}>
-              <Animated.View style={styles.gestureLayer} />
+              <Animated.View
+                collapsable={false}
+                testID="share-character-gesture-surface"
+                style={[styles.characterGestureSurface, characterGestureSurfaceStyle]}
+              />
             </GestureDetector>
           )}
 
@@ -412,8 +382,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  gestureLayer: {
-    ...StyleSheet.absoluteFillObject,
+  characterGestureSurface: {
+    position: 'absolute',
     backgroundColor: 'transparent',
   },
   watermarkContainer: {

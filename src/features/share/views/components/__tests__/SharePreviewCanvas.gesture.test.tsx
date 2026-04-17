@@ -3,6 +3,7 @@ import { Dimensions, StyleSheet } from 'react-native';
 import { act, render } from '@testing-library/react-native';
 import type { CharacterTransform, ShareRunningData } from '~/features/share/models/types';
 import { SharePreviewCanvas } from '../SharePreviewCanvas';
+import { DEFAULT_GESTURE_HIT_SLOP } from '~/features/share/constants/shareOptions';
 
 type GestureHandler = (...args: any[]) => void;
 
@@ -78,6 +79,7 @@ jest.mock('react-native-reanimated', () => {
       View: AnimatedView,
       call: () => {},
     },
+    useAnimatedStyle: (updater: () => object) => updater(),
     useSharedValue: <T,>(value: T) => React.useRef({ value }).current,
   };
 });
@@ -138,7 +140,14 @@ const getLatestPanHandlers = () => {
 
 const renderCanvas = (
   characterTransform: CharacterTransform,
-  onCharacterPositionChange: jest.Mock
+  onCharacterPositionChange: jest.Mock,
+  {
+    interactive = true,
+    avatarVisible = true,
+  }: {
+    interactive?: boolean;
+    avatarVisible?: boolean;
+  } = {}
 ) =>
   render(
     <SharePreviewCanvas
@@ -148,34 +157,17 @@ const renderCanvas = (
       onCharacterPositionChange={onCharacterPositionChange}
       onCharacterScaleChange={jest.fn()}
       characterTransform={characterTransform}
-      avatarVisible
+      avatarVisible={avatarVisible}
+      interactive={interactive}
     />
   );
 
-const beginDrag = (transform: CharacterTransform) => {
+const beginDrag = () => {
   const handlers = getLatestPanHandlers();
-  const stateManager = {
-    activate: jest.fn(),
-    fail: jest.fn(),
-  };
 
   act(() => {
-    handlers.onTouchesDown?.(
-      {
-        changedTouches: [
-          {
-            x: PREVIEW_WIDTH * transform.x,
-            y: PREVIEW_HEIGHT * (transform.y - 0.05 * transform.scale),
-          },
-        ],
-      },
-      stateManager
-    );
     handlers.onStart?.();
   });
-
-  expect(stateManager.activate).toHaveBeenCalledTimes(1);
-  expect(stateManager.fail).not.toHaveBeenCalled();
 
   return handlers;
 };
@@ -192,7 +184,7 @@ describe('SharePreviewCanvas gesture sync', () => {
     const initialTransform = { x: 0.5, y: 0.5, scale: 1 };
     const { rerender } = renderCanvas(initialTransform, onCharacterPositionChange);
 
-    let panHandlers = beginDrag(initialTransform);
+    let panHandlers = beginDrag();
 
     act(() => {
       panHandlers.onUpdate?.({
@@ -245,7 +237,7 @@ describe('SharePreviewCanvas gesture sync', () => {
       />
     );
 
-    const panHandlers = beginDrag({ x: 0.65, y: 0.5, scale: 1 });
+    const panHandlers = beginDrag();
 
     act(() => {
       panHandlers.onUpdate?.({
@@ -275,5 +267,34 @@ describe('SharePreviewCanvas gesture sync', () => {
     expect(style.shadowOpacity).toBeUndefined();
     expect(style.shadowRadius).toBeUndefined();
     expect(style.elevation).toBeUndefined();
+  });
+
+  it('positions the character gesture surface to the character bounds instead of the full canvas', () => {
+    const { getByTestId } = renderCanvas(
+      { x: 0.5, y: 0.5, scale: 1 },
+      jest.fn()
+    );
+
+    const gestureSurface = getByTestId('share-character-gesture-surface');
+    const style = StyleSheet.flatten(gestureSurface.props.style);
+
+    expect(style.width).toBeCloseTo(
+      PREVIEW_WIDTH * 0.25 + DEFAULT_GESTURE_HIT_SLOP.left + DEFAULT_GESTURE_HIT_SLOP.right
+    );
+    expect(style.height).toBeCloseTo(
+      PREVIEW_HEIGHT * 0.2 + DEFAULT_GESTURE_HIT_SLOP.top + DEFAULT_GESTURE_HIT_SLOP.bottom
+    );
+    expect(style.left).toBeCloseTo(PREVIEW_WIDTH * 0.375 - DEFAULT_GESTURE_HIT_SLOP.left);
+    expect(style.top).toBeCloseTo(PREVIEW_HEIGHT * 0.3 - DEFAULT_GESTURE_HIT_SLOP.top);
+  });
+
+  it('does not render the character gesture surface when interactivity is disabled', () => {
+    const { queryByTestId } = renderCanvas(
+      { x: 0.5, y: 0.5, scale: 1 },
+      jest.fn(),
+      { interactive: false }
+    );
+
+    expect(queryByTestId('share-character-gesture-surface')).toBeNull();
   });
 });

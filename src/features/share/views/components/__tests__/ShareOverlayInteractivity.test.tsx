@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 import { DraggableRouteMap } from '../DraggableRouteMap';
 import { DraggableStat } from '../DraggableStat';
+import { DEFAULT_GESTURE_HIT_SLOP } from '~/features/share/constants/shareOptions';
 
 jest.mock('react-native-reanimated', () => {
   const React = require('react');
@@ -148,5 +149,72 @@ describe('share overlay interactivity', () => {
     );
 
     expect(screen.queryByTestId('gesture-detector')).toBeNull();
+  });
+
+  it('applies minimum gesture hit slop to interactive stats', () => {
+    render(
+      <DraggableStat
+        type="time"
+        value="38:20"
+        label="시간"
+        transform={{ x: 0, y: 0, scale: 1 }}
+        onTransformChange={jest.fn()}
+        visible
+      />
+    );
+
+    const gestureSurface = screen.getByTestId('share-stat-gesture-surface-time');
+    const style = gestureSurface.props.style;
+
+    expect(style).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        paddingTop: DEFAULT_GESTURE_HIT_SLOP.top,
+        paddingBottom: DEFAULT_GESTURE_HIT_SLOP.bottom,
+        paddingLeft: DEFAULT_GESTURE_HIT_SLOP.left,
+        paddingRight: DEFAULT_GESTURE_HIT_SLOP.right,
+      }),
+    ]));
+  });
+
+  it('applies minimum gesture hit slop to the route map', () => {
+    render(
+      <DraggableRouteMap
+        locations={[
+          {
+            latitude: 37.5665,
+            longitude: 126.978,
+            altitude: 0,
+            accuracy: 5,
+            heading: 0,
+            speed: 0,
+            timestamp: '2026-02-24T00:00:00.000Z',
+          },
+          {
+            latitude: 37.567,
+            longitude: 126.979,
+            altitude: 0,
+            accuracy: 5,
+            heading: 0,
+            speed: 0,
+            timestamp: '2026-02-24T00:01:00.000Z',
+          },
+        ]}
+        transform={{ x: 0, y: 0, scale: 1 }}
+        onTransformChange={jest.fn()}
+        visible
+      />
+    );
+
+    const gestureSurface = screen.getByTestId('share-map-gesture-surface');
+    const style = gestureSurface.props.style;
+
+    expect(style).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        paddingTop: DEFAULT_GESTURE_HIT_SLOP.top,
+        paddingBottom: DEFAULT_GESTURE_HIT_SLOP.bottom,
+        paddingLeft: DEFAULT_GESTURE_HIT_SLOP.left,
+        paddingRight: DEFAULT_GESTURE_HIT_SLOP.right,
+      }),
+    ]));
   });
 });

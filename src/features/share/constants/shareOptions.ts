@@ -166,3 +166,14 @@ export const SCALE_RANGES = {
   /** 경로 지도 (DraggableRouteMap) */
   map: { min: 0.5, max: 2.0 },
 } as const;
+
+/**
+ * 요소 소유권은 유지하되 작은 시각 요소도 안정적으로 잡을 수 있도록
+ * 제스처 인식 영역에 여유를 둔다.
+ */
+export const DEFAULT_GESTURE_HIT_SLOP = {
+  top: 16,
+  bottom: 16,
+  left: 16,
+  right: 16,
+} as const;

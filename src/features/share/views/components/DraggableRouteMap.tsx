@@ -10,7 +10,7 @@ import Animated from 'react-native-reanimated';
 import Svg, { Path, Circle, Defs, Filter, FeGaussianBlur } from 'react-native-svg';
 import type { Location } from '~/features/running/models';
 import type { ElementTransform } from '../../models/types';
-import { SCALE_RANGES } from '../../constants/shareOptions';
+import { DEFAULT_GESTURE_HIT_SLOP, SCALE_RANGES } from '../../constants/shareOptions';
 import { gpsToSVGPath } from '../../utils/gpsToPath';
 import { useDraggableTransformGesture } from './useDraggableTransformGesture';
 import { PRIMARY } from '~/shared/styles';
@@ -63,7 +63,7 @@ export const DraggableRouteMap: React.FC<DraggableRouteMapProps> = ({
   }
 
   const content = (
-    <Animated.View style={[styles.container, animatedStyle]}>
+    <Animated.View style={styles.contentContainer}>
       <Svg
         width={SVG_WIDTH}
         height={SVG_HEIGHT}
@@ -128,12 +128,17 @@ export const DraggableRouteMap: React.FC<DraggableRouteMapProps> = ({
   );
 
   if (!interactive) {
-    return content;
+    return <Animated.View style={[styles.container, animatedStyle]}>{content}</Animated.View>;
   }
 
   return (
     <GestureDetector gesture={combinedGesture}>
-      {content}
+      <Animated.View
+        style={[styles.container, styles.gestureSurface, animatedStyle]}
+        testID="share-map-gesture-surface"
+      >
+        {content}
+      </Animated.View>
     </GestureDetector>
   );
 };
@@ -144,11 +149,21 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  contentContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
     // 그림자 효과
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
+  },
+  gestureSurface: {
+    paddingTop: DEFAULT_GESTURE_HIT_SLOP.top,
+    paddingBottom: DEFAULT_GESTURE_HIT_SLOP.bottom,
+    paddingLeft: DEFAULT_GESTURE_HIT_SLOP.left,
+    paddingRight: DEFAULT_GESTURE_HIT_SLOP.right,
   },
 });
 

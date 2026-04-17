@@ -8,7 +8,7 @@ import { StyleSheet, View, Text } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
 import type { StatType, ElementTransform } from '../../models/types';
-import { SCALE_RANGES } from '../../constants/shareOptions';
+import { DEFAULT_GESTURE_HIT_SLOP, SCALE_RANGES } from '../../constants/shareOptions';
 import { useDraggableTransformGesture } from './useDraggableTransformGesture';
 import { GREY } from '~/shared/styles';
 
@@ -80,7 +80,7 @@ export const DraggableStat: React.FC<DraggableStatProps> = ({
   const { valueStyle, labelStyle } = getStatStyle();
 
   const content = (
-    <Animated.View style={[styles.container, animatedStyle]}>
+    <View style={styles.contentContainer}>
       {/* time, pace: 세로 레이아웃 (라벨 위, 값 아래) */}
       {(type === 'time' || type === 'pace') ? (
         <View style={styles.verticalWrapper}>
@@ -93,16 +93,21 @@ export const DraggableStat: React.FC<DraggableStatProps> = ({
           <Text style={[styles.label, labelStyle]}>{label}</Text>
         </View>
       )}
-    </Animated.View>
+    </View>
   );
 
   if (!interactive) {
-    return content;
+    return <Animated.View style={[styles.container, animatedStyle]}>{content}</Animated.View>;
   }
 
   return (
     <GestureDetector gesture={combinedGesture}>
-      {content}
+      <Animated.View
+        style={[styles.container, styles.gestureSurface, animatedStyle]}
+        testID={`share-stat-gesture-surface-${type}`}
+      >
+        {content}
+      </Animated.View>
     </GestureDetector>
   );
 };
@@ -111,6 +116,16 @@ const styles = StyleSheet.create({
   container: {
     position: 'absolute',
     alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gestureSurface: {
+    paddingTop: DEFAULT_GESTURE_HIT_SLOP.top,
+    paddingBottom: DEFAULT_GESTURE_HIT_SLOP.bottom,
+    paddingLeft: DEFAULT_GESTURE_HIT_SLOP.left,
+    paddingRight: DEFAULT_GESTURE_HIT_SLOP.right,
+  },
+  contentContainer: {
     alignItems: 'center',
     justifyContent: 'center',
   },
