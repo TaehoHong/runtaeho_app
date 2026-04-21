@@ -7,8 +7,11 @@
 import * as ExpoLocation from 'expo-location';
 import { type Location, createLocationFromPosition } from '../models/Location';
 import {
+  cloneGpsFilterState,
+  createInitialGpsFilterState,
   DEFAULT_GPS_FILTER_CONFIG,
-  evaluateGpsSample,
+  reduceGpsSample,
+  type GpsFilterState,
   type GpsSample,
 } from './gps/GpsFilter';
 
@@ -43,6 +46,10 @@ export interface LocationPaceSignal {
   distanceDeltaMeters?: number;
 }
 
+export interface LocationTrackingSeed {
+  filterState?: GpsFilterState;
+}
+
 /**
  * 위치 서비스
  * iOS LocationService와 동일한 로직
@@ -67,7 +74,7 @@ export class LocationService {
 
   // Location data
   private locations: Location[] = [];
-  private previousSample: GpsSample | null = null;
+  private gpsFilterState: GpsFilterState = createInitialGpsFilterState();
   private lastValidLocation: Location | null = null;
   private totalDistance: number = 0;
   private speedReadings: number[] = [];
@@ -95,21 +102,6 @@ export class LocationService {
   }
 
   /**
-   * 권한 요청
-   */
-  async requestPermissions(): Promise<ExpoLocation.PermissionResponse> {
-    const foregroundPermission = await ExpoLocation.requestForegroundPermissionsAsync();
-
-    if (foregroundPermission.status === 'granted') {
-      // 백그라운드 권한도 요청 (선택사항)
-      const backgroundPermission = await ExpoLocation.requestBackgroundPermissionsAsync();
-      return backgroundPermission;
-    }
-
-    return foregroundPermission;
-  }
-
-  /**
    * 권한 확인
    */
   async checkPermissions(): Promise<ExpoLocation.PermissionResponse> {
@@ -119,13 +111,10 @@ export class LocationService {
   /**
    * 추적 시작
    */
-  async startTracking(): Promise<void> {
-    const hasPermission = await this.checkPermissions();
-    if (!hasPermission) {
-      const permission = await this.requestPermissions();
-      if (permission.status !== 'granted') {
-        throw new Error('Location permission denied');
-      }
+  async startTracking(seed: LocationTrackingSeed = {}): Promise<void> {
+    const permission = await this.checkPermissions();
+    if (!permission.granted) {
+      throw new Error('Foreground location permission required');
     }
 
     if (this.isTracking) {
@@ -134,7 +123,7 @@ export class LocationService {
     }
 
     // 상태 초기화
-    this.resetTrackingState();
+    this.resetTrackingState(seed);
     this.isTracking = true;
     this.isPaused = false;
 
@@ -201,12 +190,12 @@ export class LocationService {
       latitude: location.latitude,
       longitude: location.longitude,
       timestampMs: location.timestamp.getTime(),
-      speedMps: location.speed,
-      accuracyMeters: location.accuracy,
+      ...(location.speed > 0 && { speedMps: location.speed }),
+      ...(location.accuracy !== undefined && { accuracyMeters: location.accuracy }),
     };
 
-    const filterResult = evaluateGpsSample(
-      this.previousSample,
+    const { result: filterResult, nextState } = reduceGpsSample(
+      this.gpsFilterState,
       currentSample,
       {
         ...DEFAULT_GPS_FILTER_CONFIG,
@@ -216,14 +205,16 @@ export class LocationService {
       }
     );
 
-    this.previousSample = currentSample;
+    this.gpsFilterState = nextState;
 
     if (filterResult.acceptedForPace) {
       this.latestPaceSignal = {
         timestampMs: currentSample.timestampMs,
         speedMps: filterResult.speedMps,
-        accuracyMeters: currentSample.accuracyMeters,
         distanceDeltaMeters: filterResult.acceptedForDistance ? filterResult.distanceMeters : 0,
+        ...(currentSample.accuracyMeters !== undefined && {
+          accuracyMeters: currentSample.accuracyMeters,
+        }),
       };
       if (this.latestPaceSignal) {
         this.paceSignalCallbacks.forEach((callback) => callback(this.latestPaceSignal!));
@@ -271,9 +262,9 @@ export class LocationService {
   /**
    * 상태 초기화
    */
-  private resetTrackingState(): void {
+  private resetTrackingState(seed: LocationTrackingSeed = {}): void {
     this.locations = [];
-    this.previousSample = null;
+    this.gpsFilterState = createInitialGpsFilterState(seed.filterState);
     this.lastValidLocation = null;
     this.totalDistance = 0;
     this.speedReadings = [];
@@ -357,6 +348,10 @@ export class LocationService {
    */
   get totalDistanceMeters(): number {
     return this.totalDistance;
+  }
+
+  getGpsFilterState(): GpsFilterState {
+    return cloneGpsFilterState(this.gpsFilterState);
   }
 
   get allLocations(): Location[] {

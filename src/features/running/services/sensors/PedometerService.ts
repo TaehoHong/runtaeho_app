@@ -88,17 +88,12 @@ export class PedometerService {
 
   /**
    * 권한 확인
-   *
-   * Note: iOS Core Motion은 별도 권한 요청 불필요
-   *       하지만 Info.plist에 NSMotionUsageDescription 필요
    */
   async checkPermissions(): Promise<PedometerPermissionResult> {
     try {
       const available = await this.isAvailable();
-
-      // iOS: Core Motion은 항상 허용 (Info.plist만 필요)
-      // Android: ACTIVITY_RECOGNITION 권한 필요 (expo-sensors가 처리)
-      const granted = available;
+      const permission = await Pedometer.getPermissionsAsync();
+      const granted = permission.granted;
 
       return { granted, available };
     } catch (error) {
@@ -109,12 +104,19 @@ export class PedometerService {
 
   /**
    * 권한 요청
-   *
-   * Note: expo-sensors Pedometer는 자동으로 권한 요청 처리
-   *       명시적 요청 불필요
    */
   async requestPermissions(): Promise<PedometerPermissionResult> {
-    return this.checkPermissions();
+    try {
+      const available = await this.isAvailable();
+      const permission = await Pedometer.requestPermissionsAsync();
+      return {
+        granted: permission.granted,
+        available,
+      };
+    } catch (error) {
+      console.error('[PedometerService] Permission request failed:', error);
+      return { granted: false, available: false };
+    }
   }
 
   /**
@@ -128,16 +130,18 @@ export class PedometerService {
       return;
     }
 
+    const permission = await Pedometer.getPermissionsAsync();
+    if (!permission.granted) {
+      throw new Error('Motion permission required');
+    }
+
     try {
-      // 1. 사용 가능 여부 확인
       const available = await this.isAvailable();
       if (!available) {
         console.warn('[PedometerService] Pedometer not available');
-        // 사용 불가능해도 에러는 던지지 않음 (선택적 기능)
         return;
       }
 
-      // 2. 초기 상태 설정
       this.startTime = Date.now();
       this.startSteps = 0;
       this.currentSteps = 0;
@@ -149,7 +153,6 @@ export class PedometerService {
 
       console.log('[PedometerService] Starting tracking...');
 
-      // 3. Pedometer 구독
       this.subscription = Pedometer.watchStepCount((result) => {
         try {
           const now = Date.now();
@@ -204,7 +207,7 @@ export class PedometerService {
     } catch (error) {
       console.error('[PedometerService] Failed to start tracking:', error);
       this.isTracking = false;
-      // 에러를 던지지 않음 (선택적 기능)
+      throw error;
     }
   }
 

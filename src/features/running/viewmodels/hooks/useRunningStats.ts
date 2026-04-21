@@ -73,8 +73,8 @@ export const useRunningStats = (): UseRunningStatsReturn => {
       const fused = fuseInstantPace(
         {
           distanceWindowSpeedMps,
-          paceSignal,
           nowMs: now,
+          ...(paceSignal !== undefined && { paceSignal }),
         },
         paceFusionStateRef.current
       );

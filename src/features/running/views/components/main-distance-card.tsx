@@ -19,10 +19,8 @@ export const MainDistanceCard: React.FC<MainDistanceCardProps> = ({ distanceMete
   const { distance } = useRunning();
   const resolvedDistance = distanceMeters ?? distance;
 
-  // 거리를 km 단위로 변환 (distance는 미터 단위)
-  // 1의 자리 버림 처리 (예: 299m → 290m → 0.29km)
-  const truncatedDistance = Math.floor(resolvedDistance / 10) * 10;
-  const distanceKm = (truncatedDistance / 1000).toFixed(2);
+  // 내부 데이터는 1m 단위를 유지하고, UI 표시는 0.01km 단위로만 반올림한다.
+  const distanceKm = (Math.max(0, resolvedDistance) / 1000).toFixed(2);
 
   return (
     <View style={styles.container}>

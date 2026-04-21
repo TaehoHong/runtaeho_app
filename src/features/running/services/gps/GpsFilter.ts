@@ -26,7 +26,8 @@ export type GpsRejectReason =
   | 'TIME_GAP_TOO_LARGE'
   | 'SPEED_TOO_FAST'
   | 'DISTANCE_BELOW_MIN'
-  | 'STATIONARY';
+  | 'STATIONARY'
+  | 'JUMP_QUARANTINED';
 
 export interface GpsFilterResult {
   acceptedForDistance: boolean;
@@ -35,6 +36,17 @@ export interface GpsFilterResult {
   distanceMeters: number;
   speedMps: number;
   reason: GpsRejectReason;
+}
+
+export interface GpsFilterState {
+  lastAcceptedSample: GpsSample | null;
+  lastRawSample: GpsSample | null;
+  pendingCandidate: GpsSample | null;
+}
+
+export interface GpsFilterEvaluation {
+  result: GpsFilterResult;
+  nextState: GpsFilterState;
 }
 
 export const DEFAULT_GPS_FILTER_CONFIG: GpsFilterConfig = {
@@ -48,6 +60,28 @@ export const DEFAULT_GPS_FILTER_CONFIG: GpsFilterConfig = {
 
 const isFiniteNumber = (value: number | undefined | null): value is number =>
   typeof value === 'number' && Number.isFinite(value);
+
+const SENSOR_SPEED_GRACE_MPS = 2;
+const SENSOR_SPEED_MULTIPLIER = 2.5;
+
+const cloneSample = (sample: GpsSample | null): GpsSample | null =>
+  sample ? { ...sample } : null;
+
+export const createInitialGpsFilterState = (
+  seed: Partial<GpsFilterState> = {}
+): GpsFilterState => {
+  const lastAcceptedSample = cloneSample(seed.lastAcceptedSample ?? null);
+  const lastRawSample = cloneSample(seed.lastRawSample ?? lastAcceptedSample);
+
+  return {
+    lastAcceptedSample,
+    lastRawSample,
+    pendingCandidate: cloneSample(seed.pendingCandidate ?? null),
+  };
+};
+
+export const cloneGpsFilterState = (state: GpsFilterState): GpsFilterState =>
+  createInitialGpsFilterState(state);
 
 const rejected = (
   reason: GpsRejectReason,
@@ -63,45 +97,22 @@ const rejected = (
   reason,
 });
 
-export const evaluateGpsSample = (
-  previousSample: GpsSample | null,
-  currentSample: GpsSample,
-  config: GpsFilterConfig = DEFAULT_GPS_FILTER_CONFIG
-): GpsFilterResult => {
-  if (!isFiniteNumber(currentSample.latitude) || !isFiniteNumber(currentSample.longitude)) {
-    return rejected('INVALID_COORDINATE');
-  }
+interface DeltaMetrics {
+  deltaSeconds: number;
+  distanceMeters: number;
+  distanceSpeedMps: number;
+  sensorSpeedMps?: number;
+  fusedSpeedMps: number;
+  validationSpeedMps: number;
+}
 
-  if (!isFiniteNumber(currentSample.timestampMs)) {
-    return rejected('INVALID_TIMESTAMP');
-  }
-
-  if (
-    isFiniteNumber(currentSample.accuracyMeters) &&
-    currentSample.accuracyMeters > config.maxAccuracyMeters
-  ) {
-    return rejected('LOW_ACCURACY');
-  }
-
-  if (!previousSample) {
-    return {
-      acceptedForDistance: false,
-      acceptedForPath: true,
-      acceptedForPace: false,
-      distanceMeters: 0,
-      speedMps: currentSample.speedMps ?? 0,
-      reason: 'NO_PREVIOUS_SAMPLE',
-    };
-  }
-
+const computeDeltaMetrics = (
+  previousSample: GpsSample,
+  currentSample: GpsSample
+): DeltaMetrics | null => {
   const deltaSeconds = (currentSample.timestampMs - previousSample.timestampMs) / 1000;
-
   if (!isFiniteNumber(deltaSeconds) || deltaSeconds <= 0) {
-    return rejected('INVALID_TIMESTAMP');
-  }
-
-  if (deltaSeconds > config.maxDeltaSeconds) {
-    return rejected('TIME_GAP_TOO_LARGE');
+    return null;
   }
 
   const distanceMeters = calculateHaversineDistance(
@@ -112,39 +123,239 @@ export const evaluateGpsSample = (
   );
 
   const distanceSpeedMps = distanceMeters / deltaSeconds;
-  const sensorSpeedMps = isFiniteNumber(currentSample.speedMps) && currentSample.speedMps >= 0
-    ? currentSample.speedMps
-    : undefined;
+  const sensorSpeedMps =
+    isFiniteNumber(currentSample.speedMps) && currentSample.speedMps >= 0
+      ? currentSample.speedMps
+      : undefined;
 
   const fusedSpeedMps =
     sensorSpeedMps !== undefined && sensorSpeedMps > 0
       ? (sensorSpeedMps + distanceSpeedMps) / 2
       : distanceSpeedMps;
 
-  const validationSpeedMps = Math.max(distanceSpeedMps, sensorSpeedMps ?? 0);
-  if (validationSpeedMps * 3.6 > config.maxSpeedKmh) {
-    return rejected('SPEED_TOO_FAST', fusedSpeedMps);
+  return {
+    deltaSeconds,
+    distanceMeters,
+    distanceSpeedMps,
+    ...(sensorSpeedMps !== undefined && { sensorSpeedMps }),
+    fusedSpeedMps,
+    validationSpeedMps: Math.max(distanceSpeedMps, sensorSpeedMps ?? 0),
+  };
+};
+
+const accepted = (
+  reason: GpsRejectReason,
+  metrics: DeltaMetrics
+): GpsFilterResult => ({
+  acceptedForDistance: true,
+  acceptedForPath: true,
+  acceptedForPace: true,
+  distanceMeters: metrics.distanceMeters,
+  speedMps: metrics.fusedSpeedMps,
+  reason,
+});
+
+const reanchored = (
+  currentSample: GpsSample,
+  reason: GpsRejectReason,
+  speedMps: number = 0,
+  acceptedForPace: boolean = false,
+  distanceMeters: number = 0
+): GpsFilterEvaluation => ({
+  result: rejected(reason, speedMps, acceptedForPace, distanceMeters),
+  nextState: {
+    lastAcceptedSample: cloneSample(currentSample),
+    lastRawSample: cloneSample(currentSample),
+    pendingCandidate: null,
+  },
+});
+
+const shouldQuarantineJump = (
+  metrics: DeltaMetrics,
+  config: GpsFilterConfig
+): boolean => {
+  if (metrics.sensorSpeedMps === undefined) {
+    return false;
   }
 
-  const stationarySpeedMps = sensorSpeedMps ?? distanceSpeedMps;
+  const sensorConsistencyBudget = Math.max(
+    metrics.sensorSpeedMps * SENSOR_SPEED_MULTIPLIER,
+    metrics.sensorSpeedMps + SENSOR_SPEED_GRACE_MPS
+  );
+
+  return (
+    metrics.distanceMeters > Math.max(config.minDistanceMeters, config.stationaryRadiusMeters) &&
+    metrics.distanceSpeedMps > sensorConsistencyBudget
+  );
+};
+
+const isPendingCandidateConfirmed = (
+  pendingCandidate: GpsSample,
+  currentSample: GpsSample,
+  config: GpsFilterConfig
+): boolean => {
+  const confirmationDistance = calculateHaversineDistance(
+    pendingCandidate.latitude,
+    pendingCandidate.longitude,
+    currentSample.latitude,
+    currentSample.longitude
+  );
+  const confirmationRadius = Math.max(
+    config.minDistanceMeters * 2,
+    (pendingCandidate.accuracyMeters ?? 0) + (currentSample.accuracyMeters ?? 0)
+  );
+
+  return confirmationDistance <= confirmationRadius;
+};
+
+export const reduceGpsSample = (
+  state: GpsFilterState,
+  currentSample: GpsSample,
+  config: GpsFilterConfig = DEFAULT_GPS_FILTER_CONFIG
+): GpsFilterEvaluation => {
+  const currentState = cloneGpsFilterState(state);
+
+  if (!isFiniteNumber(currentSample.latitude) || !isFiniteNumber(currentSample.longitude)) {
+    return {
+      result: rejected('INVALID_COORDINATE'),
+      nextState: currentState,
+    };
+  }
+
+  if (!isFiniteNumber(currentSample.timestampMs)) {
+    return {
+      result: rejected('INVALID_TIMESTAMP'),
+      nextState: currentState,
+    };
+  }
+
+  if (
+    isFiniteNumber(currentSample.accuracyMeters) &&
+    currentSample.accuracyMeters > config.maxAccuracyMeters
+  ) {
+    return {
+      result: rejected('LOW_ACCURACY'),
+      nextState: {
+        ...currentState,
+        pendingCandidate: null,
+      },
+    };
+  }
+
+  const anchorSample = currentState.lastAcceptedSample ?? currentState.lastRawSample;
+  if (!anchorSample) {
+    return {
+      result: {
+        acceptedForDistance: false,
+        acceptedForPath: true,
+        acceptedForPace: false,
+        distanceMeters: 0,
+        speedMps: currentSample.speedMps ?? 0,
+        reason: 'NO_PREVIOUS_SAMPLE',
+      },
+      nextState: {
+        lastAcceptedSample: cloneSample(currentSample),
+        lastRawSample: cloneSample(currentSample),
+        pendingCandidate: null,
+      },
+    };
+  }
+
+  const anchorMetrics = computeDeltaMetrics(anchorSample, currentSample);
+  if (!anchorMetrics) {
+    return {
+      result: rejected('INVALID_TIMESTAMP'),
+      nextState: currentState,
+    };
+  }
+
+  if (anchorMetrics.deltaSeconds > config.maxDeltaSeconds) {
+    return reanchored(currentSample, 'TIME_GAP_TOO_LARGE');
+  }
+
+  if (anchorMetrics.validationSpeedMps * 3.6 > config.maxSpeedKmh) {
+    return {
+      result: rejected('SPEED_TOO_FAST', anchorMetrics.fusedSpeedMps),
+      nextState: {
+        ...currentState,
+        lastRawSample: cloneSample(currentSample),
+        pendingCandidate: null,
+      },
+    };
+  }
+
+  if (shouldQuarantineJump(anchorMetrics, config)) {
+    if (
+      currentState.pendingCandidate &&
+      isPendingCandidateConfirmed(currentState.pendingCandidate, currentSample, config)
+    ) {
+      return {
+        result: accepted('OK', anchorMetrics),
+        nextState: {
+          lastAcceptedSample: cloneSample(currentSample),
+          lastRawSample: cloneSample(currentSample),
+          pendingCandidate: null,
+        },
+      };
+    }
+
+    return {
+      result: rejected('JUMP_QUARANTINED', anchorMetrics.fusedSpeedMps),
+      nextState: {
+        ...currentState,
+        lastRawSample: cloneSample(currentSample),
+        pendingCandidate: cloneSample(currentSample),
+      },
+    };
+  }
+
+  const localReference = currentState.lastRawSample ?? anchorSample;
+  const localMetrics = computeDeltaMetrics(localReference, currentSample) ?? anchorMetrics;
+  const stationarySpeedMps = localMetrics.sensorSpeedMps ?? localMetrics.distanceSpeedMps;
   const isStationary =
     stationarySpeedMps < config.stationarySpeedMps &&
-    distanceMeters <= config.stationaryRadiusMeters;
+    localMetrics.distanceMeters <= config.stationaryRadiusMeters;
 
   if (isStationary) {
-    return rejected('STATIONARY', fusedSpeedMps, true, distanceMeters);
+    return reanchored(
+      currentSample,
+      'STATIONARY',
+      localMetrics.fusedSpeedMps,
+      true,
+      localMetrics.distanceMeters
+    );
   }
 
-  if (distanceMeters < config.minDistanceMeters) {
-    return rejected('DISTANCE_BELOW_MIN', fusedSpeedMps, true, distanceMeters);
+  if (localMetrics.distanceMeters < config.minDistanceMeters) {
+    return reanchored(
+      currentSample,
+      'DISTANCE_BELOW_MIN',
+      localMetrics.fusedSpeedMps,
+      true,
+      localMetrics.distanceMeters
+    );
   }
 
   return {
-    acceptedForDistance: true,
-    acceptedForPath: true,
-    acceptedForPace: true,
-    distanceMeters,
-    speedMps: fusedSpeedMps,
-    reason: 'OK',
+    result: accepted('OK', anchorMetrics),
+    nextState: {
+      lastAcceptedSample: cloneSample(currentSample),
+      lastRawSample: cloneSample(currentSample),
+      pendingCandidate: null,
+    },
   };
 };
+
+export const evaluateGpsSample = (
+  previousSample: GpsSample | null,
+  currentSample: GpsSample,
+  config: GpsFilterConfig = DEFAULT_GPS_FILTER_CONFIG
+): GpsFilterResult =>
+  reduceGpsSample(
+    createInitialGpsFilterState({
+      lastAcceptedSample: previousSample,
+      lastRawSample: previousSample,
+    }),
+    currentSample,
+    config
+  ).result;

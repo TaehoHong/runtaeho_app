@@ -146,6 +146,7 @@ export interface UseGpsTrackingProps {
   statsRef: MutableRefObject<RunningStats>;
   onSegmentCreate: (distance: number, locations: Location[], startTime: number) => void;
   onDistanceUpdate: (distanceDelta: number, newLocations: Location[]) => void;
+  onAutoPause?: () => void;
 }
 
 /**
@@ -164,7 +165,6 @@ export interface UseGpsTrackingReturn {
   stopGpsTracking: () => Promise<{ distance: number; locations: Location[] }>;
   pauseGpsTracking: () => void;
   resumeGpsTracking: () => void;
-  setUseBackgroundMode: React.Dispatch<React.SetStateAction<boolean>>;
   resetGpsTracking: () => void;
 }
 
@@ -194,6 +194,9 @@ export interface UseRunningLifecycleProps {
   // GPS actions
   startGpsTracking: (recordId: number) => Promise<void>;
   stopGpsTracking: () => Promise<{ distance: number; locations: Location[] }>;
+  pauseGpsTracking: () => void;
+  resumeGpsTracking: () => void;
+  resetGpsTracking: () => void;
 
   // Stats actions
   resetStats: () => void;
@@ -209,7 +212,6 @@ export interface UseRunningLifecycleProps {
   elapsedTime: number;
   stats: RunningStats;
   currentSegmentItems: RunningRecordItem[];
-  useBackgroundMode: boolean;
 }
 
 /**
@@ -242,6 +244,7 @@ export interface UseRunningLifecycleReturn {
   // Actions
   startRunning: () => Promise<RunningRecord>;
   pauseRunning: () => void;
+  applyAutoPause: () => void;
   resumeRunning: () => void;
   endRunning: () => Promise<EndRunningRecord | null>;
   updateCurrentRecord: () => Promise<void>;
@@ -274,7 +277,6 @@ export interface UseRunningViewModelReturn {
   endRunning: () => Promise<EndRunningRecord | null>;
   updateCurrentRecord: () => Promise<void>;
   resetRunning: () => void;
-  setUseBackgroundMode: React.Dispatch<React.SetStateAction<boolean>>;
 
   // Formatting utilities
   formatElapsedTime: (seconds: number) => string;

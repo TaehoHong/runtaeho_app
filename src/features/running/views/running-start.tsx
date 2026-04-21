@@ -20,31 +20,22 @@ export const RunningStartView: React.FC = () => {
   const handleStartRunning = async () => {
     console.log('🏃 [RunningStartView] 러닝 시작 버튼 눌러짐');
 
-    // ===== 1. 권한 확인 =====
     console.log('[RunningStartView] Checking permissions...');
     const permissionCheck = await permissionManager.checkRequiredPermissions();
 
-    if (!permissionCheck.hasAllPermissions) {
+    if (!permissionCheck.canStartRunning) {
       console.warn('[RunningStartView] Missing permissions:', permissionCheck);
-      // 권한이 없으면 모달 표시
       setShowPermissionModal(true);
       return;
     }
 
-    // ===== 2. 러닝 시작 =====
     try {
       console.log('✅ [RunningStartView] All permissions granted, starting running...');
-
-      // RunningViewModel.startRunning() 호출 (GPS 추적, 타이머 시작)
       await startRunning();
-
-      // 러닝 상태로 전환
       setRunningState(RunningState.Running);
       console.log('✅ [RunningStartView] 러닝 시작 완료');
     } catch (error) {
       console.error('❌ [RunningStartView] 러닝 시작 실패:', error);
-      // 에러가 발생해도 UI 상태는 Running으로 전환 (ViewModel에서 더미 데이터 생성)
-      setRunningState(RunningState.Running);
     }
   };
 

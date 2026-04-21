@@ -10,8 +10,10 @@ import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import { Platform } from 'react-native';
 import {
+  createInitialGpsFilterState,
   DEFAULT_GPS_FILTER_CONFIG,
-  evaluateGpsSample,
+  reduceGpsSample,
+  type GpsFilterState,
   type GpsSample,
 } from './gps/GpsFilter';
 import { RED } from '~/shared/styles';
@@ -46,7 +48,7 @@ interface BackgroundRunningSession {
 /**
  * 백그라운드 위치 데이터
  */
-interface BackgroundLocationData {
+export interface BackgroundLocationData {
   latitude: number;
   longitude: number;
   timestamp: number;
@@ -55,15 +57,18 @@ interface BackgroundLocationData {
   accuracy: number;
 }
 
-interface BackgroundGpsFilterState {
-  lastSample: GpsSample | null;
-}
-
 export interface BackgroundPaceSignal {
   timestampMs: number;
   speedMps?: number;
   accuracyMeters?: number;
   distanceDeltaMeters?: number;
+}
+
+export interface BackgroundTrackingSeed {
+  totalDistance?: number;
+  locations?: BackgroundLocationData[];
+  latestPaceSignal?: BackgroundPaceSignal | null;
+  filterState?: GpsFilterState;
 }
 
 /**
@@ -104,9 +109,9 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
         : [];
 
       const filterStateData = await AsyncStorage.getItem(STORAGE_KEYS.GPS_FILTER_STATE);
-      const gpsFilterState: BackgroundGpsFilterState = filterStateData
-        ? JSON.parse(filterStateData)
-        : { lastSample: null };
+      let gpsFilterState: GpsFilterState = filterStateData
+        ? createInitialGpsFilterState(JSON.parse(filterStateData))
+        : createInitialGpsFilterState();
 
       // 새로운 위치들 처리
       let totalDistanceAdded = 0;
@@ -118,8 +123,10 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
           timestampMs: location.timestamp,
-          speedMps: location.coords.speed ?? undefined,
-          accuracyMeters: location.coords.accuracy ?? undefined,
+          ...(location.coords.speed !== null && { speedMps: location.coords.speed }),
+          ...(location.coords.accuracy !== null && {
+            accuracyMeters: location.coords.accuracy,
+          }),
         };
 
         const newLocation: BackgroundLocationData = {
@@ -131,11 +138,12 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
           accuracy: location.coords.accuracy || 0,
         };
 
-        const filterResult = evaluateGpsSample(
-          gpsFilterState.lastSample,
+        const { result: filterResult, nextState } = reduceGpsSample(
+          gpsFilterState,
           currentSample,
           DEFAULT_GPS_FILTER_CONFIG
         );
+        gpsFilterState = nextState;
 
         if (filterResult.acceptedForDistance) {
           totalDistanceAdded += filterResult.distanceMeters;
@@ -149,14 +157,15 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
           latestPaceSignal = {
             timestampMs: currentSample.timestampMs,
             speedMps: filterResult.speedMps,
-            accuracyMeters: currentSample.accuracyMeters,
             distanceDeltaMeters: filterResult.acceptedForDistance
               ? filterResult.distanceMeters
               : 0,
+            ...(currentSample.accuracyMeters !== undefined && {
+              accuracyMeters: currentSample.accuracyMeters,
+            }),
           };
         }
 
-        gpsFilterState.lastSample = currentSample;
       }
 
       // 업데이트된 데이터 저장
@@ -209,7 +218,10 @@ export class BackgroundTaskService {
   /**
    * 백그라운드 추적 시작
    */
-  async startBackgroundTracking(runningRecordId: number): Promise<void> {
+  async startBackgroundTracking(
+    runningRecordId: number,
+    seed: BackgroundTrackingSeed = {}
+  ): Promise<void> {
     try {
       // 권한 상태만 확인한다.
       // 권한 요청 UI는 RunningStartView/PermissionManager에서만 담당해야 한다.
@@ -220,7 +232,7 @@ export class BackgroundTaskService {
 
       const { status: backgroundStatus } = await Location.getBackgroundPermissionsAsync();
       if (backgroundStatus !== 'granted') {
-        console.warn('[BackgroundTask] Background permission not granted, using foreground only');
+        throw new Error('Background location permission required');
       }
 
       // 세션 데이터 초기화
@@ -228,16 +240,19 @@ export class BackgroundTaskService {
         runningRecordId,
         startTime: Date.now(),
         isActive: true,
-        totalDistance: 0,
-        locationCount: 0,
+        totalDistance: seed.totalDistance ?? 0,
+        locationCount: seed.locations?.length ?? 0,
       };
 
       await AsyncStorage.multiSet([
         [STORAGE_KEYS.RUNNING_SESSION, JSON.stringify(session)],
-        [STORAGE_KEYS.BACKGROUND_LOCATIONS, JSON.stringify([])],
-        [STORAGE_KEYS.TOTAL_DISTANCE, '0'],
-        [STORAGE_KEYS.GPS_FILTER_STATE, JSON.stringify({ lastSample: null })],
-        [STORAGE_KEYS.LATEST_PACE_SIGNAL, JSON.stringify(null)],
+        [STORAGE_KEYS.BACKGROUND_LOCATIONS, JSON.stringify(seed.locations ?? [])],
+        [STORAGE_KEYS.TOTAL_DISTANCE, String(seed.totalDistance ?? 0)],
+        [
+          STORAGE_KEYS.GPS_FILTER_STATE,
+          JSON.stringify(createInitialGpsFilterState(seed.filterState)),
+        ],
+        [STORAGE_KEYS.LATEST_PACE_SIGNAL, JSON.stringify(seed.latestPaceSignal ?? null)],
       ]);
 
       // Task가 이미 등록되어 있는지 확인
@@ -309,7 +324,7 @@ export class BackgroundTaskService {
       const session: BackgroundRunningSession = JSON.parse(sessionData);
       await AsyncStorage.multiSet([
         [STORAGE_KEYS.RUNNING_SESSION, JSON.stringify({ ...session, isActive: false })],
-        [STORAGE_KEYS.GPS_FILTER_STATE, JSON.stringify({ lastSample: null })],
+        [STORAGE_KEYS.GPS_FILTER_STATE, JSON.stringify(createInitialGpsFilterState())],
       ]);
       console.log('[BackgroundTask] Paused background tracking');
     } catch (error) {
@@ -329,7 +344,7 @@ export class BackgroundTaskService {
       const session: BackgroundRunningSession = JSON.parse(sessionData);
       await AsyncStorage.multiSet([
         [STORAGE_KEYS.RUNNING_SESSION, JSON.stringify({ ...session, isActive: true })],
-        [STORAGE_KEYS.GPS_FILTER_STATE, JSON.stringify({ lastSample: null })],
+        [STORAGE_KEYS.GPS_FILTER_STATE, JSON.stringify(createInitialGpsFilterState())],
       ]);
       console.log('[BackgroundTask] Resumed background tracking');
     } catch (error) {
@@ -361,6 +376,18 @@ export class BackgroundTaskService {
     } catch (error) {
       console.error('[BackgroundTask] Failed to get latest pace signal:', error);
       return null;
+    }
+  }
+
+  async getGpsFilterState(): Promise<GpsFilterState> {
+    try {
+      const raw = await AsyncStorage.getItem(STORAGE_KEYS.GPS_FILTER_STATE);
+      return raw
+        ? createInitialGpsFilterState(JSON.parse(raw))
+        : createInitialGpsFilterState();
+    } catch (error) {
+      console.error('[BackgroundTask] Failed to get GPS filter state:', error);
+      return createInitialGpsFilterState();
     }
   }
 

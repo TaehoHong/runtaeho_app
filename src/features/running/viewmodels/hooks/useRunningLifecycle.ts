@@ -12,28 +12,27 @@
  * - 오프라인 저장 지원
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RunningRecord, EndRunningRecord } from '../../models';
-import {
-  createRunningRecord,
-  updateRunningRecord,
-} from '../../models';
+import { updateRunningRecord } from '../../models';
 import { useStartRunning, useEndRunning, useUpdateRunningRecord } from '../../services';
 import { runningService } from '../../services/runningService';
 import { pedometerService, type PedometerData } from '../../services/sensors/PedometerService';
 import { offlineStorageService } from '../../services/OfflineStorageService';
 import { backgroundTaskService } from '../../services/BackgroundTaskService';
-import { locationService } from '../../services/LocationService';
 import { useAppStore, RunningState } from '~/stores/app/appStore';
 import { permissionManager } from '~/services/PermissionManager';
 import type { UseRunningLifecycleProps, UseRunningLifecycleReturn } from './types';
 
 export const useRunningLifecycle = ({
-  statsRef,
+  statsRef: _statsRef,
   segmentItemsRef,
   paceSnapshotsRef,
   startGpsTracking,
   stopGpsTracking,
+  pauseGpsTracking,
+  resumeGpsTracking,
+  resetGpsTracking,
   resetStats,
   setStats,
   initializeSegmentTracking,
@@ -43,7 +42,6 @@ export const useRunningLifecycle = ({
   elapsedTime,
   stats,
   currentSegmentItems,
-  useBackgroundMode,
 }: UseRunningLifecycleProps): UseRunningLifecycleReturn => {
   // App store
   const runningState = useAppStore((state) => state.runningState);
@@ -53,7 +51,7 @@ export const useRunningLifecycle = ({
   const [currentRecord, setCurrentRecord] = useState<RunningRecord | null>(null);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [pausedDuration, setPausedDuration] = useState<number>(0);
-  const [pauseStartTime, setPauseStartTime] = useState<number | null>(null);
+  const pauseStartTimeRef = useRef<number | null>(null);
 
   // Sensor state
   const [sensorHeartRate, setSensorHeartRate] = useState<number | undefined>(undefined);
@@ -70,52 +68,37 @@ export const useRunningLifecycle = ({
    */
   const startRunning = useCallback(async (): Promise<RunningRecord> => {
     try {
-      // 1. GPS 권한 확인 (v3.0 PermissionManager)
       const permissionCheck = await permissionManager.checkRequiredPermissions();
-
-      if (!permissionCheck.location) {
-        throw new Error('Location permission required');
-      }
-
-      if (!permissionCheck.locationBackground) {
-        console.warn(
-          '[useRunningLifecycle] Background permission not granted, using foreground only'
+      if (!permissionCheck.canStartRunning) {
+        throw new Error(
+          permissionManager.getMissingPermissionsMessage(permissionCheck) || 'Required permissions missing'
         );
       }
 
-      // 2. 백엔드 API: 러닝 시작
       const record = await startRunningMutation();
       setCurrentRecord(record);
       setStartTime(Date.now());
       setPausedDuration(0);
-      setPauseStartTime(null);
+      pauseStartTimeRef.current = null;
       setRunningState(RunningState.Running);
 
-      // 3. GPS 추적 시작
       await startGpsTracking(record.id);
 
-      // 4. 심박 센서 모니터링 (현재 미구현)
       setSensorHeartRate(undefined);
       setSensorCadence(undefined);
       console.log('[useRunningLifecycle] Heart-rate monitoring skipped (not implemented)');
 
-      // 5. Pedometer 시작
-      try {
-        await pedometerService.startTracking((data) => {
-          setPedometerData(data);
-          console.log(
-            '[useRunningLifecycle] Pedometer - Steps:',
-            data.steps,
-            'Cadence:',
-            data.cadence
-          );
-        });
-        console.log('[useRunningLifecycle] Pedometer started');
-      } catch (error) {
-        console.warn('[useRunningLifecycle] Pedometer unavailable:', error);
-      }
+      await pedometerService.startTracking((data) => {
+        setPedometerData(data);
+        console.log(
+          '[useRunningLifecycle] Pedometer - Steps:',
+          data.steps,
+          'Cadence:',
+          data.cadence
+        );
+      });
+      console.log('[useRunningLifecycle] Pedometer started');
 
-      // 6. Stats/Segments 초기화
       resetStats();
       paceSnapshotsRef.current = [];
       initializeSegmentTracking();
@@ -124,67 +107,67 @@ export const useRunningLifecycle = ({
     } catch (error) {
       console.error('[useRunningLifecycle] Failed to start running:', error);
 
-      // GPS 추적 중지 (에러 시 정리)
-      locationService.stopTracking();
-      backgroundTaskService.stopBackgroundTracking().catch(console.error);
+      resetGpsTracking();
       pedometerService.stopTracking();
-
-      // 에러 시 더미 기록 생성
-      const dummyRecord = createRunningRecord(0);
-      setCurrentRecord(dummyRecord);
-      setStartTime(Date.now());
-      setRunningState(RunningState.Running);
-      return dummyRecord;
+      setCurrentRecord(null);
+      setStartTime(null);
+      setPausedDuration(0);
+      pauseStartTimeRef.current = null;
+      setRunningState(RunningState.Stopped);
+      throw error;
     }
   }, [
     startRunningMutation,
     startGpsTracking,
+    resetGpsTracking,
     resetStats,
     initializeSegmentTracking,
     paceSnapshotsRef,
     setRunningState,
   ]);
 
+  const applyPauseTransition = useCallback(
+    (reason: 'manual' | 'auto') => {
+      if (pauseStartTimeRef.current === null) {
+        const now = Date.now();
+        pauseStartTimeRef.current = now;
+      }
+
+      setRunningState(RunningState.Paused);
+      console.log(`[useRunningLifecycle] Running paused (${reason})`);
+    },
+    [setRunningState]
+  );
+
   /**
    * 러닝 일시정지
    */
   const pauseRunning = useCallback(() => {
-    if (useBackgroundMode) {
-      backgroundTaskService.pauseBackgroundTracking().catch((error) => {
-        console.error('[useRunningLifecycle] Failed to pause background tracking:', error);
-      });
-    } else {
-      locationService.pauseTracking();
-    }
-    setPauseStartTime(Date.now());
-    setRunningState(RunningState.Paused);
-    console.log('[useRunningLifecycle] Running paused');
-  }, [setRunningState, useBackgroundMode]);
+    pauseGpsTracking();
+    applyPauseTransition('manual');
+  }, [applyPauseTransition, pauseGpsTracking]);
+
+  const applyAutoPause = useCallback(() => {
+    applyPauseTransition('auto');
+  }, [applyPauseTransition]);
 
   /**
    * 러닝 재개
    */
   const resumeRunning = useCallback(() => {
-    if (pauseStartTime) {
+    const pauseStartedAt = pauseStartTimeRef.current;
+    if (pauseStartedAt !== null) {
       const now = Date.now();
-      const pauseDuration = Math.floor((now - pauseStartTime) / 1000);
+      const pauseDuration = Math.floor((now - pauseStartedAt) / 1000);
       setPausedDuration((prev) => prev + pauseDuration);
-      setPauseStartTime(null);
-      console.log(
-        `[useRunningLifecycle] Paused for ${pauseDuration}s, total paused: ${pausedDuration + pauseDuration}s`
-      );
+      pauseStartTimeRef.current = null;
+      console.log(`[useRunningLifecycle] Paused for ${pauseDuration}s before resume`);
     }
 
-    if (useBackgroundMode) {
-      backgroundTaskService.resumeBackgroundTracking().catch((error) => {
-        console.error('[useRunningLifecycle] Failed to resume background tracking:', error);
-      });
-    } else {
-      locationService.resumeTracking();
-    }
+    resumeGpsTracking();
     setRunningState(RunningState.Running);
     console.log('[useRunningLifecycle] Running resumed');
-  }, [pauseStartTime, pausedDuration, setRunningState, useBackgroundMode]);
+  }, [resumeGpsTracking, setRunningState]);
 
   /**
    * 러닝 종료
@@ -262,7 +245,7 @@ export const useRunningLifecycle = ({
               timestampMs: point.timestamp.getTime(),
               speed: point.speed,
               altitude: point.altitude,
-              accuracy: point.accuracy,
+              ...(point.accuracy !== undefined && { accuracy: point.accuracy }),
             })),
           }));
 
@@ -319,8 +302,7 @@ export const useRunningLifecycle = ({
       console.error('[useRunningLifecycle] Failed to end running:', error);
 
       // 에러 발생 시에도 GPS 추적 중지
-      locationService.stopTracking();
-      backgroundTaskService.stopBackgroundTracking().catch(console.error);
+      resetGpsTracking();
       pedometerService.stopTracking();
 
       throw error;
@@ -332,6 +314,7 @@ export const useRunningLifecycle = ({
     currentSegmentItems,
     finalizeCurrentSegment,
     stopGpsTracking,
+    resetGpsTracking,
     endRunningMutation,
     segmentItemsRef,
     setRunningState,
@@ -367,7 +350,7 @@ export const useRunningLifecycle = ({
     setCurrentRecord(null);
     setStartTime(null);
     setPausedDuration(0);
-    setPauseStartTime(null);
+    pauseStartTimeRef.current = null;
     setSensorHeartRate(undefined);
     setSensorCadence(undefined);
     setPedometerData(null);
@@ -413,6 +396,7 @@ export const useRunningLifecycle = ({
     // Actions
     startRunning,
     pauseRunning,
+    applyAutoPause,
     resumeRunning,
     endRunning,
     updateCurrentRecord,

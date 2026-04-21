@@ -14,7 +14,7 @@
  * NOTE: 기존 API 100% 호환 유지
  */
 
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { RunningState } from '~/stores/app/appStore';
 import { formatRunningRecord } from '../models';
 
@@ -32,6 +32,8 @@ import {
  * @param isUnityReady Unity 준비 상태
  */
 export const useRunningViewModel = (isUnityReady: boolean = false) => {
+  const autoPauseHandlerRef = useRef<(() => void) | null>(null);
+
   // ============================================
   // 1. Stats Hook - 통계 계산 및 포맷팅
   // ============================================
@@ -68,6 +70,10 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
   // 3. GPS Tracking Hook - GPS 추적
   // NOTE: runningState는 hook 내부에서 useAppStore로 직접 읽음
   // ============================================
+  const handleGpsAutoPause = useCallback(() => {
+    autoPauseHandlerRef.current?.();
+  }, []);
+
   const {
     distance,
     locations,
@@ -76,7 +82,8 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     latestPaceSignal,
     startGpsTracking,
     stopGpsTracking,
-    setUseBackgroundMode,
+    pauseGpsTracking,
+    resumeGpsTracking,
     resetGpsTracking,
   } = useGpsTracking({
     segmentStartTimeRef,
@@ -86,6 +93,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
       setSegmentDistance((prev) => prev + distanceDelta);
       setSegmentLocations((prev) => [...prev, ...newLocations]);
     },
+    onAutoPause: handleGpsAutoPause,
   });
 
   // ============================================
@@ -102,6 +110,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     isEnding,
     startRunning,
     pauseRunning,
+    applyAutoPause,
     resumeRunning,
     endRunning,
     updateCurrentRecord,
@@ -112,6 +121,9 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     paceSnapshotsRef,
     startGpsTracking,
     stopGpsTracking,
+    pauseGpsTracking,
+    resumeGpsTracking,
+    resetGpsTracking,
     resetStats,
     setStats,
     initializeSegmentTracking,
@@ -121,8 +133,9 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     elapsedTime,
     stats,
     currentSegmentItems,
-    useBackgroundMode,
   });
+
+  autoPauseHandlerRef.current = applyAutoPause;
 
   // ============================================
   // 5. Unity Character Control Hook
@@ -133,40 +146,71 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     speed: stats.speed,
   });
 
-  // ============================================
-  // Timer Effect - 실시간 시간/통계 업데이트
-  // 원본 코드와 동일하게 sensorHeartRate, sensorCadence 전달
-  // ============================================
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | null = null;
-
-    if (runningState === RunningState.Running && startTime) {
-      interval = setInterval(() => {
-        const now = Date.now();
-        const totalElapsed = Math.floor((now - startTime) / 1000);
-        // 일시정지 시간을 제외한 실제 러닝 시간
-        const actualElapsed = totalElapsed - pausedDuration;
-        setElapsedTime(actualElapsed);
-
-        // 실시간 통계 업데이트 (센서 데이터 포함 - 원본 코드 복원)
-        updateStats(distance, actualElapsed, sensorHeartRate, sensorCadence, latestPaceSignal);
-      }, 1000);
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [
-    runningState,
-    startTime,
+  const liveStatsInputsRef = useRef({
     distance,
     sensorHeartRate,
     sensorCadence,
-    latestPaceSignal,
-    pausedDuration,
-    updateStats,
-    setElapsedTime,
-  ]);
+    latestPaceSignal: latestPaceSignal ?? undefined,
+  });
+
+  useEffect(() => {
+    liveStatsInputsRef.current = {
+      distance,
+      sensorHeartRate,
+      sensorCadence,
+      latestPaceSignal: latestPaceSignal ?? undefined,
+    };
+  }, [distance, sensorHeartRate, sensorCadence, latestPaceSignal]);
+
+  // ============================================
+  // Timer Effect - 실시간 시간/통계 업데이트
+  // GPS state churn과 분리된 1초 tick을 유지한다.
+  // ============================================
+  useEffect(() => {
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+
+    if (runningState !== RunningState.Running || !startTime) {
+      return;
+    }
+
+    const scheduleNextTick = (now: number) => {
+      const elapsedMs = Math.max(0, now - startTime - pausedDuration * 1000);
+      const remainderMs = elapsedMs % 1000;
+      const delayMs = remainderMs === 0 ? 1000 : 1000 - remainderMs;
+      timeout = setTimeout(runTick, delayMs);
+    };
+
+    const runTick = () => {
+      const now = Date.now();
+      const totalElapsed = Math.floor((now - startTime) / 1000);
+      const actualElapsed = Math.max(0, totalElapsed - pausedDuration);
+      const {
+        distance: currentDistance,
+        sensorHeartRate: currentHeartRate,
+        sensorCadence: currentCadence,
+        latestPaceSignal: currentPaceSignal,
+      } = liveStatsInputsRef.current;
+
+      setElapsedTime(actualElapsed);
+      updateStats(
+        currentDistance,
+        actualElapsed,
+        currentHeartRate,
+        currentCadence,
+        currentPaceSignal
+      );
+
+      scheduleNextTick(now);
+    };
+
+    runTick();
+
+    return () => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+    };
+  }, [runningState, startTime, pausedDuration, updateStats, setElapsedTime]);
 
   // ============================================
   // Combined Reset
@@ -202,7 +246,6 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     endRunning,
     updateCurrentRecord,
     resetRunning,
-    setUseBackgroundMode,
 
     // Formatting utilities
     formatElapsedTime,
