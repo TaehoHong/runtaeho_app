@@ -16,9 +16,6 @@ export const StartButton: React.FC<StartButtonProps> = ({
   onPress,
   haveRunningRecord
 }) => {
-
-  console.log('haveRunningRecord:', haveRunningRecord)
-
   return (
     <LinearGradient
       colors={[PRIMARY[600], '#77FFAD', '#C4FF84']}

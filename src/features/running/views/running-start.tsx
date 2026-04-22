@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useUserStore, useAppStore, RunningState } from '~/stores';
 import { StartButton } from './components/start-button';
@@ -11,11 +11,14 @@ import { PermissionRequestModal } from '~/features/permissions/views/PermissionR
  */
 export const RunningStartView: React.FC = () => {
   const setRunningState = useAppStore((state) => state.setRunningState);
-  const haveRunningRecord = useUserStore((state) => state.haveRunningRecord)
-  console.log('[RunningStartView] haveRunningRecord: ', haveRunningRecord)
+  const haveRunningRecord = useUserStore((state) => state.haveRunningRecord);
 
   const { startRunning } = useRunning();
   const [showPermissionModal, setShowPermissionModal] = useState(false);
+
+  useEffect(() => {
+    console.log('[RunningStartView] haveRunningRecord: ', haveRunningRecord);
+  }, [haveRunningRecord]);
 
   const handleStartRunning = async () => {
     console.log('🏃 [RunningStartView] 러닝 시작 버튼 눌러짐');

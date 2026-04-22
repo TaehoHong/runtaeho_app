@@ -13,7 +13,7 @@ interface MainDistanceCardProps {
 
 /**
  * 현재 누적 거리 카드
- * Figma 디자인 기반: "현재 누적 거리" + "00.0 km"
+ * "현재 누적 거리" + "00.0 km"
  */
 export const MainDistanceCard: React.FC<MainDistanceCardProps> = ({ distanceMeters }) => {
   const { distance } = useRunning();
