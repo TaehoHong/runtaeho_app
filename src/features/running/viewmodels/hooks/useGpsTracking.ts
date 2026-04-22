@@ -33,12 +33,23 @@ export const useGpsTracking = ({
   const currentSegmentDistanceRef = useRef(0);
   const currentSegmentLocationsRef = useRef<Location[]>([]);
   const previousSourceRef = useRef<'idle' | 'foreground' | 'background'>('idle');
+  const segmentStartTimeSourceRef = useRef(segmentStartTimeRef);
+  const onSegmentCreateRef = useRef(onSegmentCreate);
+  const onDistanceUpdateRef = useRef(onDistanceUpdate);
+  const onAutoPauseRef = useRef(onAutoPause);
 
   if (!coordinatorRef.current) {
     coordinatorRef.current = new RunningTrackingCoordinator(AppState.currentState);
   }
 
   const [snapshot, setSnapshot] = useState(() => coordinatorRef.current!.getSnapshot());
+
+  useEffect(() => {
+    segmentStartTimeSourceRef.current = segmentStartTimeRef;
+    onSegmentCreateRef.current = onSegmentCreate;
+    onDistanceUpdateRef.current = onDistanceUpdate;
+    onAutoPauseRef.current = onAutoPause;
+  }, [onAutoPause, onDistanceUpdate, onSegmentCreate, segmentStartTimeRef]);
 
   useEffect(() => {
     const coordinator = coordinatorRef.current!;
@@ -56,14 +67,14 @@ export const useGpsTracking = ({
         }
 
         currentSegmentDistanceRef.current += distanceDelta;
-        onDistanceUpdate(distanceDelta, newLocations);
+        onDistanceUpdateRef.current(distanceDelta, newLocations);
 
-        const currentSegmentStartTime = segmentStartTimeRef.current;
+        const currentSegmentStartTime = segmentStartTimeSourceRef.current.current;
         if (
           currentSegmentDistanceRef.current >= SEGMENT_DISTANCE_THRESHOLD &&
           currentSegmentStartTime !== null
         ) {
-          onSegmentCreate(
+          onSegmentCreateRef.current(
             currentSegmentDistanceRef.current,
             currentSegmentLocationsRef.current,
             currentSegmentStartTime
@@ -114,7 +125,7 @@ export const useGpsTracking = ({
 
       setSnapshot(nextSnapshot);
     });
-  }, [onDistanceUpdate, onSegmentCreate, segmentStartTimeRef]);
+  }, []);
 
   useEffect(() => {
     runningStateRef.current = runningState;
@@ -126,7 +137,7 @@ export const useGpsTracking = ({
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       void coordinator.handleAppStateChange(nextAppState).then((result) => {
         if (result?.autoPaused) {
-          onAutoPause?.();
+          onAutoPauseRef.current?.();
         }
       });
     });
@@ -135,7 +146,7 @@ export const useGpsTracking = ({
       subscription.remove();
       coordinator.destroy();
     };
-  }, [onAutoPause]);
+  }, []);
 
   const startGpsTracking = useCallback(async (recordId: number) => {
     await coordinatorRef.current!.startSession(recordId);

@@ -47,7 +47,7 @@ export const RunningView: React.FC = () => {
   const unityViewportRef = useRef<View>(null);
   const viewportSyncTokenRef = useRef(0);
   const isRunningActiveRef = useRef(isRunningActive);
-  const unityStartedRef = useRef(unityStarted);
+  const unityStartedRef = useRef(false);
   const setActiveViewport = useUnityStore((state) => state.setActiveViewport);
   const clearActiveViewport = useUnityStore((state) => state.clearActiveViewport);
   const isUnitySurfaceVisible = useUnityStore((state) => state.isSurfaceVisible);
