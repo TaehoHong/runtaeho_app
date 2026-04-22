@@ -23,9 +23,7 @@ class UnityViewContainer {
     /// attach 작업 진행 중 여부
     private var isAttaching = false
 
-    private init() {
-        print("[UnityViewContainer] Singleton initialized")
-    }
+    private init() {}
 
     /// Unity view를 새 superview로 안전하게 이동
     /// - Parameters:
@@ -45,7 +43,6 @@ class UnityViewContainer {
         // 이미 attach 작업 진행 중이면 대기
         if isAttaching {
             lock.unlock()
-            print("[UnityViewContainer] Already attaching, queueing request")
 
             // 다음 RunLoop에서 재시도
             DispatchQueue.main.async { [weak self] in
@@ -59,7 +56,6 @@ class UnityViewContainer {
 
         // Unity view 가져오기
         guard let unityView = Unity.shared.view else {
-            print("[UnityViewContainer] Unity view is nil")
             lock.lock()
             isAttaching = false
             lock.unlock()
@@ -69,15 +65,12 @@ class UnityViewContainer {
 
         // 이미 같은 곳에 붙어있으면 스킵
         if unityView.superview === superview {
-            print("[UnityViewContainer] Unity view already attached to this superview, skipping")
             lock.lock()
             isAttaching = false
             lock.unlock()
             completion(true)
             return
         }
-
-        print("[UnityViewContainer] Attaching Unity view to new superview (previous: \(String(describing: unityView.superview)))")
 
         // 이전 superview에서 제거 (동기적으로)
         unityView.removeFromSuperview()
@@ -94,7 +87,6 @@ class UnityViewContainer {
         isAttaching = false
         lock.unlock()
 
-        print("[UnityViewContainer] Unity view attached successfully")
         completion(true)
     }
 
@@ -113,8 +105,6 @@ class UnityViewContainer {
 
         Unity.shared.view?.removeFromSuperview()
         currentSuperview = nil
-
-        print("[UnityViewContainer] Unity view detached")
     }
 
     /// Unity view가 특정 superview에 붙어있는지 확인

@@ -9,7 +9,7 @@
 import React
 import UIKit
 
-@objc(UnityView)
+@objc(RunTaehoUnityView)
 class UnityViewManager: RCTViewManager {
 
     override static func requiresMainQueueSetup() -> Bool {

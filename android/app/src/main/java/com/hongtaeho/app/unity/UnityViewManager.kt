@@ -19,7 +19,7 @@ class UnityViewManager(
 
     companion object {
         private const val TAG = "UnityViewManager"
-        const val VIEW_NAME = "UnityView"
+        const val VIEW_NAME = "RunTaehoUnityView"
 
         // Commands
         private const val COMMAND_SEND_MESSAGE = 1

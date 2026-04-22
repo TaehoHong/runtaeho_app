@@ -98,7 +98,6 @@ describe('useUnityBootstrap', () => {
     isAvatarApplied: false,
     canSendMessage: false,
     isUnityStarted: false,
-    isUnityAvailable: true,
     handleUnityReady: mockBaseHandleUnityReady,
     startUnity: mockStartUnity,
     reset: mockReset,
@@ -115,7 +114,6 @@ describe('useUnityBootstrap', () => {
     readinessState.isAvatarApplied = false;
     readinessState.canSendMessage = false;
     readinessState.isUnityStarted = false;
-    readinessState.isUnityAvailable = true;
 
     mockSyncAvatar.mockResolvedValue('applied');
     mockResetGameObjectReady.mockResolvedValue(undefined);
@@ -597,6 +595,9 @@ describe('UnityView mount initialization', () => {
       });
 
       jest.doMock('react-native', () => ({
+        Platform: {
+          OS: 'ios',
+        },
         requireNativeComponent: () => MockNativeUnityView,
         StyleSheet: {
           create: (styles: Record<string, unknown>) => styles,

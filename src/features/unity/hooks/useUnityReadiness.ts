@@ -4,7 +4,6 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform } from 'react-native';
 import { useUnityStore } from '~/stores/unity/unityStore';
 import { unityService } from '~/features/unity/services/UnityService';
 import { unitySessionController } from '../services/UnitySessionController';
@@ -71,11 +70,6 @@ export interface UseUnityReadinessReturn {
   isUnityStarted: boolean;
 
   /**
-   * Unity가 iOS에서 사용 가능한지 여부
-   */
-  isUnityAvailable: boolean;
-
-  /**
    * UnityView의 onUnityReady에 전달할 핸들러
    * ★ 타입 개선: UnityReadyEvent 사용
    */
@@ -140,12 +134,10 @@ export const useUnityReadiness = (
   const [isUnityStarted, setIsUnityStarted] = useState(false);
   const hasCalledOnReadyRef = useRef(false);
   const startDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startRequestedRef = useRef(false);
   const waitRequestIdRef = useRef(0);
   const readySyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const readySyncInFlightRef = useRef(false);
-
-  // Unity 사용 가능 여부 (iOS, Android 지원)
-  const isUnityAvailable = Platform.OS === 'ios' || Platform.OS === 'android';
 
   // 준비 완료 판단
   const isFullyReady = isGameObjectReady && isAvatarReady && !error;
@@ -160,22 +152,20 @@ export const useUnityReadiness = (
     if (isUnityStarted) return;
 
     if (canSendMessage) {
-      console.log('[useUnityReadiness] Unity already ready, starting immediately');
+      startRequestedRef.current = true;
       unitySessionController.markMessageChannelReady('startUnity:already_ready');
       setIsUnityStarted(true);
       return;
     }
 
-    if (startDelayTimerRef.current) {
-      clearTimeout(startDelayTimerRef.current);
-      startDelayTimerRef.current = null;
+    if (startRequestedRef.current) {
+      return;
     }
 
-    console.log(`[useUnityReadiness] Unity 시작 예약 (${startDelay}ms 지연)`);
+    startRequestedRef.current = true;
     unitySessionController.markBooting('startUnity:scheduled');
 
     startDelayTimerRef.current = setTimeout(() => {
-      console.log('[useUnityReadiness] Unity 시작');
       setIsUnityStarted(true);
       startDelayTimerRef.current = null;
     }, startDelay);
@@ -185,7 +175,6 @@ export const useUnityReadiness = (
    * 상태 리셋
    */
   const reset = useCallback(() => {
-    console.log('[useUnityReadiness] 상태 리셋');
     hasCalledOnReadyRef.current = false;
     resetReadyStates();
   }, [resetReadyStates]);
@@ -195,8 +184,7 @@ export const useUnityReadiness = (
    * Service 오케스트레이터로 ready 대기 로직 위임
    */
   const handleUnityReady = useCallback(
-    (event: UnityReadyEvent) => {
-      console.log('[useUnityReadiness] Unity View Ready:', event?.nativeEvent);
+    (_event: UnityReadyEvent) => {
       const requestId = waitRequestIdRef.current + 1;
       waitRequestIdRef.current = requestId;
 
@@ -212,9 +200,7 @@ export const useUnityReadiness = (
             return;
           }
           if (result.timedOut) {
-            console.warn(
-              `[useUnityReadiness] waitForReady timed out (waitForAvatar=${waitForAvatar})`
-            );
+            console.warn(`[useUnityReadiness] waitForReady timed out (waitForAvatar=${waitForAvatar})`);
           }
         })
         .catch((waitError) => {
@@ -224,21 +210,11 @@ export const useUnityReadiness = (
     [timeout, waitForAvatar]
   );
 
-  /**
-   * 자동 시작 (autoStart: true)
-   */
   useEffect(() => {
-    if (autoStart && isUnityAvailable) {
+    if (autoStart) {
       startUnity();
     }
-
-    return () => {
-      if (startDelayTimerRef.current) {
-        clearTimeout(startDelayTimerRef.current);
-        startDelayTimerRef.current = null;
-      }
-    };
-  }, [autoStart, isUnityAvailable, startUnity]);
+  }, [autoStart, startUnity]);
 
   useEffect(() => {
     const wasCanSendMessage = previousCanSendMessageRef.current;
@@ -254,12 +230,26 @@ export const useUnityReadiness = (
     }
   }, [canSendMessage, isUnityStarted]);
 
+  useEffect(() => {
+    if (!canSendMessage || isUnityStarted || !startRequestedRef.current) {
+      return;
+    }
+
+    if (startDelayTimerRef.current) {
+      clearTimeout(startDelayTimerRef.current);
+      startDelayTimerRef.current = null;
+    }
+
+    unitySessionController.markMessageChannelReady('startUnity:ready_before_delay');
+    setIsUnityStarted(true);
+  }, [canSendMessage, isUnityStarted]);
+
   /**
    * Ready 복구 폴링 (self-heal)
    * onUnityReady 이벤트 순서가 어긋난 경우 Pull 방식으로 상태 복구
    */
   useEffect(() => {
-    if (!isUnityAvailable || !isUnityStarted || canSendMessage) {
+    if (!isUnityStarted || canSendMessage) {
       if (readySyncTimerRef.current) {
         clearTimeout(readySyncTimerRef.current);
         readySyncTimerRef.current = null;
@@ -301,14 +291,13 @@ export const useUnityReadiness = (
       }
       readySyncInFlightRef.current = false;
     };
-  }, [canSendMessage, isUnityAvailable, isUnityStarted]);
+  }, [canSendMessage, isUnityStarted]);
 
   /**
    * onReady 콜백 실행
    */
   useEffect(() => {
     if (isReady && onReady && !hasCalledOnReadyRef.current) {
-      console.log('[useUnityReadiness] onReady 콜백 실행');
       hasCalledOnReadyRef.current = true;
 
       onReady();
@@ -322,10 +311,13 @@ export const useUnityReadiness = (
     return () => {
       if (startDelayTimerRef.current) {
         clearTimeout(startDelayTimerRef.current);
+        startDelayTimerRef.current = null;
       }
       if (readySyncTimerRef.current) {
         clearTimeout(readySyncTimerRef.current);
+        readySyncTimerRef.current = null;
       }
+      startRequestedRef.current = false;
       readySyncInFlightRef.current = false;
     };
   }, []);
@@ -335,7 +327,6 @@ export const useUnityReadiness = (
     isAvatarApplied: isAvatarReady,
     canSendMessage,
     isUnityStarted,
-    isUnityAvailable,
     handleUnityReady,
     startUnity,
     reset,

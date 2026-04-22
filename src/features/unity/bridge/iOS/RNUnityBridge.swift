@@ -275,13 +275,11 @@ class RNUnityBridge: RCTEventEmitter {
 
     @objc
     func isCharactorReady(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
-        print("[RNUnityBridge] 🔍 isCharactorReady: \(_isCharactorReady)")
         resolve(_isCharactorReady)
     }
 
     @objc
     func resetCharactorReady(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
-        print("[RNUnityBridge] 🔄 Reset Ready state")
         _isCharactorReady = false
         pendingEvents.removeAll()
 
@@ -295,12 +293,10 @@ class RNUnityBridge: RCTEventEmitter {
 
             if Unity.shared.view != nil {
                 self._isCharactorReady = true
-                print("[RNUnityBridge] ⚠️ Unity already ready, keeping state true")
 
                 // ★ 핵심 수정: 상태가 true로 복원되면 이벤트 재발송
                 // 포그라운드 복귀 시 JS Store와 동기화를 위해 이벤트 재발송
                 if self._hasListeners {
-                    print("[RNUnityBridge] 📤 Re-sending onCharactorReady event after reset recovery")
                     self.sendEvent(withName: "onCharactorReady", body: [
                         "ready": true,
                         "source": "reset_recovery",

@@ -44,7 +44,6 @@ interface UseLeagueResultAnimationProps {
 
 interface UseLeagueResultAnimationReturn {
   isUnityReady: boolean;
-  isUnityAvailable: boolean;
   isUnityStarted: boolean;
   handleUnityReady: (event: UnityReadyEvent) => void;
 }
@@ -74,7 +73,6 @@ export const useLeagueResultAnimation = ({
 
   const {
     isReady,
-    isUnityAvailable,
     isUnityStarted,
     handleUnityReady,
     isInitialAvatarSynced,
@@ -89,7 +87,6 @@ export const useLeagueResultAnimation = ({
    * 결과에 맞는 애니메이션 실행
    */
   const playResultAnimation = useCallback(async () => {
-    if (!isUnityAvailable) return;
 
     try {
       const motion = getMotionForResult(resultStatus);
@@ -98,10 +95,10 @@ export const useLeagueResultAnimation = ({
     } catch (error) {
       console.error('[LeagueResultAnimation] Failed to play animation:', error);
     }
-  }, [resultStatus, isUnityAvailable]);
+  }, [resultStatus]);
 
   useEffect(() => {
-    if (!isInitialAvatarSynced || !isUnityAvailable) {
+    if (!isInitialAvatarSynced) {
       return;
     }
 
@@ -112,7 +109,7 @@ export const useLeagueResultAnimation = ({
     animationTimeoutRef.current = setTimeout(() => {
       void playResultAnimation();
     }, 500);
-  }, [isInitialAvatarSynced, isUnityAvailable, playResultAnimation]);
+  }, [isInitialAvatarSynced, playResultAnimation]);
 
   /**
    * 컴포넌트 언마운트 시 타이머 정리
@@ -129,7 +126,6 @@ export const useLeagueResultAnimation = ({
 
   return {
     isUnityReady: isReady,
-    isUnityAvailable,
     isUnityStarted,
     handleUnityReady,
   };

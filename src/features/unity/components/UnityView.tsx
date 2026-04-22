@@ -21,8 +21,10 @@ interface UnityViewProps extends ViewProps {
   reattachToken?: number;
 }
 
-// Native Unity View 컴포넌트 - iOS에서 'UnityView'로 등록됨
-const NativeUnityView = requireNativeComponent<UnityViewProps>('UnityView');
+const NATIVE_UNITY_VIEW_NAME = 'RunTaehoUnityView';
+
+// Native Unity View 컴포넌트 - 플랫폼별 등록 이름 사용
+const NativeUnityView = requireNativeComponent<UnityViewProps>(NATIVE_UNITY_VIEW_NAME);
 const SURFACE_VISIBILITY_FAILSAFE_MS = 400;
 
 export const UnityView: React.FC<UnityViewProps> = (props) => {
@@ -58,18 +60,13 @@ export const UnityView: React.FC<UnityViewProps> = (props) => {
         }
 
         if (syncedReady) {
-          console.log('[UnityView] GameObject ready, waiting for native surface attach event');
           return;
         }
 
         if (!syncedReady) {
-          console.log('[UnityView] GameObject not ready, running reset fallback');
           await unityService.resetGameObjectReady();
           if (isMounted) {
-            const recoveredReady = await UnityBridge.syncReadyState();
-            if (recoveredReady) {
-              console.log('[UnityView] Ready state recovered, waiting for native surface attach event');
-            }
+            await UnityBridge.syncReadyState();
           }
         }
       } catch (error) {
@@ -91,7 +88,6 @@ export const UnityView: React.FC<UnityViewProps> = (props) => {
               return;
             }
             if (ready) {
-              console.log('[UnityView] Surface visibility recovered by failsafe sync');
               setSurfaceVisible(true);
               setSurfaceVisibleInStore(true);
             }
@@ -107,9 +103,8 @@ export const UnityView: React.FC<UnityViewProps> = (props) => {
     return () => {
       isMounted = false;
       clearVisibilityTimer();
-      console.log('[UnityView] Unmounting - Native cleanup initiated');
     };
-  }, [clearVisibilityTimer, setSurfaceVisibleInStore]);
+  }, [clearVisibilityTimer, reattachToken, setSurfaceVisibleInStore]);
 
   useEffect(() => {
     const currentToken = reattachToken ?? 0;
@@ -120,7 +115,7 @@ export const UnityView: React.FC<UnityViewProps> = (props) => {
     lastReattachTokenRef.current = currentToken;
 
     const reactTag = findNodeHandle(viewRef.current);
-    const command = UIManager.getViewManagerConfig('UnityView')?.Commands?.reattachUnityView;
+    const command = UIManager.getViewManagerConfig(NATIVE_UNITY_VIEW_NAME)?.Commands?.reattachUnityView;
     if (!reactTag || command == null) {
       console.warn('[UnityView] reattach command unavailable');
       return;
@@ -135,7 +130,6 @@ export const UnityView: React.FC<UnityViewProps> = (props) => {
   // 디버깅용 이벤트 핸들러
   // ★ 의존성을 props 전체가 아닌 특정 콜백으로 변경 (불필요한 재생성 방지)
   const handleUnityReady = useCallback((event: any) => {
-    console.log('[UnityView] onUnityReady event received:', event.nativeEvent);
     readyEventReceivedRef.current = true;
     clearVisibilityTimer();
     setSurfaceVisible(true);
@@ -144,7 +138,6 @@ export const UnityView: React.FC<UnityViewProps> = (props) => {
   }, [clearVisibilityTimer, onUnityReady, setSurfaceVisibleInStore]);
 
   const handleUnityError = useCallback((event: any) => {
-    console.error('[UnityView] onUnityError event received:', event.nativeEvent);
     onUnityError?.(event);
   }, [onUnityError]);
 

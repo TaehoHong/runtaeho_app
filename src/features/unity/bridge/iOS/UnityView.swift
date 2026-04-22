@@ -11,7 +11,6 @@ import React
 import UnityFramework
 
 class RNUnityContainerView: UIView {
-
     // Unity 관련 속성들
     private var unityView: UIView?
     private var isUnityLoaded = false
@@ -58,10 +57,7 @@ class RNUnityContainerView: UIView {
             guard let self = self else { return }
             let isReusePath = Unity.shared.loaded
 
-            print("[RNUnityContainerView] === 동기적 초기화 시작 ===")
-
             if isReusePath {
-                print("[RNUnityContainerView] ⚡ Reuse path detected, skipping Unity.start()")
                 self.fastPathAttachReusedUnityView()
                 return
             }
@@ -103,24 +99,15 @@ class RNUnityContainerView: UIView {
 
     /// Step 1: Unity 시작 및 Metal 준비 대기
     private func step1_startUnity(completion: @escaping (Bool) -> Void) {
-        print("[RNUnityContainerView] Step 1: Unity 시작 중...")
-
         Unity.shared.start { ready in
-            if ready {
-                print("[RNUnityContainerView] Step 1: ✅ Unity 및 Metal 준비 완료")
-            } else {
-                print("[RNUnityContainerView] Step 1: ⚠️ Metal 준비 타임아웃, 계속 진행")
-            }
+            _ = ready
             completion(true)  // Metal 타임아웃이어도 계속 진행
         }
     }
 
     /// Step 2: Unity view를 hidden 상태로 attach
     private func step2_attachUnityView(completion: @escaping (Bool) -> Void) {
-        print("[RNUnityContainerView] Step 2: Unity view attach 중...")
-
         guard Unity.shared.isAppActive else {
-            print("[RNUnityContainerView] Step 2: ⚠️ App not active")
             completion(false)
             return
         }
@@ -135,16 +122,12 @@ class RNUnityContainerView: UIView {
             self.unityView = Unity.shared.view
             self.unityView?.isHidden = true
             self.unityView?.layer.opacity = 0
-
-            print("[RNUnityContainerView] Step 2: ✅ Unity view attached (hidden)")
             completion(true)
         }
     }
 
     /// Step 3: CAMetalLayer 설정
     private func step3_configureMetalLayer(completion: @escaping (Bool) -> Void) {
-        print("[RNUnityContainerView] Step 3: CAMetalLayer 설정 중...")
-
         guard let unityView = self.unityView else {
             completion(false)
             return
@@ -154,20 +137,15 @@ class RNUnityContainerView: UIView {
         configureMetalLayersRecursively(in: unityView.layer, foundCount: &foundCount)
 
         if foundCount > 0 {
-            print("[RNUnityContainerView] Step 3: ✅ \(foundCount)개 CAMetalLayer 설정 완료")
             completion(true)
         } else {
-            print("[RNUnityContainerView] Step 3: ⚠️ CAMetalLayer 없음")
             completion(false)
         }
     }
 
     /// Step 4: Unity view 표시
     private func step4_showUnityView() {
-        print("[RNUnityContainerView] Step 4: Unity view 표시 중...")
-
         guard Unity.shared.isAppActive else {
-            print("[RNUnityContainerView] Step 4: ⚠️ App not active, skipping show")
             return
         }
 
@@ -181,26 +159,20 @@ class RNUnityContainerView: UIView {
         self.isUnityLoaded = true
         self.setNeedsLayout()
 
-        print("[RNUnityContainerView] Step 4: ✅ Unity view 표시 완료")
-        print("[RNUnityContainerView] === 동기적 초기화 완료 ===")
-
         emitUnityReadyEvent(message: "Unity loaded successfully")
     }
 
     /// 재사용 경로 fast-path:
     /// 이미 로드된 Unity는 hidden/show 단계 없이 즉시 attach + layout + ready 통지
     private func fastPathAttachReusedUnityView() {
-        print("[RNUnityContainerView] ⚡ Fast-path: reusing loaded Unity view")
-
         guard Unity.shared.isAppActive else {
-            print("[RNUnityContainerView] ⚠️ Fast-path skipped: app not active")
             pendingReattach = true
             return
         }
 
         UnityViewContainer.shared.attachUnityView(to: self) { [weak self] success in
             guard let self = self, success else {
-                print("[RNUnityContainerView] ❌ Fast-path attach failed")
+                print("[RNUnityContainerView] Fast-path attach failed")
                 self?.onUnityError?(["error": "Attach failed"])
                 return
             }
@@ -211,8 +183,6 @@ class RNUnityContainerView: UIView {
             self.isUnityLoaded = true
             self.setNeedsLayout()
             self.layoutIfNeeded()
-
-            print("[RNUnityContainerView] ✅ Fast-path attach complete")
             self.emitUnityReadyEvent(message: "Unity reattached successfully", type: "reattach")
         }
     }
@@ -238,7 +208,6 @@ class RNUnityContainerView: UIView {
 
         // 앱이 활성 상태가 아니면 레이아웃 업데이트 스킵
         guard Unity.shared.isAppActive else {
-            print("[RNUnityContainerView] App not active, skipping layout")
             return
         }
 
@@ -274,17 +243,12 @@ class RNUnityContainerView: UIView {
 
         // Frame 설정 (clipsToBounds로 넘치는 부분 자름)
         unityView.frame = CGRect(x: x, y: y, width: scaledWidth, height: scaledHeight)
-
-        print("[RNUnityContainerView] Aspect Fill: container=\(containerSize), unity=\(CGSize(width: scaledWidth, height: scaledHeight)), scale=\(fillScale)")
     }
 
     // MARK: - App Lifecycle Handling
 
     @objc private func handleUnityDidBecomeActive() {
-        print("[RNUnityContainerView] 📱 Unity did become active notification received (pendingReattach: \(pendingReattach), isUnityLoaded: \(isUnityLoaded))")
-
         guard isUnityLoaded else {
-            print("[RNUnityContainerView] Unity not loaded, skipping foreground handling")
             return
         }
 
@@ -315,20 +279,17 @@ class RNUnityContainerView: UIView {
         }
 
         guard isUnityLoaded else {
-            print("[RNUnityContainerView] Unity not loaded, cannot reattach")
             return
         }
 
         // 앱이 활성 상태가 아니면 reattach 대기
         guard Unity.shared.isSafeToReattach else {
-            print("[RNUnityContainerView] ⏳ Not safe to reattach, queueing for later")
             pendingReattach = true
             return
         }
 
         // 이미 현재 view에 붙어있으면 스킵
         if UnityViewContainer.shared.isAttached(to: self) {
-            print("[RNUnityContainerView] Unity view already attached to this view, skipping reattach")
             self.unityView = Unity.shared.view
             self.setNeedsLayout()
             self.layoutIfNeeded()
@@ -339,7 +300,7 @@ class RNUnityContainerView: UIView {
         // ✅ UnityViewContainer를 통한 안전한 재연결 (CATransaction 제거)
         UnityViewContainer.shared.attachUnityView(to: self) { [weak self] success in
             guard let self = self, success else {
-                print("[RNUnityContainerView] ⚠️ Failed to reattach Unity view via Container")
+                print("[RNUnityContainerView] Failed to reattach Unity view via container")
                 return
             }
 
@@ -349,8 +310,6 @@ class RNUnityContainerView: UIView {
             // 레이아웃 업데이트
             self.setNeedsLayout()
             self.layoutIfNeeded()
-
-            print("[RNUnityContainerView] ✅ Unity view reattached via Container")
 
             // React Native에 알림
             self.emitUnityReadyEvent(message: "Unity reattached successfully", type: "reattach")
@@ -367,21 +326,17 @@ class RNUnityContainerView: UIView {
         super.didMoveToWindow()
 
         guard window != nil else {
-            print("[RNUnityContainerView] View removed from window")
             return
         }
 
         guard isUnityLoaded else {
-            print("[RNUnityContainerView] Unity not loaded yet, skipping reattach")
             return
         }
 
         // 앱이 활성 상태인지 확인 후 reattach
         if Unity.shared.isSafeToReattach {
-            print("[RNUnityContainerView] View added to window, reattaching Unity view")
             safeReattachUnityView()
         } else {
-            print("[RNUnityContainerView] ⏳ View added to window but app not active, queueing reattach")
             pendingReattach = true
         }
     }
@@ -393,7 +348,6 @@ class RNUnityContainerView: UIView {
         if let metalLayer = layer as? CAMetalLayer {
             metalLayer.presentsWithTransaction = true
             foundCount += 1
-            print("[RNUnityContainerView] CAMetalLayer configured at depth \(foundCount)")
         }
 
         layer.sublayers?.forEach { sublayer in
@@ -403,8 +357,6 @@ class RNUnityContainerView: UIView {
 
     // Unity 정리
     deinit {
-        print("[RNUnityContainerView] Cleaning up Unity view")
-
         // NotificationCenter 구독 해제
         NotificationCenter.default.removeObserver(self)
 

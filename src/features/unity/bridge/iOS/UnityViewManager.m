@@ -9,7 +9,7 @@
 #import <React/RCTViewManager.h>
 #import <React/RCTUIManager.h>
 
-@interface RCT_EXTERN_MODULE(UnityView, RCTViewManager)
+@interface RCT_EXTERN_MODULE(RunTaehoUnityView, RCTViewManager)
 
 // Events
 RCT_EXPORT_VIEW_PROPERTY(onUnityReady, RCTDirectEventBlock)

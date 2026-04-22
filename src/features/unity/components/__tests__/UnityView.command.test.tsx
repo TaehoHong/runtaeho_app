@@ -21,6 +21,9 @@ jest.mock('react-native', () => {
   );
 
   return {
+    Platform: {
+      OS: 'ios',
+    },
     findNodeHandle: (...args: unknown[]) => mockFindNodeHandle(...args),
     requireNativeComponent: () => MockNativeUnityView,
     StyleSheet: {
@@ -70,6 +73,12 @@ describe('UnityView reattach command', () => {
       await Promise.resolve();
     });
 
+    expect(mockGetViewManagerConfig).toHaveBeenCalledWith('RunTaehoUnityView');
     expect(mockDispatchViewManagerCommand).toHaveBeenCalledWith(101, 4, []);
+
+    await act(async () => {
+      renderer!.unmount();
+      await Promise.resolve();
+    });
   });
 });

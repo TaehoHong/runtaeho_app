@@ -33,7 +33,6 @@ export interface UseUnityBootstrapResult {
   isAvatarApplied: boolean;
   canSendMessage: boolean;
   isUnityStarted: boolean;
-  isUnityAvailable: boolean;
   handleUnityReady: (event: UnityReadyEvent) => void;
   startUnity: () => void;
   reset: () => void;
@@ -52,7 +51,6 @@ export const useUnityBootstrap = (
     isAvatarApplied,
     canSendMessage,
     isUnityStarted,
-    isUnityAvailable,
     handleUnityReady: baseHandleUnityReady,
     startUnity,
     reset,
@@ -335,7 +333,6 @@ export const useUnityBootstrap = (
     isAvatarApplied,
     canSendMessage,
     isUnityStarted,
-    isUnityAvailable,
     handleUnityReady,
     startUnity,
     reset: resetBootstrap,

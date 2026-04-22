@@ -49,7 +49,6 @@ describe('LeagueResultCharacterView', () => {
   it('renders a global host viewport when Unity is available', () => {
     mockUseLeagueResultAnimation.mockReturnValue({
       isUnityReady: true,
-      isUnityAvailable: true,
       isUnityStarted: true,
       handleUnityReady: jest.fn(),
     });
@@ -61,10 +60,9 @@ describe('LeagueResultCharacterView', () => {
     expect(screen.getByTestId('league-result-viewport')).toBeTruthy();
   });
 
-  it('renders fallback content when Unity is unavailable', () => {
+  it('keeps rendering the global host viewport while Unity is still loading', () => {
     mockUseLeagueResultAnimation.mockReturnValue({
       isUnityReady: false,
-      isUnityAvailable: false,
       isUnityStarted: false,
       handleUnityReady: jest.fn(),
     });
@@ -73,7 +71,7 @@ describe('LeagueResultCharacterView', () => {
       <LeagueResultCharacterView resultStatus={LeagueResultStatus.MAINTAINED} />
     );
 
-    expect(screen.getByText('수고했어요!')).toBeTruthy();
-    expect(screen.queryByTestId('league-result-viewport')).toBeNull();
+    expect(screen.getByTestId('league-result-viewport')).toBeTruthy();
+    expect(screen.queryByText('수고했어요!')).toBeNull();
   });
 });
