@@ -199,7 +199,14 @@ export class RunningTrackingCoordinator {
     this.setSnapshot(EMPTY_SNAPSHOT);
 
     if (this.appState === 'active') {
-      await this.startForegroundSource();
+      try {
+        await backgroundTaskService.startBackgroundTracking(recordId, {}, { isActive: false });
+        await this.startForegroundSource();
+      } catch (error) {
+        backgroundTaskService.stopBackgroundTracking().catch(() => undefined);
+        backgroundTaskService.clearBackgroundData().catch(() => undefined);
+        throw error;
+      }
       return;
     }
 
@@ -208,11 +215,18 @@ export class RunningTrackingCoordinator {
 
   async stopSession(): Promise<{ distance: number; locations: Location[] }> {
     try {
+      const hasRegisteredBackgroundTask = await backgroundTaskService.isTaskRegistered();
+
       if (this.source === 'background') {
-        await backgroundTaskService.stopBackgroundTracking();
+        if (hasRegisteredBackgroundTask) {
+          await backgroundTaskService.stopBackgroundTracking();
+        }
         this.setSnapshot((await this.readBackgroundState()).snapshot, false);
       } else {
         locationService.stopTracking();
+        if (hasRegisteredBackgroundTask) {
+          await backgroundTaskService.stopBackgroundTracking();
+        }
       }
 
       return {
@@ -358,13 +372,13 @@ export class RunningTrackingCoordinator {
 
     const backgroundState = await this.readBackgroundState();
     this.setSnapshot(backgroundState.snapshot, false);
-    await backgroundTaskService.stopBackgroundTracking();
 
     if (this.runningState === RunningState.Running) {
       await this.startForegroundSource(backgroundState.filterState);
       return;
     }
 
+    await backgroundTaskService.pauseBackgroundTracking();
     this.source = 'idle';
     this.setSnapshot({
       source: 'idle',
@@ -387,7 +401,7 @@ export class RunningTrackingCoordinator {
     this.foregroundLiveLocations = [];
 
     if (this.source === 'background') {
-      await backgroundTaskService.stopBackgroundTracking();
+      await backgroundTaskService.pauseBackgroundTracking();
     }
 
     await locationService.startTracking({
@@ -405,19 +419,27 @@ export class RunningTrackingCoordinator {
     }
 
     const filterState = this.source === 'foreground' ? locationService.getGpsFilterState() : undefined;
-
-    if (this.source === 'foreground') {
-      locationService.stopTracking();
-    }
-
-    await backgroundTaskService.startBackgroundTracking(this.currentRecordId, {
+    const seed = {
       totalDistance: this.snapshot.distance,
       locations: this.snapshot.locations.map(toBackgroundLocation),
       latestPaceSignal: this.snapshot.latestPaceSignal
         ? { ...this.snapshot.latestPaceSignal }
         : null,
       ...(filterState !== undefined && { filterState }),
-    });
+    };
+
+    if (this.source === 'foreground') {
+      locationService.stopTracking();
+    }
+
+    if (await backgroundTaskService.isTaskRegistered()) {
+      await backgroundTaskService.syncBackgroundTracking(this.currentRecordId, seed, {
+        isActive: true,
+      });
+      await backgroundTaskService.resumeBackgroundTracking({ resetFilterState: false });
+    } else {
+      await backgroundTaskService.startBackgroundTracking(this.currentRecordId, seed);
+    }
 
     this.source = 'background';
     this.setSnapshot({

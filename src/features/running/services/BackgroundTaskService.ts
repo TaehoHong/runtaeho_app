@@ -71,6 +71,10 @@ export interface BackgroundTrackingSeed {
   filterState?: GpsFilterState;
 }
 
+interface BackgroundTrackingOptions {
+  isActive?: boolean;
+}
+
 /**
  * Background Task 정의
  * 백그라운드에서 위치 업데이트 처리
@@ -98,7 +102,6 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
 
       const session: BackgroundRunningSession = JSON.parse(sessionData);
       if (!session.isActive) {
-        console.log('[BackgroundTask] Session is not active');
         return;
       }
 
@@ -215,12 +218,38 @@ export class BackgroundTaskService {
     return BackgroundTaskService.instance;
   }
 
+  private async persistTrackingState(
+    runningRecordId: number,
+    seed: BackgroundTrackingSeed = {},
+    { isActive = true }: BackgroundTrackingOptions = {}
+  ): Promise<void> {
+    const session: BackgroundRunningSession = {
+      runningRecordId,
+      startTime: Date.now(),
+      isActive,
+      totalDistance: seed.totalDistance ?? 0,
+      locationCount: seed.locations?.length ?? 0,
+    };
+
+    await AsyncStorage.multiSet([
+      [STORAGE_KEYS.RUNNING_SESSION, JSON.stringify(session)],
+      [STORAGE_KEYS.BACKGROUND_LOCATIONS, JSON.stringify(seed.locations ?? [])],
+      [STORAGE_KEYS.TOTAL_DISTANCE, String(seed.totalDistance ?? 0)],
+      [
+        STORAGE_KEYS.GPS_FILTER_STATE,
+        JSON.stringify(createInitialGpsFilterState(seed.filterState)),
+      ],
+      [STORAGE_KEYS.LATEST_PACE_SIGNAL, JSON.stringify(seed.latestPaceSignal ?? null)],
+    ]);
+  }
+
   /**
    * 백그라운드 추적 시작
    */
   async startBackgroundTracking(
     runningRecordId: number,
-    seed: BackgroundTrackingSeed = {}
+    seed: BackgroundTrackingSeed = {},
+    options: BackgroundTrackingOptions = {}
   ): Promise<void> {
     try {
       // 권한 상태만 확인한다.
@@ -235,25 +264,7 @@ export class BackgroundTaskService {
         throw new Error('Background location permission required');
       }
 
-      // 세션 데이터 초기화
-      const session: BackgroundRunningSession = {
-        runningRecordId,
-        startTime: Date.now(),
-        isActive: true,
-        totalDistance: seed.totalDistance ?? 0,
-        locationCount: seed.locations?.length ?? 0,
-      };
-
-      await AsyncStorage.multiSet([
-        [STORAGE_KEYS.RUNNING_SESSION, JSON.stringify(session)],
-        [STORAGE_KEYS.BACKGROUND_LOCATIONS, JSON.stringify(seed.locations ?? [])],
-        [STORAGE_KEYS.TOTAL_DISTANCE, String(seed.totalDistance ?? 0)],
-        [
-          STORAGE_KEYS.GPS_FILTER_STATE,
-          JSON.stringify(createInitialGpsFilterState(seed.filterState)),
-        ],
-        [STORAGE_KEYS.LATEST_PACE_SIGNAL, JSON.stringify(seed.latestPaceSignal ?? null)],
-      ]);
+      await this.persistTrackingState(runningRecordId, seed, options);
 
       // Task가 이미 등록되어 있는지 확인
       const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_LOCATION_TASK);
@@ -282,6 +293,19 @@ export class BackgroundTaskService {
       console.log('[BackgroundTask] Started background tracking');
     } catch (error) {
       console.error('[BackgroundTask] Failed to start:', error);
+      throw error;
+    }
+  }
+
+  async syncBackgroundTracking(
+    runningRecordId: number,
+    seed: BackgroundTrackingSeed = {},
+    options: BackgroundTrackingOptions = {}
+  ): Promise<void> {
+    try {
+      await this.persistTrackingState(runningRecordId, seed, options);
+    } catch (error) {
+      console.error('[BackgroundTask] Failed to sync tracking state:', error);
       throw error;
     }
   }
@@ -336,16 +360,24 @@ export class BackgroundTaskService {
   /**
    * 백그라운드 추적 재개 (세션 활성화 + 필터 재앵커)
    */
-  async resumeBackgroundTracking(): Promise<void> {
+  async resumeBackgroundTracking(
+    { resetFilterState = true }: { resetFilterState?: boolean } = {}
+  ): Promise<void> {
     try {
       const sessionData = await AsyncStorage.getItem(STORAGE_KEYS.RUNNING_SESSION);
       if (!sessionData) return;
 
       const session: BackgroundRunningSession = JSON.parse(sessionData);
-      await AsyncStorage.multiSet([
+      const updates: [string, string][] = [
         [STORAGE_KEYS.RUNNING_SESSION, JSON.stringify({ ...session, isActive: true })],
-        [STORAGE_KEYS.GPS_FILTER_STATE, JSON.stringify(createInitialGpsFilterState())],
-      ]);
+      ];
+      if (resetFilterState) {
+        updates.push([
+          STORAGE_KEYS.GPS_FILTER_STATE,
+          JSON.stringify(createInitialGpsFilterState()),
+        ]);
+      }
+      await AsyncStorage.multiSet(updates);
       console.log('[BackgroundTask] Resumed background tracking');
     } catch (error) {
       console.error('[BackgroundTask] Failed to resume:', error);
