@@ -9,7 +9,19 @@ import { RunningRecordCard } from './RunningRecordCard';
 import { useRunningRecordList } from '../../viewmodels/useRunningRecordList';
 import { PRIMARY, GREY } from '~/shared/styles';
 
-export const RunningRecordList: React.FC = () => {
+interface RunningRecordListProps {
+  startDate?: Date;
+  endDate?: Date;
+  emptyMessage?: string;
+}
+
+const DEFAULT_EMPTY_MESSAGE = '러닝을 시작하면 기록이 생겨요!';
+
+export const RunningRecordList: React.FC<RunningRecordListProps> = ({
+  startDate,
+  endDate,
+  emptyMessage = DEFAULT_EMPTY_MESSAGE,
+}) => {
   const {
     records,
     isLoading,
@@ -17,7 +29,7 @@ export const RunningRecordList: React.FC = () => {
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
-  } = useRunningRecordList();
+  } = useRunningRecordList({ startDate, endDate });
 
   if (isLoading) {
     return (
@@ -37,7 +49,7 @@ export const RunningRecordList: React.FC = () => {
 
   if (records.length === 0) {
     return (
-      <EmptyState message="러닝을 시작하면 기록이 생겨요!" />
+      <EmptyState message={emptyMessage} />
     );
   }
 

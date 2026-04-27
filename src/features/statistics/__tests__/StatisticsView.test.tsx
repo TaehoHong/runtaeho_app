@@ -1,10 +1,11 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
-import { ScrollView } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 import { Period } from '~/features/statistics/models';
 import { StatisticsView } from '~/features/statistics/views/StatisticsView';
 import { renderWithProviders } from '~/test-utils/renderWithProviders';
 
 const mockUseStatisticsViewModel = jest.fn();
+const mockRunningRecordList = jest.fn();
 
 jest.mock('~/features/statistics/viewmodels', () => ({
   useStatisticsViewModel: (...args: unknown[]) => mockUseStatisticsViewModel(...args),
@@ -35,12 +36,16 @@ jest.mock('~/features/statistics/views/components/SwipeablePeriodChart', () => (
 }));
 
 jest.mock('~/features/statistics/views/components/RunningRecordList', () => ({
-  RunningRecordList: () => {
+  RunningRecordList: (props: unknown) => {
     const React = require('react');
     const { Text } = require('react-native');
+    mockRunningRecordList(props);
     return React.createElement(Text, null, 'mock-record-list');
   },
 }));
+
+const defaultPeriodStartDate = new Date('2026-02-01T00:00:00.000Z');
+const defaultPeriodEndDate = new Date('2026-02-28T23:59:59.999Z');
 
 const createViewModelResult = (overrides: Record<string, unknown> = {}) => ({
   summary: null,
@@ -54,6 +59,10 @@ const createViewModelResult = (overrides: Record<string, unknown> = {}) => ({
   hasValidData: false,
   error: null,
   handleRefresh: jest.fn(),
+  currentPeriodRange: {
+    startDate: defaultPeriodStartDate,
+    endDate: defaultPeriodEndDate,
+  },
   prevChartData: [],
   nextChartData: [],
   prevReferenceDate: new Date('2026-01-01T00:00:00.000Z'),
@@ -78,6 +87,19 @@ describe('StatisticsView', () => {
     expect(screen.getByText('0.00 km')).toBeTruthy();
     expect(screen.getByText('0:00"/km')).toBeTruthy();
     expect(screen.getByText('mock-record-list')).toBeTruthy();
+    expect(mockRunningRecordList).toHaveBeenCalledWith({
+      startDate: defaultPeriodStartDate,
+      endDate: defaultPeriodEndDate,
+      emptyMessage: '선택한 기간에 러닝 기록이 없어요.',
+    });
+  });
+
+  it('adds bottom scroll padding so the last record is not hidden by the main tab bar', () => {
+    renderWithProviders(<StatisticsView />);
+    const scrollView = screen.UNSAFE_getByType(ScrollView);
+    const contentStyle = StyleSheet.flatten(scrollView.props.contentContainerStyle);
+
+    expect(contentStyle?.paddingBottom).toBe(86);
   });
 
   it('renders loading state when data is not ready', () => {

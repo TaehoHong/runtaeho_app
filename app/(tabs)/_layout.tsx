@@ -2,6 +2,7 @@ import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppStore } from '~/stores/app/appStore';
 import { Icon } from '~/shared/components/ui';
+import { getMainTabBarBottomPadding, getMainTabBarHeight } from '~/shared/utils/safeAreaPolicy';
 import { isTabBarVisible } from '~/shared/utils/tabBarVisibility';
 
 /**
@@ -13,6 +14,8 @@ export default function TabLayout() {
   const runningState = useAppStore((state) => state.runningState);
   const viewState = useAppStore((state) => state.viewState);
   const insets = useSafeAreaInsets();
+  const tabBarBottomPadding = getMainTabBarBottomPadding(insets.bottom);
+  const tabBarHeight = getMainTabBarHeight(insets.bottom);
 
   // iOS와 동일한 로직: 러닝 중이 아니고 로딩 완료 시에만 탭바 표시
   const shouldShowTabBar = isTabBarVisible(runningState, viewState);
@@ -43,9 +46,9 @@ export default function TabLayout() {
           backgroundColor: 'white',
           borderTopWidth: 1,
           borderTopColor: 'rgba(0,0,0,0.2)',
-          paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
+          paddingBottom: tabBarBottomPadding,
           paddingTop: 5,
-          height: 60 + (insets.bottom > 0 ? insets.bottom : 10),
+          height: tabBarHeight,
           display: shouldShowTabBar ? 'flex' : 'none',
         },
         tabBarActiveTintColor: '#45DA31',

@@ -14,7 +14,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Period, PeriodDirection, calculateNextReferenceDate } from '../models';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStatisticsViewModel } from '../viewmodels';
 import { DateFilterTabs } from './components/DateFilterTabs';
 import { SwipeablePeriodChart } from './components/SwipeablePeriodChart';
@@ -22,10 +22,12 @@ import { RunningRecordList } from './components/RunningRecordList';
 import { StatisticsSummaryCard } from './components/StatisticsSummaryCard';
 import { StatisticsErrorBoundary } from './components/StatisticsErrorBoundary';
 import { PRIMARY, GREY } from '~/shared/styles';
+import { getMainTabBarScrollContentPaddingBottom } from '~/shared/utils/safeAreaPolicy';
 
 export const StatisticsView = () => {
   const [selectedPeriod, setSelectedPeriod] = useState<Period>(Period.MONTH);
   const [referenceDate, setReferenceDate] = useState<Date>(new Date());
+  const insets = useSafeAreaInsets();
 
   const {
     summary,
@@ -39,6 +41,7 @@ export const StatisticsView = () => {
     hasValidData,
     error,
     handleRefresh,
+    currentPeriodRange,
     // 프리페치 데이터
     prevChartData,
     nextChartData,
@@ -152,7 +155,11 @@ export const StatisticsView = () => {
         )}
 
         {/* Empty State 또는 러닝 기록 리스트 */}
-        <RunningRecordList />
+        <RunningRecordList
+          startDate={currentPeriodRange.startDate}
+          endDate={currentPeriodRange.endDate}
+          emptyMessage="선택한 기간에 러닝 기록이 없어요."
+        />
       </>
     );
   };
@@ -162,7 +169,10 @@ export const StatisticsView = () => {
       <SafeAreaView style={styles.safeArea}>
         <ScrollView
           style={styles.container}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: getMainTabBarScrollContentPaddingBottom(insets.bottom) },
+          ]}
           refreshControl={
             <RefreshControl refreshing={isManualRefreshing} onRefresh={onManualRefresh} />
           }

@@ -2,6 +2,9 @@ import type { Edge } from 'react-native-safe-area-context';
 
 const TOP_EDGES: Edge[] = ['top'];
 const TOP_AND_BOTTOM_EDGES: Edge[] = ['top', 'bottom'];
+const MAIN_TAB_BAR_BASE_HEIGHT = 60;
+const MAIN_TAB_BAR_FALLBACK_BOTTOM_PADDING = 10;
+const MAIN_TAB_BAR_SCROLL_GAP = 16;
 
 /**
  * "상단 중심" 화면에서 사용할 SafeArea edge 규칙.
@@ -21,4 +24,24 @@ export const getBottomOffsetForPlatform = (
   os: string
 ): number => {
   return os === 'android' ? baseOffset + bottomInset : baseOffset;
+};
+
+/**
+ * 메인 탭바의 하단 패딩은 iOS safe-area가 있으면 inset을 사용하고,
+ * inset이 없는 환경에서는 기존 디자인의 10px 여백을 유지한다.
+ */
+export const getMainTabBarBottomPadding = (bottomInset: number): number => {
+  return bottomInset > 0 ? bottomInset : MAIN_TAB_BAR_FALLBACK_BOTTOM_PADDING;
+};
+
+/**
+ * app/(tabs)/_layout.tsx의 absolute 탭바 실제 높이.
+ * 화면별 스크롤 하단 여백과 같은 기준을 써야 마지막 컨텐츠가 탭바에 가려지지 않는다.
+ */
+export const getMainTabBarHeight = (bottomInset: number): number => {
+  return MAIN_TAB_BAR_BASE_HEIGHT + getMainTabBarBottomPadding(bottomInset);
+};
+
+export const getMainTabBarScrollContentPaddingBottom = (bottomInset: number): number => {
+  return getMainTabBarHeight(bottomInset) + MAIN_TAB_BAR_SCROLL_GAP;
 };

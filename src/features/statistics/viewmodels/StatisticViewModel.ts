@@ -228,6 +228,10 @@ export const useStatisticsViewModel = (
     formattedSummary,
     chartData,
     formattedChartData,
+    currentPeriodRange: {
+      startDate: startDateTime,
+      endDate: endDateTime,
+    },
 
     // 프리페치 데이터 (스와이프 시 깜빡임 방지)
     prevChartData,
