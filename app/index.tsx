@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useAppStore, ViewState } from '~/stores/app/appStore';
 import '~/config/apiSetup';
-import * as Font from 'expo-font'
 
 /**
  * 앱의 메인 진입점
@@ -13,18 +12,6 @@ export default function Index() {
 
   const viewState = useAppStore((state) => state.viewState);
   const [isInitialized, setIsInitialized] = useState(false);
-  const [fontsLoaded] = Font.useFonts({
-    'Pretendard-Thin': require('../assets/fonts/Pretendard-Thin.ttf'),
-    'Pretendard-ExtraLight': require('../assets/fonts/Pretendard-ExtraLight.ttf'),
-    'Pretendard-Light': require('../assets/fonts/Pretendard-Light.ttf'),
-    'Pretendard-Regular': require('../assets/fonts/Pretendard-Regular.ttf'),
-    'Pretendard-Medium': require('../assets/fonts/Pretendard-Medium.ttf'),
-    'Pretendard-SemiBold': require('../assets/fonts/Pretendard-SemiBold.ttf'),
-    'Pretendard-Bold': require('../assets/fonts/Pretendard-Bold.ttf'),
-    'Pretendard-ExtraBold': require('../assets/fonts/Pretendard-ExtraBold.ttf'),
-    'Pretendard-Black': require('../assets/fonts/Pretendard-Black.ttf'),
-    'Cafe24Proup': require('../assets/fonts/Cafe24PROUP.ttf'),
-  });
 
   useEffect(() => {
     console.log('🔄 [APP] 앱 초기화 시작');
@@ -44,8 +31,8 @@ export default function Index() {
 
   // Navigation은 AuthProvider에서 처리 (이중 navigation 방지)
 
-  // 폰트와 앱 초기화 완료까지만 로딩 표시
-  if (!isInitialized || viewState === ViewState.Loading || !fontsLoaded) {
+  // 앱 초기화 완료까지만 로딩 표시
+  if (!isInitialized || viewState === ViewState.Loading) {
     console.log('⏳ [APP] 초기화 로딩 화면 표시');
     return (
       <View style={styles.loadingContainer}>
@@ -91,8 +78,5 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     lineHeight: 24,
-  },
-  fonts: {
-    fontFamily: "Pretendard"
   }
 });

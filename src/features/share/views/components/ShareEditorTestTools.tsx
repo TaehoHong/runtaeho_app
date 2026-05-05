@@ -52,12 +52,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: GREY.WHITE,
-    fontFamily: 'Pretendard-SemiBold',
+    fontFamily: 'Pretendard',
   },
   hint: {
     fontSize: 11,
     color: GREY[400],
-    fontFamily: 'Pretendard-Regular',
+    fontFamily: 'Pretendard',
+    fontWeight: '400',
     marginTop: 4,
   },
 });

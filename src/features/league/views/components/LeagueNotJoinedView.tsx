@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
-    fontFamily: 'Pretendard-Bold',
+    fontFamily: 'Pretendard',
     fontWeight: '700',
     color: GREY[900],
     textAlign: 'center',
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
   },
   description: {
     fontSize: 14,
-    fontFamily: 'Pretendard-Regular',
+    fontFamily: 'Pretendard',
     fontWeight: '400',
     color: GREY[500],
     textAlign: 'center',

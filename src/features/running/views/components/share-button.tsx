@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: PRIMARY[600],
-    fontFamily: 'Pretendard-SemiBold',
+    fontFamily: 'Pretendard',
   },
   buttonTextDisabled: {
     color: GREY[400],

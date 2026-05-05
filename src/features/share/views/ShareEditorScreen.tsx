@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: GREY[900],
-    fontFamily: 'Pretendard-SemiBold',
+    fontFamily: 'Pretendard',
   },
   headerActions: {
     flexDirection: 'row',
@@ -397,7 +397,8 @@ const styles = StyleSheet.create({
   dummyButtonText: {
     fontSize: 14,
     color: GREY[700],
-    fontFamily: 'Pretendard-Medium',
+    fontFamily: 'Pretendard',
+    fontWeight: '500',
   },
   resetButton: {
     paddingHorizontal: 12,
@@ -406,7 +407,8 @@ const styles = StyleSheet.create({
   resetButtonText: {
     fontSize: 14,
     color: GREY[500],
-    fontFamily: 'Pretendard-Regular',
+    fontFamily: 'Pretendard',
+    fontWeight: '400',
   },
   scrollView: {
     flex: 1,
@@ -435,7 +437,8 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 14,
     color: GREY[500],
-    fontFamily: 'Pretendard-Regular',
+    fontFamily: 'Pretendard',
+    fontWeight: '400',
   },
   exportSurface: {
     ...StyleSheet.absoluteFillObject,
@@ -478,7 +481,8 @@ const styles = StyleSheet.create({
   exportLoadingText: {
     fontSize: 13,
     color: GREY[600],
-    fontFamily: 'Pretendard-Medium',
+    fontFamily: 'Pretendard',
+    fontWeight: '500',
   },
 });
 

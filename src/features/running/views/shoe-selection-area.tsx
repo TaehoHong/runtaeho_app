@@ -226,8 +226,7 @@ const styles = StyleSheet.create({
   shoeImageText: {
     fontSize: 13,
     color: GREY[700],
-    fontWeight: '400',
-    fontFamily: 'Cafe24Proup'
+    fontFamily: 'Cafe24PROUP'
   },
   shoeInfo: {
     padding: 12,

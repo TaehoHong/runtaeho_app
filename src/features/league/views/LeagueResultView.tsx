@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
   },
   tierName: {
     fontSize: 28,
-    fontFamily: 'Pretendard-Bold',
+    fontFamily: 'Pretendard',
     fontWeight: '700',
     marginBottom: 24,
   },
@@ -107,14 +107,14 @@ const styles = StyleSheet.create({
   },
   messageTitle: {
     fontSize: 20,
-    fontFamily: 'Pretendard-Bold',
+    fontFamily: 'Pretendard',
     fontWeight: '700',
     color: GREY[900],
     marginBottom: 8,
   },
   messageSubtitle: {
     fontSize: 20,
-    fontFamily: 'Pretendard-Bold',
+    fontFamily: 'Pretendard',
     fontWeight: '700',
     color: GREY[900],
     textAlign: 'center',
@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
   },
   confirmButtonText: {
     fontSize: 20,
-    fontFamily: 'Pretendard-SemiBold',
+    fontFamily: 'Pretendard',
     fontWeight: '600',
     color: GREY.WHITE,
   },

@@ -1,22 +1,16 @@
 import React from 'react';
-import { Text as RNText, type TextProps, StyleSheet, type TextStyle } from 'react-native';
-import { getFontFamily, fontStyles } from './fontUtils';
+import { Text as RNText, type TextProps } from 'react-native';
+import { fontStyles } from './fontUtils';
 
 /**
  * Pretendard 폰트가 적용된 기본 Text 컴포넌트
- * fontWeight를 지정하면 자동으로 해당 폰트 패밀리가 적용됩니다.
  */
 export const Text: React.FC<TextProps> = ({ style, ...props }) => {
-  const flatStyle = StyleSheet.flatten([fontStyles.default, style]) as TextStyle;
-  const fontWeight = flatStyle?.fontWeight;
-  const fontFamily = getFontFamily(fontWeight);
-
   return (
     <RNText
       {...props}
       style={[
         fontStyles.default,
-        { fontFamily },
         style,
       ]}
     />

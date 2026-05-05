@@ -293,12 +293,14 @@ const styles = StyleSheet.create({
     marginRight: 6, // Figma gap: 6px
   },
   googleButtonText: {
-    fontFamily: 'Pretendard-Bold',
+    fontFamily: 'Pretendard',
+    fontWeight: '700',
     color: '#2B2B2B',
     fontSize: 14, // Figma 기준
   },
   appleButtonText: {
-    fontFamily: 'Pretendard-Bold',
+    fontFamily: 'Pretendard',
+    fontWeight: '700',
     color: GREY.WHITE,
     fontSize: 14, // Figma 기준
   },

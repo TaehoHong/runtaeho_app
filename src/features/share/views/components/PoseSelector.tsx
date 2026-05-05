@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
     color: GREY[700],
     marginBottom: 12,
     paddingHorizontal: 16,
-    fontFamily: 'Pretendard-SemiBold',
+    fontFamily: 'Pretendard',
   },
   scrollView: {
     overflow: 'visible',
@@ -344,7 +344,8 @@ const styles = StyleSheet.create({
   poseLabel: {
     fontSize: 14,
     color: GREY[700],
-    fontFamily: 'Pretendard-Medium',
+    fontFamily: 'Pretendard',
+    fontWeight: '500',
   },
   poseLabelActive: {
     color: GREY.WHITE,
@@ -400,7 +401,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: PRIMARY[600],
-    fontFamily: 'Pretendard-SemiBold',
+    fontFamily: 'Pretendard',
     minWidth: 36,
     textAlign: 'right',
   },

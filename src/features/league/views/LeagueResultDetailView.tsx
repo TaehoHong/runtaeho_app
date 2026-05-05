@@ -128,14 +128,14 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 14,
-    fontFamily: 'Pretendard-Regular',
+    fontFamily: 'Pretendard',
     fontWeight: '400',
     color: GREY[500],
     marginBottom: 8,
   },
   statValue: {
     fontSize: 24,
-    fontFamily: 'Pretendard-Bold',
+    fontFamily: 'Pretendard',
     fontWeight: '700',
     color: GREY[900],
   },
@@ -151,14 +151,14 @@ const styles = StyleSheet.create({
   },
   rewardLabel: {
     fontSize: 14,
-    fontFamily: 'Pretendard-Regular',
+    fontFamily: 'Pretendard',
     fontWeight: '400',
     color: PRIMARY[600],
     marginBottom: 4,
   },
   rewardValue: {
     fontSize: 28,
-    fontFamily: 'Pretendard-Bold',
+    fontFamily: 'Pretendard',
     fontWeight: '700',
     color: PRIMARY[600],
   },
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
   },
   confirmButtonText: {
     fontSize: 18,
-    fontFamily: 'Pretendard-SemiBold',
+    fontFamily: 'Pretendard',
     fontWeight: '600',
     color: GREY.WHITE,
   },

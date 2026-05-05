@@ -178,13 +178,13 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    fontFamily: 'Pretendard-Medium',
+    fontFamily: 'Pretendard',
     fontWeight: '500',
     color: GREY[500],
   },
   errorText: {
     fontSize: 18,
-    fontFamily: 'Pretendard-SemiBold',
+    fontFamily: 'Pretendard',
     fontWeight: '600',
     color: GREY[900],
     marginBottom: 8,
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
   },
   errorSubText: {
     fontSize: 14,
-    fontFamily: 'Pretendard-Medium',
+    fontFamily: 'Pretendard',
     fontWeight: '500',
     color: GREY[500],
     textAlign: 'center',

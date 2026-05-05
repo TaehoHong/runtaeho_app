@@ -10,6 +10,7 @@ import com.facebook.react.ReactNativeHost
 import com.facebook.react.ReactPackage
 import com.facebook.react.ReactHost
 import com.facebook.react.common.ReleaseLevel
+import com.facebook.react.common.assets.ReactFontManager
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint
 import com.facebook.react.defaults.DefaultReactNativeHost
 
@@ -47,6 +48,10 @@ class MainApplication : Application(), ReactApplication {
 
   override fun onCreate() {
     super.onCreate()
+    // @generated begin xml-fonts-init - expo prebuild (DO NOT MODIFY) sync-61ef5c079231cfde42fdf7a7d4de1f716c55c2ca
+    ReactFontManager.getInstance().addCustomFont(this, "Pretendard", R.font.xml_pretendard)
+    ReactFontManager.getInstance().addCustomFont(this, "Cafe24PROUP", R.font.xml_cafe24proup)
+    // @generated end xml-fonts-init
     DefaultNewArchitectureEntryPoint.releaseLevel = try {
       ReleaseLevel.valueOf(BuildConfig.REACT_NATIVE_RELEASE_LEVEL.uppercase())
     } catch (e: IllegalArgumentException) {

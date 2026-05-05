@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#364153',
     marginBottom: 12,
-    fontFamily: 'Pretendard-SemiBold',
+    fontFamily: 'Pretendard',
   },
   toggleContainer: {
     flexDirection: 'row',
@@ -174,7 +174,8 @@ const styles = StyleSheet.create({
   toggleLabel: {
     fontSize: 12,
     color: GREY[500],
-    fontFamily: 'Pretendard-Medium',
+    fontFamily: 'Pretendard',
+    fontWeight: '500',
   },
   toggleLabelActive: {
     color: '#21c427',

@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   plusSign: {
-    fontFamily: 'Rounded Mplus 1c Bold',
+    fontFamily: 'Pretendard',
     fontSize: 13,
     fontWeight: '700',
     lineHeight: 14,
@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   earnedPointsValue: {
-    fontFamily: 'Rounded Mplus 1c Bold',
+    fontFamily: 'Pretendard',
     fontSize: 13,
     fontWeight: '700',
     lineHeight: 14,
@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   totalPointsValue: {
-    fontFamily: 'Rounded Mplus 1c Bold',
+    fontFamily: 'Pretendard',
     fontSize: 13,
     fontWeight: '700',
     lineHeight: 14,

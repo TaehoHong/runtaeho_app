@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
   },
   tierName: {
     fontSize: 20,
-    fontFamily: 'Pretendard-Bold',
+    fontFamily: 'Pretendard',
     fontWeight: '700',
   },
 });

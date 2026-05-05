@@ -113,9 +113,46 @@ export default {
         }
       ],
       [
-        "expo-asset",
+        "expo-font",
         {
-          "assets": ["./assets/fonts"]
+          android: {
+            fonts: [
+              {
+                fontFamily: "Pretendard",
+                fontDefinitions: [
+                  { path: "./assets/fonts/Pretendard-Thin.ttf", weight: 100 },
+                  { path: "./assets/fonts/Pretendard-ExtraLight.ttf", weight: 200 },
+                  { path: "./assets/fonts/Pretendard-Light.ttf", weight: 300 },
+                  { path: "./assets/fonts/Pretendard-Regular.ttf", weight: 400 },
+                  { path: "./assets/fonts/Pretendard-Medium.ttf", weight: 500 },
+                  { path: "./assets/fonts/Pretendard-SemiBold.ttf", weight: 600 },
+                  { path: "./assets/fonts/Pretendard-Bold.ttf", weight: 700 },
+                  { path: "./assets/fonts/Pretendard-ExtraBold.ttf", weight: 800 },
+                  { path: "./assets/fonts/Pretendard-Black.ttf", weight: 900 }
+                ]
+              },
+              {
+                fontFamily: "Cafe24PROUP",
+                fontDefinitions: [
+                  { path: "./assets/fonts/Cafe24PROUP.ttf", weight: 400 }
+                ]
+              }
+            ]
+          },
+          ios: {
+            fonts: [
+              "./assets/fonts/Pretendard-Thin.ttf",
+              "./assets/fonts/Pretendard-ExtraLight.ttf",
+              "./assets/fonts/Pretendard-Light.ttf",
+              "./assets/fonts/Pretendard-Regular.ttf",
+              "./assets/fonts/Pretendard-Medium.ttf",
+              "./assets/fonts/Pretendard-SemiBold.ttf",
+              "./assets/fonts/Pretendard-Bold.ttf",
+              "./assets/fonts/Pretendard-ExtraBold.ttf",
+              "./assets/fonts/Pretendard-Black.ttf",
+              "./assets/fonts/Cafe24PROUP.ttf"
+            ]
+          }
         }
       ],
       [

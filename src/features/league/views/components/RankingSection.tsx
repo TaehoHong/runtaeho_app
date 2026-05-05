@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 16,
-    fontFamily: 'Pretendard-SemiBold',
+    fontFamily: 'Pretendard',
     fontWeight: '600',
     color: GREY[900],
   },
@@ -431,7 +431,7 @@ const styles = StyleSheet.create({
   },
   animatedRank: {
     fontSize: 16,
-    fontFamily: 'Pretendard-Bold',
+    fontFamily: 'Pretendard',
     fontWeight: '700',
     color: PRIMARY[600],
     minWidth: 24,
@@ -445,14 +445,14 @@ const styles = StyleSheet.create({
   },
   animatedName: {
     fontSize: 14,
-    fontFamily: 'Pretendard-SemiBold',
+    fontFamily: 'Pretendard',
     fontWeight: '600',
     color: PRIMARY[600],
     flex: 1,
   },
   animatedDistance: {
     fontSize: 14,
-    fontFamily: 'Pretendard-Bold',
+    fontFamily: 'Pretendard',
     fontWeight: '700',
     color: PRIMARY[600],
   },

@@ -148,7 +148,8 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
   },
   value: {
-    fontFamily: 'Pretendard-Bold',
+    fontFamily: 'Pretendard',
+    fontWeight: '700',
     color: '#FFFFFF',
     // 텍스트 그림자
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
@@ -156,7 +157,8 @@ const styles = StyleSheet.create({
     textShadowRadius: 4,
   },
   label: {
-    fontFamily: 'Pretendard-Medium',
+    fontFamily: 'Pretendard',
+    fontWeight: '500',
     color: '#FFFFFF',
     marginLeft: 4,
     // 텍스트 그림자

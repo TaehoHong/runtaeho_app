@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 14,
-    fontFamily: 'Pretendard-Medium',
+    fontFamily: 'Pretendard',
     fontWeight: '500',
     color: GREY[500],
   },

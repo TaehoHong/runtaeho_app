@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
   },
   rank: {
     fontSize: 16,
-    fontFamily: 'Pretendard-Bold',
+    fontFamily: 'Pretendard',
     fontWeight: '700',
     color: GREY[500],
     minWidth: 24,
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
   },
   avatarInitial: {
     fontSize: 14,
-    fontFamily: 'Pretendard-Bold',
+    fontFamily: 'Pretendard',
     fontWeight: '700',
     color: PRIMARY[600],
   },
@@ -105,14 +105,14 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 14,
-    fontFamily: 'Pretendard-SemiBold',
+    fontFamily: 'Pretendard',
     fontWeight: '600',
     color: GREY[900],
     flex: 1,
   },
   distance: {
     fontSize: 14,
-    fontFamily: 'Pretendard-Bold',
+    fontFamily: 'Pretendard',
     fontWeight: '700',
     color: GREY[900],
   },

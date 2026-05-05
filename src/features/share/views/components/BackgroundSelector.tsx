@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
     color: '#364153',
     marginBottom: 12,
     paddingHorizontal: 16,
-    fontFamily: 'Pretendard-SemiBold',
+    fontFamily: 'Pretendard',
   },
   scrollContent: {
     paddingHorizontal: 16,
@@ -220,7 +220,8 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: GREY[500],
     marginTop: 2,
-    fontFamily: 'Pretendard-Regular',
+    fontFamily: 'Pretendard',
+    fontWeight: '400',
   },
   optionButton: {
     width: 64,

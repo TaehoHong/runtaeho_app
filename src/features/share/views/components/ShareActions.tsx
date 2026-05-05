@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: GREY[700],
-    fontFamily: 'Pretendard-SemiBold',
+    fontFamily: 'Pretendard',
   },
   shareButtonWrapper: {
     flex: 2,
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
-    fontFamily: 'Pretendard-SemiBold',
+    fontFamily: 'Pretendard',
   },
   buttonDisabled: {
     opacity: 0.6,

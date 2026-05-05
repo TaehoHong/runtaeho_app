@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: PRIMARY[500],
     fontWeight: '600',
-    fontFamily: 'Pretendard-SemiBold',
+    fontFamily: 'Pretendard',
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,

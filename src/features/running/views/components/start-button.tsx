@@ -60,7 +60,6 @@ const styles = StyleSheet.create({
   mainText: {
     fontFamily: 'Cafe24PROUP',
     fontSize: 36,
-    fontWeight: '400',
     color: PRIMARY[600],
     textAlign: 'center',
     letterSpacing: -0.3,

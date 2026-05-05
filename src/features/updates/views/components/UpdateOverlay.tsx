@@ -291,7 +291,8 @@ const styles = StyleSheet.create({
   // 상태 텍스트
   statusText: {
     fontSize: 18,
-    fontFamily: 'Pretendard-Bold',
+    fontFamily: 'Pretendard',
+    fontWeight: '700',
     color: GREY.WHITE,
     textAlign: 'center',
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
@@ -302,7 +303,8 @@ const styles = StyleSheet.create({
   // 재시도 텍스트
   retryText: {
     fontSize: 14,
-    fontFamily: 'Pretendard-SemiBold',
+    fontFamily: 'Pretendard',
+    fontWeight: '600',
     color: GREY.WHITE,
     marginTop: 8,
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
@@ -335,7 +337,8 @@ const styles = StyleSheet.create({
 
   errorStatusText: {
     fontSize: 16,
-    fontFamily: 'Pretendard-SemiBold',
+    fontFamily: 'Pretendard',
+    fontWeight: '600',
     color: GREY[900],
     textAlign: 'center',
     marginBottom: 16,
@@ -354,13 +357,15 @@ const styles = StyleSheet.create({
 
   errorIconText: {
     fontSize: 28,
-    fontFamily: 'Pretendard-Bold',
+    fontFamily: 'Pretendard',
+    fontWeight: '700',
     color: GREY.WHITE,
   },
 
   errorMessage: {
     fontSize: 13,
-    fontFamily: 'Pretendard-Regular',
+    fontFamily: 'Pretendard',
+    fontWeight: '400',
     color: GREY[600],
     textAlign: 'center',
     marginBottom: 24,
@@ -382,7 +387,8 @@ const styles = StyleSheet.create({
 
   retryButtonText: {
     fontSize: 14,
-    fontFamily: 'Pretendard-SemiBold',
+    fontFamily: 'Pretendard',
+    fontWeight: '600',
     color: GREY.WHITE,
     textAlign: 'center',
   },
@@ -397,7 +403,8 @@ const styles = StyleSheet.create({
 
   skipButtonText: {
     fontSize: 14,
-    fontFamily: 'Pretendard-SemiBold',
+    fontFamily: 'Pretendard',
+    fontWeight: '600',
     color: GREY[700],
     textAlign: 'center',
   },
