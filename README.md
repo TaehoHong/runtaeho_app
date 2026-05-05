@@ -59,6 +59,8 @@ OTA 업데이트는 EAS 환경 변수를 사용한다. 배포 전 EAS `preview`/
 - `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID`
 - `EXPO_PUBLIC_API_BASE_URL`
 
+이 앱은 Unity 네이티브 뷰를 사용하므로 OTA 스크립트는 web export를 제외하고 iOS/Android 업데이트를 각각 발행한다.
+
 ```bash
 # 스테이징 배포
 npm run update:staging "메시지"
