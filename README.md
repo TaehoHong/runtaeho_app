@@ -52,6 +52,13 @@ open ios/RunTaeho.xcworkspace
 
 ### 2. OTA 업데이트 (심사 불필요)
 
+OTA 업데이트는 EAS 환경 변수를 사용한다. 배포 전 EAS `preview`/`production` 환경에 아래 값이 등록되어 있어야 한다.
+
+- `EXPO_PUBLIC_GOOGLE_SERVER_CLIENT_ID`: Google Cloud OAuth의 `Web application` 타입 Client ID
+- `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`
+- `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID`
+- `EXPO_PUBLIC_API_BASE_URL`
+
 ```bash
 # 스테이징 배포
 npm run update:staging "메시지"
