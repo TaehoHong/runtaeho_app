@@ -7,17 +7,38 @@ import { type AuthCodeResult } from '../models/AuthResult';
 import { AuthError } from '../models/AuthError';
 import { type AuthProviderStrategy } from './AuthProviderStrategy';
 
+const getConfigValue = (
+  extraValue: unknown,
+  envValue: string | undefined
+): string | undefined => {
+  if (typeof extraValue === 'string' && extraValue.trim().length > 0) {
+    return extraValue;
+  }
+
+  if (envValue && envValue.trim().length > 0) {
+    return envValue;
+  }
+
+  return undefined;
+};
+
 export class GoogleAuthStrategy implements AuthProviderStrategy {
   configure(): void {
-    const googleIosClientId = Constants.expoConfig?.extra?.googleIosClientId;
-    const googleServerClientId = Constants.expoConfig?.extra?.googleServerClientId;
-    const googleAndroidClientId = Constants.expoConfig?.extra?.googleAndroidClientId;
+    const extra = Constants.expoConfig?.extra;
+    const googleIosClientId = getConfigValue(
+      extra?.googleIosClientId,
+      process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID
+    );
+    const googleServerClientId = getConfigValue(
+      extra?.googleServerClientId,
+      process.env.EXPO_PUBLIC_GOOGLE_SERVER_CLIENT_ID
+    );
 
-    console.log('🔧 [DEBUG] Google 클라이언트 ID 설정:');
-    console.log('  - iOS Client ID:', googleIosClientId);
-    console.log('  - Server Client ID:', googleServerClientId);
-    console.log('  - Android Client ID:', googleAndroidClientId);
-    console.log('  - Constants.expoConfig?.extra:', Constants.expoConfig?.extra);
+    if (!googleServerClientId) {
+      throw AuthError.unavailable(
+        'Google 로그인 설정이 누락되었습니다. 앱을 최신 상태로 업데이트한 뒤 다시 시도해주세요.'
+      );
+    }
 
     GoogleSignin.configure({
       iosClientId: googleIosClientId,
@@ -32,7 +53,7 @@ export class GoogleAuthStrategy implements AuthProviderStrategy {
       const userInfo = await GoogleSignin.signIn();
 
       if (userInfo.data?.serverAuthCode) {
-        console.log('Google Sign-In 성공:', userInfo.data.serverAuthCode);
+        console.log('Google Sign-In 성공');
 
         return {
           authorizationCode: userInfo.data.serverAuthCode,
