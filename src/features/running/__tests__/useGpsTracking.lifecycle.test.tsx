@@ -1,74 +1,69 @@
+import type { MutableRefObject } from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { AppState, type AppStateStatus } from 'react-native';
-import type { MutableRefObject } from 'react';
 import {
   DEFAULT_RUNNING_STATS,
   type RunningStats,
+  type UseGpsTrackingProps,
 } from '~/features/running/viewmodels/hooks/types';
 import { useGpsTracking } from '~/features/running/viewmodels/hooks/useGpsTracking';
+import { RunningTrackingCoordinator } from '~/features/running/services/RunningTrackingCoordinator';
 import { RunningState, useAppStore } from '~/stores/app/appStore';
 import { resetAllStores } from '~/test-utils/resetState';
 
-const mockBackgroundStartTracking = jest.fn();
-const mockBackgroundStopTracking = jest.fn();
-const mockBackgroundPauseTracking = jest.fn();
-const mockBackgroundResumeTracking = jest.fn();
-const mockGetTotalDistance = jest.fn();
-const mockGetBackgroundLocations = jest.fn();
-const mockGetLatestPaceSignal = jest.fn();
-const mockLocationStartTracking = jest.fn();
-const mockLocationStopTracking = jest.fn();
-const mockLocationPauseTracking = jest.fn();
-const mockLocationResumeTracking = jest.fn();
-const mockSubscribeToLocation = jest.fn();
-const mockSubscribeToTrackingData = jest.fn();
-const mockSubscribeToPaceSignal = jest.fn();
-const locationServiceState = {
-  totalDistanceMeters: 0,
-  allLocations: [] as {
-    latitude: number;
-    longitude: number;
-    altitude: number;
-    accuracy: number;
-    speed: number;
-    timestamp: Date;
-  }[],
-};
+type GpsHookProps = Omit<UseGpsTrackingProps, 'runningState'>;
 
-jest.mock('~/features/running/services/BackgroundTaskService', () => ({
-  backgroundTaskService: {
-    startBackgroundTracking: (...args: unknown[]) => mockBackgroundStartTracking(...args),
-    stopBackgroundTracking: (...args: unknown[]) => mockBackgroundStopTracking(...args),
-    pauseBackgroundTracking: (...args: unknown[]) => mockBackgroundPauseTracking(...args),
-    resumeBackgroundTracking: (...args: unknown[]) => mockBackgroundResumeTracking(...args),
-    getTotalDistance: (...args: unknown[]) => mockGetTotalDistance(...args),
-    getBackgroundLocations: (...args: unknown[]) => mockGetBackgroundLocations(...args),
-    getLatestPaceSignal: (...args: unknown[]) => mockGetLatestPaceSignal(...args),
-  },
-}));
+interface MockLocation {
+  latitude: number;
+  longitude: number;
+  altitude: number;
+  accuracy: number;
+  speed: number;
+  timestamp: Date;
+}
 
-jest.mock('~/features/running/services/LocationService', () => ({
-  locationService: {
-    startTracking: (...args: unknown[]) => mockLocationStartTracking(...args),
-    stopTracking: (...args: unknown[]) => mockLocationStopTracking(...args),
-    pauseTracking: (...args: unknown[]) => mockLocationPauseTracking(...args),
-    resumeTracking: (...args: unknown[]) => mockLocationResumeTracking(...args),
-    subscribeToLocation: (...args: unknown[]) => mockSubscribeToLocation(...args),
-    subscribeToTrackingData: (...args: unknown[]) => mockSubscribeToTrackingData(...args),
-    subscribeToPaceSignal: (...args: unknown[]) => mockSubscribeToPaceSignal(...args),
-    get totalDistanceMeters() {
-      return locationServiceState.totalDistanceMeters;
-    },
-    get allLocations() {
-      return locationServiceState.allLocations;
-    },
-  },
+interface MockSnapshot {
+  distance: number;
+  locations: MockLocation[];
+  trackingData: null;
+  latestPaceSignal: null;
+  source: 'idle' | 'foreground' | 'background';
+}
+
+const mockSubscribe = jest.fn();
+const mockGetSnapshot = jest.fn();
+const mockSetRunningState = jest.fn();
+const mockHandleAppStateChange = jest.fn();
+const mockDestroy = jest.fn();
+const mockStartSession = jest.fn();
+const mockStopSession = jest.fn();
+const mockPauseSession = jest.fn();
+const mockResumeSession = jest.fn();
+const mockResetSession = jest.fn();
+const mockUnsubscribe = jest.fn();
+
+let mockSubscriptionListener: ((snapshot: MockSnapshot) => void) | null = null;
+
+jest.mock('~/features/running/services/RunningTrackingCoordinator', () => ({
+  RunningTrackingCoordinator: jest.fn().mockImplementation(() => ({
+    subscribe: (...args: unknown[]) => mockSubscribe(...args),
+    getSnapshot: (...args: unknown[]) => mockGetSnapshot(...args),
+    setRunningState: (...args: unknown[]) => mockSetRunningState(...args),
+    handleAppStateChange: (...args: unknown[]) => mockHandleAppStateChange(...args),
+    destroy: (...args: unknown[]) => mockDestroy(...args),
+    startSession: (...args: unknown[]) => mockStartSession(...args),
+    stopSession: (...args: unknown[]) => mockStopSession(...args),
+    pauseSession: (...args: unknown[]) => mockPauseSession(...args),
+    resumeSession: (...args: unknown[]) => mockResumeSession(...args),
+    resetSession: (...args: unknown[]) => mockResetSession(...args),
+  })),
 }));
 
 describe('useGpsTracking lifecycle', () => {
   let appStateHandler: ((nextAppState: AppStateStatus) => void) | null = null;
   let appStateRemoveSpy: jest.Mock;
   let appStateSpy: jest.SpyInstance;
+  let consoleLogSpy: jest.SpyInstance;
 
   const createStatsRef = (): MutableRefObject<RunningStats> => ({
     current: {
@@ -76,35 +71,24 @@ describe('useGpsTracking lifecycle', () => {
     },
   });
 
-  const createBackgroundLocations = () => [
-    {
-      latitude: 37.5,
-      longitude: 127.0,
-      altitude: 10,
-      accuracy: 5,
-      speed: 2.5,
-      timestamp: 1_740_000_000_000,
-    },
-    {
-      latitude: 37.5001,
-      longitude: 127.0001,
-      altitude: 10,
-      accuracy: 5,
-      speed: 2.8,
-      timestamp: 1_740_000_001_000,
-    },
-  ];
+  const createSnapshot = (overrides: Partial<MockSnapshot> = {}): MockSnapshot => ({
+    distance: 0,
+    locations: [],
+    trackingData: null,
+    latestPaceSignal: null,
+    source: 'idle',
+    ...overrides,
+  });
 
-  const createHookProps = () => {
-    return {
-      segmentStartTimeRef: { current: 1_740_000_000_000 },
-      statsRef: createStatsRef(),
-      onSegmentCreate: jest.fn(),
-      onDistanceUpdate: jest.fn(),
-    };
-  };
+  const createProps = (overrides: Partial<GpsHookProps> = {}): GpsHookProps => ({
+    segmentStartTimeRef: { current: 1_740_000_000_000 },
+    statsRef: createStatsRef(),
+    onSegmentCreate: jest.fn(),
+    onDistanceUpdate: jest.fn(),
+    ...overrides,
+  });
 
-  const emitAppState = (nextAppState: AppStateStatus) => {
+  const emitAppState = async (nextAppState: AppStateStatus) => {
     if (!appStateHandler) {
       throw new Error('AppState handler is not registered');
     }
@@ -114,45 +98,30 @@ describe('useGpsTracking lifecycle', () => {
       value: nextAppState,
     });
 
-    act(() => {
-      appStateHandler?.(nextAppState);
-    });
-  };
-
-  const tick = async (ms: number) => {
     await act(async () => {
-      jest.advanceTimersByTime(ms);
+      appStateHandler?.(nextAppState);
       await Promise.resolve();
     });
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.useFakeTimers();
     resetAllStores();
+    useAppStore.getState().setRunningState(RunningState.Running);
 
-    useAppStore.getState().setRunningState(RunningState.Stopped);
-
-    mockBackgroundStartTracking.mockResolvedValue(undefined);
-    mockBackgroundStopTracking.mockResolvedValue(undefined);
-    mockBackgroundPauseTracking.mockResolvedValue(undefined);
-    mockBackgroundResumeTracking.mockResolvedValue(undefined);
-    mockGetTotalDistance.mockResolvedValue(0);
-    mockGetBackgroundLocations.mockResolvedValue([]);
-    mockGetLatestPaceSignal.mockResolvedValue(null);
-    mockLocationStartTracking.mockResolvedValue(undefined);
-    mockLocationStopTracking.mockImplementation(() => undefined);
-    mockLocationPauseTracking.mockImplementation(() => undefined);
-    mockLocationResumeTracking.mockImplementation(() => undefined);
-    mockSubscribeToLocation.mockReturnValue(jest.fn());
-    mockSubscribeToTrackingData.mockReturnValue(jest.fn());
-    mockSubscribeToPaceSignal.mockReturnValue(jest.fn());
-    locationServiceState.totalDistanceMeters = 0;
-    locationServiceState.allLocations = [];
+    mockSubscriptionListener = null;
+    mockGetSnapshot.mockReturnValue(createSnapshot());
+    mockSubscribe.mockImplementation((listener: (snapshot: MockSnapshot) => void) => {
+      mockSubscriptionListener = listener;
+      listener(mockGetSnapshot());
+      return mockUnsubscribe;
+    });
+    mockHandleAppStateChange.mockResolvedValue(null);
+    mockStartSession.mockResolvedValue(undefined);
+    mockStopSession.mockResolvedValue({ distance: 0, locations: [] });
 
     appStateHandler = null;
     appStateRemoveSpy = jest.fn();
-
     appStateSpy = jest.spyOn(AppState, 'addEventListener').mockImplementation((type, handler) => {
       if (type === 'change') {
         appStateHandler = handler;
@@ -165,270 +134,68 @@ describe('useGpsTracking lifecycle', () => {
       configurable: true,
       value: 'active',
     });
+
+    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
   });
 
   afterEach(() => {
     appStateSpy.mockRestore();
-    jest.useRealTimers();
+    consoleLogSpy.mockRestore();
   });
 
-  it('GPS-LC-001 starts background polling on mount when app is active and running', async () => {
-    useAppStore.getState().setRunningState(RunningState.Running);
-    const props = createHookProps();
+  it('creates one coordinator and cleans up app-state and coordinator subscriptions on unmount', () => {
+    const MockedCoordinator = RunningTrackingCoordinator as jest.Mock;
+    const { unmount } = renderHook(() => useGpsTracking(createProps()));
 
-    renderHook(() => useGpsTracking(props));
-
-    await tick(1000);
-
-    await waitFor(() => {
-      expect(mockGetTotalDistance).toHaveBeenCalledTimes(1);
-    });
-    expect(mockGetBackgroundLocations).toHaveBeenCalledTimes(1);
-    expect(props.onSegmentCreate).not.toHaveBeenCalled();
-  });
-
-  it('GPS-LC-002 stops polling when app moves to background', async () => {
-    useAppStore.getState().setRunningState(RunningState.Running);
-    const props = createHookProps();
-
-    renderHook(() => useGpsTracking(props));
-    await tick(1000);
-    expect(mockGetTotalDistance).toHaveBeenCalledTimes(1);
-
-    emitAppState('background');
-    await tick(2000);
-
-    expect(mockGetTotalDistance).toHaveBeenCalledTimes(1);
-    expect(props.onSegmentCreate).not.toHaveBeenCalled();
-  });
-
-  it('GPS-LC-003 restarts polling when app returns to active', async () => {
-    useAppStore.getState().setRunningState(RunningState.Running);
-    const props = createHookProps();
-
-    renderHook(() => useGpsTracking(props));
-    await tick(1000);
-    expect(mockGetTotalDistance).toHaveBeenCalledTimes(1);
-
-    emitAppState('background');
-    await tick(1000);
-    expect(mockGetTotalDistance).toHaveBeenCalledTimes(1);
-
-    emitAppState('active');
-    await tick(1000);
-
-    expect(mockGetTotalDistance).toHaveBeenCalledTimes(2);
-  });
-
-  it('GPS-LC-004 creates a segment when distance delta reaches threshold', async () => {
-    useAppStore.getState().setRunningState(RunningState.Running);
-    const props = createHookProps();
-    mockGetTotalDistance.mockResolvedValue(12);
-    mockGetBackgroundLocations.mockResolvedValue(createBackgroundLocations());
-
-    renderHook(() => useGpsTracking(props));
-    await tick(1000);
-
-    await waitFor(() => {
-      expect(props.onSegmentCreate).toHaveBeenCalledTimes(1);
-    });
-    expect(props.onSegmentCreate).toHaveBeenCalledWith(
-      12,
-      expect.any(Array),
-      props.segmentStartTimeRef.current
-    );
-    expect(props.onDistanceUpdate).not.toHaveBeenCalled();
-  });
-
-  it('GPS-LC-005 updates distance without segment creation below threshold', async () => {
-    useAppStore.getState().setRunningState(RunningState.Running);
-    const props = createHookProps();
-    mockGetTotalDistance.mockResolvedValue(5);
-    mockGetBackgroundLocations.mockResolvedValue(createBackgroundLocations());
-
-    renderHook(() => useGpsTracking(props));
-    await tick(1000);
-
-    await waitFor(() => {
-      expect(props.onDistanceUpdate).toHaveBeenCalledTimes(1);
-    });
-    expect(props.onDistanceUpdate).toHaveBeenCalledWith(5, expect.any(Array));
-    expect(props.onSegmentCreate).not.toHaveBeenCalled();
-  });
-
-  it('GPS-LC-006 cleans up app-state subscription and interval on unmount', async () => {
-    useAppStore.getState().setRunningState(RunningState.Running);
-    const props = createHookProps();
-
-    const { unmount } = renderHook(() => useGpsTracking(props));
-    await tick(1000);
-    const beforeUnmountCallCount = mockGetTotalDistance.mock.calls.length;
+    expect(MockedCoordinator).toHaveBeenCalledWith('active');
+    expect(mockSubscribe).toHaveBeenCalledTimes(1);
+    expect(AppState.addEventListener).toHaveBeenCalledTimes(1);
 
     unmount();
-    expect(appStateRemoveSpy).toHaveBeenCalledTimes(1);
 
-    await tick(2000);
-    expect(mockGetTotalDistance).toHaveBeenCalledTimes(beforeUnmountCallCount);
+    expect(appStateRemoveSpy).toHaveBeenCalledTimes(1);
+    expect(mockDestroy).toHaveBeenCalledTimes(1);
   });
 
-  it('GPS-LC-007 starts and stops tracking in background mode', async () => {
-    useAppStore.getState().setRunningState(RunningState.Running);
-    const props = createHookProps();
-    mockGetTotalDistance.mockResolvedValue(15);
-    mockGetBackgroundLocations.mockResolvedValue(createBackgroundLocations());
-    const { result } = renderHook(() => useGpsTracking(props));
+  it('delegates tracking actions to the coordinator', async () => {
+    const location: MockLocation = {
+      latitude: 37.5,
+      longitude: 127.0,
+      altitude: 10,
+      accuracy: 5,
+      speed: 2.5,
+      timestamp: new Date('2026-01-01T00:00:00.000Z'),
+    };
+    mockStopSession.mockResolvedValueOnce({ distance: 12, locations: [location] });
+    const { result } = renderHook(() => useGpsTracking(createProps()));
 
     await act(async () => {
       await result.current.startGpsTracking(501);
     });
-    expect(mockBackgroundStartTracking).toHaveBeenCalledWith(501);
-    expect(mockLocationStartTracking).not.toHaveBeenCalled();
+    expect(mockStartSession).toHaveBeenCalledWith(501);
 
     let stopped: Awaited<ReturnType<typeof result.current.stopGpsTracking>> | null = null;
     await act(async () => {
       stopped = await result.current.stopGpsTracking();
     });
-
-    expect(mockBackgroundStopTracking).toHaveBeenCalledTimes(1);
-    expect(stopped?.distance).toBe(15);
-    expect(stopped?.locations[0]?.timestamp).toBeInstanceOf(Date);
-    expect(mockLocationStopTracking).not.toHaveBeenCalled();
-  });
-
-  it('GPS-LC-008 starts and stops tracking in foreground mode', async () => {
-    useAppStore.getState().setRunningState(RunningState.Running);
-    const props = createHookProps();
-    const { result } = renderHook(() => useGpsTracking(props));
-
-    act(() => {
-      result.current.setUseBackgroundMode(false);
-    });
-    await waitFor(() => {
-      expect(result.current.useBackgroundMode).toBe(false);
-    });
-
-    await act(async () => {
-      await result.current.startGpsTracking(777);
-    });
-    expect(mockLocationStartTracking).toHaveBeenCalledTimes(1);
-    expect(mockBackgroundStartTracking).not.toHaveBeenCalled();
-
-    locationServiceState.totalDistanceMeters = 21;
-    locationServiceState.allLocations = [
-      {
-        latitude: 37.55,
-        longitude: 127.02,
-        altitude: 20,
-        accuracy: 5,
-        speed: 2.3,
-        timestamp: new Date('2026-01-01T00:00:00.000Z'),
-      },
-    ];
-
-    let stopped: Awaited<ReturnType<typeof result.current.stopGpsTracking>> | null = null;
-    await act(async () => {
-      stopped = await result.current.stopGpsTracking();
-    });
-    expect(mockLocationStopTracking).toHaveBeenCalledTimes(1);
-    expect(stopped?.distance).toBe(21);
-    expect(stopped?.locations).toHaveLength(1);
-    expect(mockBackgroundStopTracking).not.toHaveBeenCalled();
-  });
-
-  it('GPS-LC-009 handles pause, resume, and reset actions', async () => {
-    useAppStore.getState().setRunningState(RunningState.Running);
-    const props = createHookProps();
-    mockGetTotalDistance.mockResolvedValue(8);
-    mockGetBackgroundLocations.mockResolvedValue(createBackgroundLocations());
-    const { result } = renderHook(() => useGpsTracking(props));
-
-    await tick(1000);
-    await waitFor(() => {
-      expect(result.current.distance).toBe(8);
-    });
+    expect(mockStopSession).toHaveBeenCalledTimes(1);
+    expect(stopped).toEqual({ distance: 12, locations: [location] });
 
     act(() => {
       result.current.pauseGpsTracking();
       result.current.resumeGpsTracking();
-    });
-    expect(mockBackgroundPauseTracking).toHaveBeenCalledTimes(1);
-    expect(mockBackgroundResumeTracking).toHaveBeenCalledTimes(1);
-    expect(mockLocationPauseTracking).not.toHaveBeenCalled();
-    expect(mockLocationResumeTracking).not.toHaveBeenCalled();
-
-    act(() => {
       result.current.resetGpsTracking();
     });
-    expect(result.current.distance).toBe(0);
-    expect(result.current.locations).toHaveLength(0);
-    expect(result.current.trackingData).toBeNull();
+
+    expect(mockPauseSession).toHaveBeenCalledTimes(1);
+    expect(mockResumeSession).toHaveBeenCalledTimes(1);
+    expect(mockResetSession).toHaveBeenCalledTimes(1);
   });
 
-  it('uses foreground pause/resume handlers when background mode is disabled', async () => {
-    useAppStore.getState().setRunningState(RunningState.Running);
-    const props = createHookProps();
-    const { result } = renderHook(() => useGpsTracking(props));
-
-    act(() => {
-      result.current.setUseBackgroundMode(false);
-    });
-    await waitFor(() => {
-      expect(result.current.useBackgroundMode).toBe(false);
-    });
-
-    act(() => {
-      result.current.pauseGpsTracking();
-      result.current.resumeGpsTracking();
-    });
-
-    expect(mockLocationPauseTracking).toHaveBeenCalledTimes(1);
-    expect(mockLocationResumeTracking).toHaveBeenCalledTimes(1);
-    expect(mockBackgroundPauseTracking).not.toHaveBeenCalled();
-    expect(mockBackgroundResumeTracking).not.toHaveBeenCalled();
-  });
-
-  it('GPS-LC-010 handles foreground subscriptions and segment creation', async () => {
-    useAppStore.getState().setRunningState(RunningState.Running);
-    const props = createHookProps();
-    const unsubscribeLocationSpy = jest.fn();
-    const unsubscribeTrackingSpy = jest.fn();
-    let locationCallback: ((location: {
-      latitude: number;
-      longitude: number;
-      altitude: number;
-      accuracy: number;
-      speed: number;
-      timestamp: Date;
-    }) => void) | null = null;
-    let trackingCallback: ((trackingData: {
-      totalDistance: number;
-      currentLocation: unknown;
-      currentSpeed: number;
-      averageSpeed: number;
-      accuracy: number;
-      isTracking: boolean;
-    }) => void) | null = null;
-
-    mockSubscribeToLocation.mockImplementation((cb) => {
-      locationCallback = cb;
-      return unsubscribeLocationSpy;
-    });
-    mockSubscribeToTrackingData.mockImplementation((cb) => {
-      trackingCallback = cb;
-      return unsubscribeTrackingSpy;
-    });
-
-    const { result, unmount } = renderHook(() => useGpsTracking(props));
-
-    act(() => {
-      result.current.setUseBackgroundMode(false);
-    });
-    await waitFor(() => {
-      expect(mockSubscribeToLocation).toHaveBeenCalledTimes(1);
-    });
-    expect(mockGetTotalDistance).not.toHaveBeenCalled();
-
-    const location = {
+  it('reflects coordinator snapshots and emits foreground segment callbacks', async () => {
+    const onDistanceUpdate = jest.fn();
+    const onSegmentCreate = jest.fn();
+    const location: MockLocation = {
       latitude: 37.5003,
       longitude: 127.0003,
       altitude: 10,
@@ -436,55 +203,63 @@ describe('useGpsTracking lifecycle', () => {
       speed: 2.7,
       timestamp: new Date('2026-01-01T00:00:01.000Z'),
     };
+    const { result } = renderHook(() =>
+      useGpsTracking(
+        createProps({
+          onDistanceUpdate,
+          onSegmentCreate,
+        })
+      )
+    );
 
     act(() => {
-      locationCallback?.(location);
+      mockSubscriptionListener?.(createSnapshot({ source: 'foreground', distance: 0 }));
+      mockSubscriptionListener?.(
+        createSnapshot({
+          source: 'foreground',
+          distance: 12,
+          locations: [location],
+        })
+      );
     });
+
+    await waitFor(() => {
+      expect(result.current.distance).toBe(12);
+    });
+    expect(result.current.locations).toEqual([location]);
+    expect(result.current.useBackgroundMode).toBe(false);
+    expect(onDistanceUpdate).toHaveBeenCalledWith(12, [location]);
+    expect(onSegmentCreate).toHaveBeenCalledWith(12, [location], 1_740_000_000_000);
 
     act(() => {
-      trackingCallback?.({
-        totalDistance: 6,
-        currentLocation: location,
-        currentSpeed: 2.7,
-        averageSpeed: 2.6,
-        accuracy: 5,
-        isTracking: true,
-      });
-    });
-    act(() => {
-      trackingCallback?.({
-        totalDistance: 12,
-        currentLocation: location,
-        currentSpeed: 2.8,
-        averageSpeed: 2.7,
-        accuracy: 5,
-        isTracking: true,
-      });
+      mockSubscriptionListener?.(
+        createSnapshot({
+          source: 'background',
+          distance: 12,
+          locations: [location],
+        })
+      );
     });
 
-    expect(props.onDistanceUpdate).toHaveBeenCalled();
-    expect(props.onSegmentCreate).toHaveBeenCalledTimes(1);
-
-    unmount();
-    expect(unsubscribeLocationSpy).toHaveBeenCalledTimes(1);
-    expect(unsubscribeTrackingSpy).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(result.current.useBackgroundMode).toBe(true);
+    });
   });
 
-  it('GPS-LC-011 handles polling errors without throwing', async () => {
-    useAppStore.getState().setRunningState(RunningState.Running);
-    const props = createHookProps();
-    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    mockGetTotalDistance.mockRejectedValue(new Error('polling-failed'));
+  it('forwards app-state auto-pause results to the latest callback', async () => {
+    const onAutoPause = jest.fn();
+    mockHandleAppStateChange.mockResolvedValueOnce({
+      autoPaused: true,
+      reason: 'background_tracking_unavailable',
+    });
 
-    renderHook(() => useGpsTracking(props));
-    await tick(1000);
+    renderHook(() => useGpsTracking(createProps({ onAutoPause })));
 
-    expect(errorSpy).toHaveBeenCalledWith(
-      '[useGpsTracking] Failed to poll background distance:',
-      expect.any(Error)
-    );
-    expect(props.onSegmentCreate).not.toHaveBeenCalled();
+    await emitAppState('background');
 
-    errorSpy.mockRestore();
+    expect(mockHandleAppStateChange).toHaveBeenCalledWith('background');
+    await waitFor(() => {
+      expect(onAutoPause).toHaveBeenCalledTimes(1);
+    });
   });
 });

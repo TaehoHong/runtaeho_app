@@ -42,6 +42,9 @@ interface BackgroundResumeState {
   filterState: GpsFilterState;
 }
 
+const BACKGROUND_TASK_UNAVAILABLE_MESSAGE =
+  'Background tracking task is not registered while app is not active';
+
 const EMPTY_SNAPSHOT: TrackingSnapshot = {
   distance: 0,
   locations: [],
@@ -197,20 +200,49 @@ export class RunningTrackingCoordinator {
     this.foregroundLocationsBase = [];
     this.foregroundLiveLocations = [];
     this.setSnapshot(EMPTY_SNAPSHOT);
+    this.transitionInFlight = true;
+    let shouldCleanupBackgroundTask = false;
 
-    if (this.appState === 'active') {
-      try {
+    try {
+      if (this.appState === 'active') {
+        shouldCleanupBackgroundTask = true;
         await backgroundTaskService.startBackgroundTracking(recordId, {}, { isActive: false });
-        await this.startForegroundSource();
-      } catch (error) {
+
+        if (this.appState !== 'active') {
+          await this.startBackgroundSource({ requireAvailable: true });
+          return;
+        }
+
+        try {
+          await this.startForegroundSource();
+        } catch (error) {
+          if (this.appState !== 'active') {
+            locationService.stopTracking();
+            await this.startBackgroundSource({ requireAvailable: true });
+            return;
+          }
+
+          throw error;
+        }
+
+        if (this.appState !== 'active') {
+          await this.startBackgroundSource({ requireAvailable: true });
+        }
+
+        return;
+      }
+
+      await this.startBackgroundSource({ requireAvailable: true });
+    } catch (error) {
+      if (shouldCleanupBackgroundTask) {
         backgroundTaskService.stopBackgroundTracking().catch(() => undefined);
         backgroundTaskService.clearBackgroundData().catch(() => undefined);
-        throw error;
       }
-      return;
+      this.resetFailedStartState();
+      throw error;
+    } finally {
+      this.transitionInFlight = false;
     }
-
-    await this.startBackgroundSource();
   }
 
   async stopSession(): Promise<{ distance: number; locations: Location[] }> {
@@ -413,9 +445,24 @@ export class RunningTrackingCoordinator {
     });
   }
 
-  private async startBackgroundSource(): Promise<void> {
+  private async startBackgroundSource(
+    { requireAvailable = false }: { requireAvailable?: boolean } = {}
+  ): Promise<boolean> {
     if (this.source === 'background' || this.currentRecordId === null) {
-      return;
+      return this.source === 'background';
+    }
+
+    const isRegistered = await backgroundTaskService.isTaskRegistered();
+
+    if (!isRegistered && this.appState !== 'active') {
+      if (requireAvailable) {
+        throw new Error(BACKGROUND_TASK_UNAVAILABLE_MESSAGE);
+      }
+
+      console.warn(
+        '[RunningTrackingCoordinator] Background task is unavailable during background handoff; keeping current source active'
+      );
+      return false;
     }
 
     const filterState = this.source === 'foreground' ? locationService.getGpsFilterState() : undefined;
@@ -432,7 +479,7 @@ export class RunningTrackingCoordinator {
       locationService.stopTracking();
     }
 
-    if (await backgroundTaskService.isTaskRegistered()) {
+    if (isRegistered) {
       await backgroundTaskService.syncBackgroundTracking(this.currentRecordId, seed, {
         isActive: true,
       });
@@ -445,6 +492,18 @@ export class RunningTrackingCoordinator {
     this.setSnapshot({
       source: 'background',
     });
+
+    return true;
+  }
+
+  private resetFailedStartState(): void {
+    this.currentRecordId = null;
+    this.runningState = RunningState.Stopped;
+    this.source = 'idle';
+    this.foregroundDistanceBase = 0;
+    this.foregroundLocationsBase = [];
+    this.foregroundLiveLocations = [];
+    this.setSnapshot(EMPTY_SNAPSHOT);
   }
 
   private autoPauseAfterBackgroundFailure(error: unknown): AppStateTransitionResult {
