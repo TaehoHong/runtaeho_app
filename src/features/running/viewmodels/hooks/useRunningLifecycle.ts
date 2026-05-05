@@ -22,7 +22,11 @@ import { offlineStorageService } from '../../services/OfflineStorageService';
 import { backgroundTaskService } from '../../services/BackgroundTaskService';
 import { useAppStore, RunningState } from '~/stores/app/appStore';
 import { permissionManager } from '~/services/PermissionManager';
-import type { UseRunningLifecycleProps, UseRunningLifecycleReturn } from './types';
+import type {
+  EndRunningOverrides,
+  UseRunningLifecycleProps,
+  UseRunningLifecycleReturn,
+} from './types';
 
 export const useRunningLifecycle = ({
   statsRef: _statsRef,
@@ -172,15 +176,20 @@ export const useRunningLifecycle = ({
   /**
    * 러닝 종료
    */
-  const endRunning = useCallback(async (): Promise<EndRunningRecord | null> => {
-    if (!currentRecord) return null;
+  const endRunning = useCallback(async (
+    overrides: EndRunningOverrides = {}
+  ): Promise<EndRunningRecord | null> => {
+    const recordForEnd = overrides.currentRecord ?? currentRecord;
+    if (!recordForEnd) return null;
 
     try {
       // 0. 마지막 세그먼트 저장
       finalizeCurrentSegment();
 
       // 1. GPS 추적 중지
-      const { distance: finalDistance } = await stopGpsTracking();
+      const { distance: stoppedDistance } = await stopGpsTracking();
+      const finalDistance = Math.max(stoppedDistance, overrides.distance ?? 0);
+      const finalElapsedTime = overrides.elapsedTime ?? elapsedTime;
 
       // 2. Pedometer 중지
       pedometerService.stopTracking();
@@ -193,7 +202,7 @@ export const useRunningLifecycle = ({
 
       console.log(`[useRunningLifecycle] Final stats:`, {
         distance: finalDistance,
-        duration: elapsedTime,
+        duration: finalElapsedTime,
         segments: currentSegmentItems.length,
         heartRate: stats.bpm,
         cadence: stats.cadence,
@@ -201,13 +210,13 @@ export const useRunningLifecycle = ({
       });
 
       // 3. 최종 기록 업데이트
-      const finalRecord = updateRunningRecord(currentRecord, {
+      const finalRecord = updateRunningRecord(recordForEnd, {
         distance: Math.round(finalDistance),
         steps: finalSteps > 0 ? finalSteps : null,
         cadence: finalCadence,
         heartRate: stats.bpm ?? null,
         calorie: stats.calories ? Math.round(stats.calories) : 0,
-        durationSec: elapsedTime,
+        durationSec: finalElapsedTime,
       });
 
       setCurrentRecord(finalRecord);
@@ -252,7 +261,7 @@ export const useRunningLifecycle = ({
           // 비동기로 전송 (UI 블로킹 방지)
           runningService
             .saveRunningRecordItems({
-              runningRecordId: currentRecord.id,
+              runningRecordId: recordForEnd.id,
               items: itemsForServer,
             })
             .then(() => {
@@ -267,7 +276,7 @@ export const useRunningLifecycle = ({
               );
               try {
                 await offlineStorageService.addPendingSegmentUpload(
-                  currentRecord.id,
+                  recordForEnd.id,
                   segmentsToUpload
                 );
                 console.log(
@@ -294,7 +303,7 @@ export const useRunningLifecycle = ({
           '[useRunningLifecycle] API failed, saving offline:',
           errorMessage
         );
-        await offlineStorageService.addPendingUpload(currentRecord.id, finalRecord);
+        await offlineStorageService.addPendingUpload(recordForEnd.id, finalRecord);
         setRunningState(RunningState.Finished);
         return null;
       }

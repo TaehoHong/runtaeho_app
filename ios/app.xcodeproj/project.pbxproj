@@ -9,10 +9,19 @@
 /* Begin PBXBuildFile section */
 		01FD88580BBBCB18C0AA1748 /* libPods-app.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 8D73E90F4DB8D4839B04E9AB /* libPods-app.a */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
+		1B5C43CEFB37BFF3A64848C9 /* RunningLiveStatusAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8D81145AF179A682BB637DE /* RunningLiveStatusAttributes.swift */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
+		469572A07A7308409CA1B996 /* RunningLiveStatusIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1BD71F978054117CEDA586A /* RunningLiveStatusIntent.swift */; };
+		519B553EEC985D3D0DF89C5C /* RunningLiveStatusWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = D2C35FA1AC25A8CCACBDED80 /* RunningLiveStatusWidget.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		56E4BA12D2C76A66376D30F7 /* RunningLiveStatusModule.m in Sources */ = {isa = PBXBuildFile; fileRef = F1D031F78FEF9C4A64B8F7B9 /* RunningLiveStatusModule.m */; };
+		8B3DB9118DCA6787065C1504 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F8498181CA99781B6D120813 /* Foundation.framework */; };
+		8C04D20EDB88E22E79C1B0C3 /* RunningLiveStatusLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5211CB11B18CA9D8F70A61ED /* RunningLiveStatusLiveActivity.swift */; };
 		ADCD3A47B76623C95774D5E0 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 3EB4D8CB6799DC98CE183608 /* PrivacyInfo.xcprivacy */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
+		BC79799253206646939C6281 /* RunningLiveStatusWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E38084D67149E9723E6B042 /* RunningLiveStatusWidgetBundle.swift */; };
 		D3ECE5C27DC205CBAEEC4ABE /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA6CB44E8987100DFE3237E6 /* ExpoModulesProvider.swift */; };
+		DD381E20A0F6F48F92F07482 /* RunningLiveStatusAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8D81145AF179A682BB637DE /* RunningLiveStatusAttributes.swift */; };
+		DF1BF8CF84ACF9D2ED406534 /* RunningLiveStatusModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91A6FCF51B5B9BB6C183FCEF /* RunningLiveStatusModule.swift */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 		F70CE70A2E8A6F280043B98B /* UnityFramework.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = F70CE7082E8A6F280043B98B /* UnityFramework.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		F730CDD52E925BF4002CDFCA /* RNUnityBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = F730CDCE2E925BF4002CDFCA /* RNUnityBridge.m */; };
@@ -25,7 +34,28 @@
 		F7BE22F62F21245100B213D3 /* UnityViewContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7BE22F52F21245100B213D3 /* UnityViewContainer.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		DB9FD621190E991EC76F23CD /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3F9FEA4DFBA37FE49CCFADB2;
+			remoteInfo = RunningLiveStatusWidget;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXCopyFilesBuildPhase section */
+		B1365698093D16F2D867833F /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				519B553EEC985D3D0DF89C5C /* RunningLiveStatusWidget.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F70CE70B2E8A6F280043B98B /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -44,13 +74,22 @@
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = app/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = app/Info.plist; sourceTree = "<group>"; };
 		3EB4D8CB6799DC98CE183608 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = app/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		4E38084D67149E9723E6B042 /* RunningLiveStatusWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RunningLiveStatusWidgetBundle.swift; sourceTree = "<group>"; };
+		5211CB11B18CA9D8F70A61ED /* RunningLiveStatusLiveActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RunningLiveStatusLiveActivity.swift; sourceTree = "<group>"; };
+		705FE3EA1B374347A59DB355 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		7A121A98D3B360255915DCBF /* Pods-app.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-app.debug.xcconfig"; path = "Target Support Files/Pods-app/Pods-app.debug.xcconfig"; sourceTree = "<group>"; };
 		8D73E90F4DB8D4839B04E9AB /* libPods-app.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-app.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		91A6FCF51B5B9BB6C183FCEF /* RunningLiveStatusModule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RunningLiveStatusModule.swift; path = app/RunningLiveStatusModule.swift; sourceTree = "<group>"; };
+		A1BD71F978054117CEDA586A /* RunningLiveStatusIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RunningLiveStatusIntent.swift; sourceTree = "<group>"; };
+		A2586D3C5238A8BAA8E4BF06 /* RunningLiveStatusWidget.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = RunningLiveStatusWidget.entitlements; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = app/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
+		D2C35FA1AC25A8CCACBDED80 /* RunningLiveStatusWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RunningLiveStatusWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		D8D81145AF179A682BB637DE /* RunningLiveStatusAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RunningLiveStatusAttributes.swift; path = app/RunningLiveStatusAttributes.swift; sourceTree = "<group>"; };
 		EA6CB44E8987100DFE3237E6 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-app/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = app/AppDelegate.swift; sourceTree = "<group>"; };
+		F1D031F78FEF9C4A64B8F7B9 /* RunningLiveStatusModule.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = RunningLiveStatusModule.m; path = app/RunningLiveStatusModule.m; sourceTree = "<group>"; };
 		F70CE6EC2E8A0DC20043B98B /* UnityFramework.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = UnityFramework.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		F70CE6FA2E8A18840043B98B /* app-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "app-Bridging-Header.h"; path = "app/app-Bridging-Header.h"; sourceTree = "<group>"; };
 		F70CE7082E8A6F280043B98B /* UnityFramework.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = UnityFramework.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -63,6 +102,7 @@
 		F73BCBDE2E8402E70087982B /* UnityFramework.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = UnityFramework.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		F77F8FC12ED3E49E0077E3A1 /* UnityNativeBridge.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = UnityNativeBridge.mm; path = app/UnityNativeBridge.mm; sourceTree = "<group>"; };
 		F7BE22F52F21245100B213D3 /* UnityViewContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UnityViewContainer.swift; path = ../src/features/unity/bridge/iOS/UnityViewContainer.swift; sourceTree = SOURCE_ROOT; };
+		F8498181CA99781B6D120813 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		FCEA5D850C2BAF9F99E234A4 /* Pods-app.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-app.release.xcconfig"; path = "Target Support Files/Pods-app/Pods-app.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -72,6 +112,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				01FD88580BBBCB18C0AA1748 /* libPods-app.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BC0F0C14DE754BCBF5E7AF65 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8B3DB9118DCA6787065C1504 /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -104,8 +152,19 @@
 				F730CDD32E925BF4002CDFCA /* UnityViewManager.m */,
 				F730CDD42E925BF4002CDFCA /* UnityViewManager.swift */,
 				F77F8FC12ED3E49E0077E3A1 /* UnityNativeBridge.mm */,
+				91A6FCF51B5B9BB6C183FCEF /* RunningLiveStatusModule.swift */,
+				F1D031F78FEF9C4A64B8F7B9 /* RunningLiveStatusModule.m */,
+				D8D81145AF179A682BB637DE /* RunningLiveStatusAttributes.swift */,
 			);
 			name = app;
+			sourceTree = "<group>";
+		};
+		246F2D9CEA16D1A15289AF56 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				F8498181CA99781B6D120813 /* Foundation.framework */,
+			);
+			name = iOS;
 			sourceTree = "<group>";
 		};
 		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
@@ -116,8 +175,22 @@
 				F73BCBDE2E8402E70087982B /* UnityFramework.framework */,
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
 				8D73E90F4DB8D4839B04E9AB /* libPods-app.a */,
+				246F2D9CEA16D1A15289AF56 /* iOS */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		2E873261BA8C3A8B9477ACE3 /* RunningLiveStatusWidget */ = {
+			isa = PBXGroup;
+			children = (
+				5211CB11B18CA9D8F70A61ED /* RunningLiveStatusLiveActivity.swift */,
+				A1BD71F978054117CEDA586A /* RunningLiveStatusIntent.swift */,
+				4E38084D67149E9723E6B042 /* RunningLiveStatusWidgetBundle.swift */,
+				705FE3EA1B374347A59DB355 /* Info.plist */,
+				A2586D3C5238A8BAA8E4BF06 /* RunningLiveStatusWidget.entitlements */,
+			);
+			name = RunningLiveStatusWidget;
+			path = RunningLiveStatusWidget;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -136,6 +209,7 @@
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
 				E54004E61C3B5C00C3BF10B5 /* Pods */,
 				11A16A66EDEE32626256B61C /* ExpoModulesProviders */,
+				2E873261BA8C3A8B9477ACE3 /* RunningLiveStatusWidget */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -146,6 +220,7 @@
 			isa = PBXGroup;
 			children = (
 				13B07F961A680F5B00A75B9A /* RunTaeho.app */,
+				D2C35FA1AC25A8CCACBDED80 /* RunningLiveStatusWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -193,15 +268,34 @@
 				1EAB617151155899E9934693 /* [CP] Embed Pods Frameworks */,
 				F70CE70B2E8A6F280043B98B /* Embed Frameworks */,
 				B7518CC071EF45C8B36BE467 /* Upload Debug Symbols to Sentry */,
+				B1365698093D16F2D867833F /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				9BBBDC228FBB9A66DA3B2F44 /* PBXTargetDependency */,
 			);
 			name = app;
 			productName = app;
 			productReference = 13B07F961A680F5B00A75B9A /* RunTaeho.app */;
 			productType = "com.apple.product-type.application";
+		};
+		3F9FEA4DFBA37FE49CCFADB2 /* RunningLiveStatusWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 612202EAE2BAE6167BE08D5F /* Build configuration list for PBXNativeTarget "RunningLiveStatusWidget" */;
+			buildPhases = (
+				D04CC502FDD1422849CA6E8A /* Sources */,
+				BC0F0C14DE754BCBF5E7AF65 /* Frameworks */,
+				8C49A0629E00B93D98605B46 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = RunningLiveStatusWidget;
+			productName = RunningLiveStatusWidget;
+			productReference = D2C35FA1AC25A8CCACBDED80 /* RunningLiveStatusWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -231,6 +325,7 @@
 			projectRoot = "";
 			targets = (
 				13B07F861A680F5B00A75B9A /* app */,
+				3F9FEA4DFBA37FE49CCFADB2 /* RunningLiveStatusWidget */,
 			);
 		};
 /* End PBXProject section */
@@ -244,6 +339,13 @@
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
 				ADCD3A47B76623C95774D5E0 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8C49A0629E00B93D98605B46 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -432,10 +534,33 @@
 				F76332C72F29A2D100E4B48E /* UnityNativeBridge.mm in Sources */,
 				F730CDDB2E925BF4002CDFCA /* UnityViewManager.m in Sources */,
 				D3ECE5C27DC205CBAEEC4ABE /* ExpoModulesProvider.swift in Sources */,
+				DF1BF8CF84ACF9D2ED406534 /* RunningLiveStatusModule.swift in Sources */,
+				56E4BA12D2C76A66376D30F7 /* RunningLiveStatusModule.m in Sources */,
+				1B5C43CEFB37BFF3A64848C9 /* RunningLiveStatusAttributes.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D04CC502FDD1422849CA6E8A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8C04D20EDB88E22E79C1B0C3 /* RunningLiveStatusLiveActivity.swift in Sources */,
+				469572A07A7308409CA1B996 /* RunningLiveStatusIntent.swift in Sources */,
+				BC79799253206646939C6281 /* RunningLiveStatusWidgetBundle.swift in Sources */,
+				DD381E20A0F6F48F92F07482 /* RunningLiveStatusAttributes.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		9BBBDC228FBB9A66DA3B2F44 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = RunningLiveStatusWidget;
+			target = 3F9FEA4DFBA37FE49CCFADB2 /* RunningLiveStatusWidget */;
+			targetProxy = DB9FD621190E991EC76F23CD /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
@@ -525,6 +650,49 @@
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
+		};
+		740593CCCBD205E426B33047 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = RunningLiveStatusWidget/RunningLiveStatusWidget.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 3F893P33SC;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = RunningLiveStatusWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.6;
+				PRODUCT_BUNDLE_IDENTIFIER = com.runtaeho.runtaeho.RunningLiveStatusWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		765908219D6C0CB08865796D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = RunningLiveStatusWidget/RunningLiveStatusWidget.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 3F893P33SC;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = RunningLiveStatusWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.6;
+				PRODUCT_BUNDLE_IDENTIFIER = com.runtaeho.runtaeho.RunningLiveStatusWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
 		};
 		83CBBA201A601CBA00E9B192 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -652,6 +820,15 @@
 			buildConfigurations = (
 				13B07F941A680F5B00A75B9A /* Debug */,
 				13B07F951A680F5B00A75B9A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		612202EAE2BAE6167BE08D5F /* Build configuration list for PBXNativeTarget "RunningLiveStatusWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				740593CCCBD205E426B33047 /* Release */,
+				765908219D6C0CB08865796D /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

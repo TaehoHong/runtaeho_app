@@ -30,3 +30,4 @@ export { useRunningStats } from './useRunningStats';
 export { useGpsTracking } from './useGpsTracking';
 export { useUnityCharacterControl } from './useUnityCharacterControl';
 export { useRunningLifecycle } from './useRunningLifecycle';
+export { useRunningLiveStatus } from './useRunningLiveStatus';

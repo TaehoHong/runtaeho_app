@@ -29,7 +29,14 @@ const mockSaveRunningRecordItems = jest.fn();
 
 jest.mock('~/services/PermissionManager', () => ({
   permissionManager: {
-    checkRequiredPermissions: (...args: unknown[]) => mockCheckRequiredPermissions(...args),
+    checkRequiredPermissions: async (...args: unknown[]) => {
+      const result = await mockCheckRequiredPermissions(...args);
+      return {
+        ...result,
+        canStartRunning: result.canStartRunning ?? result.hasAllPermissions,
+      };
+    },
+    getMissingPermissionsMessage: jest.fn(() => 'Required permissions missing'),
   },
 }));
 
@@ -120,6 +127,9 @@ const buildHookProps = (overrides?: {
   const stopGpsTracking = jest
     .fn()
     .mockResolvedValue({ distance: overrides?.stopGpsDistance ?? 5, locations: [] as never[] });
+  const pauseGpsTracking = jest.fn();
+  const resumeGpsTracking = jest.fn();
+  const resetGpsTracking = jest.fn();
   const resetStats = jest.fn();
   const setStats = jest.fn();
   const initializeSegmentTracking = jest.fn();
@@ -132,6 +142,9 @@ const buildHookProps = (overrides?: {
     paceSnapshotsRef: { current: overrides?.paceSnapshots ?? [] },
     startGpsTracking,
     stopGpsTracking,
+    pauseGpsTracking,
+    resumeGpsTracking,
+    resetGpsTracking,
     resetStats,
     setStats,
     initializeSegmentTracking,
@@ -155,6 +168,9 @@ const buildHookProps = (overrides?: {
     mocks: {
       startGpsTracking,
       stopGpsTracking,
+      pauseGpsTracking,
+      resumeGpsTracking,
+      resetGpsTracking,
       resetStats,
       setStats,
       initializeSegmentTracking,
@@ -210,9 +226,10 @@ describe('useRunningLifecycle', () => {
     expect(mockLocationStopTracking).not.toHaveBeenCalled();
   });
 
-  it('starts with foreground-only mode and handles unavailable pedometer', async () => {
+  it('cleans up when pedometer start fails', async () => {
     const record = createRunningRecord(102);
     mockCheckRequiredPermissions.mockResolvedValue({
+      canStartRunning: true,
       hasAllPermissions: false,
       location: true,
       locationBackground: false,
@@ -224,17 +241,24 @@ describe('useRunningLifecycle', () => {
     const { props, mocks } = buildHookProps();
     const { result } = renderHook(() => useRunningLifecycle(props));
 
+    let startError: unknown;
     await act(async () => {
-      const startedRecord = await result.current.startRunning();
-      expect(startedRecord.id).toBe(102);
+      try {
+        await result.current.startRunning();
+      } catch (error) {
+        startError = error;
+      }
     });
 
+    expect(startError).toEqual(expect.any(Error));
+    expect((startError as Error).message).toBe('pedometer-unavailable');
     expect(mocks.startGpsTracking).toHaveBeenCalledWith(102);
-    expect(mocks.resetStats).toHaveBeenCalledTimes(1);
-    expect(mockPedometerStopTracking).not.toHaveBeenCalled();
+    expect(mocks.resetGpsTracking).toHaveBeenCalledTimes(1);
+    expect(mockPedometerStopTracking).toHaveBeenCalledTimes(1);
+    expect(useAppStore.getState().runningState).toBe(RunningState.Stopped);
   });
 
-  it('returns dummy record and performs cleanup when start fails', async () => {
+  it('throws and performs cleanup when start permission checks fail', async () => {
     mockCheckRequiredPermissions.mockResolvedValue({
       hasAllPermissions: false,
       location: false,
@@ -245,17 +269,22 @@ describe('useRunningLifecycle', () => {
     const { props, mocks } = buildHookProps();
     const { result } = renderHook(() => useRunningLifecycle(props));
 
-    let startedRecord: RunningRecord | null = null;
+    let startError: unknown;
     await act(async () => {
-      startedRecord = await result.current.startRunning();
+      try {
+        await result.current.startRunning();
+      } catch (error) {
+        startError = error;
+      }
     });
 
-    expect(startedRecord?.id).toBe(0);
+    expect(startError).toEqual(expect.any(Error));
+    expect((startError as Error).message).toBe('Required permissions missing');
     expect(mockStartRunningMutation).not.toHaveBeenCalled();
     expect(mocks.startGpsTracking).not.toHaveBeenCalled();
-    expect(mockLocationStopTracking).toHaveBeenCalledTimes(1);
+    expect(mocks.resetGpsTracking).toHaveBeenCalledTimes(1);
     expect(mockPedometerStopTracking).toHaveBeenCalledTimes(1);
-    expect(useAppStore.getState().runningState).toBe(RunningState.Running);
+    expect(useAppStore.getState().runningState).toBe(RunningState.Stopped);
   });
 
   it('pauses and resumes running with pause duration accumulation', async () => {
@@ -264,14 +293,14 @@ describe('useRunningLifecycle', () => {
       .mockReturnValueOnce(1000)
       .mockReturnValueOnce(7000);
 
-    const { props } = buildHookProps();
+    const { props, mocks } = buildHookProps();
     const { result } = renderHook(() => useRunningLifecycle(props));
 
     act(() => {
       result.current.pauseRunning();
     });
 
-    expect(mockLocationPauseTracking).toHaveBeenCalledTimes(1);
+    expect(mocks.pauseGpsTracking).toHaveBeenCalledTimes(1);
     expect(useAppStore.getState().runningState).toBe(RunningState.Paused);
 
     act(() => {
@@ -279,7 +308,7 @@ describe('useRunningLifecycle', () => {
     });
 
     expect(result.current.pausedDuration).toBe(6);
-    expect(mockLocationResumeTracking).toHaveBeenCalledTimes(1);
+    expect(mocks.resumeGpsTracking).toHaveBeenCalledTimes(1);
     expect(useAppStore.getState().runningState).toBe(RunningState.Running);
     dateNowSpy.mockRestore();
   });
@@ -290,14 +319,15 @@ describe('useRunningLifecycle', () => {
       .mockReturnValueOnce(1000)
       .mockReturnValueOnce(5000);
 
-    const { props } = buildHookProps({ useBackgroundMode: true });
+    const { props, mocks } = buildHookProps({ useBackgroundMode: true });
     const { result } = renderHook(() => useRunningLifecycle(props));
 
     act(() => {
       result.current.pauseRunning();
     });
 
-    expect(mockBackgroundPauseTracking).toHaveBeenCalledTimes(1);
+    expect(mocks.pauseGpsTracking).toHaveBeenCalledTimes(1);
+    expect(mockBackgroundPauseTracking).not.toHaveBeenCalled();
     expect(mockLocationPauseTracking).not.toHaveBeenCalled();
     expect(useAppStore.getState().runningState).toBe(RunningState.Paused);
 
@@ -305,7 +335,8 @@ describe('useRunningLifecycle', () => {
       result.current.resumeRunning();
     });
 
-    expect(mockBackgroundResumeTracking).toHaveBeenCalledTimes(1);
+    expect(mocks.resumeGpsTracking).toHaveBeenCalledTimes(1);
+    expect(mockBackgroundResumeTracking).not.toHaveBeenCalled();
     expect(mockLocationResumeTracking).not.toHaveBeenCalled();
     expect(useAppStore.getState().runningState).toBe(RunningState.Running);
 
@@ -341,6 +372,39 @@ describe('useRunningLifecycle', () => {
     expect(mockSaveRunningRecordItems).not.toHaveBeenCalled();
     expect(mockOfflineAddPendingUpload).not.toHaveBeenCalled();
     expect(mockBackgroundClearData).toHaveBeenCalledTimes(1);
+    expect(useAppStore.getState().runningState).toBe(RunningState.Finished);
+  });
+
+  it('ends with restored record overrides when current record state was lost', async () => {
+    const restoredRecord = createRunningRecord(909);
+    mockEndRunningMutation.mockResolvedValue({
+      id: 909,
+      distance: 80,
+      cadence: 0,
+      heartRate: 0,
+      calorie: 0,
+      durationSec: 240,
+      point: 0,
+    });
+
+    const { props } = buildHookProps({ stopGpsDistance: 0 });
+    const { result } = renderHook(() => useRunningLifecycle(props));
+
+    await act(async () => {
+      await result.current.endRunning({
+        currentRecord: restoredRecord,
+        distance: 80,
+        elapsedTime: 240,
+      });
+    });
+
+    expect(mockEndRunningMutation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 909,
+        distance: 80,
+        durationSec: 240,
+      })
+    );
     expect(useAppStore.getState().runningState).toBe(RunningState.Finished);
   });
 
@@ -544,8 +608,8 @@ describe('useRunningLifecycle', () => {
     });
 
     await expect(result.current.endRunning()).rejects.toThrow('stop-gps-failed');
-    expect(mockLocationStopTracking).toHaveBeenCalled();
-    expect(mockBackgroundStopTracking).toHaveBeenCalled();
+    expect(props.resetGpsTracking).toHaveBeenCalled();
+    expect(mockBackgroundStopTracking).not.toHaveBeenCalled();
     expect(mockPedometerStopTracking).toHaveBeenCalled();
   });
 

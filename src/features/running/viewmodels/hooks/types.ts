@@ -222,6 +222,12 @@ export interface PedometerData {
   cadence: number;
 }
 
+export interface EndRunningOverrides {
+  currentRecord?: RunningRecord;
+  elapsedTime?: number;
+  distance?: number;
+}
+
 /**
  * useRunningLifecycle hook 반환 타입
  */
@@ -246,7 +252,7 @@ export interface UseRunningLifecycleReturn {
   pauseRunning: () => void;
   applyAutoPause: () => void;
   resumeRunning: () => void;
-  endRunning: () => Promise<EndRunningRecord | null>;
+  endRunning: (overrides?: EndRunningOverrides) => Promise<EndRunningRecord | null>;
   updateCurrentRecord: () => Promise<void>;
   resetRunning: () => void;
 }
@@ -274,7 +280,7 @@ export interface UseRunningViewModelReturn {
   startRunning: () => Promise<RunningRecord>;
   pauseRunning: () => void;
   resumeRunning: () => void;
-  endRunning: () => Promise<EndRunningRecord | null>;
+  endRunning: (overrides?: EndRunningOverrides) => Promise<EndRunningRecord | null>;
   updateCurrentRecord: () => Promise<void>;
   resetRunning: () => void;
 
