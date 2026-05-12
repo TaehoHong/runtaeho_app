@@ -3,7 +3,7 @@ import { AppState, type AppStateStatus } from 'react-native';
 import { useForceUpdateStore } from '../stores/forceUpdateStore';
 import { checkVersionFromServer } from '../services/forceUpdateService';
 import { FORCE_UPDATE_CONFIG } from '../constants';
-import { ForceUpdateStatus } from '../models/ForceUpdateState';
+import { ForceUpdateStatus, type ForceUpdateCheckSource } from '../models/ForceUpdateState';
 import { useAppStore, RunningState } from '~/stores/app/appStore';
 
 interface UseForceUpdateCheckOptions {
@@ -21,6 +21,7 @@ export function useForceUpdateCheck(options: UseForceUpdateCheckOptions = {}) {
 
   const {
     status,
+    checkSource,
     minimumVersion,
     message,
     error,
@@ -37,13 +38,15 @@ export function useForceUpdateCheck(options: UseForceUpdateCheckOptions = {}) {
 
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const isCheckingRef = useRef(false);
-  const checkForUpdateRef = useRef<((force?: boolean) => Promise<void>) | null>(null);
+  const performVersionCheckRef = useRef<(
+    (force: boolean, source: ForceUpdateCheckSource) => Promise<void>
+  ) | null>(null);
 
   /**
    * 버전 체크 실행
    */
-  const checkForUpdate = useCallback(
-    async (force = false) => {
+  const performVersionCheck = useCallback(
+    async (force: boolean, source: ForceUpdateCheckSource) => {
       // 이미 체크 중이면 스킵
       if (isCheckingRef.current) {
         if (__DEV__) console.log('[ForceUpdate] Already checking, skipping...');
@@ -65,7 +68,7 @@ export function useForceUpdateCheck(options: UseForceUpdateCheckOptions = {}) {
 
       try {
         isCheckingRef.current = true;
-        setChecking();
+        setChecking(source);
 
         if (__DEV__) console.log('[ForceUpdate] Checking version...');
 
@@ -94,9 +97,16 @@ export function useForceUpdateCheck(options: UseForceUpdateCheckOptions = {}) {
     [lastCheckedAt, setChecking, setUpdateRequired, setUpToDate, setError]
   );
 
+  const checkForUpdate = useCallback(
+    async (force = false) => {
+      await performVersionCheck(force, 'manual');
+    },
+    [performVersionCheck]
+  );
+
   useEffect(() => {
-    checkForUpdateRef.current = checkForUpdate;
-  }, [checkForUpdate]);
+    performVersionCheckRef.current = performVersionCheck;
+  }, [performVersionCheck]);
 
   /**
    * 앱 상태 변경 핸들러 (포그라운드 복귀 감지)
@@ -121,18 +131,18 @@ export function useForceUpdateCheck(options: UseForceUpdateCheckOptions = {}) {
         if (__DEV__) {
           console.log('[ForceUpdate] App came to foreground, checking...');
         }
-        checkForUpdate(false); // debounce 적용
+        performVersionCheck(false, 'foreground'); // debounce 적용
       }
 
       appStateRef.current = nextAppState;
     },
-    [checkOnForeground, checkForUpdate, isRunning]
+    [checkOnForeground, performVersionCheck, isRunning]
   );
 
   // 앱 시작 시 체크
   useEffect(() => {
     if (checkOnLaunch) {
-      checkForUpdateRef.current?.(true); // force 체크 (debounce 무시)
+      performVersionCheckRef.current?.(true, 'launch'); // force 체크 (debounce 무시)
     }
   }, [checkOnLaunch]);
 
@@ -152,6 +162,7 @@ export function useForceUpdateCheck(options: UseForceUpdateCheckOptions = {}) {
 
   return {
     status,
+    checkSource,
     minimumVersion,
     message,
     error,

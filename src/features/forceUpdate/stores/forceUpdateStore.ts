@@ -9,6 +9,7 @@ type ForceUpdateStore = ForceUpdateState & ForceUpdateActions;
 
 const initialState: ForceUpdateState = {
   status: ForceUpdateStatus.IDLE,
+  checkSource: null,
   minimumVersion: null,
   message: null,
   error: null,
@@ -18,9 +19,10 @@ const initialState: ForceUpdateState = {
 export const useForceUpdateStore = create<ForceUpdateStore>((set) => ({
   ...initialState,
 
-  setChecking: () =>
+  setChecking: (source = 'manual') =>
     set({
       status: ForceUpdateStatus.CHECKING,
+      checkSource: source,
       error: null,
     }),
 

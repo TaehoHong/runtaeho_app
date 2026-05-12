@@ -41,6 +41,7 @@ export function ForceUpdateProvider({
 }: ForceUpdateProviderProps) {
   const {
     status,
+    checkSource,
     minimumVersion,
     message,
     error,
@@ -65,9 +66,9 @@ export function ForceUpdateProvider({
     [isUpdateRequired, isChecking, isError, minimumVersion, message, checkForUpdate]
   );
 
-  // 모달 표시 여부: 체크 중, 업데이트 필요, 에러 상태일 때
+  // 포그라운드 복귀 체크는 조용히 실행하고, 결과가 필요할 때만 모달을 표시한다.
   const showModal =
-    status === ForceUpdateStatus.CHECKING ||
+    (status === ForceUpdateStatus.CHECKING && checkSource !== 'foreground') ||
     status === ForceUpdateStatus.UPDATE_REQUIRED ||
     status === ForceUpdateStatus.ERROR;
 

@@ -19,6 +19,8 @@ export enum ForceUpdateStatus {
   ERROR = 'error',
 }
 
+export type ForceUpdateCheckSource = 'launch' | 'foreground' | 'manual';
+
 /**
  * 서버 응답 타입
  */
@@ -33,6 +35,7 @@ export interface VersionCheckResponse {
  */
 export interface ForceUpdateState {
   status: ForceUpdateStatus;
+  checkSource: ForceUpdateCheckSource | null;
   minimumVersion: string | null;
   message: string | null;
   error: Error | null;
@@ -43,7 +46,7 @@ export interface ForceUpdateState {
  * 강제 업데이트 스토어 액션
  */
 export interface ForceUpdateActions {
-  setChecking: () => void;
+  setChecking: (source?: ForceUpdateCheckSource) => void;
   setUpdateRequired: (minimumVersion: string, message: string | null) => void;
   setUpToDate: () => void;
   setError: (error: Error) => void;
