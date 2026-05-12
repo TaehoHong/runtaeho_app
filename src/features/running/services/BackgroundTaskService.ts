@@ -11,11 +11,13 @@ import * as TaskManager from 'expo-task-manager';
 import { Platform } from 'react-native';
 import {
   createInitialGpsFilterState,
-  DEFAULT_GPS_FILTER_CONFIG,
   reduceGpsSample,
+  type GpsFilterResult,
   type GpsFilterState,
+  type GpsRejectReason,
   type GpsSample,
 } from './gps/GpsFilter';
+import { getGpsCorrectionStrategy } from './gps/GpsCorrectionStrategy';
 import { RED } from '~/shared/styles';
 
 /**
@@ -40,7 +42,7 @@ const STORAGE_KEYS = {
 interface BackgroundRunningSession {
   runningRecordId: number;
   startTime: number;
-  isActive: boolean;
+  shouldProcessLocations: boolean;
   totalDistance: number;
   locationCount: number;
 }
@@ -71,15 +73,122 @@ export interface BackgroundTrackingSeed {
   filterState?: GpsFilterState;
 }
 
-interface BackgroundTrackingOptions {
-  isActive?: boolean;
+export interface BackgroundTrackingOptions {
+  shouldProcessLocations?: boolean;
 }
+
+const BACKGROUND_SESSION_NOT_INITIALIZED_MESSAGE =
+  'Background tracking session is not initialized';
+
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value);
+
+const parseBackgroundRunningSession = (raw: string): BackgroundRunningSession => {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error('Invalid background tracking session JSON');
+  }
+
+  if (!parsed || typeof parsed !== 'object') {
+    throw new Error('Invalid background tracking session shape');
+  }
+
+  const session = parsed as {
+    runningRecordId?: unknown;
+    startTime?: unknown;
+    shouldProcessLocations?: unknown;
+    isActive?: unknown;
+    totalDistance?: unknown;
+    locationCount?: unknown;
+  };
+
+  const shouldProcessLocations =
+    typeof session.shouldProcessLocations === 'boolean'
+      ? session.shouldProcessLocations
+      : typeof session.isActive === 'boolean'
+        ? session.isActive
+        : null;
+
+  if (
+    !isFiniteNumber(session.runningRecordId) ||
+    !isFiniteNumber(session.startTime) ||
+    shouldProcessLocations === null ||
+    !isFiniteNumber(session.totalDistance) ||
+    !isFiniteNumber(session.locationCount)
+  ) {
+    throw new Error('Invalid background tracking session shape');
+  }
+
+  return {
+    runningRecordId: session.runningRecordId,
+    startTime: session.startTime,
+    shouldProcessLocations,
+    totalDistance: session.totalDistance,
+    locationCount: session.locationCount,
+  };
+};
+
+const resolveShouldProcessLocations = ({
+  shouldProcessLocations,
+}: BackgroundTrackingOptions): boolean => shouldProcessLocations ?? true;
+
+interface BackgroundGpsFilterSummary {
+  acceptedCount: number;
+  acceptedDistanceMeters: number;
+  rejected: Partial<Record<GpsRejectReason, number>>;
+}
+
+const createBackgroundGpsFilterSummary = (): BackgroundGpsFilterSummary => ({
+  acceptedCount: 0,
+  acceptedDistanceMeters: 0,
+  rejected: {},
+});
+
+const recordBackgroundGpsFilterResult = (
+  summary: BackgroundGpsFilterSummary,
+  result: GpsFilterResult
+): void => {
+  if (result.acceptedForDistance) {
+    summary.acceptedCount += 1;
+    summary.acceptedDistanceMeters += result.distanceMeters;
+    return;
+  }
+
+  if (result.reason === 'NO_PREVIOUS_SAMPLE') {
+    return;
+  }
+
+  summary.rejected[result.reason] = (summary.rejected[result.reason] ?? 0) + 1;
+};
+
+const logAndroidBackgroundGpsFilterSummary = (
+  summary: BackgroundGpsFilterSummary
+): void => {
+  if (summary.acceptedCount === 0 && Object.keys(summary.rejected).length === 0) {
+    return;
+  }
+
+  console.log('[BackgroundTask] Android GPS filter summary:', {
+    acceptedCount: summary.acceptedCount,
+    acceptedDistanceMeters: Number(summary.acceptedDistanceMeters.toFixed(2)),
+    rejected: summary.rejected,
+  });
+};
 
 /**
  * Background Task 정의
  * 백그라운드에서 위치 업데이트 처리
  */
-TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
+export const processBackgroundLocationTask = async ({
+  data,
+  error,
+}: {
+  data?: unknown;
+  error?: unknown;
+}): Promise<void> => {
   if (error) {
     console.error('[BackgroundTask] Error:', error);
     return;
@@ -100,8 +209,8 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
         return;
       }
 
-      const session: BackgroundRunningSession = JSON.parse(sessionData);
-      if (!session.isActive) {
+      const session = parseBackgroundRunningSession(sessionData);
+      if (!session.shouldProcessLocations) {
         return;
       }
 
@@ -120,6 +229,13 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
       let totalDistanceAdded = 0;
       const newLocations: BackgroundLocationData[] = [];
       let latestPaceSignal: BackgroundPaceSignal | null = null;
+      const strategy = getGpsCorrectionStrategy({
+        platform: Platform.OS,
+        source: 'background',
+      });
+      const filterConfig = strategy.getFilterConfig();
+      const filterSummary =
+        Platform.OS === 'android' ? createBackgroundGpsFilterSummary() : null;
 
       for (const location of locations) {
         const currentSample: GpsSample = {
@@ -144,9 +260,12 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
         const { result: filterResult, nextState } = reduceGpsSample(
           gpsFilterState,
           currentSample,
-          DEFAULT_GPS_FILTER_CONFIG
+          filterConfig
         );
         gpsFilterState = nextState;
+        if (filterSummary) {
+          recordBackgroundGpsFilterResult(filterSummary, filterResult);
+        }
 
         if (filterResult.acceptedForDistance) {
           totalDistanceAdded += filterResult.distanceMeters;
@@ -192,16 +311,16 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
 
       await AsyncStorage.multiSet(updates);
 
-      // console.log(
-      //   `[BackgroundTask] Processed ${newLocations.length} locations, ` +
-      //   `distance added: ${totalDistanceAdded.toFixed(2)}m, ` +
-      //   `total: ${updatedSession.totalDistance.toFixed(2)}m`
-      // );
+      if (filterSummary) {
+        logAndroidBackgroundGpsFilterSummary(filterSummary);
+      }
     } catch (err) {
       console.error('[BackgroundTask] Error processing locations:', err);
     }
   }
-});
+};
+
+TaskManager.defineTask(BACKGROUND_LOCATION_TASK, processBackgroundLocationTask);
 
 /**
  * Background Task Service
@@ -221,12 +340,12 @@ export class BackgroundTaskService {
   private async persistTrackingState(
     runningRecordId: number,
     seed: BackgroundTrackingSeed = {},
-    { isActive = true }: BackgroundTrackingOptions = {}
+    options: BackgroundTrackingOptions = {}
   ): Promise<void> {
     const session: BackgroundRunningSession = {
       runningRecordId,
       startTime: Date.now(),
-      isActive,
+      shouldProcessLocations: resolveShouldProcessLocations(options),
       totalDistance: seed.totalDistance ?? 0,
       locationCount: seed.locations?.length ?? 0,
     };
@@ -272,14 +391,14 @@ export class BackgroundTaskService {
         await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
       }
 
+      const strategy = getGpsCorrectionStrategy({
+        platform: Platform.OS,
+        source: 'background',
+      });
+
       // 백그라운드 위치 업데이트 시작
       await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, {
-        accuracy: Location.Accuracy.High,
-        timeInterval: 2000, // 2초
-        distanceInterval: 5, // 5m
-        deferredUpdatesInterval: 2000,
-        deferredUpdatesDistance: 5,
-        showsBackgroundLocationIndicator: true,
+        ...strategy.getLocationOptions(),
         // Foreground Service 설정 (Android)
         ...(Platform.OS === 'android' && {
           foregroundService: {
@@ -297,7 +416,7 @@ export class BackgroundTaskService {
     }
   }
 
-  async syncBackgroundTracking(
+  async persistBackgroundTrackingState(
     runningRecordId: number,
     seed: BackgroundTrackingSeed = {},
     options: BackgroundTrackingOptions = {}
@@ -305,7 +424,7 @@ export class BackgroundTaskService {
     try {
       await this.persistTrackingState(runningRecordId, seed, options);
     } catch (error) {
-      console.error('[BackgroundTask] Failed to sync tracking state:', error);
+      console.error('[BackgroundTask] Failed to persist tracking state:', error);
       throw error;
     }
   }
@@ -323,10 +442,10 @@ export class BackgroundTaskService {
       // 세션 비활성화
       const sessionData = await AsyncStorage.getItem(STORAGE_KEYS.RUNNING_SESSION);
       if (sessionData) {
-        const session: BackgroundRunningSession = JSON.parse(sessionData);
+        const session = parseBackgroundRunningSession(sessionData);
         await AsyncStorage.setItem(
           STORAGE_KEYS.RUNNING_SESSION,
-          JSON.stringify({ ...session, isActive: false })
+          JSON.stringify({ ...session, shouldProcessLocations: false })
         );
       }
 
@@ -340,19 +459,22 @@ export class BackgroundTaskService {
   /**
    * 백그라운드 추적 일시정지 (세션 비활성화)
    */
-  async pauseBackgroundTracking(): Promise<void> {
+  async deactivateBackgroundSession(): Promise<void> {
     try {
       const sessionData = await AsyncStorage.getItem(STORAGE_KEYS.RUNNING_SESSION);
       if (!sessionData) return;
 
-      const session: BackgroundRunningSession = JSON.parse(sessionData);
+      const session = parseBackgroundRunningSession(sessionData);
       await AsyncStorage.multiSet([
-        [STORAGE_KEYS.RUNNING_SESSION, JSON.stringify({ ...session, isActive: false })],
+        [
+          STORAGE_KEYS.RUNNING_SESSION,
+          JSON.stringify({ ...session, shouldProcessLocations: false }),
+        ],
         [STORAGE_KEYS.GPS_FILTER_STATE, JSON.stringify(createInitialGpsFilterState())],
       ]);
-      console.log('[BackgroundTask] Paused background tracking');
+      console.log('[BackgroundTask] Deactivated background session');
     } catch (error) {
-      console.error('[BackgroundTask] Failed to pause:', error);
+      console.error('[BackgroundTask] Failed to deactivate background session:', error);
       throw error;
     }
   }
@@ -360,16 +482,21 @@ export class BackgroundTaskService {
   /**
    * 백그라운드 추적 재개 (세션 활성화 + 필터 재앵커)
    */
-  async resumeBackgroundTracking(
+  async activateBackgroundSession(
     { resetFilterState = true }: { resetFilterState?: boolean } = {}
   ): Promise<void> {
     try {
       const sessionData = await AsyncStorage.getItem(STORAGE_KEYS.RUNNING_SESSION);
-      if (!sessionData) return;
+      if (!sessionData) {
+        throw new Error(BACKGROUND_SESSION_NOT_INITIALIZED_MESSAGE);
+      }
 
-      const session: BackgroundRunningSession = JSON.parse(sessionData);
+      const session = parseBackgroundRunningSession(sessionData);
       const updates: [string, string][] = [
-        [STORAGE_KEYS.RUNNING_SESSION, JSON.stringify({ ...session, isActive: true })],
+        [
+          STORAGE_KEYS.RUNNING_SESSION,
+          JSON.stringify({ ...session, shouldProcessLocations: true }),
+        ],
       ];
       if (resetFilterState) {
         updates.push([
@@ -378,9 +505,9 @@ export class BackgroundTaskService {
         ]);
       }
       await AsyncStorage.multiSet(updates);
-      console.log('[BackgroundTask] Resumed background tracking');
+      console.log('[BackgroundTask] Activated background session');
     } catch (error) {
-      console.error('[BackgroundTask] Failed to resume:', error);
+      console.error('[BackgroundTask] Failed to activate background session:', error);
       throw error;
     }
   }
@@ -391,7 +518,7 @@ export class BackgroundTaskService {
   async getCurrentSession(): Promise<BackgroundRunningSession | null> {
     try {
       const sessionData = await AsyncStorage.getItem(STORAGE_KEYS.RUNNING_SESSION);
-      return sessionData ? JSON.parse(sessionData) : null;
+      return sessionData ? parseBackgroundRunningSession(sessionData) : null;
     } catch (error) {
       console.error('[BackgroundTask] Failed to get session:', error);
       return null;
@@ -407,7 +534,7 @@ export class BackgroundTaskService {
       return raw ? JSON.parse(raw) : null;
     } catch (error) {
       console.error('[BackgroundTask] Failed to get latest pace signal:', error);
-      return null;
+      throw error;
     }
   }
 
@@ -419,7 +546,7 @@ export class BackgroundTaskService {
         : createInitialGpsFilterState();
     } catch (error) {
       console.error('[BackgroundTask] Failed to get GPS filter state:', error);
-      return createInitialGpsFilterState();
+      throw error;
     }
   }
 
@@ -432,7 +559,7 @@ export class BackgroundTaskService {
       return locationsData ? JSON.parse(locationsData) : [];
     } catch (error) {
       console.error('[BackgroundTask] Failed to get locations:', error);
-      return [];
+      throw error;
     }
   }
 
@@ -445,7 +572,7 @@ export class BackgroundTaskService {
       return distance ? parseFloat(distance) : 0;
     } catch (error) {
       console.error('[BackgroundTask] Failed to get distance:', error);
-      return 0;
+      throw error;
     }
   }
 
@@ -479,7 +606,7 @@ export class BackgroundTaskService {
    */
   async isRunning(): Promise<boolean> {
     const session = await this.getCurrentSession();
-    return session?.isActive ?? false;
+    return session?.shouldProcessLocations ?? false;
   }
 }
 

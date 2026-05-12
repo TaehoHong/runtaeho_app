@@ -206,10 +206,12 @@ export class RunningTrackingCoordinator {
     try {
       if (this.appState === 'active') {
         shouldCleanupBackgroundTask = true;
-        await backgroundTaskService.startBackgroundTracking(recordId, {}, { isActive: false });
+        await backgroundTaskService.startBackgroundTracking(recordId, {}, {
+          shouldProcessLocations: false,
+        });
 
         if (this.appState !== 'active') {
-          await this.startBackgroundSource({ requireAvailable: true });
+          await this.startBackgroundSource({ requireRegisteredTask: true });
           return;
         }
 
@@ -218,7 +220,7 @@ export class RunningTrackingCoordinator {
         } catch (error) {
           if (this.appState !== 'active') {
             locationService.stopTracking();
-            await this.startBackgroundSource({ requireAvailable: true });
+            await this.startBackgroundSource({ requireRegisteredTask: true });
             return;
           }
 
@@ -226,13 +228,13 @@ export class RunningTrackingCoordinator {
         }
 
         if (this.appState !== 'active') {
-          await this.startBackgroundSource({ requireAvailable: true });
+          await this.startBackgroundSource({ requireRegisteredTask: true });
         }
 
         return;
       }
 
-      await this.startBackgroundSource({ requireAvailable: true });
+      await this.startBackgroundSource({ requireRegisteredTask: true });
     } catch (error) {
       if (shouldCleanupBackgroundTask) {
         backgroundTaskService.stopBackgroundTracking().catch(() => undefined);
@@ -289,8 +291,8 @@ export class RunningTrackingCoordinator {
     }
 
     if (this.source === 'background') {
-      backgroundTaskService.pauseBackgroundTracking().catch((error) => {
-        console.error('[RunningTrackingCoordinator] Failed to pause background tracking:', error);
+      backgroundTaskService.deactivateBackgroundSession().catch((error) => {
+        console.error('[RunningTrackingCoordinator] Failed to deactivate background session:', error);
       });
     }
   }
@@ -304,8 +306,8 @@ export class RunningTrackingCoordinator {
     }
 
     if (this.source === 'background') {
-      backgroundTaskService.resumeBackgroundTracking().catch((error) => {
-        console.error('[RunningTrackingCoordinator] Failed to resume background tracking:', error);
+      backgroundTaskService.activateBackgroundSession().catch((error) => {
+        console.error('[RunningTrackingCoordinator] Failed to activate background session:', error);
       });
       return;
     }
@@ -320,7 +322,7 @@ export class RunningTrackingCoordinator {
     }
 
     void this.startBackgroundSource().catch((error) => {
-      console.error('[RunningTrackingCoordinator] Failed to resume background tracking:', error);
+      console.error('[RunningTrackingCoordinator] Failed to start background source:', error);
     });
   }
 
@@ -410,7 +412,7 @@ export class RunningTrackingCoordinator {
       return;
     }
 
-    await backgroundTaskService.pauseBackgroundTracking();
+    await backgroundTaskService.deactivateBackgroundSession();
     this.source = 'idle';
     this.setSnapshot({
       source: 'idle',
@@ -433,7 +435,7 @@ export class RunningTrackingCoordinator {
     this.foregroundLiveLocations = [];
 
     if (this.source === 'background') {
-      await backgroundTaskService.pauseBackgroundTracking();
+      await backgroundTaskService.deactivateBackgroundSession();
     }
 
     await locationService.startTracking({
@@ -446,7 +448,7 @@ export class RunningTrackingCoordinator {
   }
 
   private async startBackgroundSource(
-    { requireAvailable = false }: { requireAvailable?: boolean } = {}
+    { requireRegisteredTask = false }: { requireRegisteredTask?: boolean } = {}
   ): Promise<boolean> {
     if (this.source === 'background' || this.currentRecordId === null) {
       return this.source === 'background';
@@ -454,15 +456,8 @@ export class RunningTrackingCoordinator {
 
     const isRegistered = await backgroundTaskService.isTaskRegistered();
 
-    if (!isRegistered && this.appState !== 'active') {
-      if (requireAvailable) {
-        throw new Error(BACKGROUND_TASK_UNAVAILABLE_MESSAGE);
-      }
-
-      console.warn(
-        '[RunningTrackingCoordinator] Background task is unavailable during background handoff; keeping current source active'
-      );
-      return false;
+    if (!isRegistered && (this.appState !== 'active' || requireRegisteredTask)) {
+      throw new Error(BACKGROUND_TASK_UNAVAILABLE_MESSAGE);
     }
 
     const filterState = this.source === 'foreground' ? locationService.getGpsFilterState() : undefined;
@@ -480,10 +475,10 @@ export class RunningTrackingCoordinator {
     }
 
     if (isRegistered) {
-      await backgroundTaskService.syncBackgroundTracking(this.currentRecordId, seed, {
-        isActive: true,
+      await backgroundTaskService.persistBackgroundTrackingState(this.currentRecordId, seed, {
+        shouldProcessLocations: true,
       });
-      await backgroundTaskService.resumeBackgroundTracking({ resetFilterState: false });
+      await backgroundTaskService.activateBackgroundSession({ resetFilterState: false });
     } else {
       await backgroundTaskService.startBackgroundTracking(this.currentRecordId, seed);
     }

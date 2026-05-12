@@ -5,15 +5,16 @@
  */
 
 import * as ExpoLocation from 'expo-location';
+import { Platform } from 'react-native';
 import { type Location, createLocationFromPosition } from '../models/Location';
 import {
   cloneGpsFilterState,
   createInitialGpsFilterState,
-  DEFAULT_GPS_FILTER_CONFIG,
   reduceGpsSample,
   type GpsFilterState,
   type GpsSample,
 } from './gps/GpsFilter';
+import { getGpsCorrectionStrategy } from './gps/GpsCorrectionStrategy';
 
 /**
  * 위치 추적 설정
@@ -128,12 +129,19 @@ export class LocationService {
     this.isPaused = false;
 
     // GPS 추적 시작
+    const strategy = getGpsCorrectionStrategy({
+      platform: Platform.OS,
+      source: 'foreground',
+    });
+    const locationOptions = {
+      ...strategy.getLocationOptions(),
+      accuracy: this.config.accuracy,
+      timeInterval: this.config.timeInterval,
+      distanceInterval: this.config.distanceInterval,
+    };
+
     this.watchSubscription = await ExpoLocation.watchPositionAsync(
-      {
-        accuracy: this.config.accuracy,
-        timeInterval: this.config.timeInterval,
-        distanceInterval: this.config.distanceInterval,
-      },
+      locationOptions,
       (position) => this.updateLocation(position)
     );
 
@@ -198,7 +206,10 @@ export class LocationService {
       this.gpsFilterState,
       currentSample,
       {
-        ...DEFAULT_GPS_FILTER_CONFIG,
+        ...getGpsCorrectionStrategy({
+          platform: Platform.OS,
+          source: 'foreground',
+        }).getFilterConfig(),
         maxAccuracyMeters: this.config.maximumAcceptableAccuracy,
         minDistanceMeters: this.config.minimumDistanceForUpdate,
         maxSpeedKmh: this.config.maximumReasonableSpeed,

@@ -1,6 +1,8 @@
 import {
   DEFAULT_GPS_FILTER_CONFIG,
+  createInitialGpsFilterState,
   evaluateGpsSample,
+  reduceGpsSample,
   type GpsSample,
 } from '~/features/running/services/gps/GpsFilter';
 
@@ -113,5 +115,89 @@ describe('GpsFilter', () => {
     expect(speedSpikeResult.acceptedForDistance).toBe(false);
     expect(speedSpikeResult.acceptedForPath).toBe(false);
     expect(speedSpikeResult.acceptedForPace).toBe(false);
+  });
+
+  it('keeps default long-gap behavior unchanged', () => {
+    const previous: GpsSample = {
+      latitude: 37.5,
+      longitude: 127.0,
+      timestampMs: 1_740_000_000_000,
+      speedMps: 2,
+      accuracyMeters: 5,
+    };
+
+    const sampleAfterLongGap: GpsSample = {
+      latitude: previous.latitude + metersToLatitude(80),
+      longitude: previous.longitude,
+      timestampMs: previous.timestampMs + 40_000,
+      speedMps: 2,
+      accuracyMeters: 5,
+    };
+
+    const result = evaluateGpsSample(
+      previous,
+      sampleAfterLongGap,
+      DEFAULT_GPS_FILTER_CONFIG
+    );
+
+    expect(result.acceptedForDistance).toBe(false);
+    expect(result.reason).toBe('TIME_GAP_TOO_LARGE');
+  });
+
+  it('allows Android background config to preserve normal running distance across update gaps', () => {
+    const androidBackgroundConfig = {
+      ...DEFAULT_GPS_FILTER_CONFIG,
+      maxAccuracyMeters: 50,
+      maxDeltaSeconds: 60,
+    };
+    let state = createInitialGpsFilterState();
+    const firstSample: GpsSample = {
+      latitude: 37.5,
+      longitude: 127.0,
+      timestampMs: 1_740_000_000_000,
+      speedMps: 2,
+      accuracyMeters: 35,
+    };
+    const secondSample: GpsSample = {
+      latitude: firstSample.latitude + metersToLatitude(80),
+      longitude: firstSample.longitude,
+      timestampMs: firstSample.timestampMs + 40_000,
+      speedMps: 2,
+      accuracyMeters: 35,
+    };
+
+    state = reduceGpsSample(state, firstSample, androidBackgroundConfig).nextState;
+    const { result } = reduceGpsSample(state, secondSample, androidBackgroundConfig);
+
+    expect(result.acceptedForDistance).toBe(true);
+    expect(result.distanceMeters).toBeGreaterThan(75);
+    expect(result.reason).toBe('OK');
+  });
+
+  it('still rejects implausible speed spikes with Android background config', () => {
+    const androidBackgroundConfig = {
+      ...DEFAULT_GPS_FILTER_CONFIG,
+      maxAccuracyMeters: 50,
+      maxDeltaSeconds: 60,
+    };
+    const previous: GpsSample = {
+      latitude: 37.5,
+      longitude: 127.0,
+      timestampMs: 1_740_000_000_000,
+      speedMps: 2,
+      accuracyMeters: 35,
+    };
+    const speedSpikeSample: GpsSample = {
+      latitude: previous.latitude + metersToLatitude(1_000),
+      longitude: previous.longitude,
+      timestampMs: previous.timestampMs + 40_000,
+      speedMps: 2,
+      accuracyMeters: 35,
+    };
+
+    const result = evaluateGpsSample(previous, speedSpikeSample, androidBackgroundConfig);
+
+    expect(result.acceptedForDistance).toBe(false);
+    expect(result.reason).toBe('SPEED_TOO_FAST');
   });
 });
