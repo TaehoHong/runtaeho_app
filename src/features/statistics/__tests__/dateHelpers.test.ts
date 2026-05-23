@@ -22,13 +22,15 @@ describe('statistics date helpers', () => {
     jest.useRealTimers();
   });
 
-  it('STAT-DATE-001 returns normalized start dates for week, month, and year', () => {
+  it('STAT-DATE-001 returns normalized Monday start dates for week, month, and year', () => {
     const source = new Date(2026, 1, 11, 18, 30, 45);
     const weekStart = getStartOfWeek(source);
     const monthStart = getStartOfMonth(source);
     const yearStart = getStartOfYear(source);
 
-    expect(weekStart.getDay()).toBe(0);
+    expect(weekStart.getDay()).toBe(1);
+    expect(weekStart.getDate()).toBe(9);
+    expect(weekStart.getHours()).toBe(0);
     expect(monthStart.getDate()).toBe(1);
     expect(yearStart.getMonth()).toBe(0);
     expect(yearStart.getDate()).toBe(1);

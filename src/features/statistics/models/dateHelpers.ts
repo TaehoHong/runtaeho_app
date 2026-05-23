@@ -7,13 +7,15 @@ import { formatDateString } from '~/shared/utils/dateUtils';
 import { Period, PeriodDirection } from './types';
 
 /**
- * 주의 시작일 (일요일) 반환
+ * 주의 시작일 (월요일) 반환
  */
 export const getStartOfWeek = (date: Date): Date => {
   const d = new Date(date);
   const day = d.getDay();
-  const diff = d.getDate() - day;
-  return new Date(d.setDate(diff));
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
 };
 
 /**
