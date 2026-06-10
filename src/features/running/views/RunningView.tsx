@@ -9,6 +9,8 @@ import { useUnityBootstrap } from '~/features/unity/hooks';
 import { unityService } from '~/features/unity/services/UnityService';
 import { LoadingView } from '~/shared/components';
 import { usePermissionRequest } from '~/shared/hooks/usePermissionRequest';
+import { HealthPermissionModal } from '~/features/healthImport/components/HealthPermissionModal';
+import { useHealthPermissionModal } from '~/features/healthImport/hooks/useHealthPermissionModal';
 import { ViewState, RunningState, useAppStore, useLeagueCheckStore } from '~/stores';
 import { useAuthStore } from '~/features';
 import { useUserStore } from '~/stores/user/userStore';
@@ -39,6 +41,12 @@ export const RunningView: React.FC = () => {
   const { checkUncheckedLeagueResult } = useLeagueCheck();
 
   const { requestPermissionsOnFirstLogin, isPermissionChecked } = usePermissionRequest();
+  const {
+    visible: isHealthPermissionModalVisible,
+    showIfNeeded: showHealthPermissionModalIfNeeded,
+    close: closeHealthPermissionModal,
+    requestPermission: requestHealthPermission,
+  } = useHealthPermissionModal();
 
   const isInitialMount = useRef(true);
   const hasRequestedPermissionRef = useRef(false);
@@ -312,7 +320,8 @@ export const RunningView: React.FC = () => {
         if (!hasRequestedPermissionRef.current) {
           hasRequestedPermissionRef.current = true;
           console.log('📱 [RunningView] Unity 로딩 완료 → 권한 요청 시작');
-          requestPermissionsOnFirstLogin();
+          await requestPermissionsOnFirstLogin();
+          await showHealthPermissionModalIfNeeded();
         }
       }
     }, { waitForAvatar: false, timeoutMs: 3000, forceReadyOnTimeout: true });
@@ -322,6 +331,7 @@ export const RunningView: React.FC = () => {
     isUnityReady,
     requestPermissionsOnFirstLogin,
     runningState,
+    showHealthPermissionModalIfNeeded,
   ]);
 
   useEffect(() => {
@@ -432,6 +442,11 @@ export const RunningView: React.FC = () => {
 
         {/* 알림 들 (iOS alert 대응) */}
         <RunningAlerts />
+        <HealthPermissionModal
+          visible={isHealthPermissionModalVisible}
+          onClose={closeHealthPermissionModal}
+          onRequestPermission={requestHealthPermission}
+        />
 
         {/* Loading 오버레이 - Unity가 백그라운드에서 초기화되는 동안 표시 */}
         {isLoading && (

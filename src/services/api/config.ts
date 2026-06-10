@@ -71,6 +71,7 @@ export const API_ENDPOINTS = {
   USER: {
     BASE: '/users',
     ME: '/users/me',
+    CONFIGURATION: '/users/configuration',
     ACCOUNTS: (userId: number) => `/users/accounts`,
     ACCOUNT_DISCONNECT: (accountId: number) => `/users/accounts/${accountId}`,
   },
@@ -80,6 +81,7 @@ export const API_ENDPOINTS = {
     END: (id: number) => `/running/${id}/end`,
     DETAIL: (id: number) => `/running/${id}`,
     SEARCH: '/running',
+    IMPORT_BATCH: '/running/import-batch',
     ITEMS: (id: number) => `/running/${id}/items`,
   },
   AVATAR: {
@@ -129,5 +131,9 @@ export const API_ENDPOINTS = {
 
   APP: {
     VERSION_CHECK: '/app/version-check',
+  },
+
+  INQUIRY: {
+    BASE: '/inquiries',
   },
 } as const;

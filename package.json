@@ -1,9 +1,9 @@
 {
   "name": "app",
   "main": "expo-router/entry",
-  "version": "1.6.3",
+  "version": "1.7.0",
   "config": {
-    "runtimeVersion": "1.6"
+    "runtimeVersion": "1.7"
   },
   "scripts": {
     "postinstall": "patch-package",

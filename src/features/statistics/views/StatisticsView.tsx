@@ -23,6 +23,7 @@ import { StatisticsSummaryCard } from './components/StatisticsSummaryCard';
 import { StatisticsErrorBoundary } from './components/StatisticsErrorBoundary';
 import { PRIMARY, GREY } from '~/shared/styles';
 import { getMainTabBarScrollContentPaddingBottom } from '~/shared/utils/safeAreaPolicy';
+import { healthImportService } from '~/features/healthImport/services/healthImportService';
 
 export const StatisticsView = () => {
   const [selectedPeriod, setSelectedPeriod] = useState<Period>(Period.MONTH);
@@ -56,22 +57,32 @@ export const StatisticsView = () => {
   // RefreshControl 애니메이션이 의도치 않게 발생하므로 분리
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
 
+  const refreshWithHealthImport = useCallback(async () => {
+    try {
+      await healthImportService.sync();
+    } catch (error) {
+      console.warn('⚠️ [STATISTICS_VIEW] Health 기록 동기화 실패', error);
+    } finally {
+      await handleRefresh();
+    }
+  }, [handleRefresh]);
+
   // 수동 새로고침 핸들러
   const onManualRefresh = useCallback(async () => {
     setIsManualRefreshing(true);
     try {
-      await handleRefresh();
+      await refreshWithHealthImport();
     } finally {
       setIsManualRefreshing(false);
     }
-  }, [handleRefresh]);
+  }, [refreshWithHealthImport]);
 
   // 탭 포커스 시 데이터 새로고침
   useFocusEffect(
     useCallback(() => {
-      console.log('📊 [STATISTICS_VIEW] 탭 포커스 - 데이터 새로고침');
-      handleRefresh();
-    }, [handleRefresh])
+      console.log('📊 [STATISTICS_VIEW] 탭 포커스 - Health 동기화 후 데이터 새로고침');
+      void refreshWithHealthImport();
+    }, [refreshWithHealthImport])
   );
 
   // 기간 변경 핸들러 - period가 변경되면 referenceDate를 오늘로 리셋

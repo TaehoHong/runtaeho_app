@@ -72,3 +72,4 @@ app-example
 prepare-native-build.sh
 
 /android/app/release
+.gstack/

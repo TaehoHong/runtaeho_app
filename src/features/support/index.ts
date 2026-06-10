@@ -5,3 +5,7 @@
 
 // Views
 export { CustomerServiceView } from './views/CustomerServiceView';
+export { InquiryView } from './views/InquiryView';
+export { ErrorInquiryView } from './views/ErrorInquiryView';
+export { DoneView } from './views/DoneView';
+export { ErrorPopup } from './views/ErrorPopup';

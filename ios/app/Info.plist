@@ -71,6 +71,8 @@
 	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>프로필 사진 및 러닝 기록 공유 배경 촬영을 위해 카메라 접근 권한이 필요합니다.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>러닝 기록과 통계를 동기화하기 위해 Apple Health의 운동 기록, 거리, 심박, 칼로리, 경로 데이터를 읽습니다.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>RunTaeho는 백그라운드에서도 러닝을 중단 없이 기록하기 위해 위치 접근이 필요합니다. 앱이 백그라운드 상태에서도 러닝 경로, 이동 거리, 페이스가 정확하게 기록됩니다.</string>
 	<key>NSLocationAlwaysUsageDescription</key>

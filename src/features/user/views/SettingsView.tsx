@@ -10,7 +10,7 @@ import { userService } from '../services/userService';
 
 /**
  * 설정 화면
- * 고객센터, 로그아웃, 회원 탈퇴 등 계정 관련 설정
+ * 고객센터, 권한 설정, 로그아웃, 회원 탈퇴
  */
 export const SettingsView: React.FC = () => {
   const router = useRouter();
@@ -27,11 +27,8 @@ export const SettingsView: React.FC = () => {
     router.push('/user/customer-service');
   };
 
-  /**
-   * 앱 버전 정보 이동 핸들러
-   */
-  const handleAppVersion = () => {
-    router.push('/user/app-version');
+  const handlePermissionSettings = () => {
+    router.push('/user/permission-settings');
   };
 
   /**
@@ -112,20 +109,25 @@ export const SettingsView: React.FC = () => {
 
       {/* 설정 메뉴 */}
       <View style={styles.content}>
-        {/* 고객센터 섹션 */}
         <View style={styles.section}>
           <TouchableOpacity
-            style={styles.menuItem}
+            style={[styles.menuItem, styles.menuItemBorder]}
             onPress={handleCustomerService}
             activeOpacity={0.7}
           >
             <Text style={styles.menuItemText}>고객센터</Text>
             <Ionicons name="chevron-forward" size={20} color={GREY[300]} />
           </TouchableOpacity>
-        </View>
 
-        {/* 계정 섹션 */}
-        <View style={styles.section}>
+          <TouchableOpacity
+            style={[styles.menuItem, styles.menuItemBorder]}
+            onPress={handlePermissionSettings}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.menuItemText}>권한 설정</Text>
+            <Ionicons name="chevron-forward" size={20} color={GREY[300]} />
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={[styles.menuItem, styles.menuItemBorder]}
             onPress={() => setShowLogoutAlert(true)}
@@ -142,18 +144,6 @@ export const SettingsView: React.FC = () => {
             activeOpacity={0.7}
           >
             <Text style={[styles.menuItemText, styles.dangerText]}>회원 탈퇴</Text>
-            <Ionicons name="chevron-forward" size={20} color={GREY[300]} />
-          </TouchableOpacity>
-        </View>
-
-        {/* 앱 버전 섹션 */}
-        <View style={styles.section}>
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={handleAppVersion}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.menuItemText}>앱 버전</Text>
             <Ionicons name="chevron-forward" size={20} color={GREY[300]} />
           </TouchableOpacity>
         </View>

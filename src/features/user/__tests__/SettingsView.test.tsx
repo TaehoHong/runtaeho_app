@@ -46,14 +46,14 @@ describe('SettingsView', () => {
     });
   });
 
-  it('navigates to customer service and app version menus', () => {
+  it('navigates to customer service and permission settings menus', () => {
     renderWithProviders(<SettingsView />);
 
     fireEvent.press(screen.getByText('고객센터'));
-    fireEvent.press(screen.getByText('앱 버전'));
+    fireEvent.press(screen.getByText('권한 설정'));
 
     expect(routerMock.push).toHaveBeenCalledWith('/user/customer-service');
-    expect(routerMock.push).toHaveBeenCalledWith('/user/app-version');
+    expect(routerMock.push).toHaveBeenCalledWith('/user/permission-settings');
   });
 
   it('closes logout modal when cancel is pressed', async () => {

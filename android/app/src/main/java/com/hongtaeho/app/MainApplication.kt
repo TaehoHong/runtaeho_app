@@ -16,6 +16,7 @@ import com.facebook.react.defaults.DefaultReactNativeHost
 import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ReactNativeHostWrapper
 
+import com.hongtaeho.app.health.RNHealthImportBridgePackage
 import com.hongtaeho.app.unity.RNUnityBridgePackage
 
 class MainApplication : Application(), ReactApplication {
@@ -30,6 +31,7 @@ class MainApplication : Application(), ReactApplication {
 
               // Unity Bridge Package 등록
               add(RNUnityBridgePackage())
+              add(RNHealthImportBridgePackage())
             }
 
           override fun getJSMainModuleName(): String = ".expo/.virtual-metro-entry"

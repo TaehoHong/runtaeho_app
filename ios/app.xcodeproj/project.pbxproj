@@ -23,6 +23,8 @@
 		F730CDDB2E925BF4002CDFCA /* UnityViewManager.m in Sources */ = {isa = PBXBuildFile; fileRef = F730CDD32E925BF4002CDFCA /* UnityViewManager.m */; };
 		F76332C72F29A2D100E4B48E /* UnityNativeBridge.mm in Sources */ = {isa = PBXBuildFile; fileRef = F77F8FC12ED3E49E0077E3A1 /* UnityNativeBridge.mm */; };
 		F7BE22F62F21245100B213D3 /* UnityViewContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7BE22F52F21245100B213D3 /* UnityViewContainer.swift */; };
+		F81200012F3A100100000001 /* RNHealthImportBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = F81200032F3A100100000001 /* RNHealthImportBridge.m */; };
+		F81200022F3A100100000001 /* RNHealthImportBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F81200042F3A100100000001 /* RNHealthImportBridge.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -63,6 +65,8 @@
 		F73BCBDE2E8402E70087982B /* UnityFramework.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = UnityFramework.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		F77F8FC12ED3E49E0077E3A1 /* UnityNativeBridge.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = UnityNativeBridge.mm; path = app/UnityNativeBridge.mm; sourceTree = "<group>"; };
 		F7BE22F52F21245100B213D3 /* UnityViewContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UnityViewContainer.swift; path = ../src/features/unity/bridge/iOS/UnityViewContainer.swift; sourceTree = SOURCE_ROOT; };
+		F81200032F3A100100000001 /* RNHealthImportBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = RNHealthImportBridge.m; path = ../src/features/healthImport/bridge/iOS/RNHealthImportBridge.m; sourceTree = SOURCE_ROOT; };
+		F81200042F3A100100000001 /* RNHealthImportBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RNHealthImportBridge.swift; path = ../src/features/healthImport/bridge/iOS/RNHealthImportBridge.swift; sourceTree = SOURCE_ROOT; };
 		FCEA5D850C2BAF9F99E234A4 /* Pods-app.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-app.release.xcconfig"; path = "Target Support Files/Pods-app/Pods-app.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -98,6 +102,8 @@
 				3EB4D8CB6799DC98CE183608 /* PrivacyInfo.xcprivacy */,
 				F730CDCE2E925BF4002CDFCA /* RNUnityBridge.m */,
 				F730CDCF2E925BF4002CDFCA /* RNUnityBridge.swift */,
+				F81200032F3A100100000001 /* RNHealthImportBridge.m */,
+				F81200042F3A100100000001 /* RNHealthImportBridge.swift */,
 				F7BE22F52F21245100B213D3 /* UnityViewContainer.swift */,
 				F730CDD02E925BF4002CDFCA /* Unity.swift */,
 				F730CDD22E925BF4002CDFCA /* UnityView.swift */,
@@ -427,6 +433,8 @@
 				F7BE22F62F21245100B213D3 /* UnityViewContainer.swift in Sources */,
 				F730CDD62E925BF4002CDFCA /* Unity.swift in Sources */,
 				F730CDD72E925BF4002CDFCA /* RNUnityBridge.swift in Sources */,
+				F81200012F3A100100000001 /* RNHealthImportBridge.m in Sources */,
+				F81200022F3A100100000001 /* RNHealthImportBridge.swift in Sources */,
 				F730CDD92E925BF4002CDFCA /* UnityView.swift in Sources */,
 				F730CDDA2E925BF4002CDFCA /* UnityViewManager.swift in Sources */,
 				F76332C72F29A2D100E4B48E /* UnityNativeBridge.mm in Sources */,

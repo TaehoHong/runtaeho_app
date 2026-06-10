@@ -62,6 +62,11 @@ export const queryKeys = {
     }) => ['running', 'fullList', filters] as const,
   },
 
+  healthImport: {
+    all: ['healthImport'] as const,
+    configuration: ['healthImport', 'configuration'] as const,
+  },
+
   // Avatar 관련 Query Keys
   avatar: {
     all: ['avatar'] as const,
