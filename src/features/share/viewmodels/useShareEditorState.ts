@@ -11,6 +11,10 @@ import { SCALE_RANGES, createInitialShareEditorState } from '../constants/shareO
 
 type ShareEditorInitialState = ReturnType<typeof createInitialShareEditorState>;
 
+interface UseShareEditorStateOptions {
+  includeMap?: boolean;
+}
+
 export interface UseShareEditorStateValue {
   selectedBackground: BackgroundOption;
   selectedPose: PoseOption;
@@ -29,7 +33,9 @@ export interface UseShareEditorStateValue {
   resetState: () => ShareEditorInitialState;
 }
 
-export const useShareEditorState = (): UseShareEditorStateValue => {
+export const useShareEditorState = ({
+  includeMap = true,
+}: UseShareEditorStateOptions = {}): UseShareEditorStateValue => {
   const [selectedBackground, setSelectedBackground] = useState<BackgroundOption>(
     () => createInitialShareEditorState().selectedBackground
   );
@@ -37,7 +43,7 @@ export const useShareEditorState = (): UseShareEditorStateValue => {
     () => createInitialShareEditorState().selectedPose
   );
   const [statElements, setStatElements] = useState<StatElementConfig[]>(
-    () => createInitialShareEditorState().statElements
+    () => createInitialShareEditorState({ includeMap }).statElements
   );
   const [characterTransform, setCharacterTransform] = useState<CharacterTransform>(
     () => createInitialShareEditorState().characterTransform
@@ -126,7 +132,7 @@ export const useShareEditorState = (): UseShareEditorStateValue => {
   );
 
   const resetState = useCallback(() => {
-    const initialState = createInitialShareEditorState();
+    const initialState = createInitialShareEditorState({ includeMap });
 
     setSelectedBackground(initialState.selectedBackground);
     setSelectedPose(initialState.selectedPose);
@@ -137,7 +143,7 @@ export const useShareEditorState = (): UseShareEditorStateValue => {
     setPoseAnimationTimes(initialState.poseAnimationTimes);
 
     return initialState;
-  }, []);
+  }, [includeMap]);
 
   return {
     selectedBackground,

@@ -20,6 +20,7 @@ import type { UnityReadyEvent } from '~/features/unity/bridge/UnityBridge';
 import { useShareCaptureActions } from './useShareCaptureActions';
 import { useShareEditorState } from './useShareEditorState';
 import { useShareUnitySync } from './useShareUnitySync';
+import { hasRenderableRoute } from '../utils/routeLocations';
 
 interface UseShareEditorProps {
   runningData: ShareRunningData;
@@ -59,6 +60,7 @@ interface UseShareEditorReturn {
 
 export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEditorReturn => {
   const canvasRef = useRef<View>(null);
+  const includeMap = hasRenderableRoute(runningData.locations ?? []);
   const {
     selectedBackground,
     selectedPose,
@@ -75,7 +77,7 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
     updateCharacterScale: updateCharacterScaleState,
     setAnimationTime: setAnimationTimeState,
     resetState,
-  } = useShareEditorState();
+  } = useShareEditorState({ includeMap });
   const {
     isLoading,
     isUnityReady,

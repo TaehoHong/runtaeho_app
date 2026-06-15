@@ -17,6 +17,10 @@ import { useShoeViewModel } from '~/features/shoes/viewmodels';
 import { leagueService } from '~/features/league/services/leagueService';
 import { useShareStore } from '~/features/share/stores/shareStore';
 import { useShareEntryTransitionStore } from '~/features/share/stores/shareEntryTransitionStore';
+import {
+  normalizeRouteLocations,
+  runningRecordItemsToLocations,
+} from '~/features/share/utils/routeLocations';
 import { useBottomActionOffset } from '~/shared/hooks';
 import { GREY } from '~/shared/styles';
 
@@ -94,32 +98,6 @@ export const RunningFinishedView: React.FC = () => {
   // 신발 추가 후 자동으로 React Query가 신발 목록을 갱신하고,
   // 첫 신발이므로 자동으로 메인 설정되어 ShoeSelectionArea가 표시됩니다.
 
-  const normalizeLocations = (source: Location[]): Location[] => {
-    const validLocations = source
-      .filter((point) =>
-        Number.isFinite(point.latitude) &&
-        Number.isFinite(point.longitude) &&
-        point.timestamp instanceof Date &&
-        Number.isFinite(point.timestamp.getTime())
-      )
-      .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-
-    const deduplicated: Location[] = [];
-    for (const location of validLocations) {
-      const prev = deduplicated[deduplicated.length - 1];
-      if (
-        prev &&
-        prev.latitude === location.latitude &&
-        prev.longitude === location.longitude &&
-        prev.timestamp.getTime() === location.timestamp.getTime()
-      ) {
-        continue;
-      }
-      deduplicated.push(location);
-    }
-    return deduplicated;
-  };
-
   const getSegmentLocations = (): Location[] => {
     return currentSegmentItems.flatMap((segment) => segment.locations ?? []);
   };
@@ -129,16 +107,7 @@ export const RunningFinishedView: React.FC = () => {
 
     try {
       const items = await runningService.getRunningRecordItems(currentRecord.id);
-      return items.flatMap((item) =>
-        (item.gpsPoints ?? []).map((point) => ({
-          latitude: point.latitude,
-          longitude: point.longitude,
-          timestamp: new Date(point.timestampMs),
-          speed: point.speed,
-          altitude: point.altitude,
-          ...(point.accuracy !== undefined && { accuracy: point.accuracy }),
-        }))
-      );
+      return runningRecordItemsToLocations(items);
     } catch (error) {
       console.warn('[RunningFinishedView] Failed to fetch running record items:', error);
       return [];
@@ -146,13 +115,13 @@ export const RunningFinishedView: React.FC = () => {
   };
 
   const resolveShareLocations = async (): Promise<Location[]> => {
-    const currentLocations = normalizeLocations(locations);
+    const currentLocations = normalizeRouteLocations(locations);
     if (currentLocations.length >= 2) return currentLocations;
 
-    const segmentLocations = normalizeLocations(getSegmentLocations());
+    const segmentLocations = normalizeRouteLocations(getSegmentLocations());
     if (segmentLocations.length >= 2) return segmentLocations;
 
-    const serverLocations = normalizeLocations(await getLocationsFromServer());
+    const serverLocations = normalizeRouteLocations(await getLocationsFromServer());
     return serverLocations;
   };
 

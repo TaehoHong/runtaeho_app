@@ -133,13 +133,15 @@ export const INITIAL_POSE_ANIMATION_TIMES: Record<string, number> = {
  * 공유 에디터 초기 상태 factory
  * 객체/배열 참조 공유를 막기 위해 매번 새 값을 반환한다.
  */
-export const createInitialShareEditorState = () => ({
+export const createInitialShareEditorState = (options: { includeMap?: boolean } = {}) => ({
   selectedBackground: DEFAULT_BACKGROUND,
   selectedPose: DEFAULT_POSE,
-  statElements: INITIAL_STAT_ELEMENTS.map((element) => ({
-    ...element,
-    transform: { ...element.transform },
-  })),
+  statElements: INITIAL_STAT_ELEMENTS
+    .filter((element) => options.includeMap !== false || element.type !== 'map')
+    .map((element) => ({
+      ...element,
+      transform: { ...element.transform },
+    })),
   characterTransform: { ...INITIAL_CHARACTER_TRANSFORM },
   avatarVisible: true,
   animationTime: 0,
