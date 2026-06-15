@@ -9,11 +9,28 @@ import type {
   HealthImportBatchResponse,
   HealthImportConfiguration,
   HealthImportSyncResult,
+  HealthRouteStatus,
   HealthRunningWorkout,
   UpdateHealthImportConfigurationRequest,
 } from '../types';
 
 const BATCH_SIZE = 50;
+const ROUTE_STATUSES: HealthRouteStatus[] = ['available', 'notAvailable', 'permissionRequired', 'readFailed'];
+
+const logHealthImport = (message: string, data?: Record<string, unknown>) => {
+  if (!__DEV__) return;
+
+  if (data) {
+    console.log(`[HealthImport] ${message}`, data);
+    return;
+  }
+  console.log(`[HealthImport] ${message}`);
+};
+
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  return String(error);
+};
 
 const normalizeNumber = (value: number | null | undefined): number => {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return 0;
@@ -24,8 +41,79 @@ const normalizeCadence = (value: number | null | undefined): number => {
   return Math.min(normalizeNumber(value), 255);
 };
 
+const getGpsPoints = (workout: HealthRunningWorkout) => workout.gpsPoints ?? [];
+
+const summarizeWorkouts = (workouts: HealthRunningWorkout[]) => {
+  const routeStatusCounts = ROUTE_STATUSES.reduce<Record<HealthRouteStatus | 'unknown', number>>(
+    (accumulator, status) => {
+      accumulator[status] = 0;
+      return accumulator;
+    },
+    { unknown: 0 } as Record<HealthRouteStatus | 'unknown', number>
+  );
+  let workoutsWithGps = 0;
+  let totalGpsPoints = 0;
+
+  workouts.forEach((workout) => {
+    const gpsPoints = getGpsPoints(workout);
+    if (gpsPoints.length > 0) workoutsWithGps += 1;
+    totalGpsPoints += gpsPoints.length;
+    routeStatusCounts[workout.routeStatus ?? 'unknown'] += 1;
+  });
+
+  return {
+    workoutCount: workouts.length,
+    workoutsWithGps,
+    totalGpsPoints,
+    routeStatusCounts,
+  };
+};
+
+const summarizeBatchRecords = (records: HealthImportBatchRecord[]) => ({
+  recordCount: records.length,
+  recordsWithItems: records.filter((record) => record.items.length > 0).length,
+  totalGpsPoints: records.reduce(
+    (total, record) => total + record.items.reduce(
+      (itemTotal, item) => itemTotal + item.gpsPoints.length,
+      0
+    ),
+    0
+  ),
+});
+
+const isBlockingRouteWorkout = (workout: HealthRunningWorkout): boolean => {
+  if (getGpsPoints(workout).length > 0) return false;
+  return workout.routeStatus === 'permissionRequired' ||
+    workout.routeStatus === 'readFailed' ||
+    workout.routeStatus === 'available';
+};
+
+const sortWorkoutsForCursor = (workouts: HealthRunningWorkout[]): HealthRunningWorkout[] =>
+  [...workouts].sort((left, right) => {
+    const endDiff = normalizeNumber(left.endTimestamp) - normalizeNumber(right.endTimestamp);
+    if (endDiff !== 0) return endDiff;
+    return normalizeNumber(left.startTimestamp) - normalizeNumber(right.startTimestamp);
+  });
+
+const toImportablePrefix = (workouts: HealthRunningWorkout[]): {
+  workouts: HealthRunningWorkout[];
+  hasBlockingWorkout: boolean;
+} => {
+  const sorted = sortWorkoutsForCursor(workouts);
+  const blockingIndex = sorted.findIndex(isBlockingRouteWorkout);
+
+  if (blockingIndex === -1) {
+    return { workouts: sorted, hasBlockingWorkout: false };
+  }
+
+  return {
+    workouts: sorted.slice(0, blockingIndex),
+    hasBlockingWorkout: true,
+  };
+};
+
 const toBatchRecord = (workout: HealthRunningWorkout): HealthImportBatchRecord => {
-  const gpsPoints = workout.gpsPoints ?? [];
+  const gpsPoints = getGpsPoints(workout);
 
   return {
     externalId: workout.sourceRecordId,
@@ -68,6 +156,7 @@ const invalidateAfterImport = async (response: HealthImportBatchResponse) => {
 };
 
 const finalizeSync = async (): Promise<HealthImportSyncResult> => {
+  logHealthImport('finalize sync cursor');
   const response = await healthImportService.importBatch({ records: [] });
   await invalidateAfterImport(response);
   return { importedCount: 0, duplicateCount: 0, awardedPoint: 0 };
@@ -88,7 +177,17 @@ const importWorkouts = async (
     const records = workouts.slice(index, index + BATCH_SIZE).map(toBatchRecord);
     if (records.length === 0) continue;
 
-    const response = await healthImportService.importBatch({ records });
+    logHealthImport('import batch request', summarizeBatchRecords(records));
+    const response = await healthImportService.importBatch({ records }).catch((error: unknown) => {
+      logHealthImport('import batch failed', { error: getErrorMessage(error) });
+      throw error;
+    });
+    logHealthImport('import batch response', {
+      createdCount: response.createdCount,
+      updatedCount: response.updatedCount,
+      duplicateCount: response.duplicateCount,
+      leagueDistanceChanged: response.leagueDistanceChanged,
+    });
     importedCount += response.createdCount + response.updatedCount;
     duplicateCount += response.duplicateCount;
     awardedPoint += response.awardedPoint;
@@ -118,19 +217,29 @@ export const healthImportService = {
 
   sync: async (): Promise<HealthImportSyncResult> => {
     const configuration = await healthImportService.getConfiguration();
+    logHealthImport('sync start', {
+      platform: Platform.OS,
+      enabled: configuration.healthImportEnabled,
+      hasLastSyncedTimestamp: configuration.healthImportLastSyncedTimestamp != null,
+    });
     if (!configuration.healthImportEnabled) {
+      logHealthImport('sync skipped: disabled');
       return { importedCount: 0, duplicateCount: 0, awardedPoint: 0 };
     }
 
     const available = await healthImportBridge.isAvailable();
+    logHealthImport('native availability checked', { available });
     if (!available) {
+      logHealthImport('sync skipped: health unavailable');
       return { importedCount: 0, duplicateCount: 0, awardedPoint: 0 };
     }
 
     const permission = Platform.OS === 'android'
       ? await healthImportBridge.getPermissionStatus()
       : 'granted';
+    logHealthImport('permission checked', { permission });
     if (permission !== 'granted') {
+      logHealthImport('sync skipped: permission not granted', { permission });
       return { importedCount: 0, duplicateCount: 0, awardedPoint: 0 };
     }
 
@@ -139,18 +248,30 @@ export const healthImportService = {
     const workouts = await healthImportBridge.readRunningWorkouts({
       startTimestamp,
       endTimestamp: nowTimestamp,
+    }).catch((error: unknown) => {
+      logHealthImport('native workouts read failed', { error: getErrorMessage(error) });
+      throw error;
+    });
+    logHealthImport('native workouts read', summarizeWorkouts(workouts));
+    const importable = toImportablePrefix(workouts);
+    logHealthImport('importable prefix selected', {
+      importableCount: importable.workouts.length,
+      blockedCount: workouts.length - importable.workouts.length,
+      hasBlockingWorkout: importable.hasBlockingWorkout,
     });
 
     if (configuration.healthImportLastSyncedTimestamp == null) {
-      const result = await importWorkouts(workouts);
-      await finalizeSync();
+      const result = await importWorkouts(importable.workouts);
+      if (!importable.hasBlockingWorkout) {
+        await finalizeSync();
+      }
       return result;
     }
 
-    if (workouts.length === 0) {
+    if (importable.workouts.length === 0) {
       return { importedCount: 0, duplicateCount: 0, awardedPoint: 0 };
     }
 
-    return importWorkouts(workouts);
+    return importWorkouts(importable.workouts);
   },
 };

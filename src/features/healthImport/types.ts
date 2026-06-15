@@ -9,6 +9,8 @@ export interface HealthGpsPoint {
   accuracy?: number | null;
 }
 
+export type HealthRouteStatus = 'available' | 'notAvailable' | 'permissionRequired' | 'readFailed';
+
 export interface HealthRunningWorkout {
   sourceRecordId: string;
   sourceBundleId?: string | null;
@@ -20,6 +22,7 @@ export interface HealthRunningWorkout {
   cadence?: number | null;
   heartRate?: number | null;
   gpsPoints?: HealthGpsPoint[];
+  routeStatus?: HealthRouteStatus;
 }
 
 export interface HealthImportConfiguration {
