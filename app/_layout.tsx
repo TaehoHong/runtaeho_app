@@ -95,6 +95,12 @@ function RootLayout() {
                         contentStyle: { backgroundColor: 'transparent' },
                       }}
                     />
+                    <Stack.Screen
+                      name="running-record-detail"
+                      options={{
+                        headerShown: false,
+                      }}
+                    />
                   </Stack>
                   {isShareEntryTransitionActive && (
                     <View

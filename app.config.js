@@ -6,6 +6,9 @@ const ENV = process.env.EXPO_PUBLIC_ENV || 'local';
 const packageJson = require('./package.json');
 const appVersion = packageJson.version;
 const runtimeVersion = packageJson.config.runtimeVersion;
+const googleMapsAndroidApiKey =
+  process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY ||
+  process.env.GOOGLE_MAPS_ANDROID_API_KEY;
 
 export default {
   expo: {
@@ -61,7 +64,16 @@ export default {
         "ACTIVITY_RECOGNITION", // 동작 및 피트니스 (걸음 수)
         "FOREGROUND_SERVICE",
         "FOREGROUND_SERVICE_LOCATION" // Foreground Service (위치)
-      ]
+      ],
+      ...(googleMapsAndroidApiKey
+        ? {
+            config: {
+              googleMaps: {
+                apiKey: googleMapsAndroidApiKey
+              }
+            }
+          }
+        : {})
     },
     web: {
       output: "static",

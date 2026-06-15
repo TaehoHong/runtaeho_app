@@ -7,7 +7,11 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import type { RunningRecord } from '~/features/running/models';
 import type { CursorResult } from '~/shared/utils/dto/CursorResult';
 import { queryKeys } from '../../../services/queryClient';
-import { runningService } from './runningService';
+import {
+  runningService,
+  type RunningRecordItemResponse,
+  type UpdateRunningRecordShoeParams,
+} from './runningService';
 import { useUserStore } from '~/stores/user/userStore';
 
 /**
@@ -60,6 +64,27 @@ export const useUpdateRunningRecord = () => {
       runningService.updateRunningRecord(runningRecord),
     onSuccess: (_, runningRecord) => {
       queryClient.invalidateQueries({ queryKey: [...queryKeys.running.all, runningRecord.id] });
+    },
+  });
+};
+
+/**
+ * 러닝 기록 연결 신발 변경
+ */
+export const useUpdateRunningRecordShoe = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (params: UpdateRunningRecordShoeParams) =>
+      runningService.updateRunningRecordShoe(params),
+    onSuccess: (updatedRecord, variables) => {
+      queryClient.setQueryData(
+        queryKeys.running.detail(variables.runningRecordId),
+        updatedRecord
+      );
+
+      queryClient.invalidateQueries({ queryKey: queryKeys.running.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.shoe.all });
     },
   });
 };
@@ -134,8 +159,22 @@ export const useInfiniteRunningRecords = (
  */
 export const useGetRunningRecord = (id: number, options?: { enabled?: boolean }) => {
   return useQuery<RunningRecord>({
-    queryKey: [...queryKeys.running.all, id],
+    queryKey: queryKeys.running.detail(id),
     queryFn: () => runningService.getRunningRecord(id),
+    enabled: options?.enabled ?? true,
+  });
+};
+
+/**
+ * 러닝 기록 아이템 조회 (GPS 복원용)
+ */
+export const useGetRunningRecordItems = (
+  id: number,
+  options?: { enabled?: boolean }
+) => {
+  return useQuery<RunningRecordItemResponse[]>({
+    queryKey: queryKeys.running.items(id),
+    queryFn: () => runningService.getRunningRecordItems(id),
     enabled: options?.enabled ?? true,
   });
 };

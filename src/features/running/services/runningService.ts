@@ -52,6 +52,11 @@ interface RunningRecordItemsResponse {
   items: RunningRecordItemResponse[];
 }
 
+export interface UpdateRunningRecordShoeParams {
+  runningRecordId: number;
+  shoeId: number;
+}
+
 /**
  * Running API Service
  * 기존 runningApi.endpoints를 함수로 변환
@@ -105,6 +110,21 @@ export const runningService = {
    */
   updateRunningRecord: async (runningRecord: RunningRecord): Promise<void> => {
     await apiClient.put(API_ENDPOINTS.RUNNING.DETAIL(runningRecord.id), runningRecord);
+  },
+
+  /**
+   * 러닝 기록 연결 신발 변경
+   * PATCH /api/v1/running/{id}/shoe
+   */
+  updateRunningRecordShoe: async ({
+    runningRecordId,
+    shoeId,
+  }: UpdateRunningRecordShoeParams): Promise<RunningRecord> => {
+    const { data } = await apiClient.patch<RunningRecord>(
+      API_ENDPOINTS.RUNNING.SHOE(runningRecordId),
+      { shoeId }
+    );
+    return data;
   },
 
   /**

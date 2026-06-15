@@ -4,7 +4,8 @@
  */
 
 import React, { memo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { router } from 'expo-router';
 import type { RunningRecord } from '../../../running/models';
 import { formatDuration, calculateAveragePace } from '../../../running/models';
 import { formatRecordDate } from '~/shared/utils/dateUtils';
@@ -23,7 +24,17 @@ const RunningRecordCardComponent: React.FC<RunningRecordCardProps> = ({ record }
   const duration = formatDuration(record.durationSec);
 
   return (
-    <View style={styles.card}>
+    <TouchableOpacity
+      style={styles.card}
+      activeOpacity={0.8}
+      onPress={() =>
+        router.push({
+          pathname: '/running-record-detail' as const,
+          params: { id: String(record.id) },
+        } as any)
+      }
+      accessibilityRole="button"
+    >
       <View style={styles.cardHeader}>
         <Text style={styles.cardDate}>{dateString}</Text>
       </View>
@@ -44,7 +55,7 @@ const RunningRecordCardComponent: React.FC<RunningRecordCardProps> = ({ record }
           <Text style={styles.statLabel}>총 시간</Text>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 };
 

@@ -83,6 +83,7 @@ export const API_ENDPOINTS = {
     SEARCH: '/running',
     IMPORT_BATCH: '/running/import-batch',
     ITEMS: (id: number) => `/running/${id}/items`,
+    SHOE: (id: number) => `/running/${id}/shoe`,
   },
   AVATAR: {
     BASE: '/avatars',

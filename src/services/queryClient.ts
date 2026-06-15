@@ -60,6 +60,7 @@ export const queryKeys = {
       startDate: Date;
       endDate?: Date;
     }) => ['running', 'fullList', filters] as const,
+    items: (id: number) => ['running', id, 'items'] as const,
   },
 
   healthImport: {

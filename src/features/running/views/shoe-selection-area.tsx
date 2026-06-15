@@ -27,6 +27,13 @@ interface ShoeSelectionAreaProps {
   initialSelectedShoeId?: number | null;
 }
 
+export interface ShoeSnapCarouselProps {
+  shoes: Shoe[];
+  selectedShoeId: number | null;
+  mainShoeId?: number | null;
+  onShoeSelect?: (shoeId: number) => void;
+}
+
 export const ShoeSelectionArea: React.FC<ShoeSelectionAreaProps> = ({
   onShoeSelect,
   initialSelectedShoeId
@@ -34,7 +41,6 @@ export const ShoeSelectionArea: React.FC<ShoeSelectionAreaProps> = ({
   // 신발 데이터 가져오기
   const { shoes, mainShoe, isLoadingShoes } = useShoeViewModel();
 
-  const scrollViewRef = useRef<ScrollView>(null);
   const [selectedShoeId, setSelectedShoeId] = useState<number | null>(null);
 
   // 활성화된 신발만 필터링 (isEnabled === true) - useMemo로 메모이제이션
@@ -44,60 +50,26 @@ export const ShoeSelectionArea: React.FC<ShoeSelectionAreaProps> = ({
   }, [shoes]);
 
 
-  // initialSelectedShoeId가 있으면 해당 신발로 스크롤
+  const handleShoeSelect = useCallback((shoeId: number) => {
+    setSelectedShoeId(shoeId);
+    onShoeSelect?.(shoeId);
+  }, [onShoeSelect]);
+
+  // initialSelectedShoeId가 있으면 우선 선택하고, 없으면 메인 신발을 기본 선택으로 설정
   useEffect(() => {
-    if (initialSelectedShoeId && selectedShoeId === null) {
-      const targetIndex = availableShoes.findIndex(shoe => shoe.id === initialSelectedShoeId);
-      if (targetIndex !== -1) {
-        setSelectedShoeId(initialSelectedShoeId);
-        onShoeSelect?.(initialSelectedShoeId);
-        scrollViewRef.current?.scrollTo({
-          x: targetIndex * BUCKET,
-          animated: true,
-        });
-      }
+    if (selectedShoeId !== null) {
+      return;
     }
-  }, [initialSelectedShoeId, selectedShoeId, availableShoes, onShoeSelect]);
 
-  // 메인 신발을 기본 선택으로 설정 (initialSelectedShoeId가 없을 때만)
-  useEffect(() => {
-    if (mainShoe && selectedShoeId === null && !initialSelectedShoeId) {
-      setSelectedShoeId(mainShoe.id);
-      onShoeSelect?.(mainShoe.id);
-      // 메인 신발의 인덱스로 스크롤
-      const mainShoeIndex = availableShoes.findIndex(shoe => shoe.id === mainShoe.id);
-      if (mainShoeIndex !== -1) {
-        scrollViewRef.current?.scrollTo({
-          x: mainShoeIndex * BUCKET,
-          animated: false,
-        });
-      }
+    const defaultShoeId = initialSelectedShoeId ?? mainShoe?.id ?? null;
+    if (defaultShoeId === null) {
+      return;
     }
-  }, [mainShoe, selectedShoeId, availableShoes, initialSelectedShoeId, onShoeSelect]);
 
-  // 스크롤 이벤트 핸들러
-  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const scrollX = event.nativeEvent.contentOffset.x;
-    const index = Math.round(scrollX / BUCKET);
-    if (index >= 0 && index < availableShoes.length) {
-      const shoeId = availableShoes[index]?.id;
-      if (shoeId !== undefined && shoeId !== selectedShoeId) {
-        setSelectedShoeId(shoeId);
-        onShoeSelect?.(shoeId);
-      }
+    if (availableShoes.some((shoe) => shoe.id === defaultShoeId)) {
+      handleShoeSelect(defaultShoeId);
     }
-  }, [availableShoes, selectedShoeId, onShoeSelect]);
-
-  // 카드 선택 시 중앙으로 스크롤 및 메인 신발 설정
-  const handleCardPress = useCallback(async (index: number) => {
-    const shoe = availableShoes[index];
-    setSelectedShoeId(shoe!.id);
-    scrollViewRef.current?.scrollTo({
-      x: index * BUCKET,
-      animated: true,
-    });
-    onShoeSelect?.(shoe!.id);
-  }, [availableShoes, onShoeSelect]);
+  }, [initialSelectedShoeId, mainShoe, selectedShoeId, availableShoes, handleShoeSelect]);
 
   // 로딩 상태
   if (isLoadingShoes) {
@@ -117,47 +89,106 @@ export const ShoeSelectionArea: React.FC<ShoeSelectionAreaProps> = ({
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        ref={scrollViewRef}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={[
-          { paddingHorizontal: bucketSidePadding },
-        ]}
-        snapToInterval={INTERVAL}
-        decelerationRate="fast"
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-      >
-        {availableShoes.map((shoe, index) => (
-          <View key={shoe.id} style={styles.itemContainer}>
-            <ShoeCard
-              shoe={shoe}
-              isActive={shoe.id === selectedShoeId}
-              isMain={shoe.id === mainShoe?.id}
-              onPress={() => handleCardPress(index)}
-            />
-          </View>
-        ))}
-      </ScrollView>
+      <ShoeSnapCarousel
+        shoes={availableShoes}
+        selectedShoeId={selectedShoeId}
+        mainShoeId={mainShoe?.id ?? null}
+        onShoeSelect={handleShoeSelect}
+      />
     </View>
   );
 };
 
-interface ShoeCardProps {
+export const ShoeSnapCarousel: React.FC<ShoeSnapCarouselProps> = ({
+  shoes,
+  selectedShoeId,
+  mainShoeId = null,
+  onShoeSelect,
+}) => {
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  const scrollToShoe = useCallback((shoeId: number, animated: boolean) => {
+    const targetIndex = shoes.findIndex((shoe) => shoe.id === shoeId);
+    if (targetIndex === -1) {
+      return;
+    }
+
+    scrollViewRef.current?.scrollTo({
+      x: targetIndex * BUCKET,
+      animated,
+    });
+  }, [shoes]);
+
+  useEffect(() => {
+    if (selectedShoeId !== null) {
+      scrollToShoe(selectedShoeId, false);
+    }
+  }, [selectedShoeId, scrollToShoe]);
+
+  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const scrollX = event.nativeEvent.contentOffset.x;
+    const index = Math.round(scrollX / BUCKET);
+    if (index >= 0 && index < shoes.length) {
+      const shoeId = shoes[index]?.id;
+      if (shoeId !== undefined && shoeId !== selectedShoeId) {
+        onShoeSelect?.(shoeId);
+      }
+    }
+  }, [shoes, selectedShoeId, onShoeSelect]);
+
+  const handleCardPress = useCallback((index: number) => {
+    const shoe = shoes[index];
+    if (!shoe) {
+      return;
+    }
+
+    scrollToShoe(shoe.id, true);
+    onShoeSelect?.(shoe.id);
+  }, [shoes, scrollToShoe, onShoeSelect]);
+
+  return (
+    <ScrollView
+      ref={scrollViewRef}
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={[
+        { paddingHorizontal: bucketSidePadding },
+      ]}
+      snapToInterval={INTERVAL}
+      decelerationRate="fast"
+      onScroll={handleScroll}
+      scrollEventThrottle={16}
+    >
+      {shoes.map((shoe, index) => (
+        <View key={shoe.id} style={styles.itemContainer}>
+          <ShoeSelectionCard
+            shoe={shoe}
+            isActive={shoe.id === selectedShoeId}
+            isMain={shoe.id === mainShoeId}
+            onPress={() => handleCardPress(index)}
+          />
+        </View>
+      ))}
+    </ScrollView>
+  );
+};
+
+interface ShoeSelectionCardProps {
   shoe: Shoe;
   isActive: boolean;
   isMain: boolean;
   onPress: () => void;
 }
 
-const ShoeCard: React.FC<ShoeCardProps> = ({ shoe, isActive, isMain, onPress }) => {
+export const ShoeSelectionCard: React.FC<ShoeSelectionCardProps> = ({
+  shoe,
+  isActive,
+  isMain,
+  onPress,
+}) => {
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
-      
-      <View style={[styles.shoeCard, isActive && styles.shoeCardActive]}
-        onLayout={e => console.log('shoeCard width:', e.nativeEvent.layout.width)}
-      >
+      <View style={[styles.shoeCard, isActive && styles.shoeCardActive]}>
         {/* 신발 이미지 */}
         {/* <View style={styles.verticalGuide}/> */}
         <View style={styles.shoeImageContainer}>

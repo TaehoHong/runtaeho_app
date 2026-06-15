@@ -105,6 +105,12 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 66
         versionName "1.7.0"
+        manifestPlaceholders = [
+            GOOGLE_MAPS_ANDROID_API_KEY: findProperty("GOOGLE_MAPS_ANDROID_API_KEY")
+                ?: System.getenv("EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY")
+                ?: System.getenv("GOOGLE_MAPS_ANDROID_API_KEY")
+                ?: ""
+        ]
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
         ndk {

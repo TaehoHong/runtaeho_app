@@ -1,6 +1,9 @@
+import type { Shoe } from '~/features/shoes/models';
+
 export interface RunningRecord {
   id: number;
-  shoeId?: number;
+  shoeId?: number | null;
+  connectedShoe?: Shoe | null;
   distance: number;
   steps: number | null;
   cadence: number | null; // null 허용 (센서 데이터 없을 때)
@@ -15,6 +18,8 @@ export interface RunningRecord {
  */
 export const createRunningRecord = (id: number): RunningRecord => ({
   id,
+  shoeId: null,
+  connectedShoe: null,
   distance: 0,
   steps: null,
   cadence: null,
@@ -29,7 +34,8 @@ export const createRunningRecord = (id: number): RunningRecord => ({
  */
 export const createCompletedRunningRecord = (data: {
   id: number;
-  shoeId?: number;
+  shoeId?: number | null;
+  connectedShoe?: Shoe | null;
   distance: number;
   steps: number | null; // null 허용
   cadence: number | null; // null 허용
@@ -39,7 +45,8 @@ export const createCompletedRunningRecord = (data: {
   startTimestamp: number;
 }): RunningRecord => ({
   id: data.id,
-  ...(data.shoeId !== undefined && { shoeId: data.shoeId }),
+  shoeId: data.shoeId ?? null,
+  connectedShoe: data.connectedShoe ?? null,
   distance: data.distance,
   steps: data.steps,
   cadence: data.cadence,
