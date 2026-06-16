@@ -1,11 +1,9 @@
 package com.hongtaeho.app.health
 
-import android.app.Activity
 import android.content.Intent
 import android.os.Build
 import android.util.Log
 import androidx.health.connect.client.HealthConnectClient
-import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.permission.HealthPermission.Companion.PERMISSION_READ_HEALTH_DATA_HISTORY
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
@@ -17,7 +15,6 @@ import androidx.health.connect.client.records.StepsCadenceRecord
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
-import com.facebook.react.bridge.ActivityEventListener
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
@@ -26,6 +23,7 @@ import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.WritableArray
 import com.hongtaeho.app.BuildConfig
+import com.hongtaeho.app.HealthConnectPermissionRequester
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -35,16 +33,9 @@ import kotlin.math.roundToInt
 
 class RNHealthImportBridgeModule(
     private val reactContext: ReactApplicationContext
-) : ReactContextBaseJavaModule(reactContext), ActivityEventListener {
+) : ReactContextBaseJavaModule(reactContext) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val permissionContract = PermissionController.createRequestPermissionResultContract()
-    private var pendingPermissionPromise: Promise? = null
-    private var pendingPermissionSet: Set<String> = emptySet()
-
-    init {
-        reactContext.addActivityEventListener(this)
-    }
 
     override fun getName(): String = MODULE_NAME
 
@@ -66,19 +57,22 @@ class RNHealthImportBridgeModule(
         scope.launch {
             try {
                 val granted = client.permissionController.getGrantedPermissions()
-                val expected = permissionsFor(includeHistory = true)
+                val required = requiredPermissions()
+                val optional = optionalPermissions(includeHistory = true, includeRoute = true)
                 logHealthRaw(
                     "getGrantedPermissions response",
                     mapOf(
                         "grantedCount" to granted.size,
-                        "expectedCount" to expected.size,
-                        "status" to toPermissionStatus(granted, expected)
+                        "requiredCount" to required.size,
+                        "optionalCount" to optional.size,
+                        "optionalGrantedCount" to granted.intersect(optional).size,
+                        "status" to toPermissionStatus(granted, required)
                     )
                 )
                 promise.resolve(
                     toPermissionStatus(
                         granted,
-                        expected
+                        required
                     )
                 )
             } catch (error: Exception) {
@@ -101,33 +95,52 @@ class RNHealthImportBridgeModule(
             return
         }
 
-        if (pendingPermissionPromise != null) {
-            promise.reject("health_permission_in_progress", "Health permission request is already running.")
+        if (activity !is HealthConnectPermissionRequester) {
+            promise.reject("health_activity_unsupported", "Current activity cannot request Health Connect permissions.")
             return
         }
 
-        val permissions = permissionsFor(includeHistory = options.booleanOrFalse("includeHistory"))
+        val permissions = permissionsFor(
+            includeHistory = options.booleanOrFalse("includeHistory"),
+            includeRoute = options.booleanOrFalse("includeRoute")
+        )
+        val required = requiredPermissions()
+        val optional = optionalPermissions(
+            includeHistory = options.booleanOrFalse("includeHistory"),
+            includeRoute = options.booleanOrFalse("includeRoute")
+        )
 
         logHealthRaw(
             "requestPermissions request",
             mapOf(
                 "includeHistory" to options.booleanOrFalse("includeHistory"),
                 "includeRoute" to options.booleanOrFalse("includeRoute"),
-                "permissionCount" to permissions.size
+                "permissionCount" to permissions.size,
+                "requiredCount" to required.size,
+                "optionalCount" to optional.size
             )
         )
-        pendingPermissionPromise = promise
-        pendingPermissionSet = permissions
 
-        try {
-            val intent = permissionContract.createIntent(activity, permissions)
-            activity.startActivityForResult(intent, REQUEST_HEALTH_PERMISSIONS)
-        } catch (error: Exception) {
-            pendingPermissionPromise = null
-            pendingPermissionSet = emptySet()
-            logHealthRaw("requestPermissions failed", errorLog(error))
-            promise.reject("health_permission_failed", error.message, error)
-        }
+        activity.requestHealthConnectPermissions(
+            permissions = permissions,
+            onSuccess = { granted ->
+                logHealthRaw(
+                    "requestPermissions response",
+                    mapOf(
+                        "grantedCount" to granted.size,
+                        "requiredCount" to required.size,
+                        "optionalCount" to optional.size,
+                        "optionalGrantedCount" to granted.intersect(optional).size,
+                        "status" to toPermissionStatus(granted, required)
+                    )
+                )
+                promise.resolve(toPermissionStatus(granted, required))
+            },
+            onError = { error ->
+                logHealthRaw("requestPermissions failed", errorLog(error))
+                promise.reject("health_permission_failed", error.message, error)
+            }
+        )
     }
 
     @ReactMethod
@@ -140,30 +153,35 @@ class RNHealthImportBridgeModule(
 
         val start = Instant.ofEpochSecond(params.doubleOrDefault("startTimestamp", 0.0).toLong().coerceAtLeast(0))
         val endSeconds = params.doubleOrDefault("endTimestamp", Instant.now().epochSecond.toDouble()).toLong()
-        val end = Instant.ofEpochSecond(maxOf(endSeconds, start.epochSecond))
         val pageSize = params.intOrDefault("limit", 1000).coerceIn(1, 5000)
 
-        logHealthRaw(
-            "ReadRecordsRequest request",
-            mapOf(
-                "recordType" to "ExerciseSessionRecord",
-                "startEpochSecond" to start.epochSecond,
-                "endEpochSecond" to end.epochSecond,
-                "ascendingOrder" to true,
-                "pageSize" to pageSize
-            )
-        )
         scope.launch {
             try {
+                val granted = client.permissionController.getGrantedPermissions()
+                val effectiveStart = effectiveReadStart(start, granted)
+                val end = Instant.ofEpochSecond(maxOf(endSeconds, effectiveStart.epochSecond))
                 val records = Arguments.createArray()
                 var pageToken: String? = null
                 var pageIndex = 0
+
+                logHealthRaw(
+                    "ReadRecordsRequest request",
+                    mapOf(
+                        "recordType" to "ExerciseSessionRecord",
+                        "requestedStartEpochSecond" to start.epochSecond,
+                        "startEpochSecond" to effectiveStart.epochSecond,
+                        "endEpochSecond" to end.epochSecond,
+                        "historyPermissionGranted" to granted.contains(PERMISSION_READ_HEALTH_DATA_HISTORY),
+                        "ascendingOrder" to true,
+                        "pageSize" to pageSize
+                    )
+                )
 
                 do {
                     val response = client.readRecords(
                         ReadRecordsRequest(
                             recordType = ExerciseSessionRecord::class,
-                            timeRangeFilter = TimeRangeFilter.between(start, end),
+                            timeRangeFilter = TimeRangeFilter.between(effectiveStart, end),
                             ascendingOrder = true,
                             pageSize = pageSize,
                             pageToken = pageToken
@@ -210,33 +228,6 @@ class RNHealthImportBridgeModule(
             promise.reject("health_settings_failed", error.message, error)
         }
     }
-
-    override fun onActivityResult(activity: Activity, requestCode: Int, resultCode: Int, data: Intent?) {
-        if (requestCode != REQUEST_HEALTH_PERMISSIONS) return
-
-        val promise = pendingPermissionPromise ?: return
-        val expectedPermissions = pendingPermissionSet
-        pendingPermissionPromise = null
-        pendingPermissionSet = emptySet()
-
-        try {
-            val granted = permissionContract.parseResult(resultCode, data)
-            logHealthRaw(
-                "requestPermissions response",
-                mapOf(
-                    "grantedCount" to granted.size,
-                    "expectedCount" to expectedPermissions.size,
-                    "status" to toPermissionStatus(granted, expectedPermissions)
-                )
-            )
-            promise.resolve(toPermissionStatus(granted, expectedPermissions))
-        } catch (error: Exception) {
-            logHealthRaw("requestPermissions response failed", errorLog(error))
-            promise.reject("health_permission_failed", error.message, error)
-        }
-    }
-
-    override fun onNewIntent(intent: Intent) = Unit
 
     private suspend fun mapSession(
         client: HealthConnectClient,
@@ -494,14 +485,14 @@ class RNHealthImportBridgeModule(
         }
     }
 
-    private fun permissionsFor(includeHistory: Boolean): Set<String> {
+    private fun permissionsFor(includeHistory: Boolean, includeRoute: Boolean): Set<String> {
         return buildSet {
-            addAll(basePermissions())
-            if (includeHistory) add(PERMISSION_READ_HEALTH_DATA_HISTORY)
+            addAll(requiredPermissions())
+            addAll(optionalPermissions(includeHistory, includeRoute))
         }
     }
 
-    private fun basePermissions(): Set<String> = setOf(
+    private fun requiredPermissions(): Set<String> = setOf(
         HealthPermission.getReadPermission(ExerciseSessionRecord::class),
         HealthPermission.getReadPermission(DistanceRecord::class),
         HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
@@ -509,9 +500,23 @@ class RNHealthImportBridgeModule(
         HealthPermission.getReadPermission(StepsCadenceRecord::class)
     )
 
-    private fun toPermissionStatus(granted: Set<String>, expected: Set<String>): String {
-        if (granted.containsAll(expected)) return "granted"
-        if (granted.intersect(expected).isNotEmpty()) return "partial"
+    private fun optionalPermissions(includeHistory: Boolean, includeRoute: Boolean): Set<String> {
+        return buildSet {
+            if (includeHistory) add(PERMISSION_READ_HEALTH_DATA_HISTORY)
+            if (includeRoute) add(PERMISSION_READ_EXERCISE_ROUTES)
+        }
+    }
+
+    private fun effectiveReadStart(requestedStart: Instant, granted: Set<String>): Instant {
+        if (granted.contains(PERMISSION_READ_HEALTH_DATA_HISTORY)) return requestedStart
+
+        val earliestDefaultStart = Instant.now().minusSeconds(HEALTH_CONNECT_DEFAULT_READ_WINDOW_SECONDS)
+        return if (requestedStart.isBefore(earliestDefaultStart)) earliestDefaultStart else requestedStart
+    }
+
+    private fun toPermissionStatus(granted: Set<String>, required: Set<String>): String {
+        if (granted.containsAll(required)) return "granted"
+        if (granted.intersect(required).isNotEmpty()) return "partial"
         return "denied"
     }
 
@@ -529,7 +534,8 @@ class RNHealthImportBridgeModule(
 
     companion object {
         private const val MODULE_NAME = "RNHealthImportBridge"
-        private const val REQUEST_HEALTH_PERMISSIONS = 29041
+        private const val PERMISSION_READ_EXERCISE_ROUTES = "android.permission.health.READ_EXERCISE_ROUTES"
+        private const val HEALTH_CONNECT_DEFAULT_READ_WINDOW_SECONDS = 2_592_000L
     }
 
     private data class RouteReadResult(

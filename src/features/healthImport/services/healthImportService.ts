@@ -81,36 +81,12 @@ const summarizeBatchRecords = (records: HealthImportBatchRecord[]) => ({
   ),
 });
 
-const isBlockingRouteWorkout = (workout: HealthRunningWorkout): boolean => {
-  if (getGpsPoints(workout).length > 0) return false;
-  return workout.routeStatus === 'permissionRequired' ||
-    workout.routeStatus === 'readFailed' ||
-    workout.routeStatus === 'available';
-};
-
 const sortWorkoutsForCursor = (workouts: HealthRunningWorkout[]): HealthRunningWorkout[] =>
   [...workouts].sort((left, right) => {
     const endDiff = normalizeNumber(left.endTimestamp) - normalizeNumber(right.endTimestamp);
     if (endDiff !== 0) return endDiff;
     return normalizeNumber(left.startTimestamp) - normalizeNumber(right.startTimestamp);
   });
-
-const toImportablePrefix = (workouts: HealthRunningWorkout[]): {
-  workouts: HealthRunningWorkout[];
-  hasBlockingWorkout: boolean;
-} => {
-  const sorted = sortWorkoutsForCursor(workouts);
-  const blockingIndex = sorted.findIndex(isBlockingRouteWorkout);
-
-  if (blockingIndex === -1) {
-    return { workouts: sorted, hasBlockingWorkout: false };
-  }
-
-  return {
-    workouts: sorted.slice(0, blockingIndex),
-    hasBlockingWorkout: true,
-  };
-};
 
 const toBatchRecord = (workout: HealthRunningWorkout): HealthImportBatchRecord => {
   const gpsPoints = getGpsPoints(workout);
@@ -253,25 +229,22 @@ export const healthImportService = {
       throw error;
     });
     logHealthImport('native workouts read', summarizeWorkouts(workouts));
-    const importable = toImportablePrefix(workouts);
-    logHealthImport('importable prefix selected', {
-      importableCount: importable.workouts.length,
-      blockedCount: workouts.length - importable.workouts.length,
-      hasBlockingWorkout: importable.hasBlockingWorkout,
+    const importableWorkouts = sortWorkoutsForCursor(workouts);
+    logHealthImport('importable workouts selected', {
+      importableCount: importableWorkouts.length,
+      workoutsWithoutGps: importableWorkouts.filter((workout) => getGpsPoints(workout).length === 0).length,
     });
 
     if (configuration.healthImportLastSyncedTimestamp == null) {
-      const result = await importWorkouts(importable.workouts);
-      if (!importable.hasBlockingWorkout) {
-        await finalizeSync();
-      }
+      const result = await importWorkouts(importableWorkouts);
+      await finalizeSync();
       return result;
     }
 
-    if (importable.workouts.length === 0) {
+    if (importableWorkouts.length === 0) {
       return { importedCount: 0, duplicateCount: 0, awardedPoint: 0 };
     }
 
-    return importWorkouts(importable.workouts);
+    return importWorkouts(importableWorkouts);
   },
 };

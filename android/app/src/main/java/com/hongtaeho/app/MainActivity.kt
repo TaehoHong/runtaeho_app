@@ -4,6 +4,9 @@ import expo.modules.splashscreen.SplashScreenManager
 import android.os.Build
 import android.os.Bundle
 
+import androidx.activity.result.ActivityResultLauncher
+import androidx.health.connect.client.PermissionController
+
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
@@ -11,7 +14,18 @@ import com.facebook.react.defaults.DefaultReactActivityDelegate
 
 import expo.modules.ReactActivityDelegateWrapper
 
-class MainActivity : ReactActivity() {
+interface HealthConnectPermissionRequester {
+  fun requestHealthConnectPermissions(
+    permissions: Set<String>,
+    onSuccess: (Set<String>) -> Unit,
+    onError: (Exception) -> Unit,
+  )
+}
+
+class MainActivity : ReactActivity(), HealthConnectPermissionRequester {
+  private lateinit var healthConnectPermissionLauncher: ActivityResultLauncher<Set<String>>
+  private var pendingHealthPermissionCallback: HealthPermissionCallback? = null
+
   override fun onCreate(savedInstanceState: Bundle?) {
     // Set the theme to AppTheme BEFORE onCreate to support
     // coloring the background, status bar, and navigation bar.
@@ -21,6 +35,37 @@ class MainActivity : ReactActivity() {
     SplashScreenManager.registerOnActivity(this)
     // @generated end expo-splashscreen
     super.onCreate(null)
+    healthConnectPermissionLauncher = registerForActivityResult(
+        PermissionController.createRequestPermissionResultContract()
+    ) { grantedPermissions ->
+        val callback = pendingHealthPermissionCallback ?: return@registerForActivityResult
+        pendingHealthPermissionCallback = null
+        callback.onSuccess(grantedPermissions)
+    }
+  }
+
+  override fun requestHealthConnectPermissions(
+    permissions: Set<String>,
+    onSuccess: (Set<String>) -> Unit,
+    onError: (Exception) -> Unit,
+  ) {
+    if (!::healthConnectPermissionLauncher.isInitialized) {
+      onError(IllegalStateException("Health Connect permission launcher is not initialized."))
+      return
+    }
+
+    if (pendingHealthPermissionCallback != null) {
+      onError(IllegalStateException("Health permission request is already running."))
+      return
+    }
+
+    pendingHealthPermissionCallback = HealthPermissionCallback(onSuccess, onError)
+    try {
+      healthConnectPermissionLauncher.launch(permissions)
+    } catch (error: Exception) {
+      pendingHealthPermissionCallback = null
+      onError(error)
+    }
   }
 
   /**
@@ -62,4 +107,9 @@ class MainActivity : ReactActivity() {
       // because it's doing more than [Activity.moveTaskToBack] in fact.
       super.invokeDefaultOnBackPressed()
   }
+
+  private data class HealthPermissionCallback(
+    val onSuccess: (Set<String>) -> Unit,
+    val onError: (Exception) -> Unit,
+  )
 }
