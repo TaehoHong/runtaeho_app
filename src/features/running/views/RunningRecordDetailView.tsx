@@ -210,6 +210,12 @@ export const RunningRecordDetailView: React.FC = () => {
   if (showMap) {
     return (
       <View style={styles.screen}>
+        <Header
+          title="러닝 기록"
+          topInset={insets.top}
+          onBack={() => router.back()}
+          onShare={handleShare}
+        />
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.routeScrollContent}
@@ -229,13 +235,6 @@ export const RunningRecordDetailView: React.FC = () => {
             />
           </View>
         </ScrollView>
-        <Header
-          title="러닝 기록"
-          topInset={insets.top}
-          onBack={() => router.back()}
-          onShare={handleShare}
-          overlay
-        />
         <ShoeChangeBottomSheet
           visible={isShoeSheetVisible}
           currentShoeId={currentShoeId}
@@ -299,15 +298,13 @@ interface HeaderProps {
   topInset: number;
   onBack: () => void;
   onShare?: () => void;
-  overlay?: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ title, topInset, onBack, onShare, overlay }) => (
+const Header: React.FC<HeaderProps> = ({ title, topInset, onBack, onShare }) => (
   <View
     style={[
       styles.header,
       { height: topInset + HEADER_BAR_HEIGHT, paddingTop: topInset },
-      overlay && styles.headerOverlay,
     ]}
   >
     <TouchableOpacity onPress={onBack} style={styles.headerButton} activeOpacity={0.7}>
@@ -651,6 +648,8 @@ const RouteMapHero: React.FC<RouteMapHeroProps> = ({ locations }) => {
         style={styles.map}
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
         initialRegion={region}
+        mapType="standard"
+        userInterfaceStyle="light"
         scrollEnabled={false}
         zoomEnabled={false}
         rotateEnabled={false}
@@ -709,14 +708,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     backgroundColor: '#F7F8F6',
-  },
-  headerOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-    backgroundColor: 'transparent',
   },
   headerButton: {
     width: 40,
