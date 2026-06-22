@@ -629,6 +629,22 @@ export class UnityService {
   }
 
   /**
+   * ★ Unity 캐릭터 회전 설정
+   * @param rotation 회전 각도(degrees)
+   */
+  async setCharacterRotation(rotation: number): Promise<void> {
+    this.log(`Setting character rotation: ${rotation}`);
+
+    try {
+      await UnityBridge.setCharacterRotation(rotation);
+      this.log(`Character rotation set to ${rotation}`);
+    } catch (error) {
+      this.logError('Failed to set character rotation', error);
+      throw error;
+    }
+  }
+
+  /**
    * ★ Unity 캐릭터 표시/숨김 설정 (공유 에디터용)
    * @param visible true=표시, false=숨김
    */

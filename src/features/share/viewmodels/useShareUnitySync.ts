@@ -39,6 +39,7 @@ interface UseShareUnitySyncValue {
   syncPose: (pose: PoseOption, animationTime?: number) => Promise<void>;
   syncCharacterPosition: (x: number, y: number) => void;
   syncCharacterScale: (scale: number) => void;
+  syncCharacterRotation: (rotation: number) => void;
   syncCharacterVisibility: (visible: boolean) => void;
   syncAnimationTime: (time: number) => void;
   resetShareEditorUnityState: () => Promise<void>;
@@ -152,6 +153,7 @@ export const useShareUnitySync = ({
       1 - INITIAL_CHARACTER_TRANSFORM.y
     );
     await unityService.setCharacterScale(INITIAL_CHARACTER_TRANSFORM.scale);
+    await unityService.setCharacterRotation(INITIAL_CHARACTER_TRANSFORM.rotation ?? 0);
     await unityService.setCharacterVisible(true);
   }, [applyBackgroundToUnity]);
 
@@ -173,6 +175,7 @@ export const useShareUnitySync = ({
             1 - characterTransform.y
           );
           await unityService.setCharacterScale(characterTransform.scale);
+          await unityService.setCharacterRotation(characterTransform.rotation ?? 0);
           await unityService.setCharacterVisible(avatarVisible);
         },
         { waitForAvatar: false, timeoutMs: 3000, forceReadyOnTimeout: true }
@@ -347,6 +350,16 @@ export const useShareUnitySync = ({
     });
   }, [canSendMessage]);
 
+  const syncCharacterRotation = useCallback((rotation: number) => {
+    if (!canSendMessage) {
+      return;
+    }
+
+    unityService.setCharacterRotation(rotation).catch((error) => {
+      console.warn('[useShareUnitySync] Rotation update failed:', error);
+    });
+  }, [canSendMessage]);
+
   const syncCharacterVisibility = useCallback((visible: boolean) => {
     if (!canSendMessage) {
       return;
@@ -400,6 +413,7 @@ export const useShareUnitySync = ({
     syncPose,
     syncCharacterPosition,
     syncCharacterScale,
+    syncCharacterRotation,
     syncCharacterVisibility,
     syncAnimationTime,
     resetShareEditorUnityState,

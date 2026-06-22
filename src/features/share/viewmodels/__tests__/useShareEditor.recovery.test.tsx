@@ -11,6 +11,7 @@ const mockSetPoseForSlider = jest.fn();
 const mockSetAnimationNormalizedTime = jest.fn();
 const mockSetCharacterPosition = jest.fn();
 const mockSetCharacterScale = jest.fn();
+const mockSetCharacterRotation = jest.fn();
 const mockSetCharacterVisible = jest.fn();
 const mockStopCharacter = jest.fn();
 const mockRunWhenReady = jest.fn();
@@ -45,6 +46,7 @@ jest.mock('~/features/unity/services/UnityService', () => ({
     setAnimationNormalizedTime: (...args: unknown[]) => mockSetAnimationNormalizedTime(...args),
     setCharacterPosition: (...args: unknown[]) => mockSetCharacterPosition(...args),
     setCharacterScale: (...args: unknown[]) => mockSetCharacterScale(...args),
+    setCharacterRotation: (...args: unknown[]) => mockSetCharacterRotation(...args),
     setCharacterVisible: (...args: unknown[]) => mockSetCharacterVisible(...args),
     stopCharacter: (...args: unknown[]) => mockStopCharacter(...args),
     runWhenReady: (...args: unknown[]) => mockRunWhenReady(...args),
@@ -106,6 +108,7 @@ describe('useShareEditor recovery', () => {
     mockSetAnimationNormalizedTime.mockResolvedValue(undefined);
     mockSetCharacterPosition.mockResolvedValue(undefined);
     mockSetCharacterScale.mockResolvedValue(undefined);
+    mockSetCharacterRotation.mockResolvedValue(undefined);
     mockSetCharacterVisible.mockResolvedValue(undefined);
     mockStopCharacter.mockResolvedValue(undefined);
     mockRunWhenReady.mockImplementation(async (task: () => void | Promise<void>) => {
@@ -143,6 +146,7 @@ describe('useShareEditor recovery', () => {
       result.current.setAnimationTime(0.45);
       result.current.updateCharacterPosition(0.7, 0.8);
       result.current.updateCharacterScale(1.8);
+      result.current.updateCharacterRotation(30);
     });
 
     expect(mockSetBackgroundColor).not.toHaveBeenCalled();
@@ -150,13 +154,14 @@ describe('useShareEditor recovery', () => {
     expect(mockSetAnimationNormalizedTime).not.toHaveBeenCalled();
     expect(mockSetCharacterPosition).not.toHaveBeenCalled();
     expect(mockSetCharacterScale).not.toHaveBeenCalled();
+    expect(mockSetCharacterRotation).not.toHaveBeenCalled();
 
     act(() => {
       readinessState.isReady = true;
       readinessState.canSendMessage = true;
       readinessState.isInitialAvatarSynced = true;
     });
-    rerender();
+    rerender(undefined);
 
     await waitFor(() => {
       expect(mockRunWhenReady).toHaveBeenCalledTimes(1);
@@ -168,6 +173,7 @@ describe('useShareEditor recovery', () => {
     expect(lastPositionCall?.[0]).toBeCloseTo(0.7);
     expect(lastPositionCall?.[1]).toBeCloseTo(0.2);
     expect(mockSetCharacterScale).toHaveBeenCalledWith(1.8);
+    expect(mockSetCharacterRotation).toHaveBeenCalledWith(30);
     expect(mockSetCharacterVisible).toHaveBeenCalledWith(true);
   });
 
@@ -189,6 +195,7 @@ describe('useShareEditor recovery', () => {
     mockSetAnimationNormalizedTime.mockClear();
     mockSetCharacterPosition.mockClear();
     mockSetCharacterScale.mockClear();
+    mockSetCharacterRotation.mockClear();
     mockSetCharacterVisible.mockClear();
 
     await act(async () => {
@@ -199,6 +206,7 @@ describe('useShareEditor recovery', () => {
       result.current.setAnimationTime(0.6);
       result.current.updateCharacterPosition(0.65, 0.75);
       result.current.updateCharacterScale(1.4);
+      result.current.updateCharacterRotation(45);
       result.current.toggleAvatarVisibility();
     });
 
@@ -219,6 +227,7 @@ describe('useShareEditor recovery', () => {
     expect(lastPositionCall?.[0]).toBeCloseTo(0.65);
     expect(lastPositionCall?.[1]).toBeCloseTo(0.25);
     expect(mockSetCharacterScale).toHaveBeenCalledWith(1.4);
+    expect(mockSetCharacterRotation).toHaveBeenCalledWith(45);
     expect(mockSetCharacterVisible).toHaveBeenNthCalledWith(1, false);
     expect(mockSetCharacterVisible).toHaveBeenNthCalledWith(2, true);
   });
@@ -296,6 +305,7 @@ describe('useShareEditor recovery', () => {
     mockSetAnimationNormalizedTime.mockClear();
     mockSetCharacterVisible.mockClear();
     mockSetCharacterScale.mockClear();
+    mockSetCharacterRotation.mockClear();
     mockSetCharacterPosition.mockClear();
     mockStopCharacter.mockClear();
 
@@ -317,6 +327,8 @@ describe('useShareEditor recovery', () => {
     expect(restorePositionCall?.[1]).toBeCloseTo(0.1);
     expect(mockSetCharacterScale).toHaveBeenCalledTimes(1);
     expect(mockSetCharacterScale).toHaveBeenCalledWith(1);
+    expect(mockSetCharacterRotation).toHaveBeenCalledTimes(1);
+    expect(mockSetCharacterRotation).toHaveBeenCalledWith(0);
     expect(mockSetCharacterVisible).toHaveBeenCalledTimes(1);
     expect(mockSetCharacterVisible).toHaveBeenCalledWith(true);
     expect(mockStopCharacter).toHaveBeenCalledTimes(1);
@@ -341,6 +353,7 @@ describe('useShareEditor recovery', () => {
     mockSetAnimationNormalizedTime.mockClear();
     mockSetCharacterPosition.mockClear();
     mockSetCharacterScale.mockClear();
+    mockSetCharacterRotation.mockClear();
     mockSetCharacterVisible.mockClear();
     mockStopCharacter.mockClear();
 
@@ -358,6 +371,7 @@ describe('useShareEditor recovery', () => {
     mockSetAnimationNormalizedTime.mockClear();
     mockSetCharacterPosition.mockClear();
     mockSetCharacterScale.mockClear();
+    mockSetCharacterRotation.mockClear();
     mockSetCharacterVisible.mockClear();
     mockStopCharacter.mockClear();
 
@@ -373,6 +387,7 @@ describe('useShareEditor recovery', () => {
     expect(replayPositionCall?.[0]).toBeCloseTo(0.5);
     expect(replayPositionCall?.[1]).toBeCloseTo(0.1);
     expect(mockSetCharacterScale).toHaveBeenCalledWith(1);
+    expect(mockSetCharacterRotation).toHaveBeenCalledWith(0);
     expect(mockSetCharacterVisible).toHaveBeenCalledWith(true);
     expect(mockStopCharacter).toHaveBeenCalledTimes(1);
   });
@@ -397,6 +412,7 @@ describe('useShareEditor recovery', () => {
     mockSetAnimationNormalizedTime.mockClear();
     mockSetCharacterPosition.mockClear();
     mockSetCharacterScale.mockClear();
+    mockSetCharacterRotation.mockClear();
     mockSetCharacterVisible.mockClear();
     mockStopCharacter.mockClear();
 
@@ -412,6 +428,7 @@ describe('useShareEditor recovery', () => {
     expect(mockSetAnimationNormalizedTime).not.toHaveBeenCalled();
     expect(mockSetCharacterPosition).not.toHaveBeenCalled();
     expect(mockSetCharacterScale).not.toHaveBeenCalled();
+    expect(mockSetCharacterRotation).not.toHaveBeenCalled();
     expect(mockSetCharacterVisible).not.toHaveBeenCalled();
     expect(mockStopCharacter).not.toHaveBeenCalled();
   });

@@ -38,7 +38,9 @@ const DEFAULT_CHARACTER_TRANSFORM: CharacterTransform = {
   x: 0.5,
   y: 0.5,
   scale: 1,
+  rotation: 0,
 };
+const DEFAULT_CHARACTER_ROTATION = 0;
 
 interface SharePreviewCanvasProps {
   statElements: StatElementConfig[];
@@ -46,6 +48,7 @@ interface SharePreviewCanvasProps {
   runningData: ShareRunningData;
   onCharacterPositionChange?: (x: number, y: number) => void;
   onCharacterScaleChange?: (scale: number) => void;
+  onCharacterRotationChange?: (rotation: number) => void;
   characterTransform?: CharacterTransform;
   avatarVisible?: boolean;
   interactive?: boolean;
@@ -61,6 +64,7 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
       runningData,
       onCharacterPositionChange,
       onCharacterScaleChange,
+      onCharacterRotationChange,
       characterTransform,
       avatarVisible = true,
       interactive = true,
@@ -75,17 +79,22 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
       x: characterTransform?.x ?? DEFAULT_CHARACTER_TRANSFORM.x,
       y: characterTransform?.y ?? DEFAULT_CHARACTER_TRANSFORM.y,
       scale: characterTransform?.scale ?? DEFAULT_CHARACTER_TRANSFORM.scale,
+      rotation: characterTransform?.rotation ?? DEFAULT_CHARACTER_ROTATION,
     };
     const positionX = useSharedValue(initialTransform.x);
     const positionY = useSharedValue(initialTransform.y);
     const scale = useSharedValue(initialTransform.scale);
+    const rotation = useSharedValue(initialTransform.rotation);
     const savedScale = useSharedValue(initialTransform.scale);
+    const savedRotation = useSharedValue(initialTransform.rotation);
     const startPositionX = useSharedValue(initialTransform.x);
     const startPositionY = useSharedValue(initialTransform.y);
     const lastPositionUpdateTime = useRef(0);
     const lastScaleUpdateTime = useRef(0);
+    const lastRotationUpdateTime = useRef(0);
     const dragActiveRef = useRef(false);
     const pinchActiveRef = useRef(false);
+    const rotationActiveRef = useRef(false);
     const pendingExternalSyncRef = useRef(false);
     const latestExternalTransformRef = useRef<CharacterTransform>(initialTransform);
 
@@ -94,6 +103,7 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
         x: transform?.x ?? DEFAULT_CHARACTER_TRANSFORM.x,
         y: transform?.y ?? DEFAULT_CHARACTER_TRANSFORM.y,
         scale: transform?.scale ?? DEFAULT_CHARACTER_TRANSFORM.scale,
+        rotation: transform?.rotation ?? DEFAULT_CHARACTER_ROTATION,
       }),
       []
     );
@@ -103,16 +113,26 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
         positionX.value = transform.x;
         positionY.value = transform.y;
         scale.value = transform.scale;
+        rotation.value = transform.rotation ?? DEFAULT_CHARACTER_ROTATION;
 
         if (!pinchActiveRef.current) {
           savedScale.value = transform.scale;
         }
+
+        if (!rotationActiveRef.current) {
+          savedRotation.value = transform.rotation ?? DEFAULT_CHARACTER_ROTATION;
+        }
       },
-      [positionX, positionY, savedScale, scale]
+      [positionX, positionY, rotation, savedRotation, savedScale, scale]
     );
 
     const flushDeferredExternalSync = useCallback(() => {
-      if (dragActiveRef.current || pinchActiveRef.current || !pendingExternalSyncRef.current) {
+      if (
+        dragActiveRef.current
+        || pinchActiveRef.current
+        || rotationActiveRef.current
+        || !pendingExternalSyncRef.current
+      ) {
         return;
       }
 
@@ -134,6 +154,17 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
     const setPinchInteractionActive = useCallback(
       (active: boolean) => {
         pinchActiveRef.current = active;
+
+        if (!active) {
+          flushDeferredExternalSync();
+        }
+      },
+      [flushDeferredExternalSync]
+    );
+
+    const setRotationInteractionActive = useCallback(
+      (active: boolean) => {
+        rotationActiveRef.current = active;
 
         if (!active) {
           flushDeferredExternalSync();
@@ -165,11 +196,22 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
       [onCharacterScaleChange]
     );
 
+    const commitExternalRotation = useCallback(
+      (newRotation: number) => {
+        latestExternalTransformRef.current = {
+          ...latestExternalTransformRef.current,
+          rotation: newRotation,
+        };
+        onCharacterRotationChange?.(newRotation);
+      },
+      [onCharacterRotationChange]
+    );
+
     useEffect(() => {
       const nextTransform = normalizeCharacterTransform(characterTransform);
       latestExternalTransformRef.current = nextTransform;
 
-      if (dragActiveRef.current || pinchActiveRef.current) {
+      if (dragActiveRef.current || pinchActiveRef.current || rotationActiveRef.current) {
         pendingExternalSyncRef.current = true;
         return;
       }
@@ -203,6 +245,17 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
       [onCharacterScaleChange]
     );
 
+    const throttledRotationUpdate = useCallback(
+      (newRotation: number) => {
+        const now = Date.now();
+        if (now - lastRotationUpdateTime.current >= POSITION_UPDATE_INTERVAL) {
+          lastRotationUpdateTime.current = now;
+          onCharacterRotationChange?.(newRotation);
+        }
+      },
+      [onCharacterRotationChange]
+    );
+
     const characterGestureSurfaceStyle = useAnimatedStyle(() => {
       const gesturePaddingHorizontal =
         DEFAULT_GESTURE_HIT_SLOP.left + DEFAULT_GESTURE_HIT_SLOP.right;
@@ -216,6 +269,9 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
       return {
         width: gestureWidth,
         height: gestureHeight,
+        transform: [
+          { rotate: `${rotation.value}deg` },
+        ],
         left:
           positionX.value * PREVIEW_WIDTH
           - visibleWidth / 2
@@ -276,7 +332,29 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
         scheduleOnRN(setPinchInteractionActive, false);
       });
 
-    const combinedGesture = Gesture.Simultaneous(panGesture, pinchGesture);
+    const rotationGesture = Gesture.Rotation()
+      .onStart(() => {
+        'worklet';
+        scheduleOnRN(setRotationInteractionActive, true);
+        savedRotation.value = rotation.value;
+      })
+      .onUpdate((event) => {
+        'worklet';
+        const nextRotation = savedRotation.value + (event.rotation * 180) / Math.PI;
+        rotation.value = nextRotation;
+        scheduleOnRN(throttledRotationUpdate, nextRotation);
+      })
+      .onEnd(() => {
+        'worklet';
+        savedRotation.value = rotation.value;
+        scheduleOnRN(commitExternalRotation, rotation.value);
+      })
+      .onFinalize(() => {
+        'worklet';
+        scheduleOnRN(setRotationInteractionActive, false);
+      });
+
+    const combinedGesture = Gesture.Simultaneous(panGesture, pinchGesture, rotationGesture);
 
     const formattedStats = useMemo(() => {
       const distanceKm = (runningData.distance / 1000).toFixed(2);
@@ -307,15 +385,17 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
         >
           <View pointerEvents="none" style={styles.unityViewport} />
 
-          {interactive && avatarVisible && (onCharacterPositionChange || onCharacterScaleChange) && (
-            <GestureDetector gesture={combinedGesture}>
-              <Animated.View
-                collapsable={false}
-                testID="share-character-gesture-surface"
-                style={[styles.characterGestureSurface, characterGestureSurfaceStyle]}
-              />
-            </GestureDetector>
-          )}
+          {interactive
+            && avatarVisible
+            && (onCharacterPositionChange || onCharacterScaleChange || onCharacterRotationChange) && (
+              <GestureDetector gesture={combinedGesture}>
+                <Animated.View
+                  collapsable={false}
+                  testID="share-character-gesture-surface"
+                  style={[styles.characterGestureSurface, characterGestureSurfaceStyle]}
+                />
+              </GestureDetector>
+            )}
 
           <View style={styles.overlay} pointerEvents={interactive ? 'box-none' : 'none'}>
             {statElements.map((element) => {

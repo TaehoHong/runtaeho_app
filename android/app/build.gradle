@@ -103,8 +103,8 @@ android {
         applicationId 'com.runtaeho.runtaeho'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 66
-        versionName "1.7.0"
+        versionCode 67
+        versionName "1.7.1"
         manifestPlaceholders = [
             GOOGLE_MAPS_ANDROID_API_KEY: findProperty("GOOGLE_MAPS_ANDROID_API_KEY")
                 ?: System.getenv("EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY")

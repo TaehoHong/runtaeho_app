@@ -29,6 +29,7 @@ export interface UseShareEditorStateValue {
   toggleAvatarVisibility: () => boolean;
   updateCharacterPosition: (x: number, y: number) => void;
   updateCharacterScale: (scale: number) => number;
+  updateCharacterRotation: (rotation: number) => void;
   setAnimationTime: (time: number) => void;
   resetState: () => ShareEditorInitialState;
 }
@@ -120,6 +121,13 @@ export const useShareEditorState = ({
     return clampedScale;
   }, []);
 
+  const updateCharacterRotation = useCallback((rotation: number) => {
+    setCharacterTransform((previousTransform) => ({
+      ...previousTransform,
+      rotation,
+    }));
+  }, []);
+
   const setAnimationTime = useCallback(
     (time: number) => {
       setAnimationTimeState(time);
@@ -159,6 +167,7 @@ export const useShareEditorState = ({
     toggleAvatarVisibility,
     updateCharacterPosition,
     updateCharacterScale,
+    updateCharacterRotation,
     setAnimationTime,
     resetState,
   };

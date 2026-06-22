@@ -48,6 +48,7 @@ class MockGestureBuilder {
 
 const mockPanGestures: MockGestureBuilder[] = [];
 const mockPinchGestures: MockGestureBuilder[] = [];
+const mockRotationGestures: MockGestureBuilder[] = [];
 
 jest.mock('react-native-worklets', () => ({
   createSerializable: <T,>(value: T) => value,
@@ -102,6 +103,11 @@ jest.mock('react-native-gesture-handler', () => {
         mockPinchGestures.push(gesture);
         return gesture;
       }),
+      Rotation: jest.fn(() => {
+        const gesture = new MockGestureBuilder();
+        mockRotationGestures.push(gesture);
+        return gesture;
+      }),
       Simultaneous: (...gestures: unknown[]) => ({ gestures }),
     },
   };
@@ -138,15 +144,27 @@ const getLatestPanHandlers = () => {
   return latest.handlers;
 };
 
+const getLatestRotationHandlers = () => {
+  const latest = mockRotationGestures.at(-1);
+
+  if (!latest) {
+    throw new Error('Rotation gesture was not created');
+  }
+
+  return latest.handlers;
+};
+
 const renderCanvas = (
   characterTransform: CharacterTransform,
   onCharacterPositionChange: jest.Mock,
   {
     interactive = true,
     avatarVisible = true,
+    onCharacterRotationChange = jest.fn(),
   }: {
     interactive?: boolean;
     avatarVisible?: boolean;
+    onCharacterRotationChange?: jest.Mock;
   } = {}
 ) =>
   render(
@@ -156,6 +174,7 @@ const renderCanvas = (
       runningData={runningData}
       onCharacterPositionChange={onCharacterPositionChange}
       onCharacterScaleChange={jest.fn()}
+      onCharacterRotationChange={onCharacterRotationChange}
       characterTransform={characterTransform}
       avatarVisible={avatarVisible}
       interactive={interactive}
@@ -176,6 +195,7 @@ describe('SharePreviewCanvas gesture sync', () => {
   beforeEach(() => {
     mockPanGestures.length = 0;
     mockPinchGestures.length = 0;
+    mockRotationGestures.length = 0;
     jest.clearAllMocks();
   });
 
@@ -296,5 +316,25 @@ describe('SharePreviewCanvas gesture sync', () => {
     );
 
     expect(queryByTestId('share-character-gesture-surface')).toBeNull();
+  });
+
+  it('commits character rotation from a rotation gesture', () => {
+    const onCharacterRotationChange = jest.fn();
+    renderCanvas(
+      { x: 0.5, y: 0.5, scale: 1, rotation: 10 },
+      jest.fn(),
+      { onCharacterRotationChange }
+    );
+
+    const rotationHandlers = getLatestRotationHandlers();
+
+    act(() => {
+      rotationHandlers.onStart?.();
+      rotationHandlers.onUpdate?.({ rotation: Math.PI / 4 });
+      rotationHandlers.onEnd?.();
+      rotationHandlers.onFinalize?.();
+    });
+
+    expect(onCharacterRotationChange).toHaveBeenLastCalledWith(55);
   });
 });

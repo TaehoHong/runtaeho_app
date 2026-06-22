@@ -944,6 +944,26 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
         }
     }
 
+    /**
+     * 캐릭터 회전 설정
+     * iOS의 setCharacterRotation과 동일한 기능
+     *
+     * @param rotation 회전 각도(degrees)
+     * @param promise React Native Promise
+     */
+    @ReactMethod
+    fun setCharacterRotation(rotation: Double, promise: Promise) {
+        Log.d(TAG, "setCharacterRotation: $rotation")
+
+        try {
+            UnityHolder.sendMessage("Charactor", "SetCharacterRotation", rotation.toString())
+            promise.resolve(null)
+        } catch (e: Exception) {
+            Log.e(TAG, "setCharacterRotation error: ${e.message}", e)
+            promise.reject("SET_CHARACTER_ROTATION_ERROR", "Failed to set character rotation", e)
+        }
+    }
+
     // MARK: - Unity Engine Methods (Unity 엔진 메서드들)
 
     /**

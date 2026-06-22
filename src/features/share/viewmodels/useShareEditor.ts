@@ -55,6 +55,7 @@ interface UseShareEditorReturn {
   handleUnityReady: (event: UnityReadyEvent) => void;
   updateCharacterPosition: (x: number, y: number) => void;
   updateCharacterScale: (scale: number) => void;
+  updateCharacterRotation: (rotation: number) => void;
   setAnimationTime: (time: number) => void;
 }
 
@@ -75,6 +76,7 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
     toggleAvatarVisibility: toggleAvatarVisibilityState,
     updateCharacterPosition: updateCharacterPositionState,
     updateCharacterScale: updateCharacterScaleState,
+    updateCharacterRotation: updateCharacterRotationState,
     setAnimationTime: setAnimationTimeState,
     resetState,
   } = useShareEditorState({ includeMap });
@@ -86,6 +88,7 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
     syncPose,
     syncCharacterPosition,
     syncCharacterScale,
+    syncCharacterRotation,
     syncCharacterVisibility,
     syncAnimationTime,
     resetShareEditorUnityState,
@@ -123,6 +126,11 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
     const nextScale = updateCharacterScaleState(scale);
     syncCharacterScale(nextScale);
   }, [syncCharacterScale, updateCharacterScaleState]);
+
+  const updateCharacterRotation = useCallback((rotation: number) => {
+    updateCharacterRotationState(rotation);
+    syncCharacterRotation(rotation);
+  }, [syncCharacterRotation, updateCharacterRotationState]);
 
   const toggleAvatarVisibility = useCallback(() => {
     const nextVisible = toggleAvatarVisibilityState();
@@ -167,6 +175,7 @@ export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEd
     handleUnityReady,
     updateCharacterPosition,
     updateCharacterScale,
+    updateCharacterRotation,
     setAnimationTime,
   };
 };

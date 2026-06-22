@@ -1,4 +1,5 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 import { DraggableRouteMap } from '../DraggableRouteMap';
 import { DraggableStat } from '../DraggableStat';
@@ -50,12 +51,13 @@ jest.mock('react-native-gesture-handler', () => {
   return {
     GestureDetector: ({ children }: { children?: React.ReactNode }) =>
       React.createElement(View, { testID: 'gesture-detector' }, children),
-    Gesture: {
-      Pan: jest.fn(() => new MockGestureBuilder()),
-      Pinch: jest.fn(() => new MockGestureBuilder()),
-      Simultaneous: (...gestures: unknown[]) => ({ gestures }),
-    },
-  };
+      Gesture: {
+        Pan: jest.fn(() => new MockGestureBuilder()),
+        Pinch: jest.fn(() => new MockGestureBuilder()),
+        Rotation: jest.fn(() => new MockGestureBuilder()),
+        Simultaneous: (...gestures: unknown[]) => ({ gestures }),
+      },
+    };
 });
 
 jest.mock('react-native-worklets', () => ({
@@ -127,18 +129,16 @@ describe('share overlay interactivity', () => {
             longitude: 126.978,
             altitude: 0,
             accuracy: 5,
-            heading: 0,
             speed: 0,
-            timestamp: '2026-02-24T00:00:00.000Z',
+            timestamp: new Date('2026-02-24T00:00:00.000Z'),
           },
           {
             latitude: 37.567,
             longitude: 126.979,
             altitude: 0,
             accuracy: 5,
-            heading: 0,
             speed: 0,
-            timestamp: '2026-02-24T00:01:00.000Z',
+            timestamp: new Date('2026-02-24T00:01:00.000Z'),
           },
         ]}
         transform={{ x: 0, y: 0, scale: 1 }}
@@ -176,6 +176,26 @@ describe('share overlay interactivity', () => {
     ]));
   });
 
+  it('applies rotation transforms to interactive stats', () => {
+    render(
+      <DraggableStat
+        type="time"
+        value="38:20"
+        label="시간"
+        transform={{ x: 0, y: 0, scale: 1, rotation: 25 }}
+        onTransformChange={jest.fn()}
+        visible
+      />
+    );
+
+    const gestureSurface = screen.getByTestId('share-stat-gesture-surface-time');
+    const style = StyleSheet.flatten(gestureSurface.props.style);
+
+    expect(style.transform).toEqual(expect.arrayContaining([
+      { rotate: '25deg' },
+    ]));
+  });
+
   it('applies minimum gesture hit slop to the route map', () => {
     render(
       <DraggableRouteMap
@@ -185,18 +205,16 @@ describe('share overlay interactivity', () => {
             longitude: 126.978,
             altitude: 0,
             accuracy: 5,
-            heading: 0,
             speed: 0,
-            timestamp: '2026-02-24T00:00:00.000Z',
+            timestamp: new Date('2026-02-24T00:00:00.000Z'),
           },
           {
             latitude: 37.567,
             longitude: 126.979,
             altitude: 0,
             accuracy: 5,
-            heading: 0,
             speed: 0,
-            timestamp: '2026-02-24T00:01:00.000Z',
+            timestamp: new Date('2026-02-24T00:01:00.000Z'),
           },
         ]}
         transform={{ x: 0, y: 0, scale: 1 }}

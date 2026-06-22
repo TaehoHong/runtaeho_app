@@ -71,6 +71,7 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
     characterTransform,
     updateCharacterPosition,
     updateCharacterScale,
+    updateCharacterRotation,
   } = useShareEditor({ runningData });
   const {
     exportStageRef,
@@ -237,6 +238,7 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
                     runningData={runningData}
                     onCharacterPositionChange={updateCharacterPosition}
                     onCharacterScaleChange={updateCharacterScale}
+                    onCharacterRotationChange={updateCharacterRotation}
                     characterTransform={characterTransform}
                     avatarVisible={avatarVisible}
                     cornerRadius={PREVIEW_CORNER_RADIUS}
@@ -314,6 +316,7 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
                     runningData={runningData}
                     onCharacterPositionChange={updateCharacterPosition}
                     onCharacterScaleChange={updateCharacterScale}
+                    onCharacterRotationChange={updateCharacterRotation}
                     characterTransform={characterTransform}
                     avatarVisible={avatarVisible}
                     interactive={false}

@@ -55,6 +55,7 @@ export interface UnityBridgeInterface {
   // 캐릭터 위치/스케일/표시 제어 (공유 에디터용)
   setCharacterPosition(x: number, y: number): Promise<void>;
   setCharacterScale(scale: number): Promise<void>;
+  setCharacterRotation(rotation: number): Promise<void>;
   setCharacterVisible(visible: boolean): Promise<void>;
 }
 
@@ -497,6 +498,25 @@ class UnityBridgeImpl implements UnityBridgeInterface {
       await NativeUnityBridge.setCharacterScale(clampedScale);
     } catch (error) {
       console.error('[UnityBridge] setCharacterScale error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * ★ Unity 캐릭터 회전 설정
+   * @param rotation 회전 각도(degrees)
+   */
+  async setCharacterRotation(rotation: number): Promise<void> {
+    if (!NativeUnityBridge?.setCharacterRotation) {
+      console.log('[UnityBridge] setCharacterRotation: Native method not available');
+      return;
+    }
+
+    try {
+      console.log(`[UnityBridge] setCharacterRotation: ${rotation}`);
+      await NativeUnityBridge.setCharacterRotation(rotation);
+    } catch (error) {
+      console.error('[UnityBridge] setCharacterRotation error:', error);
       throw error;
     }
   }

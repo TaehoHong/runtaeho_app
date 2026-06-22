@@ -536,6 +536,22 @@ class RNUnityBridge: RCTEventEmitter {
         }
     }
 
+    /// ★ Unity 캐릭터 회전 설정
+    /// @param rotation 회전 각도(degrees)
+    @objc
+    func setCharacterRotation(_ rotation: NSNumber,
+                              resolver resolve: @escaping RCTPromiseResolveBlock,
+                              rejecter reject: @escaping RCTPromiseRejectBlock) {
+        print("[RNUnityBridge] setCharacterRotation: \(rotation)")
+
+        DispatchQueue.main.async {
+            Unity.shared.sendMessage("Charactor",
+                                    methodName: "SetCharacterRotation",
+                                    parameter: "\(rotation.floatValue)")
+            resolve(nil)
+        }
+    }
+
     /// ★ Unity 캐릭터 표시/숨김 설정 (공유 에디터용)
     @objc
     func setCharacterVisible(_ visible: Bool,

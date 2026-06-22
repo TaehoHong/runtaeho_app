@@ -80,6 +80,7 @@ export const INITIAL_AVATAR_TRANSFORM: ElementTransform = {
   x: 0,
   y: -80,
   scale: 1,
+  rotation: 0,
 };
 
 /**
@@ -89,6 +90,7 @@ export const INITIAL_CHARACTER_TRANSFORM: CharacterTransform = {
   x: 0.5,
   y: 0.9,
   scale: 1,
+  rotation: 0,
 };
 
 /**
@@ -99,22 +101,22 @@ export const INITIAL_STAT_ELEMENTS: StatElementConfig[] = [
   {
     type: 'distance',
     visible: true,
-    transform: { x: 0, y: 45, scale: 1 },
+    transform: { x: 0, y: 45, scale: 1, rotation: 0 },
   },
   {
     type: 'time',
     visible: true,
-    transform: { x: -60, y: 78, scale: 1 },
+    transform: { x: -60, y: 78, scale: 1, rotation: 0 },
   },
   {
     type: 'pace',
     visible: true,
-    transform: { x: 60, y: 78, scale: 1 },
+    transform: { x: 60, y: 78, scale: 1, rotation: 0 },
   },
   {
     type: 'map',
     visible: true,
-    transform: { x: 0, y: 106, scale: 1 },
+    transform: { x: 0, y: 106, scale: 1, rotation: 0 },
   },
 ];
 

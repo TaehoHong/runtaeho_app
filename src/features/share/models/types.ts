@@ -54,12 +54,14 @@ export interface ElementPosition {
 }
 
 /**
- * 요소 변환 타입 (위치 + 스케일)
+ * 요소 변환 타입 (위치 + 스케일 + 회전)
  */
 export interface ElementTransform {
   x: number;
   y: number;
   scale: number;
+  /** 회전 각도(degrees) */
+  rotation?: number;
 }
 
 /**
@@ -109,7 +111,7 @@ export interface ShareResult {
 }
 
 /**
- * 캐릭터 위치/스케일 변환 정보
+ * 캐릭터 위치/스케일/회전 변환 정보
  * SharePreviewCanvas에서 Unity 캐릭터 조작용
  */
 export interface CharacterTransform {
@@ -119,4 +121,6 @@ export interface CharacterTransform {
   y: number;
   /** 스케일 (0.5~2.5) */
   scale: number;
+  /** 회전 각도(degrees) */
+  rotation?: number;
 }
