@@ -8,7 +8,7 @@
  */
 
 import React, { useCallback, useMemo } from 'react';
-import { StyleSheet, View, Dimensions } from 'react-native';
+import { StyleSheet, View, Dimensions, Switch, Text } from 'react-native';
 import Svg, { Line, Path, Text as SvgText } from 'react-native-svg';
 import type { ChartDataPoint } from '../../models';
 import {
@@ -23,6 +23,8 @@ import { PRIMARY, GREY } from '~/shared/styles';
 interface PeriodChartProps {
   data: ChartDataPoint[];
   comparisonData?: ChartDataPoint[];
+  showTrendComparison?: boolean;
+  onTrendComparisonToggle?: ((enabled: boolean) => void) | undefined;
   period: Period;
   isEmpty?: boolean;
   referenceDate?: Date; // 기준 날짜 (스와이프 기간 전환용)
@@ -61,6 +63,8 @@ const areChartDataPointsEqual = (prevData: ChartDataPoint[], nextData: ChartData
 const PeriodChartComponent: React.FC<PeriodChartProps> = ({
   data,
   comparisonData = EMPTY_CHART_DATA,
+  showTrendComparison = true,
+  onTrendComparisonToggle,
   period,
   isEmpty = false,
   referenceDate = new Date(),
@@ -281,6 +285,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
   const hasCurrentTrendData = currentTrendData.length > 0;
   const hasPreviousTrendData = previousTrendData.length > 0;
   const hasTrendData = hasCurrentTrendData || hasPreviousTrendData;
+  const isTrendComparisonVisible = showTrendComparison && hasTrendData;
 
   const cumulativeMaxValue = useMemo(() => {
     const values = [
@@ -329,6 +334,21 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
 
   return (
     <View style={styles.container}>
+      {hasTrendData && (
+        <View style={styles.trendToggle}>
+          <Text style={styles.trendToggleLabel}>추세</Text>
+          <Switch
+            testID="trend-comparison-switch"
+            accessibilityLabel="추세 비교"
+            value={showTrendComparison}
+            onValueChange={onTrendComparisonToggle}
+            trackColor={{ false: GREY[200], true: PRIMARY[200] }}
+            thumbColor={showTrendComparison ? PRIMARY[600] : GREY.WHITE}
+            ios_backgroundColor={GREY[200]}
+            style={styles.trendSwitch}
+          />
+        </View>
+      )}
       <Svg width={CHART_WIDTH} height={CHART_HEIGHT}>
         {/* 기간 라벨 - 월/년 (좌측 상단) */}
         <SvgText
@@ -341,7 +361,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
           {periodLabel.left}
         </SvgText>
 
-        {hasTrendData && (
+        {isTrendComparisonVisible && (
           <SvgText
             x={16}
             y={52}
@@ -353,7 +373,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
           </SvgText>
         )}
 
-        {comparisonDeltaLabel && (
+        {isTrendComparisonVisible && comparisonDeltaLabel && (
           <SvgText
             x={CHART_WIDTH - 16}
             y={52}
@@ -366,7 +386,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
           </SvgText>
         )}
 
-        {hasTrendData && normalizedData.length > 0 && (
+        {isTrendComparisonVisible && normalizedData.length > 0 && (
           <SvgText
             x={CHART_PADDING.left + 10}
             y={70}
@@ -377,7 +397,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
             {barLegendLabel}
           </SvgText>
         )}
-        {hasCurrentTrendData && (
+        {isTrendComparisonVisible && hasCurrentTrendData && (
           <SvgText
             x={CHART_PADDING.left + 76}
             y={70}
@@ -388,7 +408,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
             이번 누적
           </SvgText>
         )}
-        {hasPreviousTrendData && (
+        {isTrendComparisonVisible && hasPreviousTrendData && (
           <SvgText
             x={CHART_PADDING.left + 142}
             y={70}
@@ -403,7 +423,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
         {/* 주차 라벨 (우측 상단) - Period.WEEK일 때만 표시 */}
         {periodLabel.right && (
           <SvgText
-            x={CHART_WIDTH - 16}
+            x={hasTrendData ? CHART_WIDTH - 88 : CHART_WIDTH - 16}
             y={32}
             fontSize={14}
             fontWeight="500"
@@ -428,7 +448,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
           </SvgText>
         ))}
 
-        {hasTrendData && (
+        {isTrendComparisonVisible && (
           <SvgText
             x={CHART_WIDTH - 4}
             y={CHART_PADDING.top - 8}
@@ -441,7 +461,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
           </SvgText>
         )}
 
-        {hasTrendData &&
+        {isTrendComparisonVisible &&
           cumulativeAxisLabels.map((label, index) => (
             <SvgText
               key={`cumulative-y-label-${index}`}
@@ -469,7 +489,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
           />
         ))}
 
-        {previousTrendPath.length > 0 && (
+        {isTrendComparisonVisible && previousTrendPath.length > 0 && (
           <Path
             testID="previous-cumulative-trend-line"
             d={previousTrendPath}
@@ -482,7 +502,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
           />
         )}
 
-        {currentTrendPath.length > 0 && (
+        {isTrendComparisonVisible && currentTrendPath.length > 0 && (
           <Path
             testID="current-cumulative-trend-line"
             d={currentTrendPath}
@@ -553,6 +573,7 @@ export const PeriodChart = React.memo(PeriodChartComponent, (prevProps, nextProp
 
   // isEmpty 비교
   if (prevProps.isEmpty !== nextProps.isEmpty) return false;
+  if (prevProps.showTrendComparison !== nextProps.showTrendComparison) return false;
 
   // referenceDate 비교 (시간값)
   const prevTime = prevProps.referenceDate?.getTime() ?? 0;
@@ -576,5 +597,22 @@ const styles = StyleSheet.create({
     backgroundColor: GREY.WHITE,
     borderRadius: 8,
     overflow: 'hidden',
+  },
+  trendToggle: {
+    position: 'absolute',
+    top: 8,
+    right: 12,
+    zIndex: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  trendToggleLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: GREY[600],
+  },
+  trendSwitch: {
+    transform: [{ scaleX: 0.72 }, { scaleY: 0.72 }],
   },
 });

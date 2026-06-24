@@ -38,6 +38,8 @@ interface SwipeablePeriodChartProps {
   isInitialLoading?: boolean;
   /** 백그라운드 페칭 상태 (캐시 있음) - 오버레이 표시 안함 */
   isBackgroundFetching?: boolean;
+  isTrendComparisonEnabled?: boolean;
+  onTrendComparisonToggle?: ((enabled: boolean) => void) | undefined;
 
   // 비교 데이터 (누적 총거리 추이선)
   comparisonData?: ChartDataPoint[];
@@ -88,6 +90,8 @@ const SwipeablePeriodChartComponent: React.FC<SwipeablePeriodChartProps> = ({
   onSwipePeriodChange,
   isInitialLoading = false,
   isBackgroundFetching = false,
+  isTrendComparisonEnabled = true,
+  onTrendComparisonToggle,
   // 비교 데이터
   comparisonData,
   prevComparisonData,
@@ -243,6 +247,8 @@ const SwipeablePeriodChartComponent: React.FC<SwipeablePeriodChartProps> = ({
           <PeriodChart
             data={prevData ?? []}
             comparisonData={prevComparisonData ?? EMPTY_CHART_DATA}
+            showTrendComparison={isTrendComparisonEnabled}
+            onTrendComparisonToggle={onTrendComparisonToggle}
             period={period}
             isEmpty={prevIsEmptyProp ?? true}
             referenceDate={prevRefDateProp ?? previousReferenceDate}
@@ -254,6 +260,8 @@ const SwipeablePeriodChartComponent: React.FC<SwipeablePeriodChartProps> = ({
           <PeriodChart
             data={cachedChart.data}
             comparisonData={comparisonData ?? EMPTY_CHART_DATA}
+            showTrendComparison={isTrendComparisonEnabled}
+            onTrendComparisonToggle={onTrendComparisonToggle}
             period={period}
             isEmpty={cachedChart.isEmpty}
             referenceDate={cachedChart.referenceDate}
@@ -266,6 +274,8 @@ const SwipeablePeriodChartComponent: React.FC<SwipeablePeriodChartProps> = ({
             <PeriodChart
               data={nextData ?? []}
               comparisonData={nextComparisonData ?? EMPTY_CHART_DATA}
+              showTrendComparison={isTrendComparisonEnabled}
+              onTrendComparisonToggle={onTrendComparisonToggle}
               period={period}
               isEmpty={nextIsEmptyProp ?? true}
               referenceDate={nextRefDateProp ?? nextReferenceDate}
@@ -310,6 +320,7 @@ export const SwipeablePeriodChart = memo(SwipeablePeriodChartComponent, (prev, n
 
   // isInitialLoading 변경은 항상 리렌더링 (로딩 오버레이)
   if (prev.isInitialLoading !== next.isInitialLoading) return false;
+  if (prev.isTrendComparisonEnabled !== next.isTrendComparisonEnabled) return false;
 
   // data, referenceDate, isEmpty는 내부 캐시로 관리되므로
   // 변경되어도 리렌더링 필요 (useEffect에서 캐시 업데이트)

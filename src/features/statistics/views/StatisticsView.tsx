@@ -28,6 +28,7 @@ import { healthImportService } from '~/features/healthImport/services/healthImpo
 export const StatisticsView = () => {
   const [selectedPeriod, setSelectedPeriod] = useState<Period>(Period.MONTH);
   const [referenceDate, setReferenceDate] = useState<Date>(new Date());
+  const [isTrendComparisonEnabled, setIsTrendComparisonEnabled] = useState(true);
   const insets = useSafeAreaInsets();
 
   const {
@@ -159,6 +160,8 @@ export const StatisticsView = () => {
           onSwipePeriodChange={handleSwipePeriodChange}
           isInitialLoading={isInitialLoading}
           isBackgroundFetching={isBackgroundFetching}
+          isTrendComparisonEnabled={isTrendComparisonEnabled}
+          onTrendComparisonToggle={setIsTrendComparisonEnabled}
           // 프리페치 데이터 전달
           prevData={prevChartData}
           prevReferenceDate={prevReferenceDate}

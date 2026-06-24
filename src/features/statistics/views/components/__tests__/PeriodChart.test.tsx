@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import { Period } from '~/features/statistics/models';
 import { PeriodChart } from '~/features/statistics/views/components/PeriodChart';
 
@@ -106,6 +106,81 @@ describe('PeriodChart', () => {
     expect(screen.getByText('직전 누적')).toBeTruthy();
     expect(screen.getByText('누적 km')).toBeTruthy();
     expect(screen.getAllByTestId('period-chart-path').length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('hides trend comparison UI when trend comparison is disabled', () => {
+    render(
+      <PeriodChart
+        data={[
+          {
+            datetime: '2026-06-01T00:00:00.000Z',
+            distance: 3000,
+            durationSec: 1200,
+            paceSec: 0.4,
+            speed: 9,
+            calories: 0,
+          },
+        ]}
+        comparisonData={[
+          {
+            datetime: '2026-05-01T00:00:00.000Z',
+            distance: 2000,
+            durationSec: 900,
+            paceSec: 0.45,
+            speed: 8,
+            calories: 0,
+          },
+        ]}
+        showTrendComparison={false}
+        period={Period.MONTH}
+        isEmpty={false}
+        referenceDate={new Date('2026-06-01T00:00:00.000Z')}
+      />
+    );
+
+    expect(screen.queryByText('이번 누적')).toBeNull();
+    expect(screen.queryByText('직전 누적')).toBeNull();
+    expect(screen.queryByText('누적 km')).toBeNull();
+    expect(screen.queryByText('지난달보다 +1.0 km')).toBeNull();
+    expect(screen.getAllByTestId('period-chart-path')).toHaveLength(1);
+  });
+
+  it('calls the trend comparison toggle callback when the switch changes', () => {
+    const onTrendComparisonToggle = jest.fn();
+
+    render(
+      <PeriodChart
+        data={[
+          {
+            datetime: '2026-06-01T00:00:00.000Z',
+            distance: 3000,
+            durationSec: 1200,
+            paceSec: 0.4,
+            speed: 9,
+            calories: 0,
+          },
+        ]}
+        comparisonData={[
+          {
+            datetime: '2026-05-01T00:00:00.000Z',
+            distance: 2000,
+            durationSec: 900,
+            paceSec: 0.45,
+            speed: 8,
+            calories: 0,
+          },
+        ]}
+        showTrendComparison={true}
+        onTrendComparisonToggle={onTrendComparisonToggle}
+        period={Period.MONTH}
+        isEmpty={false}
+        referenceDate={new Date('2026-06-01T00:00:00.000Z')}
+      />
+    );
+
+    fireEvent(screen.getByTestId('trend-comparison-switch'), 'valueChange', false);
+
+    expect(onTrendComparisonToggle).toHaveBeenCalledWith(false);
   });
 
   it('omits the previous cumulative line when comparison data is empty', () => {

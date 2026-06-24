@@ -19,6 +19,8 @@ jest.mock('~/features/statistics/views/components/StatisticsErrorBoundary', () =
 jest.mock('~/features/statistics/views/components/SwipeablePeriodChart', () => ({
   SwipeablePeriodChart: (props: {
     onSwipePeriodChange: (direction: number) => void;
+    onTrendComparisonToggle?: (enabled: boolean) => void;
+    isTrendComparisonEnabled?: boolean;
     comparisonData?: unknown[];
   }) => {
     const React = require('react');
@@ -28,6 +30,14 @@ jest.mock('~/features/statistics/views/components/SwipeablePeriodChart', () => (
       View,
       null,
       React.createElement(Text, null, 'mock-chart'),
+      React.createElement(
+        TouchableOpacity,
+        {
+          testID: 'mock-toggle-trend',
+          onPress: () => props.onTrendComparisonToggle?.(false),
+        },
+        React.createElement(Text, null, 'toggle trend')
+      ),
       React.createElement(
         TouchableOpacity,
         {
@@ -204,6 +214,26 @@ describe('StatisticsView', () => {
         comparisonData: previousPeriodData,
       })
     );
+  });
+
+  it('keeps trend comparison enabled by default and updates it from the chart toggle', async () => {
+    renderWithProviders(<StatisticsView />);
+
+    expect(mockSwipeablePeriodChart).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        isTrendComparisonEnabled: true,
+      })
+    );
+
+    fireEvent.press(screen.getByTestId('mock-toggle-trend'));
+
+    await waitFor(() => {
+      expect(mockSwipeablePeriodChart).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          isTrendComparisonEnabled: false,
+        })
+      );
+    });
   });
 
   it('STAT-SCREEN-002 changes period to WEEK when week tab is pressed', async () => {
