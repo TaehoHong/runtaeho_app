@@ -39,6 +39,11 @@ interface SwipeablePeriodChartProps {
   /** 백그라운드 페칭 상태 (캐시 있음) - 오버레이 표시 안함 */
   isBackgroundFetching?: boolean;
 
+  // 비교 데이터 (누적 총거리 추이선)
+  comparisonData?: ChartDataPoint[];
+  prevComparisonData?: ChartDataPoint[];
+  nextComparisonData?: ChartDataPoint[];
+
   // 프리페치 데이터 (스와이프 시 깜빡임 방지)
   prevData?: ChartDataPoint[];
   prevReferenceDate?: Date;
@@ -49,6 +54,7 @@ interface SwipeablePeriodChartProps {
 }
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
+const EMPTY_CHART_DATA: ChartDataPoint[] = [];
 
 /**
  * 캐시된 차트 데이터 타입
@@ -59,6 +65,21 @@ interface CachedChartData {
   referenceDate: Date;
 }
 
+const areChartDataPointsEqual = (
+  prevData: ChartDataPoint[] = [],
+  nextData: ChartDataPoint[] = []
+) => {
+  if (prevData.length !== nextData.length) return false;
+  return prevData.every((item, i) => {
+    const nextItem = nextData[i];
+    return (
+      nextItem !== undefined &&
+      item.datetime === nextItem.datetime &&
+      item.distance === nextItem.distance
+    );
+  });
+};
+
 const SwipeablePeriodChartComponent: React.FC<SwipeablePeriodChartProps> = ({
   data,
   period,
@@ -67,6 +88,10 @@ const SwipeablePeriodChartComponent: React.FC<SwipeablePeriodChartProps> = ({
   onSwipePeriodChange,
   isInitialLoading = false,
   isBackgroundFetching = false,
+  // 비교 데이터
+  comparisonData,
+  prevComparisonData,
+  nextComparisonData,
   // 프리페치 데이터
   prevData,
   prevReferenceDate: prevRefDateProp,
@@ -217,6 +242,7 @@ const SwipeablePeriodChartComponent: React.FC<SwipeablePeriodChartProps> = ({
         <View style={styles.chartSlot}>
           <PeriodChart
             data={prevData ?? []}
+            comparisonData={prevComparisonData ?? EMPTY_CHART_DATA}
             period={period}
             isEmpty={prevIsEmptyProp ?? true}
             referenceDate={prevRefDateProp ?? previousReferenceDate}
@@ -227,6 +253,7 @@ const SwipeablePeriodChartComponent: React.FC<SwipeablePeriodChartProps> = ({
         <View style={styles.chartSlot}>
           <PeriodChart
             data={cachedChart.data}
+            comparisonData={comparisonData ?? EMPTY_CHART_DATA}
             period={period}
             isEmpty={cachedChart.isEmpty}
             referenceDate={cachedChart.referenceDate}
@@ -238,6 +265,7 @@ const SwipeablePeriodChartComponent: React.FC<SwipeablePeriodChartProps> = ({
           <View style={styles.chartSlot}>
             <PeriodChart
               data={nextData ?? []}
+              comparisonData={nextComparisonData ?? EMPTY_CHART_DATA}
               period={period}
               isEmpty={nextIsEmptyProp ?? true}
               referenceDate={nextRefDateProp ?? nextReferenceDate}
@@ -285,18 +313,10 @@ export const SwipeablePeriodChart = memo(SwipeablePeriodChartComponent, (prev, n
 
   // data, referenceDate, isEmpty는 내부 캐시로 관리되므로
   // 변경되어도 리렌더링 필요 (useEffect에서 캐시 업데이트)
-  const dataEqual =
-    prev.data.length === next.data.length &&
-    prev.data.every((item, i) => {
-      const nextItem = next.data[i];
-      return (
-        nextItem !== undefined &&
-        item.datetime === nextItem.datetime &&
-        item.distance === nextItem.distance
-      );
-    });
-
-  if (!dataEqual) return false;
+  if (!areChartDataPointsEqual(prev.data, next.data)) return false;
+  if (!areChartDataPointsEqual(prev.comparisonData, next.comparisonData)) return false;
+  if (!areChartDataPointsEqual(prev.prevComparisonData, next.prevComparisonData)) return false;
+  if (!areChartDataPointsEqual(prev.nextComparisonData, next.nextComparisonData)) return false;
   if (prev.referenceDate.getTime() !== next.referenceDate.getTime()) return false;
   if (prev.isEmpty !== next.isEmpty) return false;
 

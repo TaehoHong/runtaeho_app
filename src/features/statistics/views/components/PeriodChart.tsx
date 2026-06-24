@@ -7,15 +7,22 @@
  * - 년단위: 월별 (1~12)
  */
 
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { StyleSheet, View, Dimensions } from 'react-native';
 import Svg, { Line, Path, Text as SvgText } from 'react-native-svg';
 import type { ChartDataPoint } from '../../models';
-import { Period, formatPeriodLabel, getLastDayOfPeriod } from '../../models';
+import {
+  Period,
+  PeriodDirection,
+  calculateNextReferenceDate,
+  formatPeriodLabel,
+  getLastDayOfPeriod,
+} from '../../models';
 import { PRIMARY, GREY } from '~/shared/styles';
 
 interface PeriodChartProps {
   data: ChartDataPoint[];
+  comparisonData?: ChartDataPoint[];
   period: Period;
   isEmpty?: boolean;
   referenceDate?: Date; // 기준 날짜 (스와이프 기간 전환용)
@@ -24,15 +31,36 @@ interface PeriodChartProps {
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CHART_WIDTH = SCREEN_WIDTH - 40; // 좌우 20px 마진
 const CHART_HEIGHT = 210;
-const CHART_PADDING = { top: 48, right: 16, bottom: 34, left: 35 };
+const CHART_PADDING = { top: 76, right: 38, bottom: 34, left: 35 };
 const X_AXIS_MARGIN = 10; // X축 양 끝 마진
+const TREND_LINE_CURRENT_COLOR = PRIMARY[600];
+const TREND_LINE_PREVIOUS_COLOR = GREY[400];
+const EMPTY_CHART_DATA: ChartDataPoint[] = [];
 
 // X축 라벨 상수 (배열 재생성 방지)
 const WEEK_LABELS = ['월', '화', '수', '목', '금', '토', '일'] as const;
 const YEAR_LABELS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'] as const;
 
+const createLinePath = (points: { x: number; y: number }[]) => {
+  if (points.length === 0) return '';
+  return points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x},${point.y}`).join(' ');
+};
+
+const areChartDataPointsEqual = (prevData: ChartDataPoint[], nextData: ChartDataPoint[]) => {
+  if (prevData.length !== nextData.length) return false;
+  for (let i = 0; i < prevData.length; i++) {
+    const prevItem = prevData[i];
+    const nextItem = nextData[i];
+    if (!prevItem || !nextItem) return false;
+    if (prevItem.datetime !== nextItem.datetime) return false;
+    if (prevItem.distance !== nextItem.distance) return false;
+  }
+  return true;
+};
+
 const PeriodChartComponent: React.FC<PeriodChartProps> = ({
   data,
+  comparisonData = EMPTY_CHART_DATA,
   period,
   isEmpty = false,
   referenceDate = new Date(),
@@ -91,6 +119,19 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
     };
   }, [period, referenceDate]);
 
+  const barLegendLabel = useMemo(() => {
+    switch (period) {
+      case Period.WEEK:
+        return '요일별 거리';
+      case Period.MONTH:
+        return '일별 거리';
+      case Period.YEAR:
+        return '월별 거리';
+      default:
+        return '거리';
+    }
+  }, [period]);
+
   // 차트 데이터 정규화 (거리를 km로 변환)
   const normalizedData = useMemo(() => {
     return data.map((point) => ({
@@ -98,6 +139,19 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
       distanceKm: point.distance / 1000,
     }));
   }, [data]);
+
+  const comparisonDeltaLabel = useMemo(() => {
+    if (comparisonData.length === 0) return null;
+
+    const currentTotalKm = normalizedData.reduce((sum, point) => sum + point.distanceKm, 0);
+    const previousTotalKm = comparisonData.reduce((sum, point) => sum + point.distance / 1000, 0);
+    const deltaKm = currentTotalKm - previousTotalKm;
+    const prefix = deltaKm >= 0 ? '+' : '-';
+    const periodLabelText =
+      period === Period.WEEK ? '지난주보다' : period === Period.MONTH ? '지난달보다' : '작년보다';
+
+    return `${periodLabelText} ${prefix}${Math.abs(deltaKm).toFixed(1)} km`;
+  }, [comparisonData, normalizedData, period]);
 
   // 최대값 계산 (Y축 스케일링용)
   // 데이터 최댓값 + 3km (예: 최대 15km면 Y축은 18km까지)
@@ -119,6 +173,10 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
       0.0,
     ];
   }, [maxValue]);
+
+  const previousReferenceDate = useMemo(() => {
+    return calculateNextReferenceDate(referenceDate, period, PeriodDirection.PREVIOUS);
+  }, [referenceDate, period]);
 
   // 바 높이 계산
   const getBarHeight = (value: number) => {
@@ -171,6 +229,90 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
     return CHART_PADDING.left + X_AXIS_MARGIN + position * effectiveChartWidth - barWidth / 2;
   };
 
+  const getTrendXPosition = useCallback((point: ChartDataPoint, periodReferenceDate: Date) => {
+    const date = new Date(point.datetime);
+    let position = 0;
+
+    switch (period) {
+      case Period.WEEK: {
+        let dayOfWeek = date.getDay();
+        dayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        position = dayOfWeek / 6;
+        break;
+      }
+      case Period.MONTH: {
+        const periodLastDay = getLastDayOfPeriod(periodReferenceDate, Period.MONTH);
+        position = periodLastDay <= 1 ? 0 : (date.getDate() - 1) / (periodLastDay - 1);
+        break;
+      }
+      case Period.YEAR: {
+        position = date.getMonth() / 11;
+        break;
+      }
+    }
+
+    const effectiveChartWidth = chartInnerWidth - X_AXIS_MARGIN * 2;
+    return CHART_PADDING.left + X_AXIS_MARGIN + position * effectiveChartWidth;
+  }, [chartInnerWidth, period]);
+
+  const buildCumulativeTrend = useCallback((points: ChartDataPoint[], periodReferenceDate: Date) => {
+    const sortedPoints = [...points].sort(
+      (a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime()
+    );
+    let cumulativeDistanceKm = 0;
+
+    return sortedPoints.map((point) => {
+      cumulativeDistanceKm += point.distance / 1000;
+      return {
+        x: getTrendXPosition(point, periodReferenceDate),
+        distanceKm: cumulativeDistanceKm,
+      };
+    });
+  }, [getTrendXPosition]);
+
+  const currentTrendData = useMemo(() => {
+    return buildCumulativeTrend(data, referenceDate);
+  }, [buildCumulativeTrend, data, referenceDate]);
+
+  const previousTrendData = useMemo(() => {
+    return buildCumulativeTrend(comparisonData, previousReferenceDate);
+  }, [buildCumulativeTrend, comparisonData, previousReferenceDate]);
+
+  const hasCurrentTrendData = currentTrendData.length > 0;
+  const hasPreviousTrendData = previousTrendData.length > 0;
+  const hasTrendData = hasCurrentTrendData || hasPreviousTrendData;
+
+  const cumulativeMaxValue = useMemo(() => {
+    const values = [
+      ...currentTrendData.map((point) => point.distanceKm),
+      ...previousTrendData.map((point) => point.distanceKm),
+    ];
+    if (values.length === 0) return 3.0;
+    return Math.max(...values, 3.0);
+  }, [currentTrendData, previousTrendData]);
+
+  const cumulativeAxisLabels = useMemo(() => {
+    return [cumulativeMaxValue, cumulativeMaxValue / 2, 0];
+  }, [cumulativeMaxValue]);
+
+  const getCumulativeYPosition = useCallback((value: number) => {
+    return CHART_PADDING.top + ((cumulativeMaxValue - value) / cumulativeMaxValue) * chartInnerHeight;
+  }, [chartInnerHeight, cumulativeMaxValue]);
+
+  const currentTrendPath = createLinePath(
+    currentTrendData.map((point) => ({
+      x: point.x,
+      y: getCumulativeYPosition(point.distanceKm),
+    }))
+  );
+
+  const previousTrendPath = createLinePath(
+    previousTrendData.map((point) => ({
+      x: point.x,
+      y: getCumulativeYPosition(point.distanceKm),
+    }))
+  );
+
   // 상단만 둥근 막대 Path 생성 (하단은 직선)
   const createRoundedTopBarPath = (x: number, y: number, width: number, height: number, radius: number) => {
     const r = Math.min(radius, width / 2, height);
@@ -198,6 +340,65 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
         >
           {periodLabel.left}
         </SvgText>
+
+        {hasTrendData && (
+          <SvgText
+            x={16}
+            y={52}
+            fontSize={10}
+            fontWeight="600"
+            fill={GREY[400]}
+          >
+            막대: {barLegendLabel} / 선: 누적 총거리
+          </SvgText>
+        )}
+
+        {comparisonDeltaLabel && (
+          <SvgText
+            x={CHART_WIDTH - 16}
+            y={52}
+            fontSize={11}
+            fontWeight="700"
+            fill={PRIMARY[600]}
+            textAnchor="end"
+          >
+            {comparisonDeltaLabel}
+          </SvgText>
+        )}
+
+        {hasTrendData && normalizedData.length > 0 && (
+          <SvgText
+            x={CHART_PADDING.left + 10}
+            y={70}
+            fontSize={10}
+            fontWeight="600"
+            fill={PRIMARY[600]}
+          >
+            {barLegendLabel}
+          </SvgText>
+        )}
+        {hasCurrentTrendData && (
+          <SvgText
+            x={CHART_PADDING.left + 76}
+            y={70}
+            fontSize={10}
+            fontWeight="600"
+            fill={TREND_LINE_CURRENT_COLOR}
+          >
+            이번 누적
+          </SvgText>
+        )}
+        {hasPreviousTrendData && (
+          <SvgText
+            x={CHART_PADDING.left + 142}
+            y={70}
+            fontSize={10}
+            fontWeight="600"
+            fill={GREY[500]}
+          >
+            직전 누적
+          </SvgText>
+        )}
 
         {/* 주차 라벨 (우측 상단) - Period.WEEK일 때만 표시 */}
         {periodLabel.right && (
@@ -227,6 +428,34 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
           </SvgText>
         ))}
 
+        {hasTrendData && (
+          <SvgText
+            x={CHART_WIDTH - 4}
+            y={CHART_PADDING.top - 8}
+            fontSize={10}
+            fontWeight="600"
+            fill={GREY[400]}
+            textAnchor="end"
+          >
+            누적 km
+          </SvgText>
+        )}
+
+        {hasTrendData &&
+          cumulativeAxisLabels.map((label, index) => (
+            <SvgText
+              key={`cumulative-y-label-${index}`}
+              x={CHART_WIDTH - 4}
+              y={getCumulativeYPosition(label) + 4}
+              fontSize={10}
+              fontWeight="500"
+              fill={GREY[400]}
+              textAnchor="end"
+            >
+              {label.toFixed(0)}
+            </SvgText>
+          ))}
+
         {/* 수평 그리드 라인 */}
         {yAxisLabels.map((label, index) => (
           <Line
@@ -239,6 +468,31 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
             strokeWidth={1}
           />
         ))}
+
+        {previousTrendPath.length > 0 && (
+          <Path
+            testID="previous-cumulative-trend-line"
+            d={previousTrendPath}
+            stroke={TREND_LINE_PREVIOUS_COLOR}
+            strokeWidth={2}
+            strokeDasharray="6 5"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        )}
+
+        {currentTrendPath.length > 0 && (
+          <Path
+            testID="current-cumulative-trend-line"
+            d={currentTrendPath}
+            stroke={TREND_LINE_CURRENT_COLOR}
+            strokeWidth={2.5}
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        )}
 
         {/* 바 차트 */}
         {!isEmpty &&
@@ -305,15 +559,11 @@ export const PeriodChart = React.memo(PeriodChartComponent, (prevProps, nextProp
   const nextTime = nextProps.referenceDate?.getTime() ?? 0;
   if (prevTime !== nextTime) return false;
 
-  // data 배열 비교
-  if (prevProps.data.length !== nextProps.data.length) return false;
-  for (let i = 0; i < prevProps.data.length; i++) {
-    const prevItem = prevProps.data[i];
-    const nextItem = nextProps.data[i];
-    if (!prevItem || !nextItem) return false;
-    if (prevItem.datetime !== nextItem.datetime) return false;
-    if (prevItem.distance !== nextItem.distance) return false;
-  }
+  if (!areChartDataPointsEqual(prevProps.data, nextProps.data)) return false;
+
+  const prevComparisonData = prevProps.comparisonData ?? EMPTY_CHART_DATA;
+  const nextComparisonData = nextProps.comparisonData ?? EMPTY_CHART_DATA;
+  if (!areChartDataPointsEqual(prevComparisonData, nextComparisonData)) return false;
 
   return true;
 });

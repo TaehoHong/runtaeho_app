@@ -6,6 +6,7 @@ import { renderWithProviders } from '~/test-utils/renderWithProviders';
 
 const mockUseStatisticsViewModel = jest.fn();
 const mockRunningRecordList = jest.fn();
+const mockSwipeablePeriodChart = jest.fn();
 
 jest.mock('~/features/statistics/viewmodels', () => ({
   useStatisticsViewModel: (...args: unknown[]) => mockUseStatisticsViewModel(...args),
@@ -16,9 +17,13 @@ jest.mock('~/features/statistics/views/components/StatisticsErrorBoundary', () =
 }));
 
 jest.mock('~/features/statistics/views/components/SwipeablePeriodChart', () => ({
-  SwipeablePeriodChart: ({ onSwipePeriodChange }: { onSwipePeriodChange: (direction: number) => void }) => {
+  SwipeablePeriodChart: (props: {
+    onSwipePeriodChange: (direction: number) => void;
+    comparisonData?: unknown[];
+  }) => {
     const React = require('react');
     const { Text, TouchableOpacity, View } = require('react-native');
+    mockSwipeablePeriodChart(props);
     return React.createElement(
       View,
       null,
@@ -27,7 +32,7 @@ jest.mock('~/features/statistics/views/components/SwipeablePeriodChart', () => (
         TouchableOpacity,
         {
           testID: 'mock-swipe-next',
-          onPress: () => onSwipePeriodChange(1),
+          onPress: () => props.onSwipePeriodChange(1),
         },
         React.createElement(Text, null, 'next')
       )
@@ -160,6 +165,45 @@ describe('StatisticsView', () => {
     expect(screen.getByLabelText('18.50 km')).toBeTruthy();
     expect(screen.getByText('3회')).toBeTruthy();
     expect(screen.getByText('5:24"/km')).toBeTruthy();
+  });
+
+  it('passes previous period chart data as comparison data', () => {
+    const previousPeriodData = [
+      {
+        datetime: '2026-05-01T00:00:00.000Z',
+        distance: 3000,
+        durationSec: 1200,
+        paceSec: 0.4,
+        speed: 9,
+        calories: 0,
+      },
+    ];
+
+    mockUseStatisticsViewModel.mockImplementation(() =>
+      createViewModelResult({
+        hasValidData: true,
+        chartData: [],
+        prevChartData: previousPeriodData,
+        summary: {
+          runCount: 1,
+          totalDistance: 5000,
+          averagePace: 5.5,
+        },
+        formattedSummary: {
+          runCount: 1,
+          totalDistance: 5000,
+          averagePace: 5.5,
+        },
+      })
+    );
+
+    renderWithProviders(<StatisticsView />);
+
+    expect(mockSwipeablePeriodChart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        comparisonData: previousPeriodData,
+      })
+    );
   });
 
   it('STAT-SCREEN-002 changes period to WEEK when week tab is pressed', async () => {

@@ -152,6 +152,7 @@ export const StatisticsView = () => {
         {/* 기간별 차트 (스와이프 가능) */}
         <SwipeablePeriodChart
           data={isEmpty ? [] : (formattedChartData || chartData || [])}
+          comparisonData={prevChartData}
           period={selectedPeriod}
           isEmpty={isEmpty}
           referenceDate={referenceDate}
