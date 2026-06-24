@@ -23,8 +23,8 @@ interface PeriodChartProps {
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CHART_WIDTH = SCREEN_WIDTH - 40; // 좌우 20px 마진
-const CHART_HEIGHT = 315;
-const CHART_PADDING = { top: 56, right: 16, bottom: 40, left: 35 };
+const CHART_HEIGHT = 210;
+const CHART_PADDING = { top: 48, right: 16, bottom: 34, left: 35 };
 const X_AXIS_MARGIN = 10; // X축 양 끝 마진
 
 // X축 라벨 상수 (배열 재생성 방지)

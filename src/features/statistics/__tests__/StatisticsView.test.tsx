@@ -44,6 +44,12 @@ jest.mock('~/features/statistics/views/components/RunningRecordList', () => ({
   },
 }));
 
+jest.mock('~/features/healthImport/services/healthImportService', () => ({
+  healthImportService: {
+    sync: jest.fn().mockResolvedValue(undefined),
+  },
+}));
+
 const defaultPeriodStartDate = new Date('2026-02-01T00:00:00.000Z');
 const defaultPeriodEndDate = new Date('2026-02-28T23:59:59.999Z');
 
@@ -84,7 +90,9 @@ describe('StatisticsView', () => {
     expect(screen.getByText('주')).toBeTruthy();
     expect(screen.getByText('월')).toBeTruthy();
     expect(screen.getByText('년')).toBeTruthy();
-    expect(screen.getByText('0.00 km')).toBeTruthy();
+    expect(screen.getByText('이번 달 총 거리')).toBeTruthy();
+    expect(screen.getByLabelText('0.00 km')).toBeTruthy();
+    expect(screen.getByText('0회')).toBeTruthy();
     expect(screen.getByText('0:00"/km')).toBeTruthy();
     expect(screen.getByText('mock-record-list')).toBeTruthy();
     expect(mockRunningRecordList).toHaveBeenCalledWith({
@@ -148,7 +156,9 @@ describe('StatisticsView', () => {
 
     renderWithProviders(<StatisticsView />);
 
-    expect(screen.getByText('18.50 km')).toBeTruthy();
+    expect(screen.getByText('이번 달 총 거리')).toBeTruthy();
+    expect(screen.getByLabelText('18.50 km')).toBeTruthy();
+    expect(screen.getByText('3회')).toBeTruthy();
     expect(screen.getByText('5:24"/km')).toBeTruthy();
   });
 

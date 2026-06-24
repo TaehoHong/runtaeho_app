@@ -130,6 +130,25 @@ export const StatisticsView = () => {
         {/* 상단: 날짜 필터 탭 */}
         <DateFilterTabs selected={selectedPeriod} onSelect={onPeriodChange} />
 
+        {/* 선택 기간 총 거리 요약 */}
+        {isEmpty ? (
+          <StatisticsSummaryCard
+            runCount={0}
+            totalDistance={0}
+            averagePace={0}
+            period={selectedPeriod}
+          />
+        ) : (
+          displaySummary && (
+            <StatisticsSummaryCard
+              runCount={displaySummary.runCount}
+              totalDistance={displaySummary.totalDistance}
+              averagePace={displaySummary.averagePace || 0}
+              period={selectedPeriod}
+            />
+          )
+        )}
+
         {/* 기간별 차트 (스와이프 가능) */}
         <SwipeablePeriodChart
           data={isEmpty ? [] : (formattedChartData || chartData || [])}
@@ -147,23 +166,6 @@ export const StatisticsView = () => {
           nextReferenceDate={nextReferenceDate}
           nextIsEmpty={nextIsEmpty}
         />
-
-        {/* 통계 요약 카드 */}
-        {isEmpty ? (
-          <StatisticsSummaryCard
-            runCount={0}
-            totalDistance={0}
-            averagePace={0}
-          />
-        ) : (
-          displaySummary && (
-            <StatisticsSummaryCard
-              runCount={displaySummary.runCount}
-              totalDistance={displaySummary.totalDistance}
-              averagePace={displaySummary.averagePace || 0}
-            />
-          )
-        )}
 
         {/* Empty State 또는 러닝 기록 리스트 */}
         <RunningRecordList
