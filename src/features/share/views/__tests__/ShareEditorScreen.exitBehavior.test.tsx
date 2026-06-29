@@ -125,7 +125,7 @@ jest.mock('~/features/share/views/components', () => {
 const runningData: ShareRunningData = {
   distance: 5000,
   durationSec: 1500,
-  pace: '5:00',
+  pace: '5\'00"/km',
   startTimestamp: '2026-02-24T00:00:00.000Z',
   earnedPoints: 50,
   locations: [],

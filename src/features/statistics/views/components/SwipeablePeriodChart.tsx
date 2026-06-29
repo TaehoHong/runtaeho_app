@@ -20,13 +20,17 @@ import {
   StyleSheet,
   View,
   ActivityIndicator,
+  Switch,
+  Text,
+  TouchableOpacity,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { ChartDataPoint } from '../../models';
 import { Period, PeriodDirection, isFutureDate, calculateNextReferenceDate } from '../../models';
 import { PeriodChart } from './PeriodChart';
-import { PRIMARY } from '~/shared/styles';
+import { GREY, PRIMARY } from '~/shared/styles';
 
 interface SwipeablePeriodChartProps {
   data: ChartDataPoint[];
@@ -57,6 +61,10 @@ interface SwipeablePeriodChartProps {
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const EMPTY_CHART_DATA: ChartDataPoint[] = [];
+const CHART_CARD_TOP = 16;
+const CHART_CARD_RIGHT = 20;
+const CHART_OPTIONS_BUTTON_TOP = CHART_CARD_TOP + 8;
+const CHART_OPTIONS_BUTTON_RIGHT = CHART_CARD_RIGHT + 12;
 
 /**
  * 캐시된 차트 데이터 타입
@@ -106,6 +114,7 @@ const SwipeablePeriodChartComponent: React.FC<SwipeablePeriodChartProps> = ({
 }) => {
   const scrollViewRef = useRef<ScrollView>(null);
   const isScrollingRef = useRef(false);
+  const [isChartOptionsVisible, setIsChartOptionsVisible] = useState(false);
 
   // 이전 차트 데이터 캐싱 (깜빡임 방지)
   // 새 데이터가 로딩되는 동안 이전 데이터를 계속 표시
@@ -149,6 +158,24 @@ const SwipeablePeriodChartComponent: React.FC<SwipeablePeriodChartProps> = ({
   const canSwipeToNext = useMemo(() => {
     return !isFutureDate(nextReferenceDate, period);
   }, [nextReferenceDate, period]);
+
+  const hasTrendOption = useMemo(() => {
+    return cachedChart.data.length > 0 || (comparisonData?.length ?? 0) > 0;
+  }, [cachedChart.data.length, comparisonData]);
+
+  const isChartOptionsButtonVisible = hasTrendOption && Boolean(onTrendComparisonToggle);
+
+  const openChartOptions = useCallback(() => {
+    setIsChartOptionsVisible(true);
+  }, []);
+
+  const closeChartOptions = useCallback(() => {
+    setIsChartOptionsVisible(false);
+  }, []);
+
+  const handleTrendComparisonChange = useCallback((enabled: boolean) => {
+    onTrendComparisonToggle?.(enabled);
+  }, [onTrendComparisonToggle]);
 
   // 스크롤 완료 시 기간 변경
   const handleMomentumScrollEnd = useCallback(
@@ -230,6 +257,7 @@ const SwipeablePeriodChartComponent: React.FC<SwipeablePeriodChartProps> = ({
           <ActivityIndicator size="small" color={PRIMARY[600]} />
         </View>
       )}
+
       <ScrollView
         ref={scrollViewRef}
         horizontal
@@ -248,7 +276,6 @@ const SwipeablePeriodChartComponent: React.FC<SwipeablePeriodChartProps> = ({
             data={prevData ?? []}
             comparisonData={prevComparisonData ?? EMPTY_CHART_DATA}
             showTrendComparison={isTrendComparisonEnabled}
-            onTrendComparisonToggle={onTrendComparisonToggle}
             period={period}
             isEmpty={prevIsEmptyProp ?? true}
             referenceDate={prevRefDateProp ?? previousReferenceDate}
@@ -261,7 +288,6 @@ const SwipeablePeriodChartComponent: React.FC<SwipeablePeriodChartProps> = ({
             data={cachedChart.data}
             comparisonData={comparisonData ?? EMPTY_CHART_DATA}
             showTrendComparison={isTrendComparisonEnabled}
-            onTrendComparisonToggle={onTrendComparisonToggle}
             period={period}
             isEmpty={cachedChart.isEmpty}
             referenceDate={cachedChart.referenceDate}
@@ -275,7 +301,6 @@ const SwipeablePeriodChartComponent: React.FC<SwipeablePeriodChartProps> = ({
               data={nextData ?? []}
               comparisonData={nextComparisonData ?? EMPTY_CHART_DATA}
               showTrendComparison={isTrendComparisonEnabled}
-              onTrendComparisonToggle={onTrendComparisonToggle}
               period={period}
               isEmpty={nextIsEmptyProp ?? true}
               referenceDate={nextRefDateProp ?? nextReferenceDate}
@@ -283,6 +308,55 @@ const SwipeablePeriodChartComponent: React.FC<SwipeablePeriodChartProps> = ({
           </View>
         )}
       </ScrollView>
+
+      {isChartOptionsButtonVisible && (
+        <View testID="chart-options-button-wrap" style={styles.optionsButtonWrap}>
+          <TouchableOpacity
+            testID="chart-options-button"
+            accessibilityRole="button"
+            accessibilityLabel="차트 옵션"
+            accessibilityState={{ expanded: isChartOptionsVisible }}
+            style={styles.optionsButton}
+            activeOpacity={0.75}
+            onPress={isChartOptionsVisible ? closeChartOptions : openChartOptions}
+          >
+            <Ionicons name="options-outline" size={18} color={GREY[700]} />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {isChartOptionsVisible && (
+        <View testID="chart-options-popover" style={styles.optionsPopover}>
+          <View style={styles.popoverArrow} />
+          <View style={styles.optionsHeader}>
+            <Text style={styles.optionsTitle}>차트 옵션</Text>
+            <TouchableOpacity
+              testID="chart-options-close-button"
+              accessibilityRole="button"
+              accessibilityLabel="차트 옵션 닫기"
+              style={styles.optionsCloseButton}
+              activeOpacity={0.75}
+              onPress={closeChartOptions}
+            >
+              <Ionicons name="close" size={20} color={GREY[700]} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.optionRow}>
+            <View style={styles.optionText}>
+              <Text style={styles.optionTitle}>추세 비교</Text>
+            </View>
+            <Switch
+              testID="chart-trend-comparison-switch"
+              accessibilityLabel="추세 비교"
+              value={isTrendComparisonEnabled}
+              onValueChange={handleTrendComparisonChange}
+              trackColor={{ false: GREY[200], true: PRIMARY[200] }}
+              thumbColor={isTrendComparisonEnabled ? PRIMARY[600] : GREY.WHITE}
+              ios_backgroundColor={GREY[200]}
+            />
+          </View>
+        </View>
+      )}
     </View>
   );
 };
@@ -290,6 +364,90 @@ const SwipeablePeriodChartComponent: React.FC<SwipeablePeriodChartProps> = ({
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
+  },
+  optionsButtonWrap: {
+    position: 'absolute',
+    top: CHART_OPTIONS_BUTTON_TOP,
+    right: CHART_OPTIONS_BUTTON_RIGHT,
+    zIndex: 20,
+  },
+  optionsButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+  },
+  optionsPopover: {
+    position: 'absolute',
+    top: CHART_OPTIONS_BUTTON_TOP + 44,
+    right: CHART_OPTIONS_BUTTON_RIGHT,
+    width: 184,
+    borderRadius: 8,
+    backgroundColor: GREY.WHITE,
+    paddingHorizontal: 12,
+    paddingBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.14,
+    shadowRadius: 16,
+    elevation: 8,
+    zIndex: 21,
+  },
+  popoverArrow: {
+    position: 'absolute',
+    top: -6,
+    right: 14,
+    width: 12,
+    height: 12,
+    borderRadius: 2,
+    backgroundColor: GREY.WHITE,
+    transform: [{ rotate: '45deg' }],
+  },
+  optionsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 42,
+  },
+  optionsTitle: {
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '800',
+    color: GREY[900],
+  },
+  optionsCloseButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: GREY[50],
+  },
+  optionRow: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 16,
+    borderTopWidth: 1,
+    borderTopColor: GREY[100],
+  },
+  optionText: {
+    flex: 1,
+  },
+  optionTitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+    color: GREY[900],
   },
   chartSlot: {
     width: SCREEN_WIDTH,

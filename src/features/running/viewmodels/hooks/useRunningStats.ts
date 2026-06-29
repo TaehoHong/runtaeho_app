@@ -26,6 +26,7 @@ import {
   createInitialPaceFusionState,
   fuseInstantPace,
 } from '../../services/gps/PaceFusion';
+import { RunningStatusFormat } from '~/shared/utils/formatters';
 
 const INSTANT_PACE_WINDOW_MS = 10000; // 10초 윈도우
 
@@ -192,27 +193,16 @@ export const useRunningStats = (): UseRunningStatsReturn => {
   // Formatting Utilities
   // ============================================
 
-  /**
-   * 러닝 시간 포맷팅 (MM:SS)
-   */
   const formatElapsedTime = useCallback((seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    return RunningStatusFormat.duration(seconds);
   }, []);
 
-  /**
-   * BPM 포맷팅 (2자리 패딩 또는 '--')
-   */
   const formatBpm = useCallback((bpm: number | undefined): string => {
-    return bpm !== undefined ? String(bpm).padStart(2, '0') : '--';
+    return RunningStatusFormat.heartRate(bpm);
   }, []);
 
-  /**
-   * 페이스 포맷팅 (MM:SS)
-   */
   const formatPace = useCallback((minutes: number, seconds: number): string => {
-    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    return RunningStatusFormat.paceFromSecondsPerKm(minutes * 60 + seconds);
   }, []);
 
   return {

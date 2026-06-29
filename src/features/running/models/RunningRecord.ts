@@ -1,5 +1,7 @@
 import type { Shoe } from '~/features/shoes/models';
 
+import { RunningStatusFormat } from '~/shared/utils/formatters';
+
 export interface RunningRecord {
   id: number;
   shoeId?: number | null;
@@ -92,27 +94,18 @@ export const calculateAverageSpeed = (record: RunningRecord): number => {
  * 정책: null인 센서 데이터는 "--"로 표시
  */
 export const formatRunningRecord = (record: RunningRecord) => ({
-  distance: `${(record.distance / 1000).toFixed(2)} km`,
+  distance: RunningStatusFormat.distance(record.distance),
   duration: formatDuration(record.durationSec),
-  pace: `${Math.floor(calculateAveragePace(record))}:${String(
-    Math.floor((calculateAveragePace(record) % 1) * 60)
-  ).padStart(2, '0')} /km`,
-  speed: `${calculateAverageSpeed(record).toFixed(1)} km/h`,
-  calories: `${record.calorie} kcal`,
-  cadence: record.cadence !== null ? `${record.cadence} spm` : '--',
-  heartRate: record.heartRate !== null ? `${record.heartRate} bpm` : '--',
+  pace: RunningStatusFormat.pace(calculateAveragePace(record)),
+  speed: RunningStatusFormat.speedKmh(calculateAverageSpeed(record)),
+  calories: RunningStatusFormat.calories(record.calorie),
+  cadence: RunningStatusFormat.cadence(record.cadence),
+  heartRate: RunningStatusFormat.heartRate(record.heartRate),
 });
 
 /**
- * 시간 포맷팅 (초 -> HH 시 MM 분 SS 초)
+ * 시간 포맷팅 (초 -> MM:SS 또는 H:MM:SS)
  */
 export const formatDuration = (seconds: number): string => {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-
-  if (hours > 0) {
-    return `${hours} 시 ${String(minutes).padStart(2, '0')} 분 ${String(secs).padStart(2, '0')} 초`;
-  }
-  return `${minutes} 분 ${String(secs).padStart(2, '0')} 초`;
+  return RunningStatusFormat.duration(seconds);
 };

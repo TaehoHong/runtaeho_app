@@ -23,6 +23,7 @@ import {
 } from '~/features/share/utils/routeLocations';
 import { useBottomActionOffset } from '~/shared/hooks';
 import { GREY } from '~/shared/styles';
+import { RunningStatusFormat } from '~/shared/utils/formatters';
 
 const { width } = Dimensions.get('window');
 
@@ -41,7 +42,6 @@ export const RunningFinishedView: React.FC = () => {
     distance,
     stats,
     elapsedTime,
-    formatPace,
     locations,
     currentSegmentItems,
   } = useRunning();
@@ -66,16 +66,8 @@ export const RunningFinishedView: React.FC = () => {
   const totalPoints = totalPoint;
 
   const buildPaceText = useCallback((distanceMeters: number, durationSeconds: number): string => {
-    if (distanceMeters <= 0 || durationSeconds <= 0) {
-      return '00:00';
-    }
-
-    const paceSeconds = Math.floor((durationSeconds / distanceMeters) * 1000);
-    const paceMinutes = Math.floor(paceSeconds / 60);
-    const paceSecondsRemainder = paceSeconds % 60;
-
-    return formatPace(paceMinutes, paceSecondsRemainder);
-  }, [formatPace]);
+    return RunningStatusFormat.paceFromMetersAndSeconds(distanceMeters, durationSeconds);
+  }, []);
 
   const finalSummary = useMemo(() => {
     const distanceMeters = Math.max(currentRecord?.distance ?? 0, distance);

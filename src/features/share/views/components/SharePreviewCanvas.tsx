@@ -25,6 +25,7 @@ import { DEFAULT_GESTURE_HIT_SLOP, SCALE_RANGES } from '../../constants/shareOpt
 import { DraggableStat } from './DraggableStat';
 import { DraggableRouteMap } from './DraggableRouteMap';
 import { PRIMARY } from '~/shared/styles';
+import { RunningStatusFormat } from '~/shared/utils/formatters';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CANVAS_PADDING = 16;
@@ -357,17 +358,13 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
     const combinedGesture = Gesture.Simultaneous(panGesture, pinchGesture, rotationGesture);
 
     const formattedStats = useMemo(() => {
-      const distanceKm = (runningData.distance / 1000).toFixed(2);
-      const minutes = Math.floor(runningData.durationSec / 60);
-      const seconds = runningData.durationSec % 60;
-      const durationStr = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-      const paceFormatted = runningData.pace.replace(':', "'") + '"';
+      const distance = RunningStatusFormat.distanceParts(runningData.distance);
 
       return {
-        distance: { value: distanceKm, label: 'km' },
-        time: { value: durationStr, label: '시간' },
-        pace: { value: paceFormatted, label: '평균 페이스' },
-        points: { value: `+${runningData.earnedPoints}`, label: 'P' },
+        distance: { value: distance.value, label: distance.unit },
+        time: { value: RunningStatusFormat.duration(runningData.durationSec), label: '시간' },
+        pace: { value: runningData.pace, label: '평균 페이스' },
+        points: { value: RunningStatusFormat.points(runningData.earnedPoints, { signed: true }), label: '' },
         map: { value: '', label: '' },
       };
     }, [runningData]);

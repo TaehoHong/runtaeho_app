@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { Text } from '~/shared/components/typography';
 import { useRunning } from '~/features/running/contexts';
+import { RunningStatusFormat } from '~/shared/utils/formatters';
 
 interface MainDistanceCardProps {
   distanceMeters?: number;
@@ -19,15 +20,14 @@ export const MainDistanceCard: React.FC<MainDistanceCardProps> = ({ distanceMete
   const { distance } = useRunning();
   const resolvedDistance = distanceMeters ?? distance;
 
-  // 내부 데이터는 1m 단위를 유지하고, UI 표시는 0.01km 단위로만 반올림한다.
-  const distanceKm = (Math.max(0, resolvedDistance) / 1000).toFixed(2);
+  const distanceParts = RunningStatusFormat.distanceParts(resolvedDistance);
 
   return (
     <View style={styles.container}>
       <Text style={styles.label}>현재 누적 거리</Text>
       <View style={styles.distanceContainer}>
-        <Text style={styles.distanceValue}>{distanceKm}</Text>
-        <Text style={styles.distanceUnit}>km</Text>
+        <Text style={styles.distanceValue}>{distanceParts.value}</Text>
+        <Text style={styles.distanceUnit}>{distanceParts.unit}</Text>
       </View>
     </View>
   );

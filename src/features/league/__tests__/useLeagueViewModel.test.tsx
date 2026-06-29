@@ -76,7 +76,7 @@ describe('useLeagueViewModel', () => {
     expect(result.current.hasValidData).toBe(true);
     expect(result.current.isNotJoined).toBe(false);
     expect(result.current.formattedData?.tierType).toBe('GOLD');
-    expect(result.current.formattedData?.myDistanceFormatted).toBe('2.5 km');
+    expect(result.current.formattedData?.myDistanceFormatted).toBe('2.50 km');
     expect(result.current.formattedData?.myParticipant?.isMe).toBe(true);
   });
 

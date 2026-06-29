@@ -3,6 +3,8 @@
  * 백엔드 API Response와 매핑되는 타입 정의
  */
 
+import { RunningStatusFormat } from '~/shared/utils/formatters';
+
 /**
  * 리그 티어 타입
  * 백엔드 LeagueTierType enum과 동일
@@ -102,8 +104,7 @@ export interface LeagueProfile {
  * 거리 포맷팅 헬퍼 (미터 -> km)
  */
 export const formatDistance = (meters: number): string => {
-  const km = meters / 1000;
-  return `${km.toFixed(1)} km`;
+  return RunningStatusFormat.distance(meters);
 };
 
 /**

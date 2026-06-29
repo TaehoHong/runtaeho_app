@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Text } from '~/shared/components/typography';
 import { Icon } from '~/shared/components/ui/Icon';
+import { RunningStatusFormat } from '~/shared/utils/formatters';
 import { useShoeViewModel } from '~/features/shoes/viewmodels';
 import type { Shoe } from '~/features/shoes/models';
 
@@ -213,7 +214,7 @@ export const ShoeSelectionCard: React.FC<ShoeSelectionCardProps> = ({
 
           {/* 누적 거리 (meters → km 변환) */}
           <Text style={styles.shoeDistance}>
-            누적 거리 {(shoe.totalDistance / 1000).toFixed(1)}km
+            누적 거리 {RunningStatusFormat.distance(shoe.totalDistance, { fractionDigits: 1 })}
           </Text>
         </View>
       </View>

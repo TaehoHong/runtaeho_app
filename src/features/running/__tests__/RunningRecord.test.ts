@@ -24,12 +24,12 @@ describe('RunningRecord model helpers', () => {
   });
 
   it('formats duration and running record for UI', () => {
-    expect(formatDuration(125)).toBe('2 분 05 초');
+    expect(formatDuration(125)).toBe('02:05');
 
     const formatted = formatRunningRecord(sampleRecord);
     expect(formatted.distance).toBe('5.00 km');
-    expect(formatted.pace).toContain('/km');
-    expect(formatted.speed).toContain('km/h');
+    expect(formatted.pace).toBe('5\'00"/km');
+    expect(formatted.speed).toBe('12.0 km/h');
     expect(formatted.cadence).toBe('172 spm');
     expect(formatted.heartRate).toBe('145 bpm');
   });

@@ -22,7 +22,7 @@ describe('League model helpers', () => {
   });
 
   it('formats distance and handles single-participant progress boundary', () => {
-    expect(formatDistance(1534)).toBe('1.5 km');
+    expect(formatDistance(1534)).toBe('1.53 km');
     expect(calculateProgressPosition(1, 1)).toBe(0);
     expect(calculateProgressPosition(2, 1)).not.toBeGreaterThan(0);
   });

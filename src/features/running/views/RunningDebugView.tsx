@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useRunningDebug } from '../hooks/useRunningDebug';
 import { RunningState } from '~/stores/app/appStore';
+import { RunningStatusFormat } from '~/shared/utils/formatters';
 
 /**
  * 러닝 디버그 뷰
@@ -61,8 +62,8 @@ export const RunningDebugView: React.FC = () => {
           }
         />
         <DebugRow label="GPS 정확도" value={`${formatNumber(trackingData?.accuracy, 1)} m`} />
-        <DebugRow label="현재 속도" value={`${formatNumber(trackingData?.currentSpeed, 2)} km/h`} />
-        <DebugRow label="평균 속도" value={`${formatNumber(trackingData?.averageSpeed, 2)} km/h`} />
+        <DebugRow label="현재 속도" value={RunningStatusFormat.speedKmh(trackingData?.currentSpeed)} />
+        <DebugRow label="평균 속도" value={RunningStatusFormat.speedKmh(trackingData?.averageSpeed)} />
         <DebugRow
           label="GPS 추적 중"
           value={trackingData?.isTracking ? '✅ 활성' : '❌ 비활성'}
@@ -75,8 +76,8 @@ export const RunningDebugView: React.FC = () => {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>💓 센서 데이터</Text>
         <DebugRow
-          label="심박수 (BPM)"
-          value={stats.bpm !== undefined && stats.bpm !== null ? `${stats.bpm}` : '--'}
+          label="심박수"
+          value={RunningStatusFormat.heartRate(stats.bpm)}
           highlight={stats.bpm !== undefined && stats.bpm !== null}
         />
         <DebugRow
@@ -84,8 +85,8 @@ export const RunningDebugView: React.FC = () => {
           value="📋 Check Logs"
         />
         <DebugRow
-          label="케이던스 (SPM)"
-          value={stats.cadence !== undefined && stats.cadence !== null ? `${stats.cadence}` : '--'}
+          label="케이던스"
+          value={RunningStatusFormat.cadence(stats.cadence)}
           highlight={stats.cadence !== undefined && stats.cadence !== null}
         />
         <DebugRow
@@ -103,7 +104,7 @@ export const RunningDebugView: React.FC = () => {
           highlight={runningState === RunningState.Running}
         />
         <DebugRow label="경과 시간" value={`${elapsedTime} 초`} />
-        <DebugRow label="거리" value={`${formatNumber(distance, 1)} m`} />
+        <DebugRow label="거리" value={RunningStatusFormat.distance(distance)} />
         <DebugRow
           label="백그라운드 모드"
           value={useBackgroundMode ? '✅ 사용' : '❌ 미사용'}

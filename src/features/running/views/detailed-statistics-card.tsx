@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { Text } from '~/shared/components/typography';
 import { useRunning } from '../contexts';
+import { RunningStatusFormat } from '~/shared/utils/formatters';
 
 interface StatItemProps {
   title: string;
@@ -32,7 +33,7 @@ export const DetailedStatisticsCard: React.FC<DetailedStatisticsCardProps> = ({
   durationSec,
   heartRate,
 }) => {
-  const { currentRecord, formatElapsedTime, formatBpm, formatPace } = useRunning();
+  const { currentRecord } = useRunning();
   const resolvedDistance = distanceMeters ?? currentRecord?.distance;
   const resolvedDurationSec = durationSec ?? currentRecord?.durationSec;
   const resolvedHeartRate = heartRate ?? currentRecord?.heartRate;
@@ -42,36 +43,27 @@ export const DetailedStatisticsCard: React.FC<DetailedStatisticsCardProps> = ({
     return (
       <View style={styles.container}>
         <View style={styles.row}>
-          <StateItemCompactView title="--" subtitle="BPM" />
-          <StateItemCompactView title="--:--" subtitle="페이스" />
-          <StateItemCompactView title="--:--" subtitle="러닝 시간" />
+          <StateItemCompactView title="--" subtitle="심박" />
+          <StateItemCompactView title={RunningStatusFormat.pace(null)} subtitle="페이스" />
+          <StateItemCompactView title={RunningStatusFormat.duration(null)} subtitle="러닝 시간" />
         </View>
       </View>
     );
   }
 
-  // 심박수 포맷팅
-  const heartRateText = formatBpm(
-    resolvedHeartRate && resolvedHeartRate > 0 ? resolvedHeartRate : undefined
+  const heartRateText = RunningStatusFormat.heartRate(resolvedHeartRate);
+  const paceText = RunningStatusFormat.paceFromMetersAndSeconds(
+    resolvedDistance,
+    resolvedDurationSec
   );
-
-  // 페이스 계산 및 포맷팅 (분:초/km)
-  const paceSeconds = resolvedDistance > 0
-    ? Math.floor((resolvedDurationSec / resolvedDistance) * 1000)
-    : 0;
-  const paceMinutes = Math.floor(paceSeconds / 60);
-  const paceSecondsRemainder = paceSeconds % 60;
-  const paceText = formatPace(paceMinutes, paceSecondsRemainder);
-
-  // 러닝 시간 포맷팅 (분:초)
-  const timeText = formatElapsedTime(resolvedDurationSec);
+  const timeText = RunningStatusFormat.duration(resolvedDurationSec);
 
   return (
     <View style={styles.container}>
       <View style={styles.row}>
         <StateItemCompactView
           title={heartRateText}
-          subtitle="BPM"
+          subtitle="심박"
         />
 
         <StateItemCompactView

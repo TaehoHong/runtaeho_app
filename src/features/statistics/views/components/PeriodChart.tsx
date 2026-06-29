@@ -8,7 +8,7 @@
  */
 
 import React, { useCallback, useMemo } from 'react';
-import { StyleSheet, View, Dimensions, Switch, Text } from 'react-native';
+import { StyleSheet, View, Dimensions } from 'react-native';
 import Svg, { Line, Path, Text as SvgText } from 'react-native-svg';
 import type { ChartDataPoint } from '../../models';
 import {
@@ -19,12 +19,12 @@ import {
   getLastDayOfPeriod,
 } from '../../models';
 import { PRIMARY, GREY } from '~/shared/styles';
+import { RunningStatusFormat } from '~/shared/utils/formatters';
 
 interface PeriodChartProps {
   data: ChartDataPoint[];
   comparisonData?: ChartDataPoint[];
   showTrendComparison?: boolean;
-  onTrendComparisonToggle?: ((enabled: boolean) => void) | undefined;
   period: Period;
   isEmpty?: boolean;
   referenceDate?: Date; // 기준 날짜 (스와이프 기간 전환용)
@@ -33,8 +33,10 @@ interface PeriodChartProps {
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CHART_WIDTH = SCREEN_WIDTH - 40; // 좌우 20px 마진
 const CHART_HEIGHT = 210;
-const CHART_PADDING = { top: 76, right: 38, bottom: 34, left: 35 };
+const CHART_PADDING = { top: 64, right: 38, bottom: 34, left: 35 };
 const X_AXIS_MARGIN = 10; // X축 양 끝 마진
+const TITLE_LEFT_X = 16;
+const IN_CHART_OPTIONS_RESERVED_WIDTH = 72;
 const TREND_LINE_CURRENT_COLOR = PRIMARY[600];
 const TREND_LINE_PREVIOUS_COLOR = GREY[400];
 const EMPTY_CHART_DATA: ChartDataPoint[] = [];
@@ -60,11 +62,35 @@ const areChartDataPointsEqual = (prevData: ChartDataPoint[], nextData: ChartData
   return true;
 };
 
+const getCalendarDayTime = (date: Date) => {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+};
+
+const getWeekStartTime = (date: Date) => {
+  const weekStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const dayOfWeek = weekStart.getDay();
+  weekStart.setDate(weekStart.getDate() + (dayOfWeek === 0 ? -6 : 1 - dayOfWeek));
+  return weekStart.getTime();
+};
+
+const isDateInPeriod = (date: Date, periodReferenceDate: Date, period: Period) => {
+  switch (period) {
+    case Period.WEEK:
+      return getWeekStartTime(date) === getWeekStartTime(periodReferenceDate);
+    case Period.MONTH:
+      return (
+        date.getFullYear() === periodReferenceDate.getFullYear() &&
+        date.getMonth() === periodReferenceDate.getMonth()
+      );
+    case Period.YEAR:
+      return date.getFullYear() === periodReferenceDate.getFullYear();
+  }
+};
+
 const PeriodChartComponent: React.FC<PeriodChartProps> = ({
   data,
   comparisonData = EMPTY_CHART_DATA,
   showTrendComparison = true,
-  onTrendComparisonToggle,
   period,
   isEmpty = false,
   referenceDate = new Date(),
@@ -123,19 +149,6 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
     };
   }, [period, referenceDate]);
 
-  const barLegendLabel = useMemo(() => {
-    switch (period) {
-      case Period.WEEK:
-        return '요일별 거리';
-      case Period.MONTH:
-        return '일별 거리';
-      case Period.YEAR:
-        return '월별 거리';
-      default:
-        return '거리';
-    }
-  }, [period]);
-
   // 차트 데이터 정규화 (거리를 km로 변환)
   const normalizedData = useMemo(() => {
     return data.map((point) => ({
@@ -154,7 +167,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
     const periodLabelText =
       period === Period.WEEK ? '지난주보다' : period === Period.MONTH ? '지난달보다' : '작년보다';
 
-    return `${periodLabelText} ${prefix}${Math.abs(deltaKm).toFixed(1)} km`;
+    return `${periodLabelText} ${prefix}${RunningStatusFormat.distance(Math.abs(deltaKm) * 1000, { fractionDigits: 1 })}`;
   }, [comparisonData, normalizedData, period]);
 
   // 최대값 계산 (Y축 스케일링용)
@@ -233,8 +246,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
     return CHART_PADDING.left + X_AXIS_MARGIN + position * effectiveChartWidth - barWidth / 2;
   };
 
-  const getTrendXPosition = useCallback((point: ChartDataPoint, periodReferenceDate: Date) => {
-    const date = new Date(point.datetime);
+  const getTrendXPositionForDate = useCallback((date: Date, periodReferenceDate: Date) => {
     let position = 0;
 
     switch (period) {
@@ -259,23 +271,46 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
     return CHART_PADDING.left + X_AXIS_MARGIN + position * effectiveChartWidth;
   }, [chartInnerWidth, period]);
 
-  const buildCumulativeTrend = useCallback((points: ChartDataPoint[], periodReferenceDate: Date) => {
+  const buildCumulativeTrend = useCallback((points: ChartDataPoint[], periodReferenceDate: Date, extendToToday = false) => {
     const sortedPoints = [...points].sort(
       (a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime()
     );
     let cumulativeDistanceKm = 0;
 
-    return sortedPoints.map((point) => {
+    const trendData = sortedPoints.map((point) => {
       cumulativeDistanceKm += point.distance / 1000;
       return {
-        x: getTrendXPosition(point, periodReferenceDate),
+        x: getTrendXPositionForDate(new Date(point.datetime), periodReferenceDate),
         distanceKm: cumulativeDistanceKm,
       };
     });
-  }, [getTrendXPosition]);
+
+    if (!extendToToday || trendData.length === 0) return trendData;
+
+    const today = new Date();
+    if (!isDateInPeriod(today, periodReferenceDate, period)) return trendData;
+
+    const lastDataPoint = sortedPoints[sortedPoints.length - 1];
+    const lastTrendPoint = trendData[trendData.length - 1];
+    if (!lastDataPoint || !lastTrendPoint) return trendData;
+
+    const lastDate = new Date(lastDataPoint.datetime);
+    if (getCalendarDayTime(lastDate) >= getCalendarDayTime(today)) return trendData;
+
+    const todayX = getTrendXPositionForDate(today, periodReferenceDate);
+    if (todayX <= lastTrendPoint.x) return trendData;
+
+    return [
+      ...trendData,
+      {
+        x: todayX,
+        distanceKm: lastTrendPoint.distanceKm,
+      },
+    ];
+  }, [getTrendXPositionForDate, period]);
 
   const currentTrendData = useMemo(() => {
-    return buildCumulativeTrend(data, referenceDate);
+    return buildCumulativeTrend(data, referenceDate, true);
   }, [buildCumulativeTrend, data, referenceDate]);
 
   const previousTrendData = useMemo(() => {
@@ -334,25 +369,10 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
 
   return (
     <View style={styles.container}>
-      {hasTrendData && (
-        <View style={styles.trendToggle}>
-          <Text style={styles.trendToggleLabel}>추세</Text>
-          <Switch
-            testID="trend-comparison-switch"
-            accessibilityLabel="추세 비교"
-            value={showTrendComparison}
-            onValueChange={onTrendComparisonToggle}
-            trackColor={{ false: GREY[200], true: PRIMARY[200] }}
-            thumbColor={showTrendComparison ? PRIMARY[600] : GREY.WHITE}
-            ios_backgroundColor={GREY[200]}
-            style={styles.trendSwitch}
-          />
-        </View>
-      )}
       <Svg width={CHART_WIDTH} height={CHART_HEIGHT}>
         {/* 기간 라벨 - 월/년 (좌측 상단) */}
         <SvgText
-          x={16}
+          x={TITLE_LEFT_X}
           y={32}
           fontSize={18}
           fontWeight="600"
@@ -361,69 +381,23 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
           {periodLabel.left}
         </SvgText>
 
-        {isTrendComparisonVisible && (
-          <SvgText
-            x={16}
-            y={52}
-            fontSize={10}
-            fontWeight="600"
-            fill={GREY[400]}
-          >
-            막대: {barLegendLabel} / 선: 누적 총거리
-          </SvgText>
-        )}
-
         {isTrendComparisonVisible && comparisonDeltaLabel && (
           <SvgText
-            x={CHART_WIDTH - 16}
+            x={TITLE_LEFT_X}
             y={52}
             fontSize={11}
             fontWeight="700"
             fill={PRIMARY[600]}
-            textAnchor="end"
+            textAnchor="start"
           >
             {comparisonDeltaLabel}
-          </SvgText>
-        )}
-
-        {isTrendComparisonVisible && normalizedData.length > 0 && (
-          <SvgText
-            x={CHART_PADDING.left + 10}
-            y={70}
-            fontSize={10}
-            fontWeight="600"
-            fill={PRIMARY[600]}
-          >
-            {barLegendLabel}
-          </SvgText>
-        )}
-        {isTrendComparisonVisible && hasCurrentTrendData && (
-          <SvgText
-            x={CHART_PADDING.left + 76}
-            y={70}
-            fontSize={10}
-            fontWeight="600"
-            fill={TREND_LINE_CURRENT_COLOR}
-          >
-            이번 누적
-          </SvgText>
-        )}
-        {isTrendComparisonVisible && hasPreviousTrendData && (
-          <SvgText
-            x={CHART_PADDING.left + 142}
-            y={70}
-            fontSize={10}
-            fontWeight="600"
-            fill={GREY[500]}
-          >
-            직전 누적
           </SvgText>
         )}
 
         {/* 주차 라벨 (우측 상단) - Period.WEEK일 때만 표시 */}
         {periodLabel.right && (
           <SvgText
-            x={hasTrendData ? CHART_WIDTH - 88 : CHART_WIDTH - 16}
+            x={CHART_WIDTH - IN_CHART_OPTIONS_RESERVED_WIDTH}
             y={32}
             fontSize={14}
             fontWeight="500"
@@ -444,7 +418,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
             fontWeight="500"
             fill={GREY[300]}
           >
-            {label.toFixed(1)}
+            {RunningStatusFormat.distance(label * 1000, { fractionDigits: 1, includeUnit: false })}
           </SvgText>
         ))}
 
@@ -472,7 +446,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
               fill={GREY[400]}
               textAnchor="end"
             >
-              {label.toFixed(0)}
+              {RunningStatusFormat.distance(label * 1000, { fractionDigits: 0, includeUnit: false })}
             </SvgText>
           ))}
 
@@ -508,6 +482,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
             d={currentTrendPath}
             stroke={TREND_LINE_CURRENT_COLOR}
             strokeWidth={2.5}
+            strokeDasharray="6 5"
             fill="none"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -597,22 +572,5 @@ const styles = StyleSheet.create({
     backgroundColor: GREY.WHITE,
     borderRadius: 8,
     overflow: 'hidden',
-  },
-  trendToggle: {
-    position: 'absolute',
-    top: 8,
-    right: 12,
-    zIndex: 2,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  trendToggleLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: GREY[600],
-  },
-  trendSwitch: {
-    transform: [{ scaleX: 0.72 }, { scaleY: 0.72 }],
   },
 });

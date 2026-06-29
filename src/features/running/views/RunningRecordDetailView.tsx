@@ -22,7 +22,7 @@ import { Text } from '~/shared/components/typography';
 import { Icon } from '~/shared/components/ui';
 import { GREY, PRIMARY } from '~/shared/styles';
 import { formatRecordDate } from '~/shared/utils/dateUtils';
-import { formatPaceForUI } from '~/shared/utils/formatters';
+import { RunningStatusFormat } from '~/shared/utils/formatters';
 import { useShareStore } from '~/features/share/stores/shareStore';
 import { useShareEntryTransitionStore } from '~/features/share/stores/shareEntryTransitionStore';
 import type { Shoe } from '~/features/shoes/models';
@@ -34,6 +34,10 @@ import {
 } from '~/features/share/utils/routeLocations';
 import type { Location, RunningRecord } from '../models';
 import { calculateAveragePace } from '../models';
+import {
+  buildKilometerSplits,
+  type KilometerSplit,
+} from '../models/kilometerSplits';
 import {
   useGetRunningRecord,
   useGetRunningRecordItems,
@@ -107,6 +111,14 @@ export const RunningRecordDetailView: React.FC = () => {
     return runningRecordItemsToLocations(itemsQuery.data);
   }, [itemsQuery.data, itemsQuery.isSuccess]);
 
+  const kilometerSplits = useMemo(() => {
+    if (!itemsQuery.isSuccess) {
+      return [];
+    }
+
+    return buildKilometerSplits(itemsQuery.data);
+  }, [itemsQuery.data, itemsQuery.isSuccess]);
+
   const showFailure = !isValidRecordId || recordQuery.isError;
   const record = recordQuery.data;
   const showMap = itemsQuery.isSuccess && routeLocations.length >= 2 && !mapRenderFailed;
@@ -165,7 +177,7 @@ export const RunningRecordDetailView: React.FC = () => {
     setShareData({
       distance: record.distance,
       durationSec: record.durationSec,
-      pace: formatPaceForUI(calculateAveragePace(record)),
+      pace: RunningStatusFormat.pace(calculateAveragePace(record)),
       startTimestamp: new Date(record.startTimestamp * 1000).toISOString(),
       earnedPoints: Math.floor(record.distance / 100),
       locations: routeLocations,
@@ -233,6 +245,12 @@ export const RunningRecordDetailView: React.FC = () => {
               variant="route"
               onPress={handleOpenShoeSheet}
             />
+            <KilometerSplitsList
+              splits={kilometerSplits}
+              variant="route"
+              isLoading={Boolean(itemsQuery.isLoading)}
+              isError={Boolean(itemsQuery.isError)}
+            />
           </View>
         </ScrollView>
         <ShoeChangeBottomSheet
@@ -273,6 +291,12 @@ export const RunningRecordDetailView: React.FC = () => {
           record={record}
           variant="noMap"
           onPress={handleOpenShoeSheet}
+        />
+        <KilometerSplitsList
+          splits={kilometerSplits}
+          variant="noMap"
+          isLoading={Boolean(itemsQuery.isLoading)}
+          isError={Boolean(itemsQuery.isError)}
         />
       </ScrollView>
       <ShoeChangeBottomSheet
@@ -327,11 +351,13 @@ interface RecordHeroProps {
 }
 
 const RecordHero: React.FC<RecordHeroProps> = ({ record, variant }) => {
+  const distance = RunningStatusFormat.distanceParts(record.distance);
+
   return (
     <View style={[styles.recordHero, variant === 'route' ? styles.recordHeroRoute : styles.recordHeroNoMap]}>
       <View style={styles.distanceRow}>
-        <Text style={styles.distanceValue}>{(record.distance / 1000).toFixed(2)}</Text>
-        <Text style={styles.distanceUnit}>km</Text>
+        <Text style={styles.distanceValue}>{distance.value}</Text>
+        <Text style={styles.distanceUnit}>{distance.unit}</Text>
       </View>
       <Text style={styles.distanceCaption}>오늘의 러닝 거리</Text>
     </View>
@@ -344,8 +370,9 @@ interface StatsGridProps {
 }
 
 const StatsGrid: React.FC<StatsGridProps> = ({ record, variant }) => {
-  const heartRate = formatSensorValue(record.heartRate);
-  const cadence = formatSensorValue(record.cadence);
+  const heartRate = RunningStatusFormat.heartRate(record.heartRate);
+  const cadence = RunningStatusFormat.cadence(record.cadence);
+  const calories = RunningStatusFormat.calories(record.calorie);
 
   return (
     <View style={[styles.statsGrid, variant === 'route' ? styles.statsGridRoute : styles.statsGridNoMap]}>
@@ -357,25 +384,88 @@ const StatsGrid: React.FC<StatsGridProps> = ({ record, variant }) => {
           unit="/km"
           unitPlacement="below"
         />
-        <MetricCard label="칼로리" value={`${record.calorie}`} unit="kcal" />
+        <MetricCard label="칼로리" value={calories} />
       </View>
       <View style={styles.metricBottomRow}>
         <MetricCard
           label="평균 심박"
           value={heartRate}
-          unit={heartRate === '--' ? undefined : 'BPM'}
-          unitPlacement="trailing"
         />
         <MetricCard
           label="케이던스"
           value={cadence}
-          unit={cadence === '--' ? undefined : 'spm'}
-          unitPlacement="trailing"
         />
       </View>
     </View>
   );
 };
+
+interface KilometerSplitsListProps {
+  splits: KilometerSplit[];
+  variant: 'route' | 'noMap';
+  isLoading: boolean;
+  isError: boolean;
+}
+
+const KilometerSplitsList: React.FC<KilometerSplitsListProps> = ({
+  splits,
+  variant,
+  isLoading,
+  isError,
+}) => {
+  const stateText = isError
+    ? '구간 기록을 불러오지 못했어요'
+    : '구간 기록이 없어요';
+
+  return (
+    <View
+      style={[
+        styles.splitSection,
+        variant === 'route' ? styles.splitSectionRoute : styles.splitSectionNoMap,
+      ]}
+    >
+      <View style={styles.splitSectionHeader}>
+        <Text style={styles.splitSectionTitle}>구간 기록</Text>
+        {splits.length > 0 ? (
+          <Text style={styles.splitSectionCount}>{splits.length}개</Text>
+        ) : null}
+      </View>
+
+      {isLoading ? (
+        <View style={styles.splitStateCard}>
+          <ActivityIndicator size="small" color={PRIMARY[600]} />
+        </View>
+      ) : splits.length === 0 ? (
+        <View style={styles.splitStateCard}>
+          <Text style={styles.splitStateText}>{stateText}</Text>
+        </View>
+      ) : (
+        <View style={styles.splitRows}>
+          {splits.map((split) => (
+            <KilometerSplitRow key={split.splitNumber} split={split} />
+          ))}
+        </View>
+      )}
+    </View>
+  );
+};
+
+interface KilometerSplitRowProps {
+  split: KilometerSplit;
+}
+
+const KilometerSplitRow: React.FC<KilometerSplitRowProps> = ({ split }) => (
+  <View style={styles.splitRow}>
+    <View style={styles.splitRowTop}>
+      <Text style={styles.splitLabel}>{formatSplitLabel(split)}</Text>
+      <Text style={styles.splitPace}>{formatSplitPace(split.paceSecPerKm)}</Text>
+    </View>
+    <View style={styles.splitRowBottom}>
+      <Text style={styles.splitMeta}>{RunningStatusFormat.heartRate(split.heartRate)}</Text>
+      <Text style={styles.splitMeta}>{RunningStatusFormat.cadence(split.cadence)}</Text>
+    </View>
+  </View>
+);
 
 interface ConnectedShoeCardProps {
   record: RunningRecord;
@@ -416,7 +506,7 @@ const ConnectedShoeCard: React.FC<ConnectedShoeCardProps> = ({
               {connectedShoe.model}
             </Text>
             <Text style={styles.connectedShoeDistance}>
-              누적 거리 {(connectedShoe.totalDistance / 1000).toFixed(1)}km
+              누적 거리 {RunningStatusFormat.distance(connectedShoe.totalDistance, { fractionDigits: 1 })}
             </Text>
           </>
         ) : (
@@ -602,30 +692,23 @@ const MetricCard: React.FC<MetricCardProps> = ({
 );
 
 const formatDurationMetric = (seconds: number): string => {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-
-  if (hours > 0) {
-    return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  }
-
-  return `${minutes}:${String(secs).padStart(2, '0')}`;
+  return RunningStatusFormat.duration(seconds);
 };
 
 const formatPaceMetric = (paceMinPerKm: number): string => {
-  const pace = formatPaceForUI(paceMinPerKm);
-  const [minutes, seconds = '00'] = pace.split(':');
-
-  return `${minutes}'${seconds}"`;
+  return RunningStatusFormat.pace(paceMinPerKm, { includeUnit: false });
 };
 
-const formatSensorValue = (value: number | null): string => {
-  if (value === null || value === 0) {
-    return '--';
+const formatSplitPace = (paceSecPerKm: number): string => {
+  return RunningStatusFormat.paceFromSecondsPerKm(paceSecPerKm);
+};
+
+const formatSplitLabel = (split: KilometerSplit): string => {
+  if (split.isPartial) {
+    return `마지막 ${RunningStatusFormat.distance(split.distanceMeters)}`;
   }
 
-  return `${value}`;
+  return RunningStatusFormat.distance(split.splitNumber * 1000);
 };
 
 interface RouteMapHeroProps {
@@ -900,6 +983,95 @@ const styles = StyleSheet.create({
   metricUnitTrailing: {
     marginLeft: 8,
     marginBottom: 4,
+  },
+  splitSection: {
+    marginHorizontal: 16,
+  },
+  splitSectionRoute: {
+    marginTop: 22,
+  },
+  splitSectionNoMap: {
+    marginTop: 24,
+  },
+  splitSectionHeader: {
+    minHeight: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  splitSectionTitle: {
+    fontSize: 17,
+    lineHeight: 24,
+    fontWeight: '800',
+    color: '#102318',
+  },
+  splitSectionCount: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '600',
+    color: '#657067',
+  },
+  splitRows: {
+    gap: 8,
+  },
+  splitRow: {
+    minHeight: 68,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: GREY[200],
+    borderRadius: 8,
+    backgroundColor: GREY.WHITE,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  splitRowTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  splitLabel: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '700',
+    color: GREY[900],
+  },
+  splitPace: {
+    fontSize: 16,
+    lineHeight: 21,
+    fontWeight: '800',
+    color: GREY[900],
+  },
+  splitRowBottom: {
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  splitMeta: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '600',
+    color: '#657067',
+  },
+  splitStateCard: {
+    minHeight: 64,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: GREY[200],
+    borderRadius: 8,
+    backgroundColor: GREY.WHITE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  splitStateText: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
+    color: '#657067',
+    textAlign: 'center',
   },
   connectedShoeCard: {
     marginHorizontal: 16,

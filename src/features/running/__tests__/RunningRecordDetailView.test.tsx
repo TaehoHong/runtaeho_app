@@ -158,4 +158,67 @@ describe('RunningRecordDetailView', () => {
       userInterfaceStyle: 'light',
     }));
   });
+
+  it('renders kilometer split rows at the bottom with pace, heart rate, and cadence', () => {
+    mockUseGetRunningRecordItems.mockReturnValue({
+      isLoading: false,
+      isError: false,
+      isSuccess: true,
+      data: [
+        {
+          distance: 600,
+          durationSec: 180,
+          cadence: 160,
+          heartRate: 140,
+          minHeartRate: 0,
+          maxHeartRate: 0,
+          orderIndex: 0,
+          startTimeStamp: 0,
+          endTimeStamp: 0,
+          gpsPoints: [],
+        },
+        {
+          distance: 400,
+          durationSec: 120,
+          cadence: 170,
+          heartRate: 150,
+          minHeartRate: 0,
+          maxHeartRate: 0,
+          orderIndex: 1,
+          startTimeStamp: 0,
+          endTimeStamp: 0,
+          gpsPoints: [],
+        },
+        {
+          distance: 360,
+          durationSec: 108,
+          cadence: 0,
+          heartRate: 0,
+          minHeartRate: 0,
+          maxHeartRate: 0,
+          orderIndex: 2,
+          startTimeStamp: 0,
+          endTimeStamp: 0,
+          gpsPoints: [],
+        },
+      ],
+    });
+
+    const result = renderWithProviders(<RunningRecordDetailView />);
+
+    expect(screen.getByText('구간 기록')).toBeTruthy();
+    expect(screen.getByText('1.00 km')).toBeTruthy();
+    expect(screen.getByText('마지막 0.36 km')).toBeTruthy();
+    expect(screen.getAllByText('5\'00"/km')).toHaveLength(2);
+    expect(screen.queryByText('5:00')).toBeNull();
+    expect(screen.queryByText('1:48')).toBeNull();
+    expect(screen.getByText('144 bpm')).toBeTruthy();
+    expect(screen.getByText('164 spm')).toBeTruthy();
+    expect(screen.getAllByText('--').length).toBeGreaterThanOrEqual(2);
+
+    const rendered = JSON.stringify(result.toJSON());
+    expect(rendered.indexOf('연결된 신발이 없어요')).toBeLessThan(
+      rendered.indexOf('구간 기록')
+    );
+  });
 });

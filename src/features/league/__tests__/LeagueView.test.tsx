@@ -138,7 +138,7 @@ describe('LeagueView', () => {
         tierType: 'GOLD',
         myRank: 2,
         totalParticipants: 10,
-        myDistanceFormatted: '2.5 km',
+        myDistanceFormatted: '2.50 km',
         promotionCutRank: 3,
         relegationCutRank: 8,
         promotionStatus: 'PROMOTION',
@@ -181,7 +181,7 @@ describe('LeagueView', () => {
     expect(rankCardProps).toMatchObject({
       myRank: 2,
       totalParticipants: 10,
-      myDistanceFormatted: '2.5 km',
+      myDistanceFormatted: '2.50 km',
       promotionCutRank: 3,
       relegationCutRank: 8,
       promotionStatus: 'PROMOTION',

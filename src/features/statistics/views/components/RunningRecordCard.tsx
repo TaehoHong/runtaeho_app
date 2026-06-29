@@ -9,7 +9,7 @@ import { router } from 'expo-router';
 import type { RunningRecord } from '../../../running/models';
 import { formatDuration, calculateAveragePace } from '../../../running/models';
 import { formatRecordDate } from '~/shared/utils/dateUtils';
-import { formatPaceForUI } from '~/shared/utils/formatters';
+import { RunningStatusFormat } from '~/shared/utils/formatters';
 import { GREY } from '~/shared/styles';
 
 interface RunningRecordCardProps {
@@ -18,9 +18,9 @@ interface RunningRecordCardProps {
 
 const RunningRecordCardComponent: React.FC<RunningRecordCardProps> = ({ record }) => {
   const dateString = formatRecordDate(record.startTimestamp);
-  const distance = `${(record.distance / 1000).toFixed(2)} km`;
+  const distance = RunningStatusFormat.distance(record.distance);
   const pace = calculateAveragePace(record);
-  const paceFormatted = `${formatPaceForUI(pace)}"/km`;
+  const paceFormatted = RunningStatusFormat.pace(pace);
   const duration = formatDuration(record.durationSec);
 
   return (

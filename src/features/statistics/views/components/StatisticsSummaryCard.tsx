@@ -12,7 +12,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Period } from '../../models';
 import { PRIMARY, GREY } from '~/shared/styles';
-import { formatPaceForUI } from '~/shared/utils/formatters';
+import { RunningStatusFormat } from '~/shared/utils/formatters';
 
 interface StatisticsSummaryCardProps {
   runCount: number;
@@ -39,8 +39,8 @@ export const StatisticsSummaryCard: React.FC<StatisticsSummaryCardProps> = ({
   averagePace,
   period,
 }) => {
-  const distanceInKm = (totalDistance / 1000).toFixed(2);
-  const pace = `${formatPaceForUI(averagePace)}"/km`;
+  const distance = RunningStatusFormat.distanceParts(totalDistance);
+  const pace = RunningStatusFormat.pace(averagePace);
 
   return (
     <View style={styles.container}>
@@ -49,7 +49,7 @@ export const StatisticsSummaryCard: React.FC<StatisticsSummaryCardProps> = ({
       <View
         style={styles.distanceRow}
         accessible
-        accessibilityLabel={`${distanceInKm} km`}
+        accessibilityLabel={distance.text}
       >
         <Text
           style={styles.distanceValue}
@@ -57,9 +57,9 @@ export const StatisticsSummaryCard: React.FC<StatisticsSummaryCardProps> = ({
           adjustsFontSizeToFit
           minimumFontScale={0.72}
         >
-          {distanceInKm}
+          {distance.value}
         </Text>
-        <Text style={styles.distanceUnit}>km</Text>
+        <Text style={styles.distanceUnit}>{distance.unit}</Text>
       </View>
 
       <View style={styles.secondaryRow}>

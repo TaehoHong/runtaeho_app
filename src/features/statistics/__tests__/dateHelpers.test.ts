@@ -71,7 +71,7 @@ describe('statistics date helpers', () => {
     const yearLabel = formatPeriodLabel(new Date(2026, 1, 10), Period.YEAR);
     const unknownLabel = formatPeriodLabel(new Date(2026, 1, 10), 'UNKNOWN' as Period);
 
-    expect(weekLabel.primary).toBe('2026년 2월');
+    expect(weekLabel.primary).toBe('3월');
     expect(weekLabel.secondary).toBe('23일~3월1일');
     expect(monthLabel).toEqual({ primary: '2026년 2월', secondary: undefined });
     expect(yearLabel).toEqual({ primary: '2026년', secondary: undefined });

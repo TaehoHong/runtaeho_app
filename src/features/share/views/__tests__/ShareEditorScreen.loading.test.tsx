@@ -89,7 +89,7 @@ jest.mock('~/features/share/views/components', () => {
 const runningData: ShareRunningData = {
   distance: 5000,
   durationSec: 1500,
-  pace: '5:00',
+  pace: '5\'00"/km',
   startTimestamp: '2026-02-24T00:00:00.000Z',
   earnedPoints: 50,
   locations: [],
@@ -252,7 +252,7 @@ describe('ShareEditorScreen loading behavior', () => {
     expect(mockSetShareData).toHaveBeenCalledWith(expect.objectContaining({
       distance: 6520,
       durationSec: 2300,
-      pace: '05:53',
+      pace: '5\'53"/km',
       earnedPoints: 65,
       locations: expect.arrayContaining([
         expect.objectContaining({
@@ -263,7 +263,7 @@ describe('ShareEditorScreen loading behavior', () => {
     }));
     expect(alertSpy).toHaveBeenCalledWith(
       '더미 데이터 추가됨',
-      '6.52km / 38:20 / 여의도 한강공원 경로를 적용했습니다.'
+      '6.52 km / 38:20 / 여의도 한강공원 경로를 적용했습니다.'
     );
 
     alertSpy.mockRestore();

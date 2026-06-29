@@ -14,6 +14,7 @@ import { TopScreenSafeAreaView } from '~/shared/components';
 import { Text } from '~/shared/components/typography';
 import { Icon } from '~/shared/components/ui';
 import { GREY, PRIMARY, RED } from '~/shared/styles';
+import { RunningStatusFormat } from '~/shared/utils/formatters';
 import type { ShoeViewModel } from '../models';
 import { useShoeViewModel } from '../viewmodels';
 import { AddShoeView } from './AddShoeView';
@@ -289,7 +290,7 @@ const MainShoeCard: React.FC<MainShoeCardProps> = ({ shoe }) => {
         <View style={styles.mainShoeDistance}>
           <Text style={styles.mainShoeDistanceLabel}>누적 거리</Text>
           <Text style={styles.mainShoeDistanceValue}>
-            {(shoe.totalDistance / 1000).toFixed(1)}km
+            {RunningStatusFormat.distance(shoe.totalDistance, { fractionDigits: 1 })}
           </Text>
         </View>
       </View>
@@ -335,7 +336,7 @@ const ShoeCard: React.FC<ShoeCardProps> = ({ shoe, onPress }) => {
         <View style={styles.shoeItemDistance}>
           <Text style={styles.shoeItemDistanceLabel}>누적 거리</Text>
           <Text style={styles.shoeItemDistanceValue}>
-            {(shoe.totalDistance / 1000).toFixed(1)}km
+            {RunningStatusFormat.distance(shoe.totalDistance, { fractionDigits: 1 })}
           </Text>
         </View>
       </View>

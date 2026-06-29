@@ -5,6 +5,7 @@
 
 // Views
 export { CustomerServiceView } from './views/CustomerServiceView';
+export { FAQView } from './views/FAQView';
 export { InquiryView } from './views/InquiryView';
 export { ErrorInquiryView } from './views/ErrorInquiryView';
 export { DoneView } from './views/DoneView';

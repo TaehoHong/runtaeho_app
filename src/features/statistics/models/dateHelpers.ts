@@ -130,7 +130,7 @@ export const formatPeriodLabel = (
         : `${startDay}일~${endMonth}월${endDay}일`;
 
       return {
-        primary: `${monday.getFullYear()}년 ${monday.getMonth() + 1}월`,
+        primary: `${referenceDate.getMonth() + 1}월`,
         secondary: dateRange,
       };
     }

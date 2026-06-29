@@ -179,7 +179,7 @@ describe('RunningFinishedView', () => {
       expect(mockSetShareData).toHaveBeenCalledWith(expect.objectContaining({
         distance: 2000,
         durationSec: 600,
-        pace: '05:00',
+        pace: '5\'00"/km',
       }));
     });
 
@@ -241,7 +241,7 @@ describe('RunningFinishedView', () => {
       expect(mockSetShareData).toHaveBeenCalledWith(expect.objectContaining({
         distance: 2000,
         durationSec: 600,
-        pace: '05:00',
+        pace: '5\'00"/km',
         earnedPoints: 20,
         startTimestamp: '2025-01-01T00:00:00.000Z',
       }));

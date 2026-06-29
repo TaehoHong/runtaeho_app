@@ -7,10 +7,14 @@
 
 import type { Location } from '~/features/running/models';
 import type { ShareRunningData } from '../models/types';
+import { RunningStatusFormat } from '~/shared/utils/formatters';
 
 const DUMMY_SHARE_DISTANCE_METERS = 6520;
 const DUMMY_SHARE_DURATION_SEC = 38 * 60 + 20;
-const DUMMY_SHARE_PACE = '05:53';
+const DUMMY_SHARE_PACE = RunningStatusFormat.paceFromMetersAndSeconds(
+  DUMMY_SHARE_DISTANCE_METERS,
+  DUMMY_SHARE_DURATION_SEC
+);
 const DUMMY_SHARE_EARNED_POINTS = Math.floor(DUMMY_SHARE_DISTANCE_METERS / 100);
 
 /**

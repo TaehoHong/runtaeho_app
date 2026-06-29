@@ -11,6 +11,7 @@ import {
   getEndOfPeriod,
 } from '../models';
 import { useGetStatisticsSummary } from '../services';
+import { RunningStatusFormat } from '~/shared/utils/formatters';
 
 /**
  * Period에 따라 시작/종료 날짜 계산
@@ -185,10 +186,10 @@ export const useStatisticsViewModel = (
 
     return {
       ...finalStats,
-      totalDistanceFormatted: `${(finalStats.totalDistance / 1000).toFixed(2)}km`,
-      totalDurationFormatted: `${Math.floor(finalStats.totalDuration / 3600)}시간 ${Math.floor((finalStats.totalDuration % 3600) / 60)}분`,
-      averagePaceFormatted: `${finalStats.averagePace.toFixed(2)}분/km`,
-      totalCaloriesFormatted: `${finalStats.totalCalories}kcal`,
+      totalDistanceFormatted: RunningStatusFormat.distance(finalStats.totalDistance),
+      totalDurationFormatted: RunningStatusFormat.duration(finalStats.totalDuration),
+      averagePaceFormatted: RunningStatusFormat.pace(finalStats.averagePace),
+      totalCaloriesFormatted: RunningStatusFormat.calories(finalStats.totalCalories),
     };
   }, [finalStats]);
 
@@ -202,9 +203,9 @@ export const useStatisticsViewModel = (
         month: 'short',
         day: 'numeric',
       }),
-      formattedDistance: `${(point.distance / 1000).toFixed(1)}km`,
-      formattedDuration: `${Math.floor(point.durationSec / 60)}분`,
-      formattedPace: `${((point.paceSec * 1000) / 60).toFixed(2)}분/km`, // 초/미터 → 분/km
+      formattedDistance: RunningStatusFormat.distance(point.distance, { fractionDigits: 1 }),
+      formattedDuration: RunningStatusFormat.duration(point.durationSec),
+      formattedPace: RunningStatusFormat.pace((point.paceSec * 1000) / 60), // 초/미터 → 분/km
     }));
   }, [chartData]);
 

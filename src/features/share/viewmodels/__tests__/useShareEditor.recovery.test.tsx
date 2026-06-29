@@ -60,7 +60,7 @@ jest.mock('~/features/unity/hooks', () => ({
 const createRunningData = (): ShareRunningData => ({
   distance: 3000,
   durationSec: 900,
-  pace: '5:00',
+  pace: '5\'00"/km',
   startTimestamp: '2026-02-24T00:00:00.000Z',
   earnedPoints: 30,
   locations: [],

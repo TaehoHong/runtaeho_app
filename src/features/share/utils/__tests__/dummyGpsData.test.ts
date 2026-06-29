@@ -6,7 +6,7 @@ describe('dummyGpsData', () => {
   const baseShareData: ShareRunningData = {
     distance: 1000,
     durationSec: 300,
-    pace: '05:00',
+    pace: '5\'00"/km',
     startTimestamp: '2026-04-13T00:00:00.000Z',
     earnedPoints: 10,
     locations: [],
@@ -42,7 +42,7 @@ describe('dummyGpsData', () => {
     expect(shareData).toMatchObject({
       distance: 6520,
       durationSec: 2300,
-      pace: '05:53',
+      pace: '5\'53"/km',
       startTimestamp: baseShareData.startTimestamp,
       earnedPoints: 65,
     });

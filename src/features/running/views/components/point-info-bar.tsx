@@ -2,6 +2,7 @@ import React from 'react';
 import { PRIMARY, GREY } from '~/shared/styles';
 import { View, StyleSheet, Text } from 'react-native';
 import { Icon } from '~/shared/components/ui';
+import { RunningStatusFormat } from '~/shared/utils/formatters';
 
 interface PointInfoBarProps {
   earnedPoints: number;
@@ -25,8 +26,9 @@ export const PointInfoBar: React.FC<PointInfoBarProps> = ({
           {/* 포인트 아이콘 - 임시로 동그라미 사용 */}
           <Icon name="point" size={16}/>
           <View style={styles.earnedPointsWrapper}>
-            <Text style={styles.plusSign}>+</Text>
-            <Text style={styles.earnedPointsValue}>{earnedPoints}</Text>
+            <Text style={styles.earnedPointsValue}>
+              {RunningStatusFormat.points(earnedPoints, { signed: true })}
+            </Text>
           </View>
         </View>
       </View>
@@ -38,7 +40,7 @@ export const PointInfoBar: React.FC<PointInfoBarProps> = ({
           {/* 포인트 아이콘 - 임시로 동그라미 사용 */}
           <Icon name="point" size={16}/>
           <Text style={styles.totalPointsValue}>
-            {totalPoints.toLocaleString()}
+            {RunningStatusFormat.points(totalPoints, { useGrouping: true })}
           </Text>
         </View>
       </View>
@@ -92,14 +94,6 @@ const styles = StyleSheet.create({
   earnedPointsWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  plusSign: {
-    fontFamily: 'Rounded Mplus 1c Bold',
-    fontSize: 13,
-    fontWeight: '700',
-    lineHeight: 14,
-    color: PRIMARY[500],
-    letterSpacing: -0.3,
   },
   earnedPointsValue: {
     fontFamily: 'Rounded Mplus 1c Bold',

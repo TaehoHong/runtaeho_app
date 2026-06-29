@@ -108,7 +108,7 @@ describe('StatisticsView', () => {
     expect(screen.getByText('이번 달 총 거리')).toBeTruthy();
     expect(screen.getByLabelText('0.00 km')).toBeTruthy();
     expect(screen.getByText('0회')).toBeTruthy();
-    expect(screen.getByText('0:00"/km')).toBeTruthy();
+    expect(screen.getByText('--/km')).toBeTruthy();
     expect(screen.getByText('mock-record-list')).toBeTruthy();
     expect(mockRunningRecordList).toHaveBeenCalledWith({
       startDate: defaultPeriodStartDate,
@@ -174,7 +174,7 @@ describe('StatisticsView', () => {
     expect(screen.getByText('이번 달 총 거리')).toBeTruthy();
     expect(screen.getByLabelText('18.50 km')).toBeTruthy();
     expect(screen.getByText('3회')).toBeTruthy();
-    expect(screen.getByText('5:24"/km')).toBeTruthy();
+    expect(screen.getByText('5\'24"/km')).toBeTruthy();
   });
 
   it('passes previous period chart data as comparison data', () => {

@@ -1,6 +1,7 @@
 /**
  * Shoe 모델
  */
+import { RunningStatusFormat } from '~/shared/utils/formatters';
 
 /**
  * 신발 기본 모델
@@ -97,7 +98,7 @@ export const createShoe = (
  */
 export const createShoeViewModel = (shoe: Shoe): ShoeViewModel => {
   const displayName = `${shoe.brand} ${shoe.model}`;
-  const formattedDistance = `총 누적 거리 ${(shoe.totalDistance / 1000).toFixed(2)}km`;
+  const formattedDistance = `총 누적 거리 ${formatShoeDistance(shoe.totalDistance)}`;
   const isAchieved = !shoe.isEnabled;
 
   // 진행률 계산
@@ -190,8 +191,7 @@ export const validateShoe = (shoe: Partial<Shoe>): {
  * 신발 포맷팅 헬퍼 함수들
  */
 export const formatShoeDistance = (distanceInMeters: number): string => {
-  const km = distanceInMeters / 1000;
-  return `${km.toFixed(2)}km`;
+  return RunningStatusFormat.distance(distanceInMeters, { fractionDigits: 1 });
 };
 
 export const formatShoeProgress = (current: number, target?: number): string => {

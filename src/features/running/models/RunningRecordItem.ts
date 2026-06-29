@@ -8,6 +8,8 @@ import type { Location } from './Location';
  * - Priority: 1. Garmin, 2. Watch(with app), 3. Phone
  * - 모든 디바이스에서 수집 실패 시 null (UI: "--")
  */
+import { RunningStatusFormat } from '~/shared/utils/formatters';
+
 export interface RunningRecordItem {
   id: number;
   distance: number;
@@ -126,11 +128,11 @@ export const calculateItemStats = (item: RunningRecordItem) => {
  */
 export const formatRunningRecordItem = (item: RunningRecordItem) => ({
   orderIndex: `#${item.orderIndex}`,
-  distance: `${(item.distance / 1000).toFixed(2)} km`,
+  distance: RunningStatusFormat.distance(item.distance),
   duration: formatItemDuration(item.durationSec),
-  calories: `${item.calories} kcal`,
-  cadence: item.cadence !== null ? `${item.cadence} spm` : '--',
-  heartRate: item.heartRate !== null ? `${item.heartRate} bpm` : '--',
+  calories: RunningStatusFormat.calories(item.calories),
+  cadence: RunningStatusFormat.cadence(item.cadence),
+  heartRate: RunningStatusFormat.heartRate(item.heartRate),
   uploadStatus: item.isUploaded ? 'Uploaded' : 'Pending',
 });
 
@@ -138,7 +140,5 @@ export const formatRunningRecordItem = (item: RunningRecordItem) => ({
  * 아이템 시간 포맷팅
  */
 export const formatItemDuration = (seconds: number): string => {
-  const minutes = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${minutes}:${String(secs).padStart(2, '0')}`;
+  return RunningStatusFormat.duration(seconds);
 };

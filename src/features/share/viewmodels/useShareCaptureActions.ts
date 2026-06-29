@@ -3,6 +3,7 @@ import type { RefObject } from 'react';
 import type { View } from 'react-native';
 import type { ShareResult, ShareRunningData } from '../models/types';
 import { captureAndShare, type ViewBounds } from '../services/shareService';
+import { RunningStatusFormat } from '~/shared/utils/formatters';
 
 interface UseShareCaptureActionsOptions {
   runningData: ShareRunningData;
@@ -42,8 +43,7 @@ export const useShareCaptureActions = ({
       };
     }
 
-    const distanceKm = (runningData.distance / 1000).toFixed(2);
-    const message = `오늘 ${distanceKm}km 달렸어요! #RunTaeho #러닝`;
+    const message = `오늘 ${RunningStatusFormat.distance(runningData.distance)} 달렸어요! #RunTaeho #러닝`;
 
     return runCaptureAction(() =>
       captureAndShare(

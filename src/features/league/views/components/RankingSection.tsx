@@ -13,6 +13,7 @@ import { Animated, Easing, FlatList, RefreshControl, StyleSheet, Text, View } fr
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from 'expo-router';
 import { GREY, PRIMARY } from '~/shared/styles';
+import { RunningStatusFormat } from '~/shared/utils/formatters';
 import type { LeagueParticipant } from '../../models';
 import { RankItem } from './RankItem';
 
@@ -241,7 +242,7 @@ export const RankingSection = ({
             <View style={styles.animatedAvatar} />
             <Text style={styles.animatedName}>나</Text>
             <Text style={styles.animatedDistance}>
-              {(participant.distance / 1000).toFixed(2)}km
+              {RunningStatusFormat.distance(participant.distance)}
             </Text>
           </View>
         </Animated.View>

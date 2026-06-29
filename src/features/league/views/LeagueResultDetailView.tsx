@@ -9,6 +9,7 @@ import {
 import { useConfirmResult } from '../services';
 import { LeagueResultCharacterView, RankingSection } from './components';
 import { PRIMARY, GREY } from '~/shared/styles';
+import { RunningStatusFormat } from '~/shared/utils/formatters';
 
 interface LeagueResultDetailViewProps {
   result: LeagueResult;
@@ -74,7 +75,9 @@ export const LeagueResultDetailView = ({ result }: LeagueResultDetailViewProps) 
         {showRewardPoints && (
           <View style={styles.rewardCard}>
             <Text style={styles.rewardLabel}>승격 보상 포인트</Text>
-            <Text style={styles.rewardValue}>+{result.rewardPoints} P</Text>
+            <Text style={styles.rewardValue}>
+              {RunningStatusFormat.points(result.rewardPoints, { signed: true })}
+            </Text>
           </View>
         )}
 

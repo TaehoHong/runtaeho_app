@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { Text } from '~/shared/components/typography';
 import { useRunning } from '~/features/running/contexts';
+import { RunningStatusFormat } from '~/shared/utils/formatters';
 
 /**
  * 페이스 타입
@@ -24,39 +25,26 @@ interface StatsViewProps {
 
 /**
  * 러닝 통계 뷰 (피그마 디자인 기반)
- * BPM, 페이스, 러닝 시간 표시
+ * 심박, 페이스, 러닝 시간 표시
  *
  * 정책: 센서 데이터 없으면 "--" 표시
  */
 export const StatsView: React.FC<StatsViewProps> = ({ paceType = 'average' }) => {
   const { elapsedTime, stats } = useRunning();
 
-  // 러닝 시간 포맷팅 (MM:SS)
-  const formatElapsedTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  };
-
-  // 정책: undefined 또는 null이면 "--" 표시
-  const bpm = stats.bpm !== undefined && stats.bpm !== null
-    ? String(stats.bpm).padStart(2, '0')
-    : '--';
+  const heartRate = RunningStatusFormat.heartRate(stats.bpm);
 
   // 페이스 타입에 따라 순간/평균 페이스 선택
   const paceData = paceType === 'instant' ? stats.instantPace : stats.pace;
-  // 순간 페이스가 0인 경우 (아직 계산 안됨) "--" 표시
-  const pace = paceData.totalSeconds === 0
-    ? '--:--'
-    : `${String(paceData.minutes).padStart(2, '0')}:${String(paceData.seconds).padStart(2, '0')}`;
-  const runningTime = formatElapsedTime(elapsedTime);
+  const pace = RunningStatusFormat.paceFromSecondsPerKm(paceData.totalSeconds);
+  const runningTime = RunningStatusFormat.duration(elapsedTime);
 
   return (
     <View style={styles.container}>
-      {/* BPM */}
+      {/* 심박 */}
       <View style={styles.statItem}>
-        <Text style={styles.statLabel}>BPM</Text>
-        <Text style={styles.statValue}>{bpm}</Text>
+        <Text style={styles.statLabel}>심박</Text>
+        <Text style={styles.statValue}>{heartRate}</Text>
       </View>
 
       {/* 페이스 */}

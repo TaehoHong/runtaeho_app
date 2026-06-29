@@ -32,6 +32,7 @@ import { useShareStore } from '../stores/shareStore';
 import { generateDummyShareRunningData } from '../utils/dummyGpsData';
 import { useShareEditor } from '../viewmodels/useShareEditor';
 import { useShareExportSurface } from './hooks/useShareExportSurface';
+import { RunningStatusFormat } from '~/shared/utils/formatters';
 import {
   BackgroundSelector,
   PoseSelector,
@@ -93,7 +94,10 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
   const handleAddDummyData = useCallback(() => {
     const dummyShareData = generateDummyShareRunningData(runningData);
     setShareData(dummyShareData);
-    Alert.alert('더미 데이터 추가됨', '6.52km / 38:20 / 여의도 한강공원 경로를 적용했습니다.');
+    Alert.alert(
+      '더미 데이터 추가됨',
+      `${RunningStatusFormat.distance(dummyShareData.distance)} / ${RunningStatusFormat.duration(dummyShareData.durationSec)} / 여의도 한강공원 경로를 적용했습니다.`
+    );
   }, [runningData, setShareData]);
 
   const closeEditor = useCallback(async (reason: 'close' | 'share-success') => {
