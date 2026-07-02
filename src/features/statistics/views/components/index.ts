@@ -9,4 +9,4 @@ export { RunningRecordList } from './RunningRecordList';
 export { RunningRecordCard } from './RunningRecordCard';
 export { PeriodChart } from './PeriodChart';
 export { SwipeablePeriodChart } from './SwipeablePeriodChart';
-export { StatisticsErrorBoundary, StatisticsErrorFallback } from './StatisticsErrorBoundary';
+export { StatisticsErrorBoundary } from './StatisticsErrorBoundary';

@@ -65,9 +65,6 @@ export const RunningActiveView: React.FC = () => {
   );
 };
 
-// 역호환성을 위한 export
-export const RunningActive = RunningActiveView;
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,

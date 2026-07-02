@@ -3,7 +3,6 @@
  * 통계 기간 관련 날짜 헬퍼 함수
  */
 
-import { formatDateString } from '~/shared/utils/dateUtils';
 import { Period, PeriodDirection } from './types';
 
 /**
@@ -30,23 +29,6 @@ export const getStartOfMonth = (date: Date): Date => {
  */
 export const getStartOfYear = (date: Date): Date => {
   return new Date(date.getFullYear(), 0, 1);
-};
-
-/**
- * 날짜 포맷팅 (Statistics용)
- * @deprecated formatDateString from dateUtils 사용 권장
- */
-export const formatDate = (date: Date, format: string): string => {
-  switch (format) {
-    case 'YYYY-MM-DD':
-      return formatDateString(date, 'YYYY-MM-DD');
-    case 'YYYY-MM':
-      return formatDateString(date, 'YYYY-MM');
-    case 'YYYY':
-      return formatDateString(date, 'YYYY');
-    default:
-      return date.toISOString().split('T')[0] ?? '';
-  }
 };
 
 /**

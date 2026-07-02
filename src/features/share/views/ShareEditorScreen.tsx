@@ -25,14 +25,10 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { GREY } from '~/shared/styles';
-import { useUserStore } from '~/stores/user';
 import type { ShareResult, ShareRunningData } from '../models/types';
 import { useShareEntryTransitionStore } from '../stores/shareEntryTransitionStore';
-import { useShareStore } from '../stores/shareStore';
-import { generateDummyShareRunningData } from '../utils/dummyGpsData';
 import { useShareEditor } from '../viewmodels/useShareEditor';
 import { useShareExportSurface } from './hooks/useShareExportSurface';
-import { RunningStatusFormat } from '~/shared/utils/formatters';
 import {
   BackgroundSelector,
   PoseSelector,
@@ -86,19 +82,6 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
     previewRef: canvasRef,
     isLoading,
   });
-
-  const currentUser = useUserStore((state) => state.currentUser);
-  const setShareData = useShareStore((state) => state.setShareData);
-  const isDummyDataUser = currentUser?.id === 1;
-
-  const handleAddDummyData = useCallback(() => {
-    const dummyShareData = generateDummyShareRunningData(runningData);
-    setShareData(dummyShareData);
-    Alert.alert(
-      '더미 데이터 추가됨',
-      `${RunningStatusFormat.distance(dummyShareData.distance)} / ${RunningStatusFormat.duration(dummyShareData.durationSec)} / 여의도 한강공원 경로를 적용했습니다.`
-    );
-  }, [runningData, setShareData]);
 
   const closeEditor = useCallback(async (reason: 'close' | 'share-success') => {
     try {
@@ -205,15 +188,6 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
                   <Text style={styles.headerTitle}>기록 공유</Text>
                 </View>
                 <View style={styles.headerActions}>
-                  {isDummyDataUser && (
-                    <TouchableOpacity
-                      onPress={handleAddDummyData}
-                      style={styles.dummyButton}
-                      testID="share-editor-add-dummy-button"
-                    >
-                      <Text style={styles.dummyButtonText}>더미 추가</Text>
-                    </TouchableOpacity>
-                  )}
                   <TouchableOpacity onPress={handleReset} style={styles.resetButton}>
                     <Text style={styles.resetButtonText}>초기화</Text>
                   </TouchableOpacity>
@@ -394,17 +368,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     marginLeft: 'auto',
-  },
-  dummyButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: GREY[100],
-  },
-  dummyButtonText: {
-    fontSize: 14,
-    color: GREY[700],
-    fontFamily: 'Pretendard-Medium',
   },
   resetButton: {
     paddingHorizontal: 12,

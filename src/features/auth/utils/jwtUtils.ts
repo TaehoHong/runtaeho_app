@@ -65,14 +65,6 @@ function parseToken(token: string): JWTPayload | null {
 // ===== 비즈니스 로직 =====
 
 /**
- * JWT 토큰 디코딩 (payload 추출)
- * @deprecated parseToken 사용 권장 (동일 기능)
- */
-export const decodeJWT = (token: string): JWTPayload | null => {
-  return parseToken(token);
-};
-
-/**
  * JWT 토큰에서 약관 동의 여부 확인
  *
  * @param token JWT 토큰

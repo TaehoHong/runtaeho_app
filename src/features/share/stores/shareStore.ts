@@ -12,7 +12,6 @@
  */
 
 import { create } from 'zustand';
-import type { Location } from '~/features/running/models';
 import type { ShareRunningData } from '../models/types';
 
 interface ShareStore {
@@ -22,14 +21,11 @@ interface ShareStore {
   /** 공유 데이터 설정 (네비게이션 전 호출) */
   setShareData: (data: ShareRunningData) => void;
 
-  /** 더미 GPS 데이터 주입 (테스트용, userId=1 전용) */
-  setDummyLocations: (locations: Location[]) => void;
-
   /** 공유 데이터 초기화 (화면 언마운트 시 호출) */
   clearShareData: () => void;
 }
 
-export const useShareStore = create<ShareStore>((set, get) => ({
+export const useShareStore = create<ShareStore>((set) => ({
   shareData: null,
 
   setShareData: (data) => {
@@ -37,21 +33,6 @@ export const useShareStore = create<ShareStore>((set, get) => ({
       `📤 [ShareStore] 공유 데이터 저장: distance=${data.distance}m, locations=${data.locations?.length ?? 0}개`
     );
     set({ shareData: data });
-  },
-
-  setDummyLocations: (locations) => {
-    const currentData = get().shareData;
-    if (!currentData) {
-      console.warn('⚠️ [ShareStore] shareData가 없어 더미 데이터 주입 불가');
-      return;
-    }
-    console.log(`🗺️ [ShareStore] 더미 GPS 데이터 주입: ${locations.length}개 좌표`);
-    set({
-      shareData: {
-        ...currentData,
-        locations,
-      },
-    });
   },
 
   clearShareData: () => {

@@ -284,9 +284,6 @@ export const RunningFinishedView: React.FC = () => {
   );
 };
 
-// 역호환성을 위한 export
-export const RunningFinished = RunningFinishedView;
-
 const styles = StyleSheet.create({
   container: {
     width: width,

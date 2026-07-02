@@ -49,8 +49,3 @@ export class AuthenticationError extends Error {
     return new AuthenticationError('Network error occurred', error);
   }
 }
-
-/**
- * UserAuthData에서 userId getter (Legacy Support)
- */
-export const getUserId = (userAuthData: UserAuthData): number => userAuthData.id;

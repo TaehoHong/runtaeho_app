@@ -6,8 +6,6 @@ import { ErrorService } from '../services/ErrorService';
 
 interface Props {
   children: ReactNode;
-  fallback?: ReactNode;
-  onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
 }
 
 interface State {
@@ -51,10 +49,6 @@ export class ErrorBoundary extends Component<Props, State> {
       errorBoundary: true,
     }, false); // ErrorBoundary에서는 사용자에게 직접 표시하지 않음
 
-    // 커스텀 에러 핸들러 호출
-    if (this.props.onError) {
-      this.props.onError(error, errorInfo);
-    }
   }
 
   handleClose = () => {
@@ -75,11 +69,6 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
-      // 커스텀 fallback UI가 제공된 경우
-      if (this.props.fallback) {
-        return this.props.fallback;
-      }
-
       return (
         <ErrorPopup
           visible
@@ -91,21 +80,4 @@ export class ErrorBoundary extends Component<Props, State> {
 
     return this.props.children;
   }
-}
-
-/**
- * HOC 형태로 ErrorBoundary 적용
- */
-export function withErrorBoundary<P extends object>(
-  Component: React.ComponentType<P>,
-  fallback?: ReactNode,
-  onError?: (error: Error, errorInfo: React.ErrorInfo) => void
-) {
-  return function WrappedComponent(props: P) {
-    return (
-      <ErrorBoundary fallback={fallback} {...(onError && { onError })}>
-        <Component {...props} />
-      </ErrorBoundary>
-    );
-  };
 }

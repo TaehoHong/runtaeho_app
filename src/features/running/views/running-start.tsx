@@ -60,9 +60,6 @@ export const RunningStartView: React.FC = () => {
   );
 };
 
-// 역호환성을 위한 export
-export const RunningStart = RunningStartView;
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,

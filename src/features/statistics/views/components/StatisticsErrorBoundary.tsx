@@ -12,7 +12,7 @@ interface StatisticsErrorFallbackProps {
   onRetry?: () => void;
 }
 
-export const StatisticsErrorFallback: React.FC<StatisticsErrorFallbackProps> = ({
+const StatisticsErrorFallback: React.FC<StatisticsErrorFallbackProps> = ({
   error,
   onRetry
 }) => (
@@ -29,8 +29,6 @@ export const StatisticsErrorFallback: React.FC<StatisticsErrorFallbackProps> = (
 
 interface ErrorBoundaryProps {
   children: ReactNode;
-  fallback?: ReactNode;
-  onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
   onRetry?: () => void;
 }
 
@@ -51,7 +49,6 @@ export class StatisticsErrorBoundary extends Component<ErrorBoundaryProps, Error
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
     console.error('[StatisticsErrorBoundary] Error caught:', error, errorInfo);
-    this.props.onError?.(error, errorInfo);
   }
 
   handleRetry = (): void => {
@@ -61,9 +58,6 @@ export class StatisticsErrorBoundary extends Component<ErrorBoundaryProps, Error
 
   render(): ReactNode {
     if (this.state.hasError) {
-      if (this.props.fallback) {
-        return this.props.fallback;
-      }
       return (
         <StatisticsErrorFallback
           error={this.state.error || undefined}

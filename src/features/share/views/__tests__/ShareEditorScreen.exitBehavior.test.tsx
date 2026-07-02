@@ -8,7 +8,6 @@ import { routerMock } from '~/test-utils/mocks/native';
 import { renderWithProviders } from '~/test-utils/renderWithProviders';
 
 const mockUseShareEditor = jest.fn();
-const mockSetShareData = jest.fn();
 const mockResetAll = jest.fn();
 const mockRestoreRunningResultDefaults = jest.fn();
 const mockShareResult = jest.fn();
@@ -17,7 +16,6 @@ const mockUseFocusEffect = jest.fn();
 const mockSetActiveViewport = jest.fn();
 const mockClearActiveViewport = jest.fn();
 const mockEndEntryTransition = jest.fn();
-let mockCurrentUser: { id: number } | null = null;
 let previewMeasureInWindowCalls = 0;
 const mockUnityStoreState = {
   setActiveViewport: mockSetActiveViewport,
@@ -36,21 +34,6 @@ jest.mock('~/features/share/viewmodels/useShareEditor', () => ({
 
 jest.mock('@react-navigation/native', () => ({
   useFocusEffect: (...args: unknown[]) => mockUseFocusEffect(...args),
-}));
-
-jest.mock('~/features/share/stores/shareStore', () => ({
-  useShareStore: (
-    selector: (state: {
-      setShareData: typeof mockSetShareData;
-    }) => unknown
-  ) => selector({
-    setShareData: mockSetShareData,
-  }),
-}));
-
-jest.mock('~/stores/user', () => ({
-  useUserStore: (selector: (state: { currentUser: typeof mockCurrentUser }) => unknown) =>
-    selector({ currentUser: mockCurrentUser }),
 }));
 
 jest.mock('~/stores/unity/unityStore', () => ({
@@ -111,7 +94,6 @@ jest.mock('~/features/share/views/components', () => {
     PoseSelector: () => React.createElement(View, { testID: 'pose-selector' }),
     StatVisibilityToggle: () => React.createElement(View, { testID: 'stat-visibility-toggle' }),
     BackgroundSelector: () => React.createElement(View, { testID: 'background-selector' }),
-    ShareEditorTestTools: () => React.createElement(View, { testID: 'share-editor-test-tools' }),
     ShareActions: ({ onShare, onCancel }: { onShare: () => void; onCancel: () => void }) =>
       React.createElement(
         View,
@@ -136,7 +118,6 @@ describe('ShareEditorScreen exit behavior', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockCurrentUser = null;
     mockCanvasRef = { current: null };
     previewMeasureInWindowCalls = 0;
     alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());

@@ -65,9 +65,6 @@ export const RunningPausedView: React.FC = () => {
   );
 };
 
-// 역호환성을 위한 export
-export const RunningPaused = RunningPausedView;
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,

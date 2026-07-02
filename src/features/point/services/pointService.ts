@@ -39,27 +39,6 @@ export const pointService = {
   },
 
   /**
-   * 포인트 통계 조회
-   */
-  getPointStatistics: async (): Promise<{
-    totalEarned: number;
-    totalSpent: number;
-    todayEarned: number;
-    weeklyEarned: number;
-    transactionCount: number;
-  }> => {
-    // TODO: 백엔드에 통계 API가 있으면 사용, 없으면 클라이언트에서 계산
-    // 임시로 빈 데이터 반환
-    return {
-      totalEarned: 0,
-      totalSpent: 0,
-      todayEarned: 0,
-      weeklyEarned: 0,
-      transactionCount: 0,
-    };
-  },
-
-  /**
    * 포인트 업데이트
    */
   updateUserPoint: async (params: {

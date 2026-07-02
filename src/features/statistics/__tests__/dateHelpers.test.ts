@@ -2,7 +2,6 @@ import {
   Period,
   PeriodDirection,
   calculateNextReferenceDate,
-  formatDate,
   formatPeriodLabel,
   getEndOfPeriod,
   getLastDayOfPeriod,
@@ -34,15 +33,6 @@ describe('statistics date helpers', () => {
     expect(monthStart.getDate()).toBe(1);
     expect(yearStart.getMonth()).toBe(0);
     expect(yearStart.getDate()).toBe(1);
-  });
-
-  it('formats date by requested template and falls back to ISO date', () => {
-    const date = new Date('2026-02-01T10:20:30.000Z');
-
-    expect(formatDate(date, 'YYYY-MM-DD')).toBe('2026-02-01');
-    expect(formatDate(date, 'YYYY-MM')).toBe('2026-02');
-    expect(formatDate(date, 'YYYY')).toBe('2026');
-    expect(formatDate(date, 'unknown')).toBe(date.toISOString().split('T')[0]);
   });
 
   it('moves reference date by period and direction', () => {
