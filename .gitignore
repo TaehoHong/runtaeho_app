@@ -76,3 +76,7 @@ prepare-native-build.sh
 
 # 로컬 스토어 빌드 산출물 (scripts/deploy-store.sh)
 /build/
+
+# 로컬 도구 산출물
+artifacts/avatar-js-parity/
+.superpowers/
