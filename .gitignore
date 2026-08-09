@@ -73,3 +73,6 @@ prepare-native-build.sh
 
 /android/app/release
 .gstack/
+
+# 로컬 스토어 빌드 산출물 (scripts/deploy-store.sh)
+/build/

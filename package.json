@@ -37,12 +37,13 @@
     "version:patch": "npm version patch --no-git-tag-version",
     "version:minor": "npm version minor --no-git-tag-version",
     "version:major": "npm version major --no-git-tag-version",
-    "version:sync-runtime": "node ./scripts/sync-runtime-version.js",
-    "version:status": "node ./scripts/version-status.js",
-    "release:ota": "npm run version:patch && npm run update:prod",
-    "release:native": "npm run version:sync-runtime && npm run build:prod:all",
-    "deploy:ota": "node ./scripts/deploy-ota.js",
-    "prepare:native": "node ./scripts/prepare-native-build.js"
+    "version:sync-runtime": "node ./scripts/version.js sync-runtime",
+    "version:status": "node ./scripts/version.js status",
+    "version:bump-build": "node ./scripts/version.js bump-build",
+    "release:ota": "npm run version:patch && bash ./scripts/deploy-ota.sh",
+    "release:native": "bash ./scripts/deploy-store.sh",
+    "deploy:ota": "bash ./scripts/deploy-ota.sh",
+    "deploy:store": "bash ./scripts/deploy-store.sh"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",

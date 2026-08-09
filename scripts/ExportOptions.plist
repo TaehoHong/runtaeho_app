@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <!-- App Store Connect 업로드용 .ipa를 로컬로 내보낸다. 업로드는 eas submit이 한다. -->
+    <key>method</key>
+    <string>app-store-connect</string>
+    <key>destination</key>
+    <string>export</string>
+    <key>teamID</key>
+    <string>3F893P33SC</string>
+    <key>signingStyle</key>
+    <string>automatic</string>
+    <key>uploadSymbols</key>
+    <true/>
+    <!-- 빌드번호는 scripts/version.js가 관리한다. Xcode가 임의로 바꾸지 않게 한다. -->
+    <key>manageAppVersionAndBuildNumber</key>
+    <false/>
+  </dict>
+</plist>
