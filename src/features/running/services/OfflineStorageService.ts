@@ -358,7 +358,16 @@ export class OfflineStorageService {
   async getPendingSegmentUploads(): Promise<PendingSegmentUpload[]> {
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.PENDING_SEGMENT_UPLOADS);
-      return data ? JSON.parse(data) : [];
+      const pending: PendingSegmentUpload[] = data ? JSON.parse(data) : [];
+      // JSON 저장으로 문자열이 된 GPS 시간을 Location 모델의 Date로 복원한다.
+      for (const upload of pending) {
+        for (const segment of upload.segments) {
+          for (const location of segment.locations ?? []) {
+            location.timestamp = new Date(location.timestamp);
+          }
+        }
+      }
+      return pending;
     } catch (error) {
       console.error('[OfflineStorage] Failed to get pending segment uploads:', error);
       return [];

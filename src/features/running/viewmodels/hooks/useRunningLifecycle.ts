@@ -295,6 +295,13 @@ export const useRunningLifecycle = ({
           errorMessage
         );
         await offlineStorageService.addPendingUpload(currentRecord.id, finalRecord);
+        const segmentsToSave = segmentItemsRef.current;
+        if (segmentsToSave.length > 0) {
+          await offlineStorageService.addPendingSegmentUpload(
+            currentRecord.id,
+            segmentsToSave
+          );
+        }
         setRunningState(RunningState.Finished);
         return null;
       }
