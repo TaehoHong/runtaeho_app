@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, renderHook } from '@testing-library/react-native';
 import { useOfflineSync } from '../hooks/useOfflineSync';
+import type { RunningRecord } from '../models/RunningRecord';
 import type { RunningRecordItem } from '../models/RunningRecordItem';
 import { offlineStorageService } from '../services/OfflineStorageService';
 
@@ -152,5 +153,32 @@ describe('offline GPS segment synchronization', () => {
     await act(async () => { expect(await result.current.syncOfflineData()).toBeNull(); });
     expect(mockSaveItems).not.toHaveBeenCalled();
     expect(mockEndRunning).not.toHaveBeenCalled();
+  });
+
+  it('preserves the original end timestamp when a summary is retried the next day', async () => {
+    const record: RunningRecord = {
+      id: 404, distance: 80, steps: null, cadence: null, heartRate: null,
+      calorie: 15, durationSec: 1800, startTimestamp: 1736087400, endTimestamp: 1736091000,
+    };
+    const dateNowSpy = jest.spyOn(Date, 'now').mockReturnValue(1736091000000);
+    try {
+      await offlineStorageService.addPendingUpload(404, record);
+      dateNowSpy.mockReturnValue(1736177400000);
+      mockEndRunning.mockRejectedValueOnce(new Error('network-unavailable'));
+      const { result } = renderHook(() => useOfflineSync());
+
+      await act(async () => {
+        expect((await result.current.syncOfflineData())?.records).toEqual({ success: 0, failed: 1 });
+      });
+      expect((await offlineStorageService.getPendingUploads())[0]?.data).toEqual(record);
+      await act(async () => {
+        expect((await result.current.syncOfflineData())?.records).toEqual({ success: 1, failed: 0 });
+      });
+      expect(mockEndRunning).toHaveBeenNthCalledWith(1, record);
+      expect(mockEndRunning).toHaveBeenNthCalledWith(2, record);
+      expect(await offlineStorageService.getPendingCount()).toBe(0);
+    } finally {
+      dateNowSpy.mockRestore();
+    }
   });
 });

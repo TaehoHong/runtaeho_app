@@ -34,6 +34,8 @@ describe('RankingSection', () => {
 
     expect(list.props.data).toEqual(participants);
     expect(list.props.initialScrollIndex).toBeUndefined();
+    expect(screen.getByText(/실제 러닝 종료 시각으로 집계/)).toBeTruthy();
+    expect(screen.getByText(/종료한 시즌에 전체 거리가 반영/)).toBeTruthy();
   });
 
   it('updates FlatList data when participants change outside the ranking animation flow', () => {

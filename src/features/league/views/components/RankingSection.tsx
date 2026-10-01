@@ -303,6 +303,9 @@ export const RankingSection = ({
       {/* 헤더 */}
       <View style={styles.header}>
         <Text style={styles.title}>순위표</Text>
+        <Text style={styles.description}>
+          업로드 시각이 아닌 실제 러닝 종료 시각으로 집계해요. 시즌을 넘겨 달리면 종료한 시즌에 전체 거리가 반영돼요.
+        </Text>
       </View>
 
       {/* 순위 리스트 (FlatList) */}
@@ -389,6 +392,14 @@ const styles = StyleSheet.create({
     fontFamily: 'Pretendard-SemiBold',
     fontWeight: '600',
     color: GREY[900],
+  },
+  description: {
+    fontSize: 14,
+    fontFamily: 'Pretendard-Medium',
+    fontWeight: '500',
+    color: GREY[700],
+    marginTop: 8,
+    textAlign: 'center',
   },
   listContainer: {
     flex: 1,

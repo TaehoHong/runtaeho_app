@@ -173,6 +173,18 @@ describe('runningService', () => {
       API_ENDPOINTS.RUNNING.DETAIL(78),
       sampleRecord
     );
+    expect(mockApiClient.post.mock.calls[0]?.[1]).not.toHaveProperty('endTimestamp');
+  });
+
+  it('sends the actual end timestamp in seconds when completing a record', async () => {
+    mockApiClient.post.mockResolvedValue({ data: { id: 77, point: 50 } });
+
+    await runningService.endRunning({ ...sampleRecord, endTimestamp: 1736091000 });
+
+    expect(mockApiClient.post).toHaveBeenCalledWith(
+      API_ENDPOINTS.RUNNING.END(77),
+      expect.objectContaining({ endTimestamp: 1736091000 })
+    );
   });
 
   it('loads detail, loadMore, delete and item endpoints with correct params', async () => {

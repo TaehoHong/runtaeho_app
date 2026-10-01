@@ -87,7 +87,7 @@ export const runningService = {
    * 러닝 종료
    * 기존: endRunning mutation
    * POST /api/v1/running/{id}/end
-   * Request: { distance, durationSec, cadence, heartRate, calorie }
+   * Request: { distance, durationSec, cadence, heartRate, calorie, endTimestamp? }
    * Response: EndRunningRecord
    */
   endRunning: async (runningRecord: RunningRecord): Promise<EndRunningRecord> => {
@@ -99,6 +99,7 @@ export const runningService = {
         cadence: normalizeCadence(runningRecord.cadence),
         heartRate: runningRecord.heartRate || 0,
         calorie: runningRecord.calorie || 0,
+        ...(runningRecord.endTimestamp !== undefined && { endTimestamp: runningRecord.endTimestamp }),
       }
     );
     return data;

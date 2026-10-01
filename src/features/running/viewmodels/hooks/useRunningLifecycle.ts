@@ -174,6 +174,7 @@ export const useRunningLifecycle = ({
    */
   const endRunning = useCallback(async (): Promise<EndRunningRecord | null> => {
     if (!currentRecord) return null;
+    const endTimestamp = Math.floor(Date.now() / 1000);
 
     try {
       // 0. 마지막 세그먼트 저장
@@ -208,6 +209,7 @@ export const useRunningLifecycle = ({
         heartRate: stats.bpm ?? null,
         calorie: stats.calories ? Math.round(stats.calories) : 0,
         durationSec: elapsedTime,
+        endTimestamp,
       });
 
       setCurrentRecord(finalRecord);

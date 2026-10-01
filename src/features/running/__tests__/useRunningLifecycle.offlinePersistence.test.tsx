@@ -156,6 +156,31 @@ describe('useRunningLifecycle offline persistence', () => {
     expect(await offlineStorageService.getPendingSegmentCount()).toBe(1);
   });
 
+  it('persists the end-button timestamp before GPS cleanup or a delayed upload', async () => {
+    const dateNowSpy = jest.spyOn(Date, 'now').mockReturnValue(1736091000123);
+    mockStartRunning.mockResolvedValue({ ...record, startTimestamp: 1736087400 });
+    const { result } = renderHook(() => useRunningLifecycle(createProps({
+      elapsedTime: 1800,
+      stopGpsTracking: async () => {
+        dateNowSpy.mockReturnValue(1736091010000);
+        return { distance: 80, locations: [] };
+      },
+    })));
+
+    try {
+      await act(async () => { await result.current.startRunning(); });
+      await act(async () => { await result.current.endRunning(); });
+
+      expect(mockEndRunning).toHaveBeenCalledWith(expect.objectContaining({
+        startTimestamp: 1736087400, durationSec: 1800, endTimestamp: 1736091000,
+      }));
+      const pending = await offlineStorageService.getPendingUploads();
+      expect(pending[0]?.data).toMatchObject({ endTimestamp: 1736091000 });
+    } finally {
+      dateNowSpy.mockRestore();
+    }
+  });
+
   it.each(['@pending_running_uploads', '@pending_segment_uploads'])(
     'propagates a local write failure for %s instead of completing', async (failingKey) => {
       jest.spyOn(AsyncStorage, 'setItem').mockImplementation(async (key, value) => {
