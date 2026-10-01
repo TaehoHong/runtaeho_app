@@ -20,6 +20,7 @@ import { runningService } from '../../services/runningService';
 import { pedometerService, type PedometerData } from '../../services/sensors/PedometerService';
 import { offlineStorageService } from '../../services/OfflineStorageService';
 import { backgroundTaskService } from '../../services/BackgroundTaskService';
+import { leagueService } from '~/features/league/services/leagueService';
 import { useAppStore, RunningState } from '~/stores/app/appStore';
 import { permissionManager } from '~/services/PermissionManager';
 import type { UseRunningLifecycleProps, UseRunningLifecycleReturn } from './types';
@@ -46,6 +47,7 @@ export const useRunningLifecycle = ({
   // App store
   const runningState = useAppStore((state) => state.runningState);
   const setRunningState = useAppStore((state) => state.setRunningState);
+  const setLeagueBeforeRunningEnd = useAppStore((state) => state.setLeagueBeforeRunningEnd);
 
   // State
   const [currentRecord, setCurrentRecord] = useState<RunningRecord | null>(null);
@@ -175,6 +177,7 @@ export const useRunningLifecycle = ({
   const endRunning = useCallback(async (): Promise<EndRunningRecord | null> => {
     if (!currentRecord) return null;
     const endTimestamp = Math.floor(Date.now() / 1000);
+    setLeagueBeforeRunningEnd(null);
 
     try {
       // 0. 마지막 세그먼트 저장
@@ -220,6 +223,16 @@ export const useRunningLifecycle = ({
         setRunningState(RunningState.Finished);
         await backgroundTaskService.clearBackgroundData();
         return null;
+      }
+
+      // 종료 API가 리그를 갱신하기 전에 애니메이션에 사용할 순위를 보관한다.
+      try {
+        const league = await leagueService.getCurrentLeague();
+        setLeagueBeforeRunningEnd(league && league.myRank > 0
+          ? { sessionId: league.sessionId, rank: league.myRank }
+          : null);
+      } catch {
+        console.warn('[useRunningLifecycle] League rank lookup failed, skipping rank animation');
       }
 
       // 5. 백엔드 API: 러닝 종료
@@ -327,6 +340,7 @@ export const useRunningLifecycle = ({
     endRunningMutation,
     segmentItemsRef,
     setRunningState,
+    setLeagueBeforeRunningEnd,
   ]);
 
   /**

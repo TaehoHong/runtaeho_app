@@ -180,8 +180,9 @@ export const RunningFinishedView: React.FC = () => {
       console.log('✅ [RunningFinishedView] 신발 정보 업데이트 완료');
 
       // 리그 거리 업데이트 (순위 애니메이션을 위한 처리)
+      let rankForAnimation: number | null = null;
       try {
-        // 1. 현재 리그 정보 조회 (이전 순위 획득)
+        // 1. 현재 리그 정보 조회
         let currentLeague = await leagueService.getCurrentLeague();
 
         // 리그 세션이 없으면 자동으로 리그 참가
@@ -198,21 +199,24 @@ export const RunningFinishedView: React.FC = () => {
           const myParticipant = currentLeague.participants.find(p => p.isMe);
 
           if (myParticipant) {
-            const previousRank = myParticipant.rank;
-            console.log(`🏆 [RunningFinishedView] 이전 순위: ${previousRank}`);
+            const previousLeague = useAppStore.getState().leagueBeforeRunningEnd;
+            if (previousLeague?.sessionId === currentLeague.sessionId) {
+              rankForAnimation = previousLeague.rank;
+            }
 
             // 2. 리그 참가자 거리 업데이트
             await leagueService.updateParticipantDistance(myParticipant.id, finalSummary.distanceMeters);
             console.log(`📊 [RunningFinishedView] 리그 거리 업데이트 완료: ${finalSummary.distanceMeters}m`);
-
-            // 3. 이전 순위 저장 (애니메이션용)
-            setPreviousLeagueRank(previousRank);
           }
         }
       } catch (leagueError) {
         // 리그 관련 에러는 무시 (리그 참가 실패 등)
         console.log('ℹ️ [RunningFinishedView] 리그 업데이트 스킵:', leagueError);
       }
+
+      // 완료 화면에서 기다리는 동안 종료 전 순위가 소비되지 않도록, 이동 직전에 전달한다.
+      setPreviousLeagueRank(rankForAnimation);
+      useAppStore.getState().setLeagueBeforeRunningEnd(null);
 
       // 러닝 상태 초기화
       resetRunning();

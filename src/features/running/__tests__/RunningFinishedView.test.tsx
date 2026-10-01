@@ -170,6 +170,39 @@ describe('RunningFinishedView', () => {
     });
   });
 
+  it('keeps the rank captured before completion when confirming an already updated league', async () => {
+    useAppStore.getState().setLeagueBeforeRunningEnd({ sessionId: 1, rank: 8 });
+    mockGetCurrentLeague.mockResolvedValue({ sessionId: 1, participants: [{ id: 11, rank: 3, isMe: true }] });
+    mockUpdateParticipantDistance.mockResolvedValue(undefined);
+    renderWithProviders(<RunningFinishedView />);
+
+    expect(useAppStore.getState().previousLeagueRank).toBeNull();
+
+    fireEvent.press(screen.getByText('확인'));
+
+    await waitFor(() => {
+      expect(mockRouterReplace).toHaveBeenCalledWith('/(tabs)/league');
+    });
+    expect(useAppStore.getState().previousLeagueRank).toBe(8);
+    expect(useAppStore.getState().leagueBeforeRunningEnd).toBeNull();
+    expect(useAppStore.getState().runningState).toBe(RunningState.Stopped);
+  });
+
+  it('does not animate a previous-season rank when the user confirms after the season changes', async () => {
+    useAppStore.getState().setLeagueBeforeRunningEnd({ sessionId: 1, rank: 8 });
+    mockGetCurrentLeague.mockResolvedValue({ sessionId: 2, participants: [{ id: 12, rank: 3, isMe: true }] });
+    mockUpdateParticipantDistance.mockResolvedValue(undefined);
+    renderWithProviders(<RunningFinishedView />);
+
+    fireEvent.press(screen.getByText('확인'));
+
+    await waitFor(() => {
+      expect(mockRouterReplace).toHaveBeenCalledWith('/(tabs)/league');
+    });
+    expect(useAppStore.getState().previousLeagueRank).toBeNull();
+    expect(useAppStore.getState().leagueBeforeRunningEnd).toBeNull();
+  });
+
   it('begins the share entry transition before navigating to the share editor', async () => {
     renderWithProviders(<RunningFinishedView />);
 

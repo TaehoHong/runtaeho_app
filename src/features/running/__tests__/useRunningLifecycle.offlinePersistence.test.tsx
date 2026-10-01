@@ -10,6 +10,7 @@ const mockStartRunning = jest.fn();
 const mockEndRunning = jest.fn();
 const mockSaveItems = jest.fn();
 const mockClearBackgroundData = jest.fn();
+const mockGetCurrentLeague = jest.fn();
 const originalSetItem = jest.mocked(AsyncStorage.setItem).getMockImplementation()!;
 
 jest.mock('~/services/PermissionManager', () => ({
@@ -26,6 +27,10 @@ jest.mock('~/features/running/services', () => ({
 
 jest.mock('~/features/running/services/runningService', () => ({
   runningService: { saveRunningRecordItems: (...args: unknown[]) => mockSaveItems(...args) },
+}));
+
+jest.mock('~/features/league/services/leagueService', () => ({
+  leagueService: { getCurrentLeague: () => mockGetCurrentLeague() },
 }));
 
 jest.mock('~/features/running/services/sensors/PedometerService', () => ({
@@ -102,6 +107,7 @@ describe('useRunningLifecycle offline persistence', () => {
     mockEndRunning.mockRejectedValue(new Error('network-unavailable'));
     mockSaveItems.mockResolvedValue(undefined);
     mockClearBackgroundData.mockResolvedValue(undefined);
+    mockGetCurrentLeague.mockResolvedValue(null);
   });
 
   it('preserves the summary and finalized GPS segment after end API failure and UI reset', async () => {
@@ -204,6 +210,38 @@ describe('useRunningLifecycle offline persistence', () => {
 
     expect(await offlineStorageService.getPendingCount()).toBe(1);
     expect(await AsyncStorage.getItem('@pending_segment_uploads')).toBeNull();
+    expect(useAppStore.getState().runningState).toBe(RunningState.Finished);
+  });
+
+  it('captures the previous rank before the end request updates the server league', async () => {
+    mockGetCurrentLeague.mockResolvedValue({ sessionId: 1, myRank: 8 });
+    mockEndRunning.mockImplementation(async () => {
+      mockGetCurrentLeague.mockResolvedValue({ sessionId: 1, myRank: 3 });
+      return { id: 404, point: 1 };
+    });
+    const { result } = renderHook(() => useRunningLifecycle(createProps()));
+    await act(async () => { await result.current.startRunning(); });
+    await act(async () => {
+      expect(await result.current.endRunning()).toEqual({ id: 404, point: 1 });
+    });
+
+    expect(useAppStore.getState().leagueBeforeRunningEnd).toEqual({ sessionId: 1, rank: 8 });
+    expect(useAppStore.getState().previousLeagueRank).toBeNull();
+    expect(useAppStore.getState().runningState).toBe(RunningState.Finished);
+  });
+
+  it('still completes and clears a stale rank when the league lookup fails', async () => {
+    mockGetCurrentLeague.mockRejectedValue(new Error('league-unavailable'));
+    mockEndRunning.mockResolvedValue({ id: 404, point: 1 });
+    useAppStore.getState().setLeagueBeforeRunningEnd({ sessionId: 1, rank: 8 });
+    const { result } = renderHook(() => useRunningLifecycle(createProps()));
+    await act(async () => { await result.current.startRunning(); });
+    await act(async () => {
+      expect(await result.current.endRunning()).toEqual({ id: 404, point: 1 });
+    });
+
+    expect(useAppStore.getState().leagueBeforeRunningEnd).toBeNull();
+    expect(await offlineStorageService.getPendingCount()).toBe(0);
     expect(useAppStore.getState().runningState).toBe(RunningState.Finished);
   });
 
