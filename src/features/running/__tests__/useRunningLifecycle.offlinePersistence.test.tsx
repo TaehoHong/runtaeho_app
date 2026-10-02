@@ -203,6 +203,79 @@ describe('useRunningLifecycle offline persistence', () => {
     }
   );
 
+  it.each(['@pending_running_uploads', '@pending_segment_uploads'])(
+    'retries a failed write to %s with the original final record and GPS segment', async (failingKey) => {
+      let failNextWrite = true;
+      jest.spyOn(AsyncStorage, 'setItem').mockImplementation(async (key, value) => {
+        if (key === failingKey && failNextWrite) {
+          failNextWrite = false;
+          throw new Error('storage-write-failed');
+        }
+        return originalSetItem(key, value);
+      });
+      const dateNowSpy = jest.spyOn(Date, 'now').mockReturnValue(1736091000123);
+      const stopGpsTracking = jest.fn()
+        .mockResolvedValueOnce({ distance: 80, locations: segment.locations })
+        .mockResolvedValue({ distance: 0, locations: [] });
+      const props = createProps({ segmentItemsRef: { current: [] }, stopGpsTracking });
+      props.finalizeCurrentSegment = () => {
+        props.segmentItemsRef.current = [...props.segmentItemsRef.current, segment];
+      };
+      const { result } = renderHook(() => useRunningLifecycle(props));
+
+      try {
+        await act(async () => { await result.current.startRunning(); });
+        await act(async () => {
+          await expect(result.current.endRunning()).rejects.toThrow('storage-write-failed');
+        });
+        expect(useAppStore.getState().runningState).toBe(RunningState.Paused);
+        expect(result.current.currentRecord).toMatchObject({ distance: 80, durationSec: 120, endTimestamp: 1736091000 });
+
+        dateNowSpy.mockReturnValue(1736177400000);
+        await act(async () => { expect(await result.current.endRunning()).toBeNull(); });
+
+        const summaries = await offlineStorageService.getPendingUploads();
+        expect(summaries).toHaveLength(1);
+        expect(summaries[0]?.data).toMatchObject({ distance: 80, durationSec: 120, endTimestamp: 1736091000 });
+        const segments = await offlineStorageService.getPendingSegmentUploads();
+        expect(segments).toHaveLength(1);
+        expect(segments[0]?.segments).toEqual([segment]);
+        expect(useAppStore.getState().runningState).toBe(RunningState.Finished);
+      } finally {
+        dateNowSpy.mockRestore();
+      }
+    }
+  );
+
+  it('does not resume tracking a finalized record after a failed save', async () => {
+    jest.spyOn(AsyncStorage, 'setItem').mockRejectedValueOnce(new Error('storage-write-failed'));
+    const props = createProps();
+    const { result } = renderHook(() => useRunningLifecycle(props));
+    await act(async () => { await result.current.startRunning(); });
+    await act(async () => {
+      await expect(result.current.endRunning()).rejects.toThrow('storage-write-failed');
+    });
+    act(() => { result.current.resumeRunning(); });
+
+    expect(props.resumeGpsTracking).not.toHaveBeenCalled();
+    expect(useAppStore.getState().runningState).toBe(RunningState.Paused);
+    expect(result.current.currentRecord).toMatchObject({ distance: 80, durationSec: 120 });
+  });
+
+  it('keeps a server-saved record complete when background cleanup fails', async () => {
+    mockEndRunning.mockResolvedValue({ id: 404, point: 1 });
+    mockClearBackgroundData.mockRejectedValue(new Error('cleanup-failed'));
+    jest.spyOn(AsyncStorage, 'setItem').mockRejectedValue(new Error('storage-write-failed'));
+    const { result } = renderHook(() => useRunningLifecycle(createProps()));
+    await act(async () => { await result.current.startRunning(); });
+    await act(async () => {
+      expect(await result.current.endRunning()).toEqual({ id: 404, point: 1 });
+    });
+
+    expect(useAppStore.getState().runningState).toBe(RunningState.Finished);
+    expect(await offlineStorageService.getPendingCount()).toBe(0);
+  });
+
   it('saves only the summary when no GPS segments were collected', async () => {
     const { result } = renderHook(() => useRunningLifecycle(createProps({ segmentItemsRef: { current: [] } })));
     await act(async () => { await result.current.startRunning(); });
@@ -262,9 +335,9 @@ describe('useRunningLifecycle offline persistence', () => {
     expect(useAppStore.getState().runningState).toBe(RunningState.Finished);
   });
 
-  it('preserves the no-upload behavior below 10 meters', async () => {
+  it.each([9, 9.6])('preserves the no-upload behavior below 10 meters (%fm)', async (finalDistance) => {
     const { result } = renderHook(() => useRunningLifecycle(createProps({
-      stopGpsTracking: async () => ({ distance: 9, locations: [] }),
+      stopGpsTracking: async () => ({ distance: finalDistance, locations: [] }),
     })));
     await act(async () => { await result.current.startRunning(); });
     await act(async () => { expect(await result.current.endRunning()).toBeNull(); });

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { Alert, View, StyleSheet } from 'react-native';
 import { useAppStore, RunningState } from '~/stores/app/appStore';
 import { StatsView } from './stats-view';
 import { PauseButton } from './components/pause-button';
@@ -34,12 +34,10 @@ export const RunningActiveView: React.FC = () => {
       // RunningViewModel.endRunning() 호출 (GPS 추적 종료, 데이터 저장)
       await endRunning();
 
-      setRunningState(RunningState.Finished);
       console.log('✅ [RunningActiveView] 러닝 종료 완료');
-    } catch (error) {
-      console.error('❌ [RunningActiveView] 러닝 종료 실패:', error);
-      // 에러가 발생해도 UI 상태는 Finished로 전환
-      setRunningState(RunningState.Finished);
+    } catch {
+      console.error('❌ [RunningActiveView] 러닝 기록 저장 실패');
+      Alert.alert('저장 실패', '러닝 기록을 저장하지 못했어요. 앱을 닫지 말고 종료 버튼을 눌러 다시 시도해주세요.');
     }
   };
 

@@ -157,6 +157,7 @@ export const useRunningLifecycle = ({
    * 러닝 재개
    */
   const resumeRunning = useCallback(() => {
+    if (currentRecord?.endTimestamp !== undefined) return;
     const pauseStartedAt = pauseStartTimeRef.current;
     if (pauseStartedAt !== null) {
       const now = Date.now();
@@ -169,70 +170,77 @@ export const useRunningLifecycle = ({
     resumeGpsTracking();
     setRunningState(RunningState.Running);
     console.log('[useRunningLifecycle] Running resumed');
-  }, [resumeGpsTracking, setRunningState]);
+  }, [currentRecord, resumeGpsTracking, setRunningState]);
 
   /**
    * 러닝 종료
    */
   const endRunning = useCallback(async (): Promise<EndRunningRecord | null> => {
     if (!currentRecord) return null;
-    const endTimestamp = Math.floor(Date.now() / 1000);
-    setLeagueBeforeRunningEnd(null);
+    const isRetry = currentRecord.endTimestamp !== undefined;
 
     try {
-      // 0. 마지막 세그먼트 저장
-      finalizeCurrentSegment();
+      let finalRecord = currentRecord;
+      // 저장 재시도에서는 첫 종료의 시각·거리·세그먼트를 그대로 사용한다.
+      if (!isRetry) {
+        const endTimestamp = Math.floor(Date.now() / 1000);
+        setLeagueBeforeRunningEnd(null);
+        // 0. 마지막 세그먼트 저장
+        finalizeCurrentSegment();
 
-      // 1. GPS 추적 중지
-      const { distance: finalDistance } = await stopGpsTracking();
+        // 1. GPS 추적 중지
+        const { distance: finalDistance } = await stopGpsTracking();
 
-      // 2. Pedometer 중지
-      pedometerService.stopTracking();
-      const finalSteps = pedometerService.getCurrentSteps();
-      const cadenceSnapshot = pedometerService.getCadenceSnapshot();
-      const finalCadence = pedometerService.getFinalCadence();
-      console.log(
-        `[useRunningLifecycle] Pedometer stopped - Steps: ${finalSteps}, Cadence: ${finalCadence}, Measured: ${cadenceSnapshot.isMeasured}`
-      );
+        // 2. Pedometer 중지
+        pedometerService.stopTracking();
+        const finalSteps = pedometerService.getCurrentSteps();
+        const cadenceSnapshot = pedometerService.getCadenceSnapshot();
+        const finalCadence = pedometerService.getFinalCadence();
+        console.log(
+          `[useRunningLifecycle] Pedometer stopped - Steps: ${finalSteps}, Cadence: ${finalCadence}, Measured: ${cadenceSnapshot.isMeasured}`
+        );
 
-      console.log(`[useRunningLifecycle] Final stats:`, {
-        distance: finalDistance,
-        duration: elapsedTime,
-        segments: currentSegmentItems.length,
-        heartRate: stats.bpm,
-        cadence: stats.cadence,
-        calories: stats.calories ? Math.round(stats.calories) : undefined,
-      });
+        console.log(`[useRunningLifecycle] Final stats:`, {
+          distance: finalDistance,
+          duration: elapsedTime,
+          segments: currentSegmentItems.length,
+          heartRate: stats.bpm,
+          cadence: stats.cadence,
+          calories: stats.calories ? Math.round(stats.calories) : undefined,
+        });
 
-      // 3. 최종 기록 업데이트
-      const finalRecord = updateRunningRecord(currentRecord, {
-        distance: Math.round(finalDistance),
-        steps: finalSteps > 0 ? finalSteps : null,
-        cadence: finalCadence,
-        heartRate: stats.bpm ?? null,
-        calorie: stats.calories ? Math.round(stats.calories) : 0,
-        durationSec: elapsedTime,
-        endTimestamp,
-      });
+        // 3. 최종 기록 업데이트
+        finalRecord = updateRunningRecord(currentRecord, {
+          distance: Math.round(finalDistance),
+          steps: finalSteps > 0 ? finalSteps : null,
+          cadence: finalCadence,
+          heartRate: stats.bpm ?? null,
+          calorie: stats.calories ? Math.round(stats.calories) : 0,
+          durationSec: elapsedTime,
+          endTimestamp,
+        });
 
-      setCurrentRecord(finalRecord);
+        setCurrentRecord(finalRecord);
 
-      // 4. 10m 미만이면 API 호출 없이 완료 화면으로 전환
-      if (finalDistance < 10) {
-        console.log('[useRunningLifecycle] 거리 10m 미만, API 호출 스킵');
-        setRunningState(RunningState.Finished);
-        await backgroundTaskService.clearBackgroundData();
-        return null;
-      }
+        // 4. 10m 미만이면 API 호출 없이 완료 화면으로 전환
+        if (finalDistance < 10) {
+          console.log('[useRunningLifecycle] 거리 10m 미만, API 호출 스킵');
+          setRunningState(RunningState.Finished);
+          await backgroundTaskService.clearBackgroundData().catch(() => {
+            console.warn('[useRunningLifecycle] Background cleanup failed after the short run ended');
+          });
+          return null;
+        }
 
-      // 종료 API가 리그를 갱신하기 전에 애니메이션에 사용할 순위를 보관한다.
-      try {
-        const league = await leagueService.getCurrentLeague();
-        setLeagueBeforeRunningEnd(league && league.myRank > 0
-          ? { sessionId: league.sessionId, rank: league.myRank }
-          : null);
-      } catch {
-        console.warn('[useRunningLifecycle] League rank lookup failed, skipping rank animation');
+        // 종료 API가 리그를 갱신하기 전에 애니메이션에 사용할 순위를 보관한다.
+        try {
+          const league = await leagueService.getCurrentLeague();
+          setLeagueBeforeRunningEnd(league && league.myRank > 0
+            ? { sessionId: league.sessionId, rank: league.myRank }
+            : null);
+        } catch {
+          console.warn('[useRunningLifecycle] League rank lookup failed, skipping rank animation');
+        }
       }
 
       // 5. 백엔드 API: 러닝 종료
@@ -298,7 +306,11 @@ export const useRunningLifecycle = ({
         }
 
         // 6. 백그라운드 데이터 정리
-        await backgroundTaskService.clearBackgroundData();
+        try {
+          await backgroundTaskService.clearBackgroundData();
+        } catch {
+          console.warn('[useRunningLifecycle] Background cleanup failed after the record was saved');
+        }
 
         return endRecord;
       } catch (apiError: unknown) {
@@ -323,9 +335,10 @@ export const useRunningLifecycle = ({
     } catch (error) {
       console.error('[useRunningLifecycle] Failed to end running:', error);
 
-      // 에러 발생 시에도 GPS 추적 중지
-      resetGpsTracking();
+      // 저장 실패 시 추적을 멈추되 최종 기록과 GPS는 재시도를 위해 유지한다.
+      pauseGpsTracking();
       pedometerService.stopTracking();
+      applyPauseTransition('manual');
 
       throw error;
     }
@@ -336,7 +349,8 @@ export const useRunningLifecycle = ({
     currentSegmentItems,
     finalizeCurrentSegment,
     stopGpsTracking,
-    resetGpsTracking,
+    pauseGpsTracking,
+    applyPauseTransition,
     endRunningMutation,
     segmentItemsRef,
     setRunningState,

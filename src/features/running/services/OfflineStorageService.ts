@@ -82,13 +82,18 @@ export class OfflineStorageService {
         retryCount: 0,
       };
 
-      pending.push(newUpload);
+      const existingUpload = pending.find(upload => upload.runningRecordId === runningRecordId);
+      if (existingUpload) {
+        existingUpload.data = data;
+      } else {
+        pending.push(newUpload);
+      }
       await AsyncStorage.setItem(
         STORAGE_KEYS.PENDING_UPLOADS,
         JSON.stringify(pending)
       );
 
-      console.log(`[OfflineStorage] Added pending upload: ${newUpload.id}`);
+      console.log(`[OfflineStorage] Added pending upload: ${existingUpload?.id ?? newUpload.id}`);
     } catch (error) {
       console.error('[OfflineStorage] Failed to add pending upload:', error);
       throw error;

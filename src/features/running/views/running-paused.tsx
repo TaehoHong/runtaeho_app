@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { Alert, View, StyleSheet } from 'react-native';
 import { useAppStore, RunningState } from '~/stores/app/appStore';
 import { StatsView } from './stats-view';
 import { MainDistanceCard } from './components/main-distance-card';
@@ -14,7 +14,7 @@ import { useRunning } from '../contexts';
  */
 export const RunningPausedView: React.FC = () => {
   const setRunningState = useAppStore((state) => state.setRunningState);
-  const { resumeRunning, endRunning } = useRunning();
+  const { currentRecord, resumeRunning, endRunning } = useRunning();
   const buttonBottom = useBottomActionOffset(42);
 
   const handleStopRunning = async () => {
@@ -24,12 +24,10 @@ export const RunningPausedView: React.FC = () => {
       // RunningViewModel.endRunning() 호출 (GPS 추적 종료, 데이터 저장)
       await endRunning();
 
-      setRunningState(RunningState.Finished);
       console.log('✅ [RunningPausedView] 러닝 종료 완료');
-    } catch (error) {
-      console.error('❌ [RunningPausedView] 러닝 종료 실패:', error);
-      // 에러가 발생해도 UI 상태는 Finished로 전환
-      setRunningState(RunningState.Finished);
+    } catch {
+      console.error('❌ [RunningPausedView] 러닝 기록 저장 실패');
+      Alert.alert('저장 실패', '러닝 기록을 저장하지 못했어요. 앱을 닫지 말고 종료 버튼을 눌러 다시 시도해주세요.');
     }
   };
 
@@ -58,7 +56,7 @@ export const RunningPausedView: React.FC = () => {
         testID="running-paused-button-container"
         style={[styles.buttonContainer, { bottom: buttonBottom }]}
       >
-        <PlayButton onPress={handleResumeRunning} />
+        {currentRecord?.endTimestamp === undefined && <PlayButton onPress={handleResumeRunning} />}
         <StopButton onPress={handleStopRunning} />
       </View>
     </View>
