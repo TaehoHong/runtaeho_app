@@ -1,3 +1,4 @@
+import { t } from '~/i18n';
 /**
  * Item 모델
  * 백엔드 API 구조와 동일하게 유지
@@ -170,11 +171,11 @@ export const filterItemsByType = (items: Item[], itemTypeId: number): Item[] => 
  */
 export const getItemTypeById = (itemTypeId: number): ItemType => {
   const typeMap: Record<number, ItemType> = {
-    1: { id: 1, name: '머리' },
-    2: { id: 2, name: '의상' },
-    3: { id: 3, name: '바지' },
+    1: { id: 1, name: t("머리") },
+    2: { id: 2, name: t("의상") },
+    3: { id: 3, name: t("바지") },
   };
-  return typeMap[itemTypeId] || { id: itemTypeId, name: '알 수 없음' };
+  return typeMap[itemTypeId] || { id: itemTypeId, name: t("알 수 없음") };
 };
 
 

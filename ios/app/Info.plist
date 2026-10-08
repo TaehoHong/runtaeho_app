@@ -6,6 +6,11 @@
 	<true/>
 	<key>CFBundleAllowMixedLocalizations</key>
 	<true/>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>ko</string>
+		<string>ja</string>
+	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
@@ -7,6 +8,7 @@ import { Text } from '~/shared/components/typography';
 import { GREY, PRIMARY } from '~/shared/styles';
 
 export const DoneView: React.FC = () => {
+  useAppLanguage();
   const router = useRouter();
   const params = useLocalSearchParams<{ trackingNo?: string | string[] }>();
   const trackingNo = Array.isArray(params.trackingNo)
@@ -17,7 +19,7 @@ export const DoneView: React.FC = () => {
     <TopScreenSafeAreaView style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerSide} />
-        <Text style={styles.headerTitle}>문의 완료</Text>
+        <Text style={styles.headerTitle}>{t("문의 완료")}</Text>
         <View style={styles.headerSide} />
       </View>
 
@@ -26,11 +28,11 @@ export const DoneView: React.FC = () => {
           <View style={styles.iconBox}>
             <Ionicons name="checkmark" size={24} color={PRIMARY[700]} />
           </View>
-          <Text style={styles.title}>문의가 접수됐어요</Text>
-          <Text style={styles.desc}>답변은 입력한 이메일로 안내드릴게요.</Text>
+          <Text style={styles.title}>{t("문의가 접수됐어요")}</Text>
+          <Text style={styles.desc}>{t("답변은 입력한 이메일로 안내드릴게요.")}</Text>
 
           <View style={styles.noBox}>
-            <Text style={styles.noLabel}>접수번호</Text>
+            <Text style={styles.noLabel}>{t("접수번호")}</Text>
             <Text style={styles.noValue}>{trackingNo ?? '-'}</Text>
           </View>
         </View>
@@ -42,7 +44,7 @@ export const DoneView: React.FC = () => {
           onPress={() => router.replace('/user/customer-service')}
           activeOpacity={0.8}
         >
-          <Text style={styles.buttonText}>고객센터로 돌아가기</Text>
+          <Text style={styles.buttonText}>{t("고객센터로 돌아가기")}</Text>
         </TouchableOpacity>
       </View>
     </TopScreenSafeAreaView>

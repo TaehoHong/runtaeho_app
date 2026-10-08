@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import type { Href } from 'expo-router';
@@ -18,6 +19,7 @@ import { GREY, PRIMARY, RED } from '~/shared/styles';
 import { inquiryService } from '../inquiryService';
 
 export const InquiryView: React.FC = () => {
+  useAppLanguage();
   const router = useRouter();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -45,8 +47,8 @@ export const InquiryView: React.FC = () => {
         `/user/inquiry-done?trackingNo=${encodeURIComponent(result.trackingNo)}` as Href
       );
     } catch {
-      Alert.alert('문의 접수 실패', '문의를 접수하지 못했어요. 잠시 후 다시 보내주세요.', [
-        { text: '확인' },
+      Alert.alert(t("문의 접수 실패"), t("문의를 접수하지 못했어요. 잠시 후 다시 보내주세요."), [
+        { text: t("확인") },
       ]);
     } finally {
       setSubmitting(false);
@@ -55,7 +57,7 @@ export const InquiryView: React.FC = () => {
 
   return (
     <TopScreenSafeAreaView style={styles.container}>
-      <Header title="1:1 문의" onBack={() => router.back()} />
+      <Header title={t("1:1 문의")} onBack={() => router.back()} />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -67,25 +69,25 @@ export const InquiryView: React.FC = () => {
         >
           <View style={styles.card}>
             <Field
-              label="제목"
+              label={t("제목")}
               value={title}
               onChangeText={setTitle}
-              placeholder="문의 제목을 입력해주세요."
+              placeholder={t("문의 제목을 입력해주세요.")}
               returnKeyType="next"
             />
             <View style={styles.line} />
             <Field
-              label="문의 내용"
+              label={t("문의 내용")}
               value={content}
               onChangeText={setContent}
-              placeholder="궁금한 점을 자세히 적어주세요."
+              placeholder={t("궁금한 점을 자세히 적어주세요.")}
               multiline
               inputStyle={styles.contentInput}
               textAlignVertical="top"
             />
             <View style={styles.line} />
             <Field
-              label="답변 받을 이메일"
+              label={t("답변 받을 이메일")}
               value={replyEmail}
               onChangeText={setReplyEmail}
               placeholder="email@example.com"
@@ -105,7 +107,7 @@ export const InquiryView: React.FC = () => {
             {submitting ? (
               <ActivityIndicator size="small" color={GREY[900]} />
             ) : (
-              <Text style={styles.submitText}>문의 보내기</Text>
+              <Text style={styles.submitText}>{t("문의 보내기")}</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -115,9 +117,9 @@ export const InquiryView: React.FC = () => {
 };
 
 const validate = (title: string, content: string, email: string): string => {
-  if (!title.trim()) return '제목을 입력해주세요.';
-  if (!content.trim()) return '문의 내용을 입력해주세요.';
-  if (!isEmail(email.trim())) return '답변 받을 이메일을 확인해주세요.';
+  if (!title.trim()) return t("제목을 입력해주세요.");
+  if (!content.trim()) return t("문의 내용을 입력해주세요.");
+  if (!isEmail(email.trim())) return t("답변 받을 이메일을 확인해주세요.");
   return '';
 };
 
@@ -130,7 +132,7 @@ interface HeaderProps {
   onBack: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ title, onBack }) => (
+const Header: React.FC<HeaderProps> = ({ title, onBack }) => { useAppLanguage(); return (
   <View style={styles.header}>
     <TouchableOpacity onPress={onBack} style={styles.backButton}>
       <Ionicons name="chevron-back" size={24} color={GREY[900]} />
@@ -138,7 +140,7 @@ const Header: React.FC<HeaderProps> = ({ title, onBack }) => (
     <Text style={styles.headerTitle}>{title}</Text>
     <View style={styles.headerRight} />
   </View>
-);
+); };
 
 interface FieldProps {
   label: string;
@@ -153,7 +155,7 @@ interface FieldProps {
   textAlignVertical?: 'top';
 }
 
-const Field: React.FC<FieldProps> = ({ label, inputStyle, ...props }) => (
+const Field: React.FC<FieldProps> = ({ label, inputStyle, ...props }) => { useAppLanguage(); return (
   <View style={styles.field}>
     <Text style={styles.label}>{label}</Text>
     <TextInput
@@ -162,7 +164,7 @@ const Field: React.FC<FieldProps> = ({ label, inputStyle, ...props }) => (
       {...props}
     />
   </View>
-);
+); };
 
 const styles = StyleSheet.create({
   flex: {

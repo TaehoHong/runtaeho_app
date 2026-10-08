@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -17,6 +18,7 @@ import type { User } from '../models';
  * 프로필 카드 + 메인 메뉴 + 설정 메뉴 + 로그아웃
  */
 export const MyInfoView: React.FC = () => {
+  useAppLanguage();
   // useAuth Hook 사용 (현업 표준 패턴)
   const { user: currentUser, totalPoint } = useAuth();
   const router = useRouter();
@@ -63,6 +65,7 @@ interface ProfileCardProps {
 
 
 const ProfileCard: React.FC<ProfileCardProps> = ({ user, totalPoint, onPointPress }) => {
+  useAppLanguage();
   const router = useRouter();
 
   // 프로필 이미지 source 결정
@@ -86,7 +89,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({ user, totalPoint, onPointPres
           contentFit="cover"
         />
         <View style={styles.usernameContainer}>
-          <Text style={styles.username}>{user?.nickname || '사용자'}</Text>
+          <Text style={styles.username}>{user?.nickname || t("사용자")}</Text>
           <Icon name="pencil" size={18} />
         </View>
       </TouchableOpacity>
@@ -94,7 +97,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({ user, totalPoint, onPointPres
             <View style={[styles.pointRow, styles.rowCentered]}>
                 <View style={[styles.pointLabel, styles.rowCentered]}>
                     <Icon name="point" size={24} />
-                    <Text style={[styles.pointLabelText, styles.pointColor]}>포인트</Text>
+                    <Text style={[styles.pointLabelText, styles.pointColor]}>{t("포인트")}</Text>
                 </View>
                   <TouchableOpacity onPress={onPointPress} testID="myinfo-point-history-open">
                   <View style={[styles.pointValue, styles.rowCentered]}>
@@ -117,6 +120,7 @@ interface MainMenuCardProps {
 }
 
 const MainMenuCard: React.FC<MainMenuCardProps> = ({ onShoesPress, onAvatarPress }) => {
+  useAppLanguage();
   return (
     <View style={[styles.mainMenuCard, styles.rowCentered]}>
       <TouchableOpacity
@@ -124,7 +128,7 @@ const MainMenuCard: React.FC<MainMenuCardProps> = ({ onShoesPress, onAvatarPress
         onPress={onShoesPress}
       >
         <Icon name="pixel_shoes" size={24} />
-        <Text style={styles.menuItemLabel}>내 신발</Text>
+        <Text style={styles.menuItemLabel}>{t("내 신발")}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -132,7 +136,7 @@ const MainMenuCard: React.FC<MainMenuCardProps> = ({ onShoesPress, onAvatarPress
         onPress={onAvatarPress}
       >
         <Icon name="avatar" size={24} />
-        <Text style={styles.menuItemLabel}>아바타</Text>
+        <Text style={styles.menuItemLabel}>{t("아바타")}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -151,6 +155,7 @@ interface MenuItemProps {
  * 개별 메뉴 아이템 컴포넌트
  */
 const MenuItem: React.FC<MenuItemProps> = ({ title, onPress, testID }) => {
+  useAppLanguage();
   return (
     <TouchableOpacity
       style={[styles.menuItem, styles.rowCentered]}
@@ -174,19 +179,20 @@ interface MenuSettingsCardProps {
  * 메뉴 설정 카드
  */
 const MenuSettingsCard: React.FC<MenuSettingsCardProps> = ({ items }) => {
+  useAppLanguage();
   const router = useRouter();
 
   const defaultMenuItems: MenuItemProps[] = [
-    { title: '연결 계정 관리', onPress: () => router.push('/user/account-connection') },
-    { title: '약관 및 정책', onPress: () => router.push('/user/terms-list') },
-    { title: '설정', onPress: () => router.push('/user/settings'), testID: 'myinfo-menu-settings' },
+    { title: t("연결 계정 관리"), onPress: () => router.push('/user/account-connection') },
+    { title: t("약관 및 정책"), onPress: () => router.push('/user/terms-list') },
+    { title: t("설정"), onPress: () => router.push('/user/settings'), testID: 'myinfo-menu-settings' },
   ];
 
   const menuItems = items || defaultMenuItems;
 
   return (
     <View style={styles.menuSettingsSection}>
-      <Text style={styles.sectionTitle}>서비스</Text>
+      <Text style={styles.sectionTitle}>{t("서비스")}</Text>
       <View style={styles.menuItemsContainer}>
         {menuItems.map((item, index) => (
           <MenuItem key={index} {...item} />
@@ -203,6 +209,7 @@ interface ModalProps {
 }
 
 const PointModal: React.FC<ModalProps> = ({ visible, onClose }) => {
+  useAppLanguage();
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
       <PointHistoryView onClose={onClose} />
@@ -211,6 +218,7 @@ const PointModal: React.FC<ModalProps> = ({ visible, onClose }) => {
 };
 
 const ShoesModal: React.FC<ModalProps> = ({ visible, onClose }) => {
+  useAppLanguage();
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
       <ShoesListView onClose={onClose} />

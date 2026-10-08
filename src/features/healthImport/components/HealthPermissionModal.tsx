@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -14,7 +15,7 @@ export const HealthPermissionModal: React.FC<HealthPermissionModalProps> = ({
   visible,
   onClose,
   onRequestPermission,
-}) => (
+}) => { useAppLanguage(); return (
   <Modal
     visible={visible}
     transparent
@@ -27,24 +28,22 @@ export const HealthPermissionModal: React.FC<HealthPermissionModalProps> = ({
         <View style={styles.iconBox}>
           <Ionicons name="fitness-outline" size={22} color={PRIMARY[600]} />
         </View>
-        <Text style={styles.title}>Health 권한 설정</Text>
-        <Text style={styles.message}>
-          Health에 저장된 러닝 기록 접근을 위해 권한이 필요합니다.
-        </Text>
+        <Text style={styles.title}>{t("Health 권한 설정")}</Text>
+        <Text style={styles.message}>{t("Health에 저장된 러닝 기록 접근을 위해 권한이 필요합니다.")}</Text>
         <TouchableOpacity
           style={styles.primaryButton}
           onPress={onRequestPermission}
           activeOpacity={0.8}
         >
-          <Text style={styles.primaryText}>권한 설정</Text>
+          <Text style={styles.primaryText}>{t("권한 설정")}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.closeButton} onPress={onClose} activeOpacity={0.8}>
-          <Text style={styles.closeText}>나중에</Text>
+          <Text style={styles.closeText}>{t("나중에")}</Text>
         </TouchableOpacity>
       </View>
     </View>
   </Modal>
-);
+); };
 
 const styles = StyleSheet.create({
   overlay: {

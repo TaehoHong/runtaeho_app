@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -19,9 +20,9 @@ import { termsApiService } from '../services/termsApiService';
  * 약관 타입별 표시 이름
  */
 const TERM_TYPE_LABELS: Record<TermType, string> = {
-  [TermType.SERVICE]: '서비스 이용약관',
-  [TermType.PRIVATE]: '개인정보 처리방침',
-  [TermType.LOCATION]: '위치기반서비스 이용약관',
+  get [TermType.SERVICE]() { return t("서비스 이용약관"); },
+  get [TermType.PRIVATE]() { return t("개인정보 처리방침"); },
+  get [TermType.LOCATION]() { return t("위치기반서비스 이용약관"); },
 };
 
 interface TermsListViewProps {
@@ -32,6 +33,7 @@ interface TermsListViewProps {
  * 약관 목록 화면
  */
 export const TermsListView: React.FC<TermsListViewProps> = ({ onClose }) => {
+  useAppLanguage();
   const router = useRouter();
   const [terms, setTerms] = useState<TermItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -49,7 +51,7 @@ export const TermsListView: React.FC<TermsListViewProps> = ({ onClose }) => {
       setTerms(response.terms);
     } catch (err) {
       console.error('약관 목록 조회 실패:', err);
-      setError('약관을 불러오는데 실패했습니다.');
+      setError(t("약관을 불러오는데 실패했습니다."));
     } finally {
       setIsLoading(false);
     }
@@ -81,7 +83,7 @@ export const TermsListView: React.FC<TermsListViewProps> = ({ onClose }) => {
         <TouchableOpacity onPress={handleBack} style={styles.headerButton}>
           <Ionicons name="chevron-back" size={24} color={GREY[900]} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>약관 및 정책</Text>
+        <Text style={styles.headerTitle}>{t("약관 및 정책")}</Text>
         <View style={styles.headerButton} />
       </View>
 
@@ -93,7 +95,7 @@ export const TermsListView: React.FC<TermsListViewProps> = ({ onClose }) => {
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={loadTerms}>
-            <Text style={styles.retryButtonText}>다시 시도</Text>
+            <Text style={styles.retryButtonText}>{t("다시 시도")}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -108,7 +110,7 @@ export const TermsListView: React.FC<TermsListViewProps> = ({ onClose }) => {
                   <Text style={styles.termLabel}>
                     {TERM_TYPE_LABELS[term.type]}
                     {term.isRequired && (
-                      <Text style={styles.requiredBadge}> (필수)</Text>
+                      <Text style={styles.requiredBadge}>{t(" (필수)")}</Text>
                     )}
                   </Text>
                   <Icon name="chevron" size={16} />

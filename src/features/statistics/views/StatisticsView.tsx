@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 /**
  * Statistics Main Screen
  * Figma 디자인: #2_메인페이지_기존유저_월단위화면 기반
@@ -26,6 +27,7 @@ import { getMainTabBarScrollContentPaddingBottom } from '~/shared/utils/safeArea
 import { healthImportService } from '~/features/healthImport/services/healthImportService';
 
 export const StatisticsView = () => {
+  useAppLanguage();
   const [selectedPeriod, setSelectedPeriod] = useState<Period>(Period.MONTH);
   const [referenceDate, setReferenceDate] = useState<Date>(new Date());
   const [isTrendComparisonEnabled, setIsTrendComparisonEnabled] = useState(true);
@@ -108,7 +110,7 @@ export const StatisticsView = () => {
       return (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={PRIMARY[600]} />
-          <Text style={styles.loadingText}>통계를 불러오는 중...</Text>
+          <Text style={styles.loadingText}>{t("통계를 불러오는 중...")}</Text>
         </View>
       );
     }
@@ -117,9 +119,9 @@ export const StatisticsView = () => {
     if (hasError && !hasValidData) {
       return (
         <View style={styles.centerContainer}>
-          <Text style={styles.errorText}>데이터를 불러올 수 없습니다</Text>
+          <Text style={styles.errorText}>{t("데이터를 불러올 수 없습니다")}</Text>
           <Text style={styles.errorSubText}>
-            {error?.message || '네트워크를 확인해주세요'}
+            {error?.message || t("네트워크를 확인해주세요")}
           </Text>
         </View>
       );
@@ -175,7 +177,7 @@ export const StatisticsView = () => {
         <RunningRecordList
           startDate={currentPeriodRange.startDate}
           endDate={currentPeriodRange.endDate}
-          emptyMessage="선택한 기간에 러닝 기록이 없어요."
+          emptyMessage={t("선택한 기간에 러닝 기록이 없어요.")}
         />
       </>
     );

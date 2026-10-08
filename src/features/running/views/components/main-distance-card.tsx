@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import React from 'react';
 import { GREY } from '~/shared/styles';
 import {
@@ -17,6 +18,7 @@ interface MainDistanceCardProps {
  * "현재 누적 거리" + "00.0 km"
  */
 export const MainDistanceCard: React.FC<MainDistanceCardProps> = ({ distanceMeters }) => {
+  useAppLanguage();
   const { distance } = useRunning();
   const resolvedDistance = distanceMeters ?? distance;
 
@@ -24,7 +26,7 @@ export const MainDistanceCard: React.FC<MainDistanceCardProps> = ({ distanceMete
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>현재 누적 거리</Text>
+      <Text style={styles.label}>{t("현재 누적 거리")}</Text>
       <View style={styles.distanceContainer}>
         <Text style={styles.distanceValue}>{distanceParts.value}</Text>
         <Text style={styles.distanceUnit}>{distanceParts.unit}</Text>

@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -16,13 +17,14 @@ import { GREY } from '~/shared/styles';
  * 약관 상세 화면 (WebView)
  */
 export const TermsDetailView: React.FC = () => {
+  useAppLanguage();
   const router = useRouter();
   const params = useLocalSearchParams<{ url: string; title: string }>();
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
   const url = params.url || '';
-  const title = params.title || '약관';
+  const title = params.title || t("약관");
 
   const handleBack = () => {
     router.back();
@@ -51,7 +53,7 @@ export const TermsDetailView: React.FC = () => {
         {hasError ? (
           <View style={styles.errorContainer}>
             <Ionicons name="alert-circle-outline" size={48} color={GREY[400]} />
-            <Text style={styles.errorText}>페이지를 불러올 수 없습니다.</Text>
+            <Text style={styles.errorText}>{t("페이지를 불러올 수 없습니다.")}</Text>
             <Text style={styles.errorSubtext}>{url}</Text>
           </View>
         ) : (

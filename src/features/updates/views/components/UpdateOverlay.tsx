@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -45,6 +46,7 @@ export function UpdateOverlay({
   onRetry,
   onSkip,
 }: UpdateOverlayProps) {
+  useAppLanguage();
   // 점 애니메이션 상태
   const [dots, setDots] = useState(1);
 
@@ -102,13 +104,13 @@ export function UpdateOverlay({
   const getStatusMessage = (): string => {
     switch (status) {
       case 'checking':
-        return `업데이트 확인중${'.'.repeat(dots)}`;
+        return t("업데이트 확인중{{value0}}", { value0: '.'.repeat(dots) });
       case 'downloading':
-        return `다운로드 중... ${Math.round(progress)}%`;
+        return t("다운로드 중... {{value0}}%", { value0: Math.round(progress) });
       case 'applying':
-        return '업데이트 완료 앱을 재실행합니다.';
+        return t("업데이트 완료 앱을 재실행합니다.");
       case 'error':
-        return '업데이트 실패';
+        return t("업데이트 실패");
       default:
         return '';
     }
@@ -137,7 +139,7 @@ export function UpdateOverlay({
               onPress={onRetry}
               activeOpacity={0.8}
             >
-              <Text style={styles.retryButtonText}>다시 시도</Text>
+              <Text style={styles.retryButtonText}>{t("다시 시도")}</Text>
             </TouchableOpacity>
 
             {retryCount >= maxRetries && (
@@ -146,7 +148,7 @@ export function UpdateOverlay({
                 onPress={onSkip}
                 activeOpacity={0.8}
               >
-                <Text style={styles.skipButtonText}>건너뛰기</Text>
+                <Text style={styles.skipButtonText}>{t("건너뛰기")}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -192,8 +194,7 @@ export function UpdateOverlay({
 
         {/* 재시도 횟수 표시 */}
         {retryCount > 0 && (
-          <Text style={styles.retryText}>
-            재시도 중... ({retryCount}/{maxRetries})
+          <Text style={styles.retryText}>{t("재시도 중... (")}{retryCount}/{maxRetries})
           </Text>
         )}
       </View>

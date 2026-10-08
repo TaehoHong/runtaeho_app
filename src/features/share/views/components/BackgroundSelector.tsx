@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import React, { useState, useCallback } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
@@ -19,6 +20,7 @@ export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
   selectedBackground,
   onSelect,
 }) => {
+  useAppLanguage();
   // 사용자 사진 목록 (최근 선택한 사진들)
   const [userPhotos, setUserPhotos] = useState<BackgroundOption[]>([]);
 
@@ -34,7 +36,7 @@ export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
   const handlePhotoResult = useCallback((uri: string) => {
     const newPhotoOption: BackgroundOption = {
       id: `photo_${Date.now()}`,
-      name: '사용자 사진',
+      name: t("사용자 사진"),
       source: uri,
       type: 'photo',
       photoUri: uri,
@@ -57,10 +59,10 @@ export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
       allowsEditing: true,
     },
     messages: {
-      cameraRequest: '배경 사진 촬영을 위해 카메라 권한이 필요합니다.',
-      cameraDenied: '카메라 권한이 거부되었습니다. 설정에서 권한을 허용해주세요.',
-      galleryRequest: '배경 사진 선택을 위해 갤러리 권한이 필요합니다.',
-      galleryDenied: '갤러리 권한이 거부되었습니다. 설정에서 권한을 허용해주세요.',
+      cameraRequest: t("배경 사진 촬영을 위해 카메라 권한이 필요합니다."),
+      cameraDenied: t("카메라 권한이 거부되었습니다. 설정에서 권한을 허용해주세요."),
+      galleryRequest: t("배경 사진 선택을 위해 갤러리 권한이 필요합니다."),
+      galleryDenied: t("갤러리 권한이 거부되었습니다. 설정에서 권한을 허용해주세요."),
     },
     onSuccess: (result) => {
       if (result.uri) {
@@ -89,9 +91,9 @@ export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
     // 접근성 레이블 생성
     const getAccessibilityLabel = (): string => {
       if (option.type === 'photo') {
-        return '사용자 사진 배경 선택';
+        return t("사용자 사진 배경 선택");
       }
-      return `${option.name} 배경 선택`;
+      return t("{{value0}} 배경 선택", { value0: option.name });
     };
 
     return (
@@ -143,7 +145,7 @@ export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
 
   return (
     <View style={styles.sectionCard}>
-      <Text style={styles.title}>배경</Text>
+      <Text style={styles.title}>{t("배경")}</Text>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -155,12 +157,12 @@ export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
           onPress={handleAddPhoto}
           activeOpacity={0.7}
           accessible={true}
-          accessibilityLabel="사진 추가"
+          accessibilityLabel={t("사진 추가")}
           accessibilityRole="button"
         >
           <View style={styles.addPhotoContent}>
             <Ionicons name="add" size={24} color={GREY[500]} />
-            <Text style={styles.addPhotoText}>사진</Text>
+            <Text style={styles.addPhotoText}>{t("사진")}</Text>
           </View>
         </TouchableOpacity>
 

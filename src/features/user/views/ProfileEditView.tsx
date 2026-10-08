@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import type { ImagePickerAsset } from 'expo-image-picker';
@@ -26,6 +27,7 @@ import { userService } from '../services/userService';
  * 닉네임과 프로필 이미지 수정
  */
 export const ProfileEditView: React.FC = () => {
+  useAppLanguage();
   const router = useRouter();
   const { user: currentUser, refreshUserData } = useAuth();
 
@@ -55,10 +57,10 @@ export const ProfileEditView: React.FC = () => {
       allowsEditing: true,
     },
     messages: {
-      cameraRequest: '프로필 사진 촬영을 위해 카메라 권한이 필요합니다.',
-      cameraDenied: '카메라 권한이 거부되었습니다. 설정에서 권한을 허용해주세요.',
-      galleryRequest: '프로필 사진 선택을 위해 갤러리 권한이 필요합니다.',
-      galleryDenied: '갤러리 권한이 거부되었습니다. 설정에서 권한을 허용해주세요.',
+      cameraRequest: t("프로필 사진 촬영을 위해 카메라 권한이 필요합니다."),
+      cameraDenied: t("카메라 권한이 거부되었습니다. 설정에서 권한을 허용해주세요."),
+      galleryRequest: t("프로필 사진 선택을 위해 갤러리 권한이 필요합니다."),
+      galleryDenied: t("갤러리 권한이 거부되었습니다. 설정에서 권한을 허용해주세요."),
     },
     onSuccess: (result) => {
       if (result.asset) {
@@ -88,7 +90,7 @@ export const ProfileEditView: React.FC = () => {
 
     // 닉네임 유효성 검사
     if (nicknameChanged && nickname.trim().length < 2) {
-      Alert.alert('알림', '닉네임은 2자 이상이어야 합니다.');
+      Alert.alert(t("알림"), t("닉네임은 2자 이상이어야 합니다."));
       return;
     }
 
@@ -113,15 +115,15 @@ export const ProfileEditView: React.FC = () => {
       // 사용자 정보 새로고침
       await refreshUserData();
 
-      Alert.alert('완료', '프로필이 수정되었습니다.', [
+      Alert.alert(t("완료"), t("프로필이 수정되었습니다."), [
         {
-          text: '확인',
+          text: t("확인"),
           onPress: () => router.back(),
         },
       ]);
     } catch (error) {
       console.error('프로필 수정 실패:', error);
-      Alert.alert('오류', '프로필 수정에 실패했습니다. 다시 시도해주세요.');
+      Alert.alert(t("오류"), t("프로필 수정에 실패했습니다. 다시 시도해주세요."));
     } finally {
       setIsLoading(false);
     }
@@ -135,9 +137,9 @@ export const ProfileEditView: React.FC = () => {
     const imageChanged = selectedImage !== null;
 
     if (nicknameChanged || imageChanged) {
-      Alert.alert('변경 사항 취소', '수정된 내용이 저장되지 않습니다. 나가시겠습니까?', [
-        { text: '계속 편집', style: 'cancel' },
-        { text: '나가기', style: 'destructive', onPress: () => router.back() },
+      Alert.alert(t("변경 사항 취소"), t("수정된 내용이 저장되지 않습니다. 나가시겠습니까?"), [
+        { text: t("계속 편집"), style: 'cancel' },
+        { text: t("나가기"), style: 'destructive', onPress: () => router.back() },
       ]);
     } else {
       router.back();
@@ -155,7 +157,7 @@ export const ProfileEditView: React.FC = () => {
           <TouchableOpacity onPress={handleBack} style={styles.headerButton}>
             <Ionicons name="close" size={24} color={GREY[900]} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>프로필 편집</Text>
+          <Text style={styles.headerTitle}>{t("프로필 편집")}</Text>
           <TouchableOpacity
             onPress={handleSave}
             style={styles.headerButton}
@@ -164,7 +166,7 @@ export const ProfileEditView: React.FC = () => {
             {isLoading ? (
               <ActivityIndicator size="small" color={PRIMARY[500]} />
             ) : (
-              <Text style={styles.saveButtonText}>저장</Text>
+              <Text style={styles.saveButtonText}>{t("저장")}</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -184,12 +186,12 @@ export const ProfileEditView: React.FC = () => {
 
           {/* 닉네임 입력 */}
           <View style={styles.inputSection}>
-            <Text style={styles.inputLabel}>닉네임</Text>
+            <Text style={styles.inputLabel}>{t("닉네임")}</Text>
             <TextInput
               style={styles.textInput}
               value={nickname}
               onChangeText={setNickname}
-              placeholder="닉네임을 입력하세요"
+              placeholder={t("닉네임을 입력하세요")}
               placeholderTextColor={GREY[400]}
               maxLength={20}
               autoCorrect={false}

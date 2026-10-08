@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { UpdateStatus } from '../../models/UpdateState';
@@ -11,6 +12,7 @@ interface UpdateBannerProps {
 }
 
 export function UpdateBanner({ visible = true }: UpdateBannerProps) {
+  useAppLanguage();
   const { status, progress, availableManifest } = useUpdateStore();
   const { downloadUpdate, applyUpdate, isDownloading, isReady } = useUpdateDownload();
 
@@ -38,11 +40,11 @@ export function UpdateBanner({ visible = true }: UpdateBannerProps) {
       return (
         <>
           <View style={styles.textContainer}>
-            <Text style={styles.title}>업데이트 준비 완료</Text>
-            <Text style={styles.subtitle}>지금 적용하시겠습니까?</Text>
+            <Text style={styles.title}>{t("업데이트 준비 완료")}</Text>
+            <Text style={styles.subtitle}>{t("지금 적용하시겠습니까?")}</Text>
           </View>
           <TouchableOpacity style={styles.button} onPress={handlePress}>
-            <Text style={styles.buttonText}>재시작</Text>
+            <Text style={styles.buttonText}>{t("재시작")}</Text>
           </TouchableOpacity>
         </>
       );
@@ -52,7 +54,7 @@ export function UpdateBanner({ visible = true }: UpdateBannerProps) {
       return (
         <>
           <View style={styles.textContainer}>
-            <Text style={styles.title}>업데이트 다운로드 중...</Text>
+            <Text style={styles.title}>{t("업데이트 다운로드 중...")}</Text>
             <Text style={styles.subtitle}>{Math.round(progress)}%</Text>
           </View>
           <ActivityIndicator size="small" color={GREY.WHITE} />
@@ -64,7 +66,7 @@ export function UpdateBanner({ visible = true }: UpdateBannerProps) {
     return (
       <>
         <View style={styles.textContainer}>
-          <Text style={styles.title}>새 업데이트가 있습니다</Text>
+          <Text style={styles.title}>{t("새 업데이트가 있습니다")}</Text>
           {availableManifest?.message && (
             <Text style={styles.subtitle} numberOfLines={1}>
               {availableManifest.message}
@@ -72,7 +74,7 @@ export function UpdateBanner({ visible = true }: UpdateBannerProps) {
           )}
         </View>
         <TouchableOpacity style={styles.button} onPress={handlePress}>
-          <Text style={styles.buttonText}>업데이트</Text>
+          <Text style={styles.buttonText}>{t("업데이트")}</Text>
         </TouchableOpacity>
       </>
     );

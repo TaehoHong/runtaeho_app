@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 /**
  * 포인트 부족 알림 모달
  * SRP: 포인트 부족 안내 UI만 담당
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export const InsufficientPointsAlert: React.FC<Props> = ({ onClose }) => {
+  useAppLanguage();
   return (
     <Modal
       visible
@@ -43,7 +45,7 @@ export const InsufficientPointsAlert: React.FC<Props> = ({ onClose }) => {
               onPress={onClose}
               activeOpacity={0.7}
             >
-              <Text style={styles.buttonText}>확인</Text>
+              <Text style={styles.buttonText}>{t("확인")}</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>

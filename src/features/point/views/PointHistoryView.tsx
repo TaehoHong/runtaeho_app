@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
@@ -22,6 +23,7 @@ interface PointHistoryViewProps {
 }
 
 export const PointHistoryView: React.FC<PointHistoryViewProps> = ({ onClose }) => {
+  useAppLanguage();
   const {
     selectedFilter,
     currentPoints,
@@ -66,7 +68,7 @@ export const PointHistoryView: React.FC<PointHistoryViewProps> = ({ onClose }) =
       <View style={styles.historySection}>
         {/* 타이틀 + 필터 탭 */}
         <View style={styles.historySectionHeader}>
-          <Text style={styles.historyTitle}>포인트 내역</Text>
+          <Text style={styles.historyTitle}>{t("포인트 내역")}</Text>
           <FilterTabs selected={selectedFilter} onSelect={selectFilter} />
         </View>
 
@@ -111,12 +113,13 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ onClose }) => {
+  useAppLanguage();
   return (
     <View style={styles.header}>
       <TouchableOpacity onPress={onClose} style={styles.backButton} testID="point-history-close">
         <Ionicons name="chevron-back" size={24} color={GREY[900]} />
       </TouchableOpacity>
-      <Text style={styles.headerTitle}>포인트</Text>
+      <Text style={styles.headerTitle}>{t("포인트")}</Text>
       <View style={styles.headerSpacer} />
     </View>
   );
@@ -131,9 +134,10 @@ interface CurrentPointCardProps {
 }
 
 const CurrentPointCard: React.FC<CurrentPointCardProps> = ({ points }) => {
+  useAppLanguage();
   return (
     <View style={styles.pointCard}>
-      <Text style={styles.pointCardLabel}>현재 보유 포인트</Text>
+      <Text style={styles.pointCardLabel}>{t("현재 보유 포인트")}</Text>
       <View style={styles.pointCardValue}>
         <Icon name="point" size={24} />
         <Text style={styles.pointCardText}>{points.toLocaleString()} P</Text>
@@ -152,6 +156,7 @@ interface FilterTabsProps {
 }
 
 const FilterTabs: React.FC<FilterTabsProps> = ({ selected, onSelect }) => {
+  useAppLanguage();
   const filters = [PointFilter.ALL, PointFilter.EARNED, PointFilter.SPENT];
 
   return (
@@ -186,6 +191,7 @@ interface HistoryItemProps {
 }
 
 const HistoryItem: React.FC<HistoryItemProps> = ({ history }) => {
+  useAppLanguage();
   const pointColor = history.isPositive ? styles.pointPositive : styles.pointNegative;
 
   return (
@@ -204,9 +210,10 @@ const HistoryItem: React.FC<HistoryItemProps> = ({ history }) => {
  * Figma: "포인트 내역이 없습니다."
  */
 const EmptyState: React.FC = () => {
+  useAppLanguage();
   return (
     <View style={styles.emptyState}>
-      <Text style={styles.emptyStateText}>포인트 내역이 없습니다.</Text>
+      <Text style={styles.emptyStateText}>{t("포인트 내역이 없습니다.")}</Text>
     </View>
   );
 };
@@ -215,6 +222,7 @@ const EmptyState: React.FC = () => {
  * 로딩 상태
  */
 const LoadingState: React.FC = () => {
+  useAppLanguage();
   return (
     <View style={styles.loadingState}>
       <ActivityIndicator size="large" color={GREY[800]} />

@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 /**
  * UnityPlaceholder
  * Unity View 로딩 중 표시되는 플레이스홀더 컴포넌트
@@ -26,6 +27,7 @@ const CharacterSilhouette: React.FC<{ size?: number; color?: string }> = ({
   size = 80,
   color = GREY[300],
 }) => {
+  useAppLanguage();
   const headSize = size * 0.35;
   const bodyWidth = size * 0.5;
   const bodyHeight = size * 0.5;
@@ -74,6 +76,7 @@ const silhouetteStyles = StyleSheet.create({
  * 플레이스홀더 메인 컴포넌트
  */
 export const UnityPlaceholder: React.FC<UnityPlaceholderProps> = ({ variant }) => {
+  useAppLanguage();
   const backgroundColor = variant === 'avatar' ? GREY.WHITE : GREY[100];
   const showText = variant === 'running';
   const showSpinner = variant === 'league';
@@ -87,7 +90,7 @@ export const UnityPlaceholder: React.FC<UnityPlaceholderProps> = ({ variant }) =
         />
 
         {showText && (
-          <Text style={styles.loadingText}>캐릭터 로딩 중</Text>
+          <Text style={styles.loadingText}>{t("캐릭터 로딩 중")}</Text>
         )}
 
         {showSpinner && (

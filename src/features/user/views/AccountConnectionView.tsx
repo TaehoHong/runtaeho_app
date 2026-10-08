@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 /**
  * 연결 계정 관리 화면
  * Figma: #4_마이페이지_서비스_연결계정관리
@@ -18,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
  * 연결 계정 관리 화면
  */
 export const AccountConnectionView: React.FC = () => {
+  useAppLanguage();
   const router = useRouter();
   const {
     isConnecting,
@@ -42,14 +44,14 @@ export const AccountConnectionView: React.FC = () => {
         >
           <Ionicons name="chevron-back" size={24} color={GREY[900]} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>연결 계정 관리</Text>
+        <Text style={styles.headerTitle}>{t("연결 계정 관리")}</Text>
         <View style={styles.headerRight} />
       </View>
 
       <ScrollView style={styles.content}>
         {/* 연결 계정 목록 섹션 */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>연결 계정 목록</Text>
+          <Text style={styles.sectionTitle}>{t("연결 계정 목록")}</Text>
 
           <View style={styles.accountList}>
             {providers.map((provider) => {
@@ -103,6 +105,7 @@ const AccountItem: React.FC<AccountItemProps> = ({
   onConnect,
   onDisconnect,
 }) => {
+  useAppLanguage();
   const buttonColor = getConnectionButtonColor(
     isConnected ? AccountConnectionStatus.CONNECTED : AccountConnectionStatus.NONE
   );
@@ -111,8 +114,7 @@ const AccountItem: React.FC<AccountItemProps> = ({
     <View style={styles.accountItem}>
       <View style={styles.accountInfo}>
         <Text style={styles.accountProvider}>
-          {providerName} 로 연결
-        </Text>
+          {providerName}{t(" 로 연결")}</Text>
         {email && (
           <Text style={styles.accountEmail}>{email}</Text>
         )}
@@ -136,9 +138,7 @@ const AccountItem: React.FC<AccountItemProps> = ({
                 styles.buttonText,
                 !canDisconnect && styles.buttonTextDisabled,
               ]}
-            >
-              연결 해제
-            </Text>
+            >{t("연결 해제")}</Text>
           )}
         </TouchableOpacity>
       ) : (
@@ -154,7 +154,7 @@ const AccountItem: React.FC<AccountItemProps> = ({
           {isLoading ? (
             <ActivityIndicator size="small" color={GREY[600]} />
           ) : (
-            <Text style={styles.buttonText}>연결하기</Text>
+            <Text style={styles.buttonText}>{t("연결하기")}</Text>
           )}
         </TouchableOpacity>
       )}

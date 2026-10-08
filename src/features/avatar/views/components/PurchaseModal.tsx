@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 /**
  * 구매 확인 모달
  * SRP: 구매 확인 UI만 담당
@@ -41,6 +42,7 @@ export const PurchaseModal: React.FC<Props> = ({
   onCancel,
   isLoading,
 }) => {
+  useAppLanguage();
   function getItemImage(item: Item): ImageSourcePropType | undefined {
     return resolveAvatarItemImage(item, hairColor);
   }
@@ -67,8 +69,8 @@ export const PurchaseModal: React.FC<Props> = ({
         >
           <View style={styles.modal}>
             {/* Title */}
-            <Text style={styles.title}>구매 내역</Text>
-            <Text style={styles.subtitle}>선택한 아이템을 구매하고 적용할까요?</Text>
+            <Text style={styles.title}>{t("구매 내역")}</Text>
+            <Text style={styles.subtitle}>{t('선택한 아이템을 구매하고 적용할까요?')}</Text>
 
             {/* Items Preview */}
             <View style={styles.itemsContainer}>
@@ -96,14 +98,14 @@ export const PurchaseModal: React.FC<Props> = ({
               <View style={styles.divider} />
 
               <View style={styles.pointRow}>
-                <Text style={styles.pointLabel}>보유 포인트</Text>
+                <Text style={styles.pointLabel}>{t("보유 포인트")}</Text>
                 <Text style={styles.pointValue}>
                   {currentPoints.toLocaleString()} P
                 </Text>
               </View>
 
               <View style={styles.pointRow}>
-                <Text style={styles.pointLabel}>총 구매 금액</Text>
+                <Text style={styles.pointLabel}>{t("총 구매 금액")}</Text>
                 <Text style={[styles.pointValue, styles.pointDecrease]}>
                   -{totalPrice.toLocaleString()} P
                 </Text>
@@ -112,9 +114,7 @@ export const PurchaseModal: React.FC<Props> = ({
               <View style={styles.divider} />
 
               <View style={styles.pointRow}>
-                <Text style={[styles.pointLabel, styles.pointLabelBold]}>
-                  잔여 포인트
-                </Text>
+                <Text style={[styles.pointLabel, styles.pointLabelBold]}>{t("잔여 포인트")}</Text>
                 <Text style={[styles.pointValue, styles.pointIncrease]}>
                   {remainingPoints.toLocaleString()} P
                 </Text>
@@ -129,7 +129,7 @@ export const PurchaseModal: React.FC<Props> = ({
                 disabled={isLoading}
                 activeOpacity={0.7}
               >
-                <Text style={styles.cancelButtonText}>취소</Text>
+                <Text style={styles.cancelButtonText}>{t('취소')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -141,7 +141,7 @@ export const PurchaseModal: React.FC<Props> = ({
                 {isLoading ? (
                   <ActivityIndicator color={GREY.WHITE} />
                 ) : (
-                  <Text style={styles.confirmButtonText}>구매 후 적용</Text>
+                  <Text style={styles.confirmButtonText}>{t('구매 후 적용')}</Text>
                 )}
               </TouchableOpacity>
             </View>

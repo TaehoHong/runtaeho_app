@@ -1,3 +1,4 @@
+import { t } from '~/i18n';
 /**
  * Permission Manager (v3.0)
  *
@@ -155,8 +156,8 @@ export class PermissionManager {
     } catch (error) {
       console.error('[PermissionManager] Failed to open settings:', error);
       Alert.alert(
-        '설정 열기 실패',
-        '설정 앱을 직접 열어 RunTaeho 권한을 변경해주세요.'
+        t("설정 열기 실패"),
+        t("설정 앱을 직접 열어 RunTaeho 권한을 변경해주세요.")
       );
     }
   }
@@ -167,12 +168,12 @@ export class PermissionManager {
   getMissingPermissionsMessage(result: PermissionCheckResult): string {
     const missing: string[] = [];
 
-    if (!result.location) missing.push('위치 (사용 중)');
-    if (!result.locationBackground) missing.push('위치 (항상)');
-    if (!result.motion) missing.push('동작 및 피트니스');
+    if (!result.location) missing.push(t("위치 (사용 중)"));
+    if (!result.locationBackground) missing.push(t("위치 (항상)"));
+    if (!result.motion) missing.push(t("동작 및 피트니스"));
 
     return missing.length > 0
-      ? `다음 권한이 필요합니다:\n• ${missing.join('\n• ')}`
+      ? t("다음 권한이 필요합니다:\n• {{value0}}", { value0: missing.join('\n• ') })
       : '';
   }
 

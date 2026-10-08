@@ -1,3 +1,4 @@
+import { t } from '~/i18n';
 /**
  * MediaPickerService
  * 카메라/갤러리 권한 처리 및 이미지 선택을 위한 싱글톤 서비스
@@ -57,13 +58,13 @@ export class MediaPickerService {
   ): void {
     if (!canAskAgain) {
       // 영구 거부된 경우: 설정으로 이동 버튼 표시
-      Alert.alert('권한 필요', deniedMessage, [
-        { text: '취소', style: 'cancel' },
-        { text: '설정으로 이동', onPress: () => Linking.openSettings() },
+      Alert.alert(t("권한 필요"), deniedMessage, [
+        { text: t("취소"), style: 'cancel' },
+        { text: t("설정으로 이동"), onPress: () => Linking.openSettings() },
       ]);
     } else {
       // 일시적 거부: 안내 메시지만 표시
-      Alert.alert('권한 필요', requestMessage);
+      Alert.alert(t("권한 필요"), requestMessage);
     }
   }
 
@@ -168,7 +169,7 @@ export class MediaPickerService {
       };
     } catch (error) {
       console.error('[MediaPickerService] Camera launch failed:', error);
-      Alert.alert('오류', '사진 촬영 중 오류가 발생했습니다.');
+      Alert.alert(t("오류"), t("사진 촬영 중 오류가 발생했습니다."));
       return {
         success: false,
         uri: null,
@@ -249,7 +250,7 @@ export class MediaPickerService {
       };
     } catch (error) {
       console.error('[MediaPickerService] Image library launch failed:', error);
-      Alert.alert('오류', '사진을 불러오는 중 오류가 발생했습니다.');
+      Alert.alert(t("오류"), t("사진을 불러오는 중 오류가 발생했습니다."));
       return {
         success: false,
         uri: null,
@@ -272,25 +273,25 @@ export class MediaPickerService {
   ): Promise<MediaPickerResult> {
     return new Promise((resolve) => {
       Alert.alert(
-        actionSheetTitle ?? '사진 선택',
-        actionSheetMessage ?? '사진을 어떻게 추가하시겠습니까?',
+        actionSheetTitle ?? t("사진 선택"),
+        actionSheetMessage ?? t("사진을 어떻게 추가하시겠습니까?"),
         [
           {
-            text: '카메라로 촬영',
+            text: t("카메라로 촬영"),
             onPress: async () => {
               const result = await this.launchCamera(options, messages);
               resolve(result);
             },
           },
           {
-            text: '앨범에서 선택',
+            text: t("앨범에서 선택"),
             onPress: async () => {
               const result = await this.launchImageLibrary(options, messages);
               resolve(result);
             },
           },
           {
-            text: '취소',
+            text: t("취소"),
             style: 'cancel',
             onPress: () => {
               resolve({

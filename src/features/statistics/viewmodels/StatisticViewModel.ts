@@ -1,3 +1,4 @@
+import { useAppLanguage } from '~/i18n';
 import { useCallback, useEffect, useMemo } from 'react';
 import type { ChartDataPoint, ExtendedStatisticsSummary, RunningChartDto } from '../models';
 import {
@@ -64,6 +65,7 @@ export const useStatisticsViewModel = (
   period: Period = Period.MONTH,
   referenceDate: Date = new Date()
 ) => {
+  const language = useAppLanguage();
   // Period에 따른 날짜 범위 계산 (현재 기간)
   const { startDateTime, endDateTime } = useMemo(() => {
     return calculateDateRange(period, referenceDate);
@@ -199,7 +201,7 @@ export const useStatisticsViewModel = (
 
     return chartData.map((point: ChartDataPoint) => ({
       ...point,
-      formattedDate: new Date(point.datetime).toLocaleDateString('ko-KR', {
+      formattedDate: new Date(point.datetime).toLocaleDateString(language === 'ja' ? 'ja-JP' : 'ko-KR', {
         month: 'short',
         day: 'numeric',
       }),
@@ -207,7 +209,7 @@ export const useStatisticsViewModel = (
       formattedDuration: RunningStatusFormat.duration(point.durationSec),
       formattedPace: RunningStatusFormat.pace((point.paceSec * 1000) / 60), // 초/미터 → 분/km
     }));
-  }, [chartData]);
+  }, [chartData, language]);
 
   // 새로고침 핸들러
   const handleRefresh = useCallback(async () => {

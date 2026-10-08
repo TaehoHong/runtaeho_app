@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 /**
  * League Main Screen
  * 리그 메인 화면
@@ -25,6 +26,7 @@ import { MyRankCard } from './components/MyRankCard';
 import { RankingSection } from './components/RankingSection';
 
 export const LeagueView = () => {
+  useAppLanguage();
   const router = useRouter();
   const [hasCheckedResult, setHasCheckedResult] = useState(false);
 
@@ -95,7 +97,7 @@ export const LeagueView = () => {
       return (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={PRIMARY[600]} />
-          <Text style={styles.loadingText}>리그 정보를 불러오는 중...</Text>
+          <Text style={styles.loadingText}>{t("리그 정보를 불러오는 중...")}</Text>
         </View>
       );
     }
@@ -104,9 +106,9 @@ export const LeagueView = () => {
     if (hasError && !hasValidData) {
       return (
         <View style={styles.centerContainer}>
-          <Text style={styles.errorText}>데이터를 불러올 수 없습니다</Text>
+          <Text style={styles.errorText}>{t("데이터를 불러올 수 없습니다")}</Text>
           <Text style={styles.errorSubText}>
-            {error?.message || '네트워크를 확인해주세요'}
+            {error?.message || t("네트워크를 확인해주세요")}
           </Text>
         </View>
       );

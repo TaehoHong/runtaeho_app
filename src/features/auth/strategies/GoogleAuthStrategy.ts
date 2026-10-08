@@ -1,3 +1,4 @@
+import { t } from '~/i18n';
 import {
   GoogleSignin,
   statusCodes
@@ -36,7 +37,7 @@ export class GoogleAuthStrategy implements AuthProviderStrategy {
 
     if (!googleServerClientId) {
       throw AuthError.unavailable(
-        'Google 로그인 설정이 누락되었습니다. 앱을 최신 상태로 업데이트한 뒤 다시 시도해주세요.'
+        t("Google 로그인 설정이 누락되었습니다. 앱을 최신 상태로 업데이트한 뒤 다시 시도해주세요.")
       );
     }
 

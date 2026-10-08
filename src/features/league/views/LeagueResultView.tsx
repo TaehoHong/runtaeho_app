@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 /**
  * LeagueResultView
  * 리그 결과 화면 (승급/강등/유지/환생 알림)
@@ -22,6 +23,7 @@ interface LeagueResultViewProps {
 }
 
 export const LeagueResultView = ({ result }: LeagueResultViewProps) => {
+  useAppLanguage();
   const router = useRouter();
 
   // 현재 티어 정보 (결과 상태에 따라 표시할 티어)
@@ -45,8 +47,7 @@ export const LeagueResultView = ({ result }: LeagueResultViewProps) => {
       <View style={styles.content}>
         {/* 티어 이름 */}
         <Text style={[styles.tierName, { color: tierInfo.color }]}>
-          {tierInfo.displayName} 리그
-        </Text>
+          {tierInfo.displayName}{t(" 리그")}</Text>
 
         {/* 티어 이미지 */}
         <View style={styles.tierImageContainer}>
@@ -67,7 +68,7 @@ export const LeagueResultView = ({ result }: LeagueResultViewProps) => {
       {/* 결과 확인 버튼 */}
       <View style={styles.buttonContainer}>
         <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm}>
-          <Text style={styles.confirmButtonText}>결과 확인</Text>
+          <Text style={styles.confirmButtonText}>{t("결과 확인")}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

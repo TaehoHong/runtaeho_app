@@ -1,3 +1,4 @@
+import { t } from '~/i18n';
 import { GREY } from '~/shared/styles';
 /**
  * 아바타 기능 관련 상수
@@ -18,13 +19,13 @@ import { GREY } from '~/shared/styles';
  * 7가지 색상 중 선택 가능
  */
 export const HAIR_COLORS = [
-  { id: 1, name: '검정', hex: '#000000' },
-  { id: 2, name: '갈색', hex: '#8B4513' },
-  { id: 3, name: '금발', hex: '#FFD700' },
-  { id: 4, name: '빨강', hex: '#DC143C' },
-  { id: 5, name: '파랑', hex: '#4169E1' },
-  { id: 6, name: '보라', hex: '#9370DB' },
-  { id: 7, name: '흰색', hex: GREY.WHITE },
+  { id: 1, get name() { return t("검정"); }, hex: '#000000' },
+  { id: 2, get name() { return t("갈색"); }, hex: '#8B4513' },
+  { id: 3, get name() { return t("금발"); }, hex: '#FFD700' },
+  { id: 4, get name() { return t("빨강"); }, hex: '#DC143C' },
+  { id: 5, get name() { return t("파랑"); }, hex: '#4169E1' },
+  { id: 6, get name() { return t("보라"); }, hex: '#9370DB' },
+  { id: 7, get name() { return t("흰색"); }, hex: GREY.WHITE },
 ] as const;
 
 /**
@@ -63,17 +64,17 @@ export function getHairColorByHex(hex: string): HairColor | undefined {
 export const ITEM_CATEGORIES = [
   {
     type: 1,
-    displayName: '머리',
+    get displayName() { return t("머리"); },
     unityName: 'Hair',
   },
   {
     type: 2,
-    displayName: '의상',
+    get displayName() { return t("의상"); },
     unityName: 'Cloth',
   },
   {
     type: 3,
-    displayName: '바지',
+    get displayName() { return t("바지"); },
     unityName: 'Pant',
   },
 ] as const;
@@ -95,7 +96,7 @@ export function getCategoryByType(typeId: number): ItemCategory | undefined {
  * 카테고리 표시 이름 가져오기
  */
 export function getCategoryDisplayName(typeId: number): string {
-  return getCategoryByType(typeId)?.displayName ?? '알 수 없음';
+  return getCategoryByType(typeId)?.displayName ?? t("알 수 없음");
 }
 
 /**
@@ -204,23 +205,23 @@ export const PRICE_DISPLAY = {
  * SRP: 에러 메시지만 관리
  */
 export const ERROR_MESSAGES = {
-  INSUFFICIENT_POINTS: '포인트가 부족합니다.',
-  INSUFFICIENT_POINTS_DETAIL: '보유 포인트가 부족해요!\n포인트를 모으고 다시 방문해주세요.',
-  PURCHASE_FAILED: '아이템 구매에 실패했습니다.',
-  UPDATE_FAILED: '착용 상태 업데이트에 실패했습니다.',
-  NETWORK_ERROR: '네트워크 오류가 발생했습니다.',
-  UNKNOWN_ERROR: '알 수 없는 오류가 발생했습니다.',
-  ITEM_NOT_FOUND: '아이템을 찾을 수 없습니다.',
-  INVALID_CATEGORY: '유효하지 않은 카테고리입니다.',
+  get INSUFFICIENT_POINTS() { return t("포인트가 부족합니다."); },
+  get INSUFFICIENT_POINTS_DETAIL() { return t("보유 포인트가 부족해요!\n포인트를 모으고 다시 방문해주세요."); },
+  get PURCHASE_FAILED() { return t("아이템 구매에 실패했습니다."); },
+  get UPDATE_FAILED() { return t("착용 상태 업데이트에 실패했습니다."); },
+  get NETWORK_ERROR() { return t("네트워크 오류가 발생했습니다."); },
+  get UNKNOWN_ERROR() { return t("알 수 없는 오류가 발생했습니다."); },
+  get ITEM_NOT_FOUND() { return t("아이템을 찾을 수 없습니다."); },
+  get INVALID_CATEGORY() { return t("유효하지 않은 카테고리입니다."); },
 } as const;
 
 /**
  * 성공 메시지
  */
 export const SUCCESS_MESSAGES = {
-  PURCHASE_SUCCESS: '아이템을 구매했습니다.',
-  EQUIP_SUCCESS: '아이템을 착용했습니다.',
-  UPDATE_SUCCESS: '변경사항이 저장되었습니다.',
+  get PURCHASE_SUCCESS() { return t("아이템을 구매했습니다."); },
+  get EQUIP_SUCCESS() { return t("아이템을 착용했습니다."); },
+  get UPDATE_SUCCESS() { return t("변경사항이 저장되었습니다."); },
 } as const;
 
 // ===================================

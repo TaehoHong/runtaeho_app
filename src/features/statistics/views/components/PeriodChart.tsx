@@ -1,3 +1,4 @@
+import { useAppTranslation } from '~/i18n';
 /**
  * Period Chart Component
  *
@@ -95,6 +96,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
   isEmpty = false,
   referenceDate = new Date(),
 }) => {
+  const t = useAppTranslation();
   // 기간별 막대 너비 (Figma 디자인)
   const barWidth = useMemo(() => {
     switch (period) {
@@ -119,7 +121,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
   const xAxisLabels = useMemo((): readonly string[] => {
     switch (period) {
       case Period.WEEK:
-        return WEEK_LABELS;
+        return WEEK_LABELS.map((label) => t(label));
       case Period.MONTH: {
         // 3일 간격으로 표시 (1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 마지막날)
         const labels: string[] = [];
@@ -138,16 +140,14 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
       default:
         return [];
     }
-  }, [period, lastDayOfMonth]);
+  }, [period, lastDayOfMonth, t]);
 
   // 기간 라벨 (referenceDate 기준)
-  const periodLabel = useMemo(() => {
-    const formatted = formatPeriodLabel(referenceDate, period);
-    return {
-      left: formatted.primary,
-      right: formatted.secondary || null,
-    };
-  }, [period, referenceDate]);
+  const formattedPeriod = formatPeriodLabel(referenceDate, period);
+  const periodLabel = {
+    left: formattedPeriod.primary,
+    right: formattedPeriod.secondary || null,
+  };
 
   // 차트 데이터 정규화 (거리를 km로 변환)
   const normalizedData = useMemo(() => {
@@ -165,10 +165,10 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
     const deltaKm = currentTotalKm - previousTotalKm;
     const prefix = deltaKm >= 0 ? '+' : '-';
     const periodLabelText =
-      period === Period.WEEK ? '지난주보다' : period === Period.MONTH ? '지난달보다' : '작년보다';
+      period === Period.WEEK ? t("지난주보다") : period === Period.MONTH ? t("지난달보다") : t("작년보다");
 
     return `${periodLabelText} ${prefix}${RunningStatusFormat.distance(Math.abs(deltaKm) * 1000, { fractionDigits: 1 })}`;
-  }, [comparisonData, normalizedData, period]);
+  }, [comparisonData, normalizedData, period, t]);
 
   // 최대값 계산 (Y축 스케일링용)
   // 데이터 최댓값 + 3km (예: 최대 15km면 Y축은 18km까지)
@@ -430,9 +430,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
             fontWeight="600"
             fill={GREY[400]}
             textAnchor="end"
-          >
-            누적 km
-          </SvgText>
+          >{t("누적 km")}</SvgText>
         )}
 
         {isTrendComparisonVisible &&

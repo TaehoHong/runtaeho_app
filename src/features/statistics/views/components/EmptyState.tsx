@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 /**
  * Empty State Component
  * Figma: 38:5436 (101, 610, 172x16)
@@ -15,8 +16,9 @@ interface EmptyStateProps {
 }
 
 export const EmptyState: React.FC<EmptyStateProps> = ({
-  message = '러닝을 시작하면 기록이 생겨요!',
+  message = t("러닝을 시작하면 기록이 생겨요!"),
 }) => {
+  useAppLanguage();
   return (
     <View style={styles.container}>
       <Text style={styles.message}>{message}</Text>

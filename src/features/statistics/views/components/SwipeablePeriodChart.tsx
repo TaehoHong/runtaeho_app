@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 /**
  * Swipeable Period Chart Component
  *
@@ -112,6 +113,7 @@ const SwipeablePeriodChartComponent: React.FC<SwipeablePeriodChartProps> = ({
   nextReferenceDate: nextRefDateProp,
   nextIsEmpty: nextIsEmptyProp,
 }) => {
+  useAppLanguage();
   const scrollViewRef = useRef<ScrollView>(null);
   const isScrollingRef = useRef(false);
   const [isChartOptionsVisible, setIsChartOptionsVisible] = useState(false);
@@ -314,7 +316,7 @@ const SwipeablePeriodChartComponent: React.FC<SwipeablePeriodChartProps> = ({
           <TouchableOpacity
             testID="chart-options-button"
             accessibilityRole="button"
-            accessibilityLabel="차트 옵션"
+            accessibilityLabel={t("차트 옵션")}
             accessibilityState={{ expanded: isChartOptionsVisible }}
             style={styles.optionsButton}
             activeOpacity={0.75}
@@ -329,11 +331,11 @@ const SwipeablePeriodChartComponent: React.FC<SwipeablePeriodChartProps> = ({
         <View testID="chart-options-popover" style={styles.optionsPopover}>
           <View style={styles.popoverArrow} />
           <View style={styles.optionsHeader}>
-            <Text style={styles.optionsTitle}>차트 옵션</Text>
+            <Text style={styles.optionsTitle}>{t("차트 옵션")}</Text>
             <TouchableOpacity
               testID="chart-options-close-button"
               accessibilityRole="button"
-              accessibilityLabel="차트 옵션 닫기"
+              accessibilityLabel={t("차트 옵션 닫기")}
               style={styles.optionsCloseButton}
               activeOpacity={0.75}
               onPress={closeChartOptions}
@@ -343,11 +345,11 @@ const SwipeablePeriodChartComponent: React.FC<SwipeablePeriodChartProps> = ({
           </View>
           <View style={styles.optionRow}>
             <View style={styles.optionText}>
-              <Text style={styles.optionTitle}>추세 비교</Text>
+              <Text style={styles.optionTitle}>{t("추세 비교")}</Text>
             </View>
             <Switch
               testID="chart-trend-comparison-switch"
-              accessibilityLabel="추세 비교"
+              accessibilityLabel={t("추세 비교")}
               value={isTrendComparisonEnabled}
               onValueChange={handleTrendComparisonChange}
               trackColor={{ false: GREY[200], true: PRIMARY[200] }}

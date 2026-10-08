@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppStore } from '~/stores/app/appStore';
@@ -11,6 +12,7 @@ import { isTabBarVisible } from '~/shared/utils/tabBarVisibility';
  * 러닝 상태에 따라 탭바 표시/숨김 제어
  */
 export default function TabLayout() {
+  useAppLanguage();
   const runningState = useAppStore((state) => state.runningState);
   const viewState = useAppStore((state) => state.viewState);
   const insets = useSafeAreaInsets();
@@ -64,7 +66,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="statistics"
         options={{
-          title: '통계',
+          title: t("통계"),
           tabBarButtonTestID: 'tab-statistics',
           tabBarIcon: ({ color, size }) => (
             <Icon name="chart" size={size} tintColor={color} />
@@ -74,7 +76,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="running"
         options={{
-          title: '러닝',
+          title: t("러닝"),
           tabBarButtonTestID: 'tab-running',
           tabBarIcon: ({ color, size }) => (
             <Icon name="shoe" size={size} tintColor={color} />
@@ -84,7 +86,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="league"
         options={{
-          title: '리그',
+          title: t("리그"),
           tabBarButtonTestID: 'tab-league',
           tabBarIcon: ({ color, size }) => (
             <Icon name="league" size={size} tintColor={color} />
@@ -94,7 +96,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: '내정보',
+          title: t("내정보"),
           tabBarButtonTestID: 'tab-profile',
           tabBarIcon: ({ color, size }) => (
             <Icon name="myinfo" size={size} tintColor={color} />

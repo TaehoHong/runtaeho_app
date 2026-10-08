@@ -1,3 +1,4 @@
+import { t } from '~/i18n';
 /**
  * Secure Storage Errors
  * 보안 저장소 에러 정의
@@ -68,31 +69,31 @@ export class SecureStorageError extends Error {
   getUserMessage(): string {
     switch (this.code) {
       case SecureStorageErrorCode.NOT_AVAILABLE:
-        return '보안 저장소를 사용할 수 없습니다. 기기 설정을 확인해주세요.';
+        return t("보안 저장소를 사용할 수 없습니다. 기기 설정을 확인해주세요.");
 
       case SecureStorageErrorCode.SAVE_FAILED:
-        return '데이터 저장에 실패했습니다. 다시 시도해주세요.';
+        return t("데이터 저장에 실패했습니다. 다시 시도해주세요.");
 
       case SecureStorageErrorCode.LOAD_FAILED:
-        return '데이터 불러오기에 실패했습니다.';
+        return t("데이터 불러오기에 실패했습니다.");
 
       case SecureStorageErrorCode.DELETE_FAILED:
-        return '데이터 삭제에 실패했습니다.';
+        return t("데이터 삭제에 실패했습니다.");
 
       case SecureStorageErrorCode.AUTHENTICATION_FAILED:
-        return '인증에 실패했습니다. 다시 시도해주세요.';
+        return t("인증에 실패했습니다. 다시 시도해주세요.");
 
       case SecureStorageErrorCode.BIOMETRY_NOT_AVAILABLE:
-        return '생체인증을 사용할 수 없습니다. 기기 설정에서 Face ID 또는 Touch ID를 활성화해주세요.';
+        return t("생체인증을 사용할 수 없습니다. 기기 설정에서 Face ID 또는 Touch ID를 활성화해주세요.");
 
       case SecureStorageErrorCode.MIGRATION_FAILED:
-        return '데이터 마이그레이션에 실패했습니다.';
+        return t("데이터 마이그레이션에 실패했습니다.");
 
       case SecureStorageErrorCode.NO_DEVICE_LOCK:
-        return '기기 보안 설정이 필요합니다. 기기 잠금(PIN, 패턴, 비밀번호)을 설정해주세요.';
+        return t("기기 보안 설정이 필요합니다. 기기 잠금(PIN, 패턴, 비밀번호)을 설정해주세요.");
 
       default:
-        return '알 수 없는 오류가 발생했습니다.';
+        return t("알 수 없는 오류가 발생했습니다.");
     }
   }
 

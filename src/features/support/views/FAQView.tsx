@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -7,6 +8,7 @@ import { Text } from '~/shared/components/typography';
 import { GREY, PRIMARY } from '~/shared/styles';
 
 export const FAQView: React.FC = () => {
+  useAppLanguage();
   const router = useRouter();
 
   return (
@@ -15,42 +17,39 @@ export const FAQView: React.FC = () => {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="chevron-back" size={24} color={GREY[900]} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>자주 묻는 질문</Text>
+        <Text style={styles.headerTitle}>{t("자주 묻는 질문")}</Text>
         <View style={styles.headerRight} />
       </View>
 
       <ScrollView style={styles.flex} contentContainerStyle={styles.content}>
         <View style={styles.card}>
-          <Text style={styles.question}>운동했는데 기록이 안 들어와요.</Text>
-          <Text style={styles.answer}>
-            운동 기록은 앱 사용 설정과 기기 Health 권한이 모두 허용되어야 가져올 수
-            있어요. 아래 순서로 확인해주세요.
-          </Text>
+          <Text style={styles.question}>{t("운동했는데 기록이 안 들어와요.")}</Text>
+          <Text style={styles.answer}>{t("운동 기록은 앱 사용 설정과 기기 Health 권한이 모두 허용되어야 가져올 수 있어요. 아래 순서로 확인해주세요.")}</Text>
 
           <View style={styles.divider} />
 
           <FAQStep
             icon="settings-outline"
-            title="앱"
-            primary="내정보 > 설정 > 권한 설정"
-            secondary="앱 사용 설정을 켜주세요."
+            title={t("앱")}
+            primary={t("내정보 > 설정 > 권한 설정")}
+            secondary={t("앱 사용 설정을 켜주세요.")}
           />
           <FAQStep
             icon="logo-android"
             title="Android"
-            primary="Health Connect > 앱 권한 > 달려라 태호군"
-            secondary="운동과 경로 읽기 권한을 허용해주세요."
+            primary={t("Health Connect > 앱 권한 > 달려라 태호군")}
+            secondary={t("운동과 경로 읽기 권한을 허용해주세요.")}
           />
           <FAQStep
             icon="logo-apple"
             title="iOS"
-            primary="건강 앱 > 공유 > 앱 > 달려라 태호군"
-            secondary="또는 설정 > Health > 데이터 접근 및 기기에서 확인해주세요."
+            primary={t("건강 앱 > 공유 > 앱 > 달려라 태호군")}
+            secondary={t("또는 설정 > Health > 데이터 접근 및 기기에서 확인해주세요.")}
           />
           <FAQStep
             icon="watch-outline"
             title="Garmin"
-            primary="Garmin Connect 앱을 열어 동기화가 완료됐는지 확인해주세요."
+            primary={t("Garmin Connect 앱을 열어 동기화가 완료됐는지 확인해주세요.")}
           />
 
           <TouchableOpacity
@@ -58,19 +57,19 @@ export const FAQView: React.FC = () => {
             onPress={() => router.push('/user/permission-settings')}
             activeOpacity={0.8}
           >
-            <Text style={styles.permissionButtonText}>권한 설정으로 이동</Text>
+            <Text style={styles.permissionButtonText}>{t("권한 설정으로 이동")}</Text>
             <Ionicons name="chevron-forward" size={18} color={PRIMARY[700]} />
           </TouchableOpacity>
         </View>
 
         <View style={styles.inquirySection}>
-          <Text style={styles.inquiryText}>그래도 기록이 보이지 않으면 문의를 남겨주세요.</Text>
+          <Text style={styles.inquiryText}>{t("그래도 기록이 보이지 않으면 문의를 남겨주세요.")}</Text>
           <TouchableOpacity
             style={styles.inquiryButton}
             onPress={() => router.push('/user/inquiry')}
             activeOpacity={0.8}
           >
-            <Text style={styles.inquiryButtonText}>1:1 문의하기</Text>
+            <Text style={styles.inquiryButtonText}>{t("1:1 문의하기")}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -85,7 +84,7 @@ type FAQStepProps = {
   secondary?: string;
 };
 
-const FAQStep: React.FC<FAQStepProps> = ({ icon, title, primary, secondary }) => (
+const FAQStep: React.FC<FAQStepProps> = ({ icon, title, primary, secondary }) => { useAppLanguage(); return (
   <View style={styles.step}>
     <View style={styles.stepIcon}>
       <Ionicons name={icon} size={18} color={PRIMARY[600]} />
@@ -96,7 +95,7 @@ const FAQStep: React.FC<FAQStepProps> = ({ icon, title, primary, secondary }) =>
       {secondary ? <Text style={styles.stepSecondary}>{secondary}</Text> : null}
     </View>
   </View>
-);
+); };
 
 const styles = StyleSheet.create({
   flex: {

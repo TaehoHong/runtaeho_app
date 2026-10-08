@@ -1,3 +1,4 @@
+import { useAppTranslation } from '~/i18n';
 /**
  * SharePreviewCanvas Component
  * 캡처 대상 미리보기 캔버스
@@ -74,6 +75,7 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
     },
     ref
   ) => {
+  const t = useAppTranslation();
     const characterWidth = useSharedValue(CHARACTER_WIDTH);
     const characterHeight = useSharedValue(CHARACTER_HEIGHT);
     const initialTransform = {
@@ -362,12 +364,12 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
 
       return {
         distance: { value: distance.value, label: distance.unit },
-        time: { value: RunningStatusFormat.duration(runningData.durationSec), label: '시간' },
-        pace: { value: runningData.pace, label: '평균 페이스' },
+        time: { value: RunningStatusFormat.duration(runningData.durationSec), label: t("시간") },
+        pace: { value: runningData.pace, label: t("평균 페이스") },
         points: { value: RunningStatusFormat.points(runningData.earnedPoints, { signed: true }), label: '' },
         map: { value: '', label: '' },
       };
-    }, [runningData]);
+    }, [runningData, t]);
 
     const createStatTransformHandler = (type: StatType) => (transform: ElementTransform) => {
       onStatTransformChange(type, transform);
@@ -425,7 +427,7 @@ export const SharePreviewCanvas = forwardRef<View, SharePreviewCanvasProps>(
             })}
 
             <View style={styles.watermarkContainer}>
-              <Text style={styles.watermark}>달려라 태호군</Text>
+              <Text style={styles.watermark}>{t("달려라 태호군")}</Text>
             </View>
           </View>
         </View>

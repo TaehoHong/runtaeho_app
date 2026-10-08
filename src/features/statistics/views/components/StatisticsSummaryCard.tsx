@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 /**
  * Statistics Summary Card Component
  * Figma: Frame 637886 (20, 445, 335x70)
@@ -24,12 +25,12 @@ interface StatisticsSummaryCardProps {
 const getDistanceLabel = (period: Period) => {
   switch (period) {
     case Period.WEEK:
-      return '이번 주 총 거리';
+      return t("이번 주 총 거리");
     case Period.YEAR:
-      return '올해 총 거리';
+      return t("올해 총 거리");
     case Period.MONTH:
     default:
-      return '이번 달 총 거리';
+      return t("이번 달 총 거리");
   }
 };
 
@@ -39,6 +40,7 @@ export const StatisticsSummaryCard: React.FC<StatisticsSummaryCardProps> = ({
   averagePace,
   period,
 }) => {
+  useAppLanguage();
   const distance = RunningStatusFormat.distanceParts(totalDistance);
   const pace = RunningStatusFormat.pace(averagePace);
 
@@ -64,12 +66,12 @@ export const StatisticsSummaryCard: React.FC<StatisticsSummaryCardProps> = ({
 
       <View style={styles.secondaryRow}>
         <View style={styles.secondaryItem}>
-          <Text style={styles.secondaryLabel}>러닝</Text>
-          <Text style={styles.secondaryValue}>{runCount}회</Text>
+          <Text style={styles.secondaryLabel}>{t("러닝")}</Text>
+          <Text style={styles.secondaryValue}>{runCount}{t("회")}</Text>
         </View>
         <View style={styles.divider} />
         <View style={styles.secondaryItem}>
-          <Text style={styles.secondaryLabel}>평균 페이스</Text>
+          <Text style={styles.secondaryLabel}>{t("평균 페이스")}</Text>
           <Text style={styles.secondaryValue}>{pace}</Text>
         </View>
       </View>

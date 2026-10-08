@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,15 +19,15 @@ interface StatVisibilityToggleProps {
 
 // 통계 항목 메타데이터 - Figma 기준 Ionicons
 const STAT_METADATA: Record<StatType, { label: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  distance: { label: '거리', icon: 'location-outline' },
-  time: { label: '시간', icon: 'time-outline' },
-  pace: { label: '페이스', icon: 'flash-outline' },
-  map: { label: '지도', icon: 'map-outline' },
+  distance: { get label() { return t("거리"); }, icon: 'location-outline' },
+  time: { get label() { return t("시간"); }, icon: 'time-outline' },
+  pace: { get label() { return t("페이스"); }, icon: 'flash-outline' },
+  map: { get label() { return t("지도"); }, icon: 'map-outline' },
 };
 
 // 아바타 메타데이터
 const AVATAR_METADATA = {
-  label: '아바타',
+  get label() { return t("아바타"); },
   icon: 'person-outline' as keyof typeof Ionicons.glyphMap,
 };
 
@@ -36,6 +37,7 @@ export const StatVisibilityToggle: React.FC<StatVisibilityToggleProps> = ({
   avatarVisible,
   onAvatarToggle,
 }) => {
+  useAppLanguage();
   return (
     <View style={styles.sectionCard}>
       {/* <Text style={styles.title}>표시할 정보</Text> */}

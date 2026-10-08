@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -7,18 +8,39 @@ import { useAuth } from '~/features/auth/hooks/useAuth';
 import { Text } from '~/shared/components/typography';
 import { GREY, RED } from '~/shared/styles';
 import { userService } from '../services/userService';
+import { useLanguageSettings } from '../hooks/useLanguageSettings';
+import { useUserStore } from '~/stores/user/userStore';
+import type { LanguagePreference } from '~/i18n/language';
 
 /**
  * 설정 화면
  * 고객센터, 권한 설정, 로그아웃, 회원 탈퇴
  */
 export const SettingsView: React.FC = () => {
+  useAppLanguage();
   const router = useRouter();
   const { logout } = useAuth();
   const [showLogoutAlert, setShowLogoutAlert] = useState(false);
   const [showWithdrawAlert, setShowWithdrawAlert] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [showLanguagePicker, setShowLanguagePicker] = useState(false);
+  const language = useUserStore((state) => state.userPreferences.language);
+  const saveLanguage = useLanguageSettings();
+  const languageOptions: { value: LanguagePreference; label: string }[] = [
+    { value: 'system', label: t("기기 설정 따르기") },
+    { value: 'ko', label: '한국어' },
+    { value: 'ja', label: '日本語' },
+  ];
+  const handleLanguageChange = async (value: LanguagePreference) => {
+    if (saveLanguage.isPending) return;
+    try {
+      await saveLanguage.mutateAsync(value);
+      setShowLanguagePicker(false);
+    } catch {
+      Alert.alert(t("언어 저장 실패"), t("언어 설정을 저장하지 못했습니다. 인터넷 연결을 확인하고 다시 시도해주세요."));
+    }
+  };
 
   /**
    * 고객센터 이동 핸들러
@@ -52,9 +74,9 @@ export const SettingsView: React.FC = () => {
       setShowLogoutAlert(false);
 
       Alert.alert(
-        '로그아웃 실패',
-        '로그아웃 중 오류가 발생했습니다. 다시 시도해주세요.',
-        [{ text: '확인', style: 'default' }]
+        t("로그아웃 실패"),
+        t("로그아웃 중 오류가 발생했습니다. 다시 시도해주세요."),
+        [{ text: t("확인"), style: 'default' }]
       );
     } finally {
       setIsLoggingOut(false);
@@ -83,9 +105,9 @@ export const SettingsView: React.FC = () => {
       setShowWithdrawAlert(false);
 
       Alert.alert(
-        '회원 탈퇴 실패',
-        '회원 탈퇴 중 오류가 발생했습니다. 다시 시도해주세요.',
-        [{ text: '확인', style: 'default' }]
+        t("회원 탈퇴 실패"),
+        t("회원 탈퇴 중 오류가 발생했습니다. 다시 시도해주세요."),
+        [{ text: t("확인"), style: 'default' }]
       );
     } finally {
       setIsWithdrawing(false);
@@ -103,7 +125,7 @@ export const SettingsView: React.FC = () => {
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
           <Ionicons name="chevron-back" size={24} color={GREY[900]} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>설정</Text>
+        <Text style={styles.headerTitle}>{t("설정")}</Text>
         <View style={styles.headerRight} />
       </View>
 
@@ -112,10 +134,19 @@ export const SettingsView: React.FC = () => {
         <View style={styles.section}>
           <TouchableOpacity
             style={[styles.menuItem, styles.menuItemBorder]}
+            onPress={() => setShowLanguagePicker(true)}
+            accessibilityRole="button"
+            testID="settings-language-menu"
+          >
+            <Text style={styles.menuItemText}>{t("언어")}</Text>
+            <Text>{languageOptions.find((option) => option.value === language)?.label}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.menuItem, styles.menuItemBorder]}
             onPress={handleCustomerService}
             activeOpacity={0.7}
           >
-            <Text style={styles.menuItemText}>고객센터</Text>
+            <Text style={styles.menuItemText}>{t("고객센터")}</Text>
             <Ionicons name="chevron-forward" size={20} color={GREY[300]} />
           </TouchableOpacity>
 
@@ -124,7 +155,7 @@ export const SettingsView: React.FC = () => {
             onPress={handlePermissionSettings}
             activeOpacity={0.7}
           >
-            <Text style={styles.menuItemText}>권한 설정</Text>
+            <Text style={styles.menuItemText}>{t("권한 설정")}</Text>
             <Ionicons name="chevron-forward" size={20} color={GREY[300]} />
           </TouchableOpacity>
 
@@ -134,7 +165,7 @@ export const SettingsView: React.FC = () => {
             activeOpacity={0.7}
             testID="settings-logout-menu"
           >
-            <Text style={styles.menuItemText}>로그아웃</Text>
+            <Text style={styles.menuItemText}>{t("로그아웃")}</Text>
             <Ionicons name="chevron-forward" size={20} color={GREY[300]} />
           </TouchableOpacity>
 
@@ -143,11 +174,35 @@ export const SettingsView: React.FC = () => {
             onPress={() => setShowWithdrawAlert(true)}
             activeOpacity={0.7}
           >
-            <Text style={[styles.menuItemText, styles.dangerText]}>회원 탈퇴</Text>
+            <Text style={[styles.menuItemText, styles.dangerText]}>{t("회원 탈퇴")}</Text>
             <Ionicons name="chevron-forward" size={20} color={GREY[300]} />
           </TouchableOpacity>
         </View>
       </View>
+
+      <Modal visible={showLanguagePicker} transparent animationType="fade"
+        onRequestClose={() => { if (!saveLanguage.isPending) setShowLanguagePicker(false); }}>
+        <View style={styles.alertOverlay}>
+          <View style={styles.alertContainer}>
+            <Text style={styles.alertTitle}>{t("언어")}</Text>
+            {languageOptions.map((option) => (
+              <TouchableOpacity key={option.value} style={styles.menuItem}
+                onPress={() => void handleLanguageChange(option.value)}
+                disabled={saveLanguage.isPending} accessibilityRole="radio"
+                accessibilityState={{ checked: option.value === language, disabled: saveLanguage.isPending }}
+                testID={`settings-language-${option.value}`}>
+                <Text style={styles.menuItemText}>{option.label}</Text>
+                {option.value === language && <Ionicons name="checkmark" size={20} color={GREY[900]} />}
+              </TouchableOpacity>
+            ))}
+            {saveLanguage.isPending && <Text accessibilityRole="alert">{t("저장 중...")}</Text>}
+            <TouchableOpacity style={[styles.alertButton, styles.cancelButton]}
+              onPress={() => setShowLanguagePicker(false)} disabled={saveLanguage.isPending}>
+              <Text style={styles.cancelButtonText}>{t("취소")}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* 로그아웃 알림 */}
       <Modal
@@ -158,14 +213,14 @@ export const SettingsView: React.FC = () => {
       >
         <View style={styles.alertOverlay}>
           <View style={styles.alertContainer}>
-            <Text style={styles.alertTitle}>로그아웃</Text>
-            <Text style={styles.alertMessage}>정말로 로그아웃하시겠습니까?</Text>
+            <Text style={styles.alertTitle}>{t("로그아웃")}</Text>
+            <Text style={styles.alertMessage}>{t("정말로 로그아웃하시겠습니까?")}</Text>
             <View style={styles.alertButtons}>
               <TouchableOpacity
                 style={[styles.alertButton, styles.cancelButton]}
                 onPress={() => setShowLogoutAlert(false)}
               >
-                <Text style={styles.cancelButtonText}>취소</Text>
+                <Text style={styles.cancelButtonText}>{t("취소")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.alertButton, styles.confirmButton]}
@@ -174,7 +229,7 @@ export const SettingsView: React.FC = () => {
                 testID="settings-logout-confirm"
               >
                 <Text style={styles.confirmButtonText}>
-                  {isLoggingOut ? '로그아웃 중...' : '로그아웃'}
+                  {isLoggingOut ? t("로그아웃 중...") : t("로그아웃")}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -191,17 +246,14 @@ export const SettingsView: React.FC = () => {
       >
         <View style={styles.alertOverlay}>
           <View style={styles.alertContainer}>
-            <Text style={styles.alertTitle}>회원 탈퇴</Text>
-            <Text style={styles.alertMessage}>
-              정말로 탈퇴하시겠습니까?{'\n'}
-              탈퇴 후에는 계정 복구가 불가능합니다.
-            </Text>
+            <Text style={styles.alertTitle}>{t("회원 탈퇴")}</Text>
+            <Text style={styles.alertMessage}>{t("정말로 탈퇴하시겠습니까?")}{'\n'}{t("탈퇴 후에는 계정 복구가 불가능합니다.")}</Text>
             <View style={styles.alertButtons}>
               <TouchableOpacity
                 style={[styles.alertButton, styles.cancelButton]}
                 onPress={() => setShowWithdrawAlert(false)}
               >
-                <Text style={styles.cancelButtonText}>취소</Text>
+                <Text style={styles.cancelButtonText}>{t("취소")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.alertButton, styles.dangerButton]}
@@ -209,7 +261,7 @@ export const SettingsView: React.FC = () => {
                 disabled={isWithdrawing}
               >
                 <Text style={styles.confirmButtonText}>
-                  {isWithdrawing ? '처리 중...' : '탈퇴하기'}
+                  {isWithdrawing ? t("처리 중...") : t("탈퇴하기")}
                 </Text>
               </TouchableOpacity>
             </View>

@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
@@ -26,6 +27,7 @@ interface StoredShoesListViewProps {
 }
 
 export const StoredShoesListView: React.FC<StoredShoesListViewProps> = ({ onClose }) => {
+  useAppLanguage();
   const {
     shoeViewModels,
     isLoading,
@@ -153,6 +155,7 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ onClose }) => {
+  useAppLanguage();
   return (
     <View style={styles.header}>
       {onClose ? (
@@ -162,7 +165,7 @@ const Header: React.FC<HeaderProps> = ({ onClose }) => {
       ) : (
         <View style={styles.backButton} />
       )}
-      <Text style={styles.headerTitle}>신발 보관함</Text>
+      <Text style={styles.headerTitle}>{t("신발 보관함")}</Text>
       <View style={styles.placeholder} />
     </View>
   );
@@ -176,6 +179,7 @@ interface ShoeCardProps {
 }
 
 const ShoeCard: React.FC<ShoeCardProps> = ({ shoe }) => {
+  useAppLanguage();
   return (
     <View style={styles.shoeItemContent}>
       <View style={styles.shoeItemImageContainer}>
@@ -184,7 +188,7 @@ const ShoeCard: React.FC<ShoeCardProps> = ({ shoe }) => {
       <View style={styles.shoeItemInfo}>
         <Text style={styles.shoeItemName}>{shoe.displayName}</Text>
         <View style={styles.shoeItemDistance}>
-          <Text style={styles.shoeItemDistanceLabel}>누적 거리</Text>
+          <Text style={styles.shoeItemDistanceLabel}>{t("누적 거리")}</Text>
           <Text style={styles.shoeItemDistanceValue}>
             {RunningStatusFormat.distance(shoe.totalDistance, { fractionDigits: 1 })}
           </Text>
@@ -207,6 +211,7 @@ const HiddenActionButtons: React.FC<HiddenActionButtonsProps> = ({
   onTakeOut,
   onDelete,
 }) => {
+  useAppLanguage();
   return (
     <View style={styles.hiddenActionsContainer}>
       <TouchableOpacity style={styles.actionButtonDelete} onPress={onDelete}>
@@ -224,11 +229,10 @@ const HiddenActionButtons: React.FC<HiddenActionButtonsProps> = ({
  * 빈 상태
  */
 const EmptyState: React.FC = () => {
+  useAppLanguage();
   return (
     <View style={styles.emptyState}>
-      <Text style={styles.emptyStateText}>
-        보관된 신발이 없어요.{'\n'}신발을 보관하면 여기에 표시됩니다!
-      </Text>
+      <Text style={styles.emptyStateText}>{t("보관된 신발이 없어요.")}{'\n'}{t("신발을 보관하면 여기에 표시됩니다!")}</Text>
     </View>
   );
 };
@@ -237,6 +241,7 @@ const EmptyState: React.FC = () => {
  * 로딩 상태
  */
 const LoadingState: React.FC = () => {
+  useAppLanguage();
   return (
     <View style={styles.loadingState}>
       <ActivityIndicator size="large" color={GREY[800]} />
@@ -260,6 +265,7 @@ const TakeOutConfirmModal: React.FC<TakeOutConfirmModalProps> = ({
   onConfirm,
   onCancel,
 }) => {
+  useAppLanguage();
   return (
     <Modal
       visible={visible}
@@ -270,20 +276,19 @@ const TakeOutConfirmModal: React.FC<TakeOutConfirmModalProps> = ({
       <View style={styles.modalOverlay}>
         <View style={styles.modalContainer}>
           <Text style={styles.modalMessage}>
-            {shoeName} 를{'\n'}신발 보관함에서 꺼내시겠어요?
-          </Text>
+            {shoeName}{t(" 를")}{'\n'}{t("신발 보관함에서 꺼내시겠어요?")}</Text>
           <View style={styles.modalButtons}>
             <TouchableOpacity
               style={[styles.modalButton, styles.modalButtonCancel]}
               onPress={onCancel}
             >
-              <Text style={styles.modalButtonCancelText}>취소</Text>
+              <Text style={styles.modalButtonCancelText}>{t("취소")}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.modalButton, styles.modalButtonConfirm]}
               onPress={onConfirm}
             >
-              <Text style={styles.modalButtonText}>확인</Text>
+              <Text style={styles.modalButtonText}>{t("확인")}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -308,6 +313,7 @@ const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
   onConfirm,
   onCancel,
 }) => {
+  useAppLanguage();
   return (
     <Modal
       visible={visible}
@@ -317,21 +323,19 @@ const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
     >
       <View style={styles.modalOverlay}>
         <View style={styles.modalContainer}>
-          <Text style={styles.modalMessage}>
-            신발을 삭제하면 복구할 수 없어요!{'\n'}해당 신발을 영구 삭제 하시겠어요?
-          </Text>
+          <Text style={styles.modalMessage}>{t("신발을 삭제하면 복구할 수 없어요!")}{'\n'}{t("해당 신발을 영구 삭제 하시겠어요?")}</Text>
           <View style={styles.modalButtons}>
             <TouchableOpacity
               style={[styles.modalButton, styles.modalButtonCancel]}
               onPress={onCancel}
             >
-              <Text style={styles.modalButtonCancelText}>취소</Text>
+              <Text style={styles.modalButtonCancelText}>{t("취소")}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.modalButton, styles.modalButtonDelete]}
               onPress={onConfirm}
             >
-              <Text style={styles.modalButtonText}>삭제</Text>
+              <Text style={styles.modalButtonText}>{t("삭제")}</Text>
             </TouchableOpacity>
           </View>
         </View>

@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import React from 'react';
 import { GREY } from '~/shared/styles';
 import {
@@ -30,6 +31,7 @@ interface StatsViewProps {
  * 정책: 센서 데이터 없으면 "--" 표시
  */
 export const StatsView: React.FC<StatsViewProps> = ({ paceType = 'average' }) => {
+  useAppLanguage();
   const { elapsedTime, stats } = useRunning();
 
   const heartRate = RunningStatusFormat.heartRate(stats.bpm);
@@ -43,19 +45,19 @@ export const StatsView: React.FC<StatsViewProps> = ({ paceType = 'average' }) =>
     <View style={styles.container}>
       {/* 심박 */}
       <View style={styles.statItem}>
-        <Text style={styles.statLabel}>심박</Text>
+        <Text style={styles.statLabel}>{t("심박")}</Text>
         <Text style={styles.statValue}>{heartRate}</Text>
       </View>
 
       {/* 페이스 */}
       <View style={styles.statItem}>
-        <Text style={styles.statLabel}>페이스</Text>
+        <Text style={styles.statLabel}>{t("페이스")}</Text>
         <Text style={styles.statValue}>{pace}</Text>
       </View>
 
       {/* 러닝 시간 */}
       <View style={styles.statItem}>
-        <Text style={styles.statLabel}>러닝 시간</Text>
+        <Text style={styles.statLabel}>{t("러닝 시간")}</Text>
         <Text style={styles.statValue}>{runningTime}</Text>
       </View>
     </View>

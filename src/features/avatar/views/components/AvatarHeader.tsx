@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 /**
  * 아바타 헤더 컴포넌트
  * SRP: 헤더 UI만 담당
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export const AvatarHeader: React.FC<Props> = ({ onClose, points }) => {
+  useAppLanguage();
 
   return (
     <View style={styles.container}>
@@ -23,7 +25,7 @@ export const AvatarHeader: React.FC<Props> = ({ onClose, points }) => {
       </TouchableOpacity>
 
       {/* Title */}
-      <Text style={styles.title}>아바타</Text>
+      <Text style={styles.title}>{t("아바타")}</Text>
 
       {/* Points */}
       <View style={styles.pointsContainer}>

@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import React from 'react';
 import {
   TouchableOpacity,
@@ -16,6 +17,7 @@ export const StartButton: React.FC<StartButtonProps> = ({
   onPress,
   haveRunningRecord
 }) => {
+  useAppLanguage();
   return (
     <LinearGradient
       colors={[PRIMARY[600], '#77FFAD', '#C4FF84']}
@@ -26,9 +28,9 @@ export const StartButton: React.FC<StartButtonProps> = ({
     >
       <TouchableOpacity style={styles.button} onPress={onPress}>
         <Text style={styles.subText}>
-          {haveRunningRecord ? '다시 달려볼까요?' : '한번 달려볼까요?'}
+          {haveRunningRecord ? t("다시 달려볼까요?") : t("한번 달려볼까요?")}
         </Text>
-        <Text style={styles.mainText}>START !</Text>
+        <Text style={styles.mainText}>{t("START !")}</Text>
       </TouchableOpacity>
     </LinearGradient>
   );

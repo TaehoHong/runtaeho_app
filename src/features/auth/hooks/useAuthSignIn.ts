@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import { useState } from 'react';
 import { Alert } from 'react-native';
 import { AuthMessages } from '../constants/AuthMessages';
@@ -16,6 +17,7 @@ import { useAuth } from './useAuth';
  * - React Hook 기반 상태 관리
  */
 export const useAuthSignIn = () => {
+  useAppLanguage();
   const [isLoading, setIsLoading] = useState(false);
   const { completeLogin } = useAuth();
   const authService = AuthenticationService.shared;
@@ -32,26 +34,26 @@ export const useAuthSignIn = () => {
 
       case AuthErrorType.IN_PROGRESS:
         // 이미 진행 중
-        Alert.alert('알림', '이미 로그인이 진행 중입니다.');
+        Alert.alert(t("알림"), t("이미 로그인이 진행 중입니다."));
         break;
 
       case AuthErrorType.UNAVAILABLE:
         // 사용 불가능
-        Alert.alert('오류', error.message);
+        Alert.alert(t("오류"), error.message);
         break;
 
       case AuthErrorType.NO_AUTH_CODE:
         // 인증 코드 없음
-        Alert.alert(AuthMessages.LOGIN_FAILED, '인증 코드를 받지 못했습니다.');
+        Alert.alert(AuthMessages.LOGIN_FAILED, t("인증 코드를 받지 못했습니다."));
         break;
 
       case AuthErrorType.NETWORK_ERROR:
         // 네트워크 오류 - 재시도 버튼 제공
         Alert.alert(
-          '네트워크 오류',
-          '인터넷 연결을 확인하고 다시 시도해주세요.',
+          t("네트워크 오류"),
+          t("인터넷 연결을 확인하고 다시 시도해주세요."),
           [
-            { text: '확인', style: 'cancel' }
+            { text: t("확인"), style: 'cancel' }
           ]
         );
         break;

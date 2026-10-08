@@ -1,3 +1,4 @@
+import { t } from '~/i18n';
 /**
  * 미디어 피커 관련 타입 정의
  * SPOT 원칙에 따라 카메라/갤러리 관련 타입을 단일 위치에서 관리
@@ -83,10 +84,10 @@ export interface UseMediaPickerReturn {
  * 기본 권한 메시지
  */
 export const DEFAULT_PERMISSION_MESSAGES: Required<PermissionMessages> = {
-  cameraRequest: '사진 촬영을 위해 카메라 권한이 필요합니다.',
-  cameraDenied: '카메라 권한이 거부되었습니다. 설정에서 권한을 허용해주세요.',
-  galleryRequest: '사진 선택을 위해 갤러리 권한이 필요합니다.',
-  galleryDenied: '갤러리 권한이 거부되었습니다. 설정에서 권한을 허용해주세요.',
+  get cameraRequest() { return t("사진 촬영을 위해 카메라 권한이 필요합니다."); },
+  get cameraDenied() { return t("카메라 권한이 거부되었습니다. 설정에서 권한을 허용해주세요."); },
+  get galleryRequest() { return t("사진 선택을 위해 갤러리 권한이 필요합니다."); },
+  get galleryDenied() { return t("갤러리 권한이 거부되었습니다. 설정에서 권한을 허용해주세요."); },
 };
 
 /**

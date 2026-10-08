@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router/stack';
+import { LanguageProvider } from '~/i18n/LanguageProvider';
 import { StyleSheet, View } from 'react-native';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '~/services/queryClient';
@@ -32,6 +33,7 @@ function RootLayout() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
+        <LanguageProvider>
         <ForceUpdateProvider
           checkOnLaunch={true}
           checkOnForeground={true}
@@ -114,6 +116,7 @@ function RootLayout() {
             </AppStateProvider>
           </AuthProvider>
         </ForceUpdateProvider>
+        </LanguageProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );

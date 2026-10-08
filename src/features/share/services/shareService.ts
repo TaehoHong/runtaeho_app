@@ -1,3 +1,4 @@
+import { t } from '~/i18n';
 /**
  * Share Service
  * 공유 이미지 캡처와 공유 sheet 호출을 담당한다.
@@ -143,7 +144,7 @@ const captureStageImageIOS = async (
 
   const bounds = boundsOverride ?? await measureViewInWindow(viewRef);
   if (!isViewFullyVisibleInWindow(bounds)) {
-    throw new Error('공유 이미지를 캡처하려면 export stage가 화면 안에 완전히 보여야 합니다.');
+    throw new Error(t("공유 이미지를 캡처하려면 export stage가 화면 안에 완전히 보여야 합니다."));
   }
 
   const windowSize = Dimensions.get('window');
@@ -204,8 +205,8 @@ export const captureViewAsImage = async (
 
 export const shareImage = async (
   imageUri: string,
-  title: string = 'RunTaeho 러닝 기록',
-  message: string = '오늘도 달렸어요!'
+  title: string = t("RunTaeho 러닝 기록"),
+  message: string = t("오늘도 달렸어요!")
 ): Promise<ShareResult> => {
   await ensureShareDependenciesLoaded();
 
@@ -225,7 +226,7 @@ export const shareImage = async (
     if (result.dismissedAction) {
       return {
         success: false,
-        message: '공유가 취소되었습니다.',
+        message: t("공유가 취소되었습니다."),
       };
     }
 
@@ -237,14 +238,14 @@ export const shareImage = async (
     if (error.message?.includes('User did not share')) {
       return {
         success: false,
-        message: '공유가 취소되었습니다.',
+        message: t("공유가 취소되었습니다."),
       };
     }
 
     console.error('[ShareService] Failed to share:', error);
     return {
       success: false,
-      message: error.message || '공유에 실패했습니다.',
+      message: error.message || t("공유에 실패했습니다."),
     };
   }
 };
@@ -262,7 +263,7 @@ export const captureAndShare = async (
     console.error('[ShareService] captureAndShare failed:', error);
     return {
       success: false,
-      message: error.message || '캡처 및 공유에 실패했습니다.',
+      message: error.message || t("캡처 및 공유에 실패했습니다."),
     };
   }
 };

@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 /**
  * Running Record List Component (Infinite Scroll)
  */
@@ -15,13 +16,12 @@ interface RunningRecordListProps {
   emptyMessage?: string;
 }
 
-const DEFAULT_EMPTY_MESSAGE = '러닝을 시작하면 기록이 생겨요!';
-
 export const RunningRecordList: React.FC<RunningRecordListProps> = ({
   startDate,
   endDate,
-  emptyMessage = DEFAULT_EMPTY_MESSAGE,
+  emptyMessage = t("러닝을 시작하면 기록이 생겨요!"),
 }) => {
+  useAppLanguage();
   const {
     records,
     isLoading,
@@ -42,7 +42,7 @@ export const RunningRecordList: React.FC<RunningRecordListProps> = ({
   if (isError) {
     return (
       <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>기록을 불러올 수 없습니다</Text>
+        <Text style={styles.errorText}>{t("기록을 불러올 수 없습니다")}</Text>
       </View>
     );
   }

@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 /**
  * ShareEditorScreen
  * 러닝 기록 공유 편집 화면
@@ -45,6 +46,7 @@ const PREVIEW_CORNER_RADIUS = 16;
 const EXPORT_CORNER_RADIUS = 0;
 
 export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningData }) => {
+  useAppLanguage();
   const endEntryTransition = useShareEntryTransitionStore((state) => state.endEntryTransition);
   const hasCompletedEntryTransitionRef = useRef(false);
   const {
@@ -91,7 +93,7 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
       return true;
     } catch (error) {
       console.warn(`[ShareEditorScreen] Failed to restore running result defaults on ${reason}:`, error);
-      Alert.alert('복원 실패', '러닝 결과 화면 복원에 실패했습니다. 다시 시도해주세요.');
+      Alert.alert(t("복원 실패"), t("러닝 결과 화면 복원에 실패했습니다. 다시 시도해주세요."));
       return false;
     }
   }, [resetAll, restoreRunningResultDefaults]);
@@ -104,7 +106,7 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
       return;
     }
 
-    let result: ShareResult = { success: false, message: '캡처 및 공유에 실패했습니다.' };
+    let result: ShareResult = { success: false, message: t("캡처 및 공유에 실패했습니다.") };
 
     try {
       const exportStageBounds = await prepareExportSurface();
@@ -113,7 +115,7 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
       console.error('[ShareEditorScreen] Failed to prepare export surface:', error);
       result = {
         success: false,
-        message: error?.message || '캡처 및 공유에 실패했습니다.',
+        message: error?.message || t("캡처 및 공유에 실패했습니다."),
       };
     } finally {
       await restorePreviewSurface();
@@ -123,8 +125,8 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
       await closeEditor('share-success');
     } else if (result.message) {
       // 취소가 아닌 경우에만 알림 (취소/실패 시 화면 유지)
-      if (!result.message.includes('취소')) {
-        Alert.alert('공유 실패', result.message);
+      if (!result.message.includes(t("취소"))) {
+        Alert.alert(t("공유 실패"), result.message);
       }
     }
   };
@@ -185,11 +187,11 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
                   <Ionicons name="close" size={24} color={GREY[600]} />
                 </TouchableOpacity>
                 <View pointerEvents="none" style={styles.headerTitleContainer}>
-                  <Text style={styles.headerTitle}>기록 공유</Text>
+                  <Text style={styles.headerTitle}>{t("기록 공유")}</Text>
                 </View>
                 <View style={styles.headerActions}>
                   <TouchableOpacity onPress={handleReset} style={styles.resetButton}>
-                    <Text style={styles.resetButtonText}>초기화</Text>
+                    <Text style={styles.resetButtonText}>{t("초기화")}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -224,7 +226,7 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
                   {isLoading && (
                     <View style={styles.previewLoadingOverlay}>
                       <ActivityIndicator size="large" color={GREY[600]} />
-                      <Text style={styles.loadingText}>캐릭터 준비 중...</Text>
+                      <Text style={styles.loadingText}>{t("캐릭터 준비 중...")}</Text>
                     </View>
                   )}
                 </View>
@@ -307,7 +309,7 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
               <View style={styles.exportBottomMask}>
                 <View style={styles.exportLoadingContainer} testID="share-export-loader">
                   <ActivityIndicator size="small" color={GREY[600]} />
-                  <Text style={styles.exportLoadingText}>이미지 준비 중...</Text>
+                  <Text style={styles.exportLoadingText}>{t("이미지 준비 중...")}</Text>
                 </View>
               </View>
             </View>

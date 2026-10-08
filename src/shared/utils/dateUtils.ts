@@ -1,3 +1,4 @@
+import { t } from '~/i18n';
 /**
  * Date Formatting Utilities
  * 날짜 포맷팅 관련 중복 로직 통합
@@ -55,7 +56,7 @@ export const formatRecordDate = (timestamp: number): string => {
   const day = date.getDate();
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
-  return `${year}년 ${month}월 ${day}일 ${hours}:${minutes}`;
+  return t("{{value0}}년 {{value1}}월 {{value2}}일 {{value3}}:{{value4}}", { value0: year, value1: month, value2: day, value3: hours, value4: minutes });
 };
 
 /**
@@ -67,7 +68,7 @@ export const formatKoreanDate = (date: Date): string => {
   const year = date.getFullYear();
   const month = date.getMonth() + 1;
   const day = date.getDate();
-  return `${year}년 ${month}월 ${day}일`;
+  return t("{{value0}}년 {{value1}}월 {{value2}}일", { value0: year, value1: month, value2: day });
 };
 
 /**
@@ -78,5 +79,5 @@ export const formatKoreanDate = (date: Date): string => {
 export const formatKoreanYearMonth = (date: Date): string => {
   const year = date.getFullYear();
   const month = date.getMonth() + 1;
-  return `${year}년 ${month}월`;
+  return t("{{value0}}년 {{value1}}월", { value0: year, value1: month });
 };

@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
@@ -28,6 +29,7 @@ export const TermsDetailModal: React.FC<TermsDetailModalProps> = ({
   title,
   onClose,
 }) => {
+  useAppLanguage();
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
@@ -66,7 +68,7 @@ export const TermsDetailModal: React.FC<TermsDetailModalProps> = ({
           {hasError ? (
             <View style={styles.errorContainer}>
               <Ionicons name="alert-circle-outline" size={48} color={GREY[400]} />
-              <Text style={styles.errorText}>페이지를 불러올 수 없습니다.</Text>
+              <Text style={styles.errorText}>{t("페이지를 불러올 수 없습니다.")}</Text>
               <Text style={styles.errorSubtext}>{url}</Text>
             </View>
           ) : (

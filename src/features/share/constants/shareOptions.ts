@@ -1,3 +1,4 @@
+import { t } from '~/i18n';
 /**
  * Share Options
  * 공유 에디터의 선택지와 기본 상태를 정의한다.
@@ -18,7 +19,7 @@ export const BACKGROUND_OPTIONS: BackgroundOption[] = [
   // Unity 배경 (기본 선택)
   {
     id: 'bg_river',
-    name: '강 배경',
+    get name() { return t("강 배경"); },
     source: 'bg_river',
     type: 'unity',
     unityBackgroundId: 'river',
@@ -33,31 +34,31 @@ export const BACKGROUND_OPTIONS: BackgroundOption[] = [
 export const POSE_OPTIONS: PoseOption[] = [
   {
     id: 'idle',
-    name: '기본',
+    get name() { return t("기본"); },
     trigger: 'IDLE',
     icon: 'body-outline',
   },
   {
     id: 'move',
-    name: '달리기',
+    get name() { return t("달리기"); },
     trigger: 'MOVE',
     icon: 'footsteps-outline',
   },
   {
     id: 'jump',
-    name: '점프',
+    get name() { return t("점프"); },
     trigger: 'ATTACK',
     icon: 'flash-outline',
   },
   {
     id: 'tired',
-    name: '지침',
+    get name() { return t("지침"); },
     trigger: 'DAMAGED',
     icon: 'battery-dead-outline',
   },
   {
     id: 'rest',
-    name: '휴식',
+    get name() { return t("휴식"); },
     trigger: 'DEATH',
     icon: 'battery-dead-outline',
   }

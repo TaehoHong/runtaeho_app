@@ -1,3 +1,4 @@
+import { useAppTranslation } from '~/i18n';
 import { useCallback, useMemo, useState } from 'react';
 import { useInfiniteShoes, useAddShoe, usePatchShoe, useUpdateToMain } from '../services';
 import {
@@ -15,6 +16,7 @@ import {
  * Swift ShoeViewModel을 React Hook으로 마이그레이션
  */
 export const useShoeViewModel = () => {
+  const t = useAppTranslation();
   // 필터 상태
   const [shoeFilters, setShoeFilters] = useState<{
     isEnabled?: boolean;
@@ -178,15 +180,15 @@ export const useShoeViewModel = () => {
    * 신발 뷰모델 목록
    */
   const shoeViewModels = useMemo(() => {
-    return filteredShoes.map(createShoeViewModel);
-  }, [filteredShoes]);
+    return filteredShoes.map((shoe) => createShoeViewModel(shoe, t));
+  }, [filteredShoes, t]);
 
   /**
    * 메인 신발 뷰모델
    */
   const mainShoeViewModel = useMemo(() => {
-    return mainShoe ? createShoeViewModel(mainShoe) : null;
-  }, [mainShoe]);
+    return mainShoe ? createShoeViewModel(mainShoe, t) : null;
+  }, [mainShoe, t]);
 
   /**
    * 더 많은 신발 로드 (무한 스크롤)

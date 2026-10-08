@@ -40,6 +40,7 @@ export const queryKeys = {
     detail: (id: number) => ['user', id] as const,
     current: ['user', 'current'] as const,
     data: ['user', 'data'] as const,
+    configuration: (userId: number | undefined) => ['user', 'configuration', userId] as const,
   },
 
   // Running 관련 Query Keys

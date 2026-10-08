@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 /**
  * LeagueNotJoinedView
  * 리그 미참여 상태 화면
@@ -132,6 +133,7 @@ const TierItem = ({
   baseIndex: number;
   normalizedScroll: Animated.AnimatedModulo<number>;
 }) => {
+  useAppLanguage();
   const outputRanges = ALL_OUTPUT_RANGES[baseIndex]!;
 
   const translateX = normalizedScroll.interpolate({
@@ -176,6 +178,7 @@ const TierItem = ({
 };
 
 export const LeagueNotJoinedView = () => {
+  useAppLanguage();
   // 페이드인 애니메이션
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(20)).current;
@@ -261,10 +264,8 @@ export const LeagueNotJoinedView = () => {
         </View>
 
         {/* 안내 텍스트 */}
-        <Text style={styles.title}>러닝을 기록하여 리그에 참여하세요!</Text>
-        <Text style={styles.description}>
-          매주 다른 러너들과 경쟁하고{'\n'}승격하여 더 높은 티어에 도전하세요
-        </Text>
+        <Text style={styles.title}>{t("러닝을 기록하여 리그에 참여하세요!")}</Text>
+        <Text style={styles.description}>{t("매주 다른 러너들과 경쟁하고")}{'\n'}{t("승격하여 더 높은 티어에 도전하세요")}</Text>
       </View>
     </Animated.View>
   );

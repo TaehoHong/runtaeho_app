@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 /**
  * Running Record Card Component
  * 개별 러닝 기록 카드
@@ -17,6 +18,7 @@ interface RunningRecordCardProps {
 }
 
 const RunningRecordCardComponent: React.FC<RunningRecordCardProps> = ({ record }) => {
+  useAppLanguage();
   const dateString = formatRecordDate(record.startTimestamp);
   const distance = RunningStatusFormat.distance(record.distance);
   const pace = calculateAveragePace(record);
@@ -42,17 +44,17 @@ const RunningRecordCardComponent: React.FC<RunningRecordCardProps> = ({ record }
       <View style={styles.cardStats}>
         <View style={styles.statBox}>
           <Text style={styles.statValue}>{distance}</Text>
-          <Text style={styles.statLabel}>거리</Text>
+          <Text style={styles.statLabel}>{t("거리")}</Text>
         </View>
 
         <View style={styles.statBox}>
           <Text style={styles.statValue}>{paceFormatted}</Text>
-          <Text style={styles.statLabel}>페이스</Text>
+          <Text style={styles.statLabel}>{t("페이스")}</Text>
         </View>
 
         <View style={styles.statBox}>
           <Text style={styles.statValue}>{duration}</Text>
-          <Text style={styles.statLabel}>총 시간</Text>
+          <Text style={styles.statLabel}>{t("총 시간")}</Text>
         </View>
       </View>
     </TouchableOpacity>

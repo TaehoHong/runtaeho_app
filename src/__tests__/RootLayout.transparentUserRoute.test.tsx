@@ -3,6 +3,10 @@ import { render } from '@testing-library/react-native';
 
 const mockStackScreen = jest.fn();
 
+jest.mock('~/i18n/LanguageProvider', () => ({
+  LanguageProvider: ({ children }: { children?: React.ReactNode }) => children,
+}));
+
 jest.mock('expo-router/stack', () => {
   const React = require('react');
 

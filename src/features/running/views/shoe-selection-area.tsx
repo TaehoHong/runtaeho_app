@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { PRIMARY, GREY } from '~/shared/styles';
 import {
@@ -39,6 +40,7 @@ export const ShoeSelectionArea: React.FC<ShoeSelectionAreaProps> = ({
   onShoeSelect,
   initialSelectedShoeId
 }) => {
+  useAppLanguage();
   // 신발 데이터 가져오기
   const { shoes, mainShoe, isLoadingShoes } = useShoeViewModel();
 
@@ -106,6 +108,7 @@ export const ShoeSnapCarousel: React.FC<ShoeSnapCarouselProps> = ({
   mainShoeId = null,
   onShoeSelect,
 }) => {
+  useAppLanguage();
   const scrollViewRef = useRef<ScrollView>(null);
 
   const scrollToShoe = useCallback((shoeId: number, animated: boolean) => {
@@ -187,6 +190,7 @@ export const ShoeSelectionCard: React.FC<ShoeSelectionCardProps> = ({
   isMain,
   onPress,
 }) => {
+  useAppLanguage();
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
       <View style={[styles.shoeCard, isActive && styles.shoeCardActive]}>
@@ -194,7 +198,7 @@ export const ShoeSelectionCard: React.FC<ShoeSelectionCardProps> = ({
         {/* <View style={styles.verticalGuide}/> */}
         <View style={styles.shoeImageContainer}>
           <Icon name="shoe" size={64}/>
-          <Text style={styles.shoeImageText}>Image Coming Soon</Text>
+          <Text style={styles.shoeImageText}>{t("Image Coming Soon")}</Text>
         </View>
 
         {/* 신발 정보 */}
@@ -204,7 +208,7 @@ export const ShoeSelectionCard: React.FC<ShoeSelectionCardProps> = ({
             <Text style={styles.shoeBrand}>{shoe.brand}</Text>
             {isMain && (
               <View style={styles.badge}>
-                <Text style={styles.badgeText}>현재 착용</Text>
+                <Text style={styles.badgeText}>{t("현재 착용")}</Text>
               </View>
             )}
           </View>
@@ -213,8 +217,7 @@ export const ShoeSelectionCard: React.FC<ShoeSelectionCardProps> = ({
           <Text style={styles.shoeModel}>{shoe.model}</Text>
 
           {/* 누적 거리 (meters → km 변환) */}
-          <Text style={styles.shoeDistance}>
-            누적 거리 {RunningStatusFormat.distance(shoe.totalDistance, { fractionDigits: 1 })}
+          <Text style={styles.shoeDistance}>{t("누적 거리 ")}{RunningStatusFormat.distance(shoe.totalDistance, { fractionDigits: 1 })}
           </Text>
         </View>
       </View>

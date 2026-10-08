@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 /**
  * 하단 버튼 (취소 / 확인 or 구매)
  * SRP: 하단 액션 버튼만 담당
@@ -24,10 +25,11 @@ export const BottomButtons: React.FC<Props> = ({
   onConfirm,
   isLoading,
 }) => {
+  useAppLanguage();
   return (
     <View style={styles.footer}>
       {shouldShowPurchase && (
-        <Text style={styles.totalPrice}>총 구매 금액 · {totalPurchasePrice.toLocaleString()} P</Text>
+        <Text style={styles.totalPrice}>{t('총 구매 금액')} · {totalPurchasePrice.toLocaleString()} P</Text>
       )}
       <View style={styles.container}>
         {/* Cancel Button */}
@@ -46,7 +48,7 @@ export const BottomButtons: React.FC<Props> = ({
               styles.buttonText,
               !hasChanges && styles.buttonTextDisabled,
             ]}
-          >취소</Text>
+          >{t("취소")}</Text>
         </TouchableOpacity>
 
         {/* Confirm / Purchase Button */}
@@ -70,7 +72,7 @@ export const BottomButtons: React.FC<Props> = ({
                 !hasChanges && styles.buttonTextDisabled,
               ]}
             >
-              {shouldShowPurchase ? '구매 후 적용' : '적용'}
+              {shouldShowPurchase ? t('구매 후 적용') : t('적용')}
             </Text>
           )}
         </TouchableOpacity>

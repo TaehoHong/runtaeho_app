@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import type { Href } from 'expo-router';
@@ -20,6 +21,7 @@ import { inquiryService } from '../inquiryService';
 import type { InquiryRequest } from '../types';
 
 export const ErrorInquiryView: React.FC = () => {
+  useAppLanguage();
   const router = useRouter();
   const params = useLocalSearchParams<{
     errorCode?: string | string[];
@@ -43,7 +45,7 @@ export const ErrorInquiryView: React.FC = () => {
     try {
       const result = await inquiryService.submit({
         type: 'ERROR',
-        title: '오류 문의',
+        title: t("오류 문의"),
         content: content.trim(),
         replyEmail: replyEmail.trim(),
         ...(sendInfo ? diagnostics(params) : {}),
@@ -52,8 +54,8 @@ export const ErrorInquiryView: React.FC = () => {
         `/user/inquiry-done?trackingNo=${encodeURIComponent(result.trackingNo)}` as Href
       );
     } catch {
-      Alert.alert('문의 접수 실패', '오류 문의를 접수하지 못했어요. 잠시 후 다시 보내주세요.', [
-        { text: '확인' },
+      Alert.alert(t("문의 접수 실패"), t("오류 문의를 접수하지 못했어요. 잠시 후 다시 보내주세요."), [
+        { text: t("확인") },
       ]);
     } finally {
       setSubmitting(false);
@@ -62,7 +64,7 @@ export const ErrorInquiryView: React.FC = () => {
 
   return (
     <TopScreenSafeAreaView style={styles.container}>
-      <Header title="오류 문의" onBack={() => router.back()} />
+      <Header title={t("오류 문의")} onBack={() => router.back()} />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -77,26 +79,24 @@ export const ErrorInquiryView: React.FC = () => {
               <Ionicons name="information-circle-outline" size={18} color={PRIMARY[700]} />
             </View>
             <View style={styles.infoText}>
-              <Text style={styles.infoTitle}>진단 정보를 선택해서 보낼 수 있어요</Text>
-              <Text style={styles.infoDesc}>
-                앱 버전, 기기 정보, 오류 코드, 발생 화면만 포함돼요.
-              </Text>
+              <Text style={styles.infoTitle}>{t("진단 정보를 선택해서 보낼 수 있어요")}</Text>
+              <Text style={styles.infoDesc}>{t("앱 버전, 기기 정보, 오류 코드, 발생 화면만 포함돼요.")}</Text>
             </View>
           </View>
 
           <View style={styles.card}>
             <Field
-              label="어떤 문제가 있었나요?"
+              label={t("어떤 문제가 있었나요?")}
               value={content}
               onChangeText={setContent}
-              placeholder="문제가 발생한 상황을 적어주세요."
+              placeholder={t("문제가 발생한 상황을 적어주세요.")}
               multiline
               inputStyle={styles.contentInput}
               textAlignVertical="top"
             />
             <View style={styles.line} />
             <Field
-              label="답변 받을 이메일"
+              label={t("답변 받을 이메일")}
               value={replyEmail}
               onChangeText={setReplyEmail}
               placeholder="email@example.com"
@@ -115,8 +115,8 @@ export const ErrorInquiryView: React.FC = () => {
               {sendInfo && <Ionicons name="checkmark" size={15} color={GREY[900]} />}
             </View>
             <View style={styles.checkText}>
-              <Text style={styles.checkTitle}>진단 정보 함께 보내기</Text>
-              <Text style={styles.checkDesc}>위치 기록, 운동 기록, 개인정보는 보내지 않아요.</Text>
+              <Text style={styles.checkTitle}>{t("진단 정보 함께 보내기")}</Text>
+              <Text style={styles.checkDesc}>{t("위치 기록, 운동 기록, 개인정보는 보내지 않아요.")}</Text>
             </View>
           </TouchableOpacity>
 
@@ -132,7 +132,7 @@ export const ErrorInquiryView: React.FC = () => {
             {submitting ? (
               <ActivityIndicator size="small" color={GREY[900]} />
             ) : (
-              <Text style={styles.submitText}>오류 문의 보내기</Text>
+              <Text style={styles.submitText}>{t("오류 문의 보내기")}</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -142,8 +142,8 @@ export const ErrorInquiryView: React.FC = () => {
 };
 
 const validate = (content: string, email: string): string => {
-  if (!content.trim()) return '문의 내용을 입력해주세요.';
-  if (!isEmail(email.trim())) return '답변 받을 이메일을 확인해주세요.';
+  if (!content.trim()) return t("문의 내용을 입력해주세요.");
+  if (!isEmail(email.trim())) return t("답변 받을 이메일을 확인해주세요.");
   return '';
 };
 
@@ -186,7 +186,7 @@ interface HeaderProps {
   onBack: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ title, onBack }) => (
+const Header: React.FC<HeaderProps> = ({ title, onBack }) => { useAppLanguage(); return (
   <View style={styles.header}>
     <TouchableOpacity onPress={onBack} style={styles.backButton}>
       <Ionicons name="chevron-back" size={24} color={GREY[900]} />
@@ -194,7 +194,7 @@ const Header: React.FC<HeaderProps> = ({ title, onBack }) => (
     <Text style={styles.headerTitle}>{title}</Text>
     <View style={styles.headerRight} />
   </View>
-);
+); };
 
 interface FieldProps {
   label: string;
@@ -208,7 +208,7 @@ interface FieldProps {
   textAlignVertical?: 'top';
 }
 
-const Field: React.FC<FieldProps> = ({ label, inputStyle, ...props }) => (
+const Field: React.FC<FieldProps> = ({ label, inputStyle, ...props }) => { useAppLanguage(); return (
   <View style={styles.field}>
     <Text style={styles.label}>{label}</Text>
     <TextInput
@@ -217,7 +217,7 @@ const Field: React.FC<FieldProps> = ({ label, inputStyle, ...props }) => (
       {...props}
     />
   </View>
-);
+); };
 
 const styles = StyleSheet.create({
   flex: {

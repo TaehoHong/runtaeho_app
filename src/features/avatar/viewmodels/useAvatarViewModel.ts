@@ -20,6 +20,7 @@ import {
   type EquippedItemsMap,
   type HairColor,
 } from '~/features/avatar';
+import { t } from '~/i18n';
 import { unityService } from '~/features/unity/services/UnityService';
 import { useUserStore } from '~/stores/user/userStore';
 
@@ -378,8 +379,8 @@ export function useAvatarViewModel(): AvatarViewModel {
     } catch {
       setShowPurchaseModal(false);
       setActionError(purchased
-        ? '구매는 완료됐지만 적용하지 못했어요. 다시 적용해주세요.'
-        : '아이템 구매에 실패했습니다.');
+        ? t('구매는 완료됐지만 적용하지 못했어요. 다시 적용해주세요.')
+        : t('아이템 구매에 실패했습니다.'));
     } finally {
       savingRef.current = false;
       setIsSaving(false);
@@ -398,7 +399,7 @@ export function useAvatarViewModel(): AvatarViewModel {
     try {
       await applySelection(pendingEquippedItems);
     } catch {
-      setActionError('착용 상태 업데이트에 실패했습니다.');
+      setActionError(t('착용 상태 업데이트에 실패했습니다.'));
     } finally {
       savingRef.current = false;
       setIsSaving(false);

@@ -1,3 +1,4 @@
+import { t } from '~/i18n';
 /**
  * 포인트 내역 모델
  */
@@ -22,15 +23,15 @@ export enum PointFilter {
  */
 export const PointFilterConfig = {
   [PointFilter.ALL]: {
-    displayName: '전체',
+    get displayName() { return t("전체"); },
     value: 'all',
   },
   [PointFilter.EARNED]: {
-    displayName: '적립',
+    get displayName() { return t("적립"); },
     value: 'earned',
   },
   [PointFilter.SPENT]: {
-    displayName: '사용',
+    get displayName() { return t("사용"); },
     value: 'spent',
   },
 } as const;

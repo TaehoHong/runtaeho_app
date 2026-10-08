@@ -11,6 +11,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import type { LanguagePreference } from '~/i18n/language';
 import type { Item, EquippedItemsMap } from '~/features/avatar';
 import { ItemStatus, getItemTypeById } from '~/features/avatar/models';
 import { type User } from '~/features/user/models/User';
@@ -44,7 +45,7 @@ export interface UserPreferences {
   themeMode: ThemeMode;
   notificationsEnabled: boolean;
   soundEnabled: boolean;
-  language: string;
+  language: LanguagePreference;
   distanceUnit: DistanceUnit;
   autoStartRunning: boolean;
 }
@@ -53,7 +54,7 @@ const defaultPreferences: UserPreferences = {
   themeMode: ThemeMode.SYSTEM,
   notificationsEnabled: true,
   soundEnabled: true,
-  language: 'ko',
+  language: 'system',
   distanceUnit: DistanceUnit.KILOMETER,
   autoStartRunning: false,
 };
@@ -155,6 +156,10 @@ export const useUserStore = create<UserState>()(
 
         set({
           currentUser: user,
+          userPreferences: {
+            ...get().userPreferences,
+            language: get().currentUser?.id === user.id ? get().userPreferences.language : 'system',
+          },
           totalPoint,
           avatarId,
           haveRunningRecord,
@@ -512,6 +517,15 @@ export const useUserStore = create<UserState>()(
     }),
     {
       name: 'user-storage', // AsyncStorage key
+      version: 1,
+      migrate: (persistedState) => {
+        const previous = persistedState as Partial<UserState>;
+        // Before language selection existed, every installation persisted 'ko'.
+        return {
+          ...previous,
+          userPreferences: { ...defaultPreferences, ...previous.userPreferences, language: 'system' as const },
+        };
+      },
       storage: createJSONStorage(() => AsyncStorage),
       // 필요한 필드만 persist (토큰은 Keychain에 별도 저장)
       partialize: (state) => ({

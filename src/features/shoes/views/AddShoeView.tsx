@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
@@ -24,6 +25,7 @@ interface AddShoeViewProps {
 }
 
 export const AddShoeView: React.FC<AddShoeViewProps> = ({ onClose, onSuccess }) => {
+  useAppLanguage();
   const [brand, setBrand] = useState('');
   const [model, setModel] = useState('');
   const [targetDistance, setTargetDistance] = useState('');
@@ -46,7 +48,7 @@ export const AddShoeView: React.FC<AddShoeViewProps> = ({ onClose, onSuccess }) 
 
     // 숫자 검증
     if (text && !/^\d+$/.test(text)) {
-      setTargetDistanceError('목표 거리는 숫자로만 입력이 가능해요.');
+      setTargetDistanceError(t("목표 거리는 숫자로만 입력이 가능해요."));
     } else {
       setTargetDistanceError('');
     }
@@ -103,24 +105,24 @@ export const AddShoeView: React.FC<AddShoeViewProps> = ({ onClose, onSuccess }) 
           <View style={styles.content}>
             {/* 브랜드 입력 */}
             <InputField
-              label="브랜드"
-              placeholder="신발의 브랜드를 입력해주세요."
+              label={t("브랜드")}
+              placeholder={t("신발의 브랜드를 입력해주세요.")}
               value={brand}
               onChangeText={handleBrandChange}
             />
 
             {/* 모델명 입력 */}
             <InputField
-              label="모델명"
-              placeholder="신발의 모델명을 입력해주세요."
+              label={t("모델명")}
+              placeholder={t("신발의 모델명을 입력해주세요.")}
               value={model}
               onChangeText={handleModelChange}
             />
 
             {/* 목표 거리 입력 */}
             <InputField
-              label="목표 거리 (km)"
-              placeholder="목표 거리를 입력해주세요."
+              label={t("목표 거리 (km)")}
+              placeholder={t("목표 거리를 입력해주세요.")}
               value={targetDistance}
               onChangeText={handleTargetDistanceChange}
               keyboardType="numeric"
@@ -136,7 +138,7 @@ export const AddShoeView: React.FC<AddShoeViewProps> = ({ onClose, onSuccess }) 
               onPress={handleSubmit}
               disabled={!isFormValid() || isSubmitting}
             >
-              <Text style={styles.submitButtonText}>신발 저장하기</Text>
+              <Text style={styles.submitButtonText}>{t("신발 저장하기")}</Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -156,12 +158,13 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ onClose }) => {
+  useAppLanguage();
   return (
     <View style={styles.header}>
       <TouchableOpacity onPress={onClose} style={styles.backButton}>
         <Ionicons name="chevron-back" size={24} color={GREY[900]} />
       </TouchableOpacity>
-      <Text style={styles.headerTitle}>신발 추가</Text>
+      <Text style={styles.headerTitle}>{t("신발 추가")}</Text>
       <View style={styles.headerRight} />
     </View>
   );
@@ -187,6 +190,7 @@ const InputField: React.FC<InputFieldProps> = ({
   keyboardType = 'default',
   error,
 }) => {
+  useAppLanguage();
   return (
     <View style={styles.inputContainer}>
       <Text style={styles.inputLabel}>{label}</Text>

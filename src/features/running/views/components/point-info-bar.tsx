@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import React from 'react';
 import { PRIMARY, GREY } from '~/shared/styles';
 import { View, StyleSheet, Text } from 'react-native';
@@ -17,11 +18,12 @@ export const PointInfoBar: React.FC<PointInfoBarProps> = ({
   earnedPoints,
   totalPoints,
 }) => {
+  useAppLanguage();
   return (
     <View style={[styles.container]}>
       {/* 획득 포인트 */}
       <View style={styles.section}>
-        <Text style={styles.label}>획득 포인트</Text>
+        <Text style={styles.label}>{t("획득 포인트")}</Text>
         <View style={styles.pointContainer}>
           {/* 포인트 아이콘 - 임시로 동그라미 사용 */}
           <Icon name="point" size={16}/>
@@ -35,7 +37,7 @@ export const PointInfoBar: React.FC<PointInfoBarProps> = ({
 
       {/* 보유 포인트 */}
       <View style={styles.section}>
-        <Text style={styles.label}>보유 포인트</Text>
+        <Text style={styles.label}>{t("보유 포인트")}</Text>
         <View style={styles.pointContainer}>
           {/* 포인트 아이콘 - 임시로 동그라미 사용 */}
           <Icon name="point" size={16}/>

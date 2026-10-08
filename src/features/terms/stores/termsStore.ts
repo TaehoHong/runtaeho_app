@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 /**
  * 약관 동의 Zustand Store
  */
@@ -38,7 +39,7 @@ const initialAgreements: AgreementState = {
   location: false,
 };
 
-export const useTermsStore = create<TermsState>((set, get) => ({
+export const useTermsStore = create<TermsState>((set, get) => { useAppLanguage(); return ({
   // State
   termsData: null,
   isLoading: false,
@@ -57,7 +58,7 @@ export const useTermsStore = create<TermsState>((set, get) => ({
     } catch (error: any) {
       console.error('❌ [TERMS_STORE] 약관 내용 조회 실패:', error);
       set({
-        error: error.message || '약관 내용을 불러오는데 실패했습니다.',
+        error: error.message || t("약관 내용을 불러오는데 실패했습니다."),
         isLoading: false,
       });
     }
@@ -115,4 +116,4 @@ export const useTermsStore = create<TermsState>((set, get) => ({
     const { termsData } = get();
     return termsData?.terms.find(term => term.type === type);
   },
-}));
+}); });

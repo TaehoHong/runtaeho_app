@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 /**
  * Permission Request Modal (v3.0)
  *
@@ -19,6 +20,7 @@ interface PermissionRequestModalProps {
 }
 
 export const PermissionRequestModal: React.FC<PermissionRequestModalProps> = ({ visible, onClose }) => {
+  useAppLanguage();
   const [missingPermissions, setMissingPermissions] = useState<string>('');
 
   /**
@@ -40,7 +42,7 @@ export const PermissionRequestModal: React.FC<PermissionRequestModalProps> = ({ 
       setMissingPermissions(message);
     } catch (error) {
       console.error('[PermissionRequestModal] Failed to check permissions:', error);
-      setMissingPermissions('권한 확인 중 오류가 발생했습니다.');
+      setMissingPermissions(t("권한 확인 중 오류가 발생했습니다."));
     }
   };
 
@@ -78,10 +80,8 @@ export const PermissionRequestModal: React.FC<PermissionRequestModalProps> = ({ 
 
           {/* 헤더 */}
           <View style={styles.header}>
-            <Text style={styles.title}>러닝을 시작하려면{'\n'}권한이 필요해요</Text>
-            <Text style={styles.subtitle}>
-              설정에서 다음 권한을 허용해주세요
-            </Text>
+            <Text style={styles.title}>{t("러닝을 시작하려면")}{'\n'}{t("권한이 필요해요")}</Text>
+            <Text style={styles.subtitle}>{t("설정에서 다음 권한을 허용해주세요")}</Text>
             {missingPermissions ? (
               <Text style={styles.missingPermissions}>{missingPermissions}</Text>
             ) : null}
@@ -95,10 +95,8 @@ export const PermissionRequestModal: React.FC<PermissionRequestModalProps> = ({ 
                 <Icon name="point" size={28} tintColor={PRIMARY[600]} />
               </View>
               <View style={styles.permissionContent}>
-                <Text style={styles.permissionTitle}>위치 권한</Text>
-                <Text style={styles.permissionDescription}>
-                  러닝 경로 추적 및 거리 측정에 사용됩니다.
-                </Text>
+                <Text style={styles.permissionTitle}>{t("위치 권한")}</Text>
+                <Text style={styles.permissionDescription}>{t("러닝 경로 추적 및 거리 측정에 사용됩니다.")}</Text>
               </View>
             </View>
 
@@ -108,10 +106,8 @@ export const PermissionRequestModal: React.FC<PermissionRequestModalProps> = ({ 
                 <Icon name="shoe" size={28} tintColor={PRIMARY[600]} />
               </View>
               <View style={styles.permissionContent}>
-                <Text style={styles.permissionTitle}>동작 및 피트니스</Text>
-                <Text style={styles.permissionDescription}>
-                  걸음 수 측정 및 활동량 분석에 사용됩니다.
-                </Text>
+                <Text style={styles.permissionTitle}>{t("동작 및 피트니스")}</Text>
+                <Text style={styles.permissionDescription}>{t("걸음 수 측정 및 활동량 분석에 사용됩니다.")}</Text>
               </View>
             </View>
           </View>
@@ -122,7 +118,7 @@ export const PermissionRequestModal: React.FC<PermissionRequestModalProps> = ({ 
             onPress={handleOpenSettings}
             activeOpacity={0.8}
           >
-            <Text style={styles.buttonText}>설정으로 이동</Text>
+            <Text style={styles.buttonText}>{t("설정으로 이동")}</Text>
           </TouchableOpacity>
 
           {/* 나중에 하기 */}
@@ -130,7 +126,7 @@ export const PermissionRequestModal: React.FC<PermissionRequestModalProps> = ({ 
             style={styles.skipButton}
             onPress={onClose}
           >
-            <Text style={styles.skipButtonText}>나중에 하기</Text>
+            <Text style={styles.skipButtonText}>{t("나중에 하기")}</Text>
           </TouchableOpacity>
         </TouchableOpacity>
       </TouchableOpacity>

@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 /**
  * Date Filter Tabs Component
  * Figma: Frame 637779 (68, 68, 240x34)
@@ -20,10 +21,11 @@ export const DateFilterTabs: React.FC<DateFilterTabsProps> = ({
   selected,
   onSelect,
 }) => {
+  useAppLanguage();
   const tabs = [
-    { label: '주', value: Period.WEEK },
-    { label: '월', value: Period.MONTH },
-    { label: '년', value: Period.YEAR },
+    { label: t("주"), value: Period.WEEK },
+    { label: t("월"), value: Period.MONTH },
+    { label: t("년"), value: Period.YEAR },
   ];
 
   // 선택된 탭의 인덱스 계산

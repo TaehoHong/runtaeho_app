@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 
 
 import React, { useCallback } from 'react';
@@ -51,6 +52,7 @@ const PoseButton = React.memo<PoseButtonProps>(({
   disabled,
   onSelect,
 }) => {
+  useAppLanguage();
   // 포즈 선택 (UI 스레드 → JS 스레드)
   const selectPose = useCallback(() => {
     onSelect(option);
@@ -68,7 +70,7 @@ const PoseButton = React.memo<PoseButtonProps>(({
       <Animated.View
         style={[disabled ? styles.buttonDisabled : undefined]}
         accessible={true}
-        accessibilityLabel={`${option.name} 포즈${isSelected ? ', 선택됨' : ''}`}
+        accessibilityLabel={t("{{value0}} 포즈{{value1}}", { value0: option.name, value1: isSelected ? t(', 선택됨') : '' })}
         accessibilityRole="button"
         accessibilityState={{ selected: isSelected, disabled }}
       >
@@ -121,6 +123,7 @@ const FrameSlider = React.memo<FrameSliderProps>(({
   onChange,
   disabled = false,
 }) => {
+  useAppLanguage();
   // 트랙 너비 저장 (UI 스레드 안전을 위해 SharedValue 사용)
   const trackWidth = useSharedValue(0);
 
@@ -215,12 +218,12 @@ const FrameSlider = React.memo<FrameSliderProps>(({
           style={styles.sliderTrackContainer}
           onLayout={onTrackLayout}
           accessible={true}
-          accessibilityLabel={`프레임 슬라이더, ${percentage}%`}
+          accessibilityLabel={t("프레임 슬라이더, {{value0}}%", { value0: percentage })}
           accessibilityRole="adjustable"
           accessibilityValue={{ min: 0, max: 100, now: percentage }}
           accessibilityActions={[
-            { name: 'increment', label: '증가' },
-            { name: 'decrement', label: '감소' },
+            { name: 'increment', label: t("증가") },
+            { name: 'decrement', label: t("감소") },
           ]}
           onAccessibilityAction={handleAccessibilityAction}
         >
@@ -249,9 +252,10 @@ export const PoseSelector: React.FC<PoseSelectorProps> = ({
   sliderValue,
   onSliderChange,
 }) => {
+  useAppLanguage();
   return (
     <View style={styles.sectionCard}>
-      <Text style={styles.title}>포즈</Text>
+      <Text style={styles.title}>{t("포즈")}</Text>
 
       {/* 포즈 버튼들 */}
       <ScrollView

@@ -1,0 +1,9 @@
+"NSCameraUsageDescription" = "プロフィール写真やランニング記録の共有用背景を撮影するため、カメラへのアクセスが必要です。";
+"NSHealthShareUsageDescription" = "ランニング記録と統計を同期するため、Appleヘルスケアのワークアウト、距離、心拍数、カロリー、ルートデータを読み取ります。";
+"NSHealthUpdateUsageDescription" = "RunTaehoで記録したランニングデータをAppleヘルスケアに保存・更新するために使用します。";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "バックグラウンドでもランニングを中断せず記録するため、位置情報へのアクセスが必要です。バックグラウンドでもルート、距離、ペースを正確に記録します。";
+"NSLocationAlwaysUsageDescription" = "バックグラウンドでもランニングを中断せず記録するため、位置情報へのアクセスが必要です。バックグラウンドでもルート、距離、ペースを正確に記録します。";
+"NSLocationWhenInUseUsageDescription" = "RunTaehoはランニング中にGPSルートを追跡し、移動距離とペースを計算します。例えば5km走ると、正確なルート、距離、平均ペースを記録できます。";
+"NSMotionUsageDescription" = "歩数の測定とランニングペースの分析に、モーションとフィットネスのデータを使用します。";
+"NSPhotoLibraryAddUsageDescription" = "ランニング記録の共有画像を写真ライブラリに保存するため、アクセスが必要です。";
+"NSPhotoLibraryUsageDescription" = "プロフィール写真やランニング記録の共有用背景を選ぶため、写真ライブラリへのアクセスが必要です。";

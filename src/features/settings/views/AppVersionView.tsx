@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import * as Application from 'expo-application';
 import Constants from 'expo-constants';
@@ -16,6 +17,7 @@ const APP_ICON = require('../../../../assets/images/icon.png');
  * 앱 버전 정보 화면
  */
 export const AppVersionView: React.FC = () => {
+  useAppLanguage();
   const router = useRouter();
 
   // 앱 버전 정보
@@ -37,7 +39,7 @@ export const AppVersionView: React.FC = () => {
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
           <Ionicons name="chevron-back" size={24} color={GREY[900]} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>버전 정보</Text>
+        <Text style={styles.headerTitle}>{t("버전 정보")}</Text>
         <View style={styles.headerRight} />
       </View>
 
@@ -54,8 +56,8 @@ export const AppVersionView: React.FC = () => {
         </View>
 
         {/* 버전 정보 */}
-        <Text style={styles.versionText}>{appVersion} 버전</Text>
-        <Text style={styles.buildText}>스토어 빌드: {nativeVersion} ({buildNumber})</Text>
+        <Text style={styles.versionText}>{appVersion}{t(" 버전")}</Text>
+        <Text style={styles.buildText}>{t("스토어 빌드: ")}{nativeVersion} ({buildNumber})</Text>
 
         {/* 저작권 */}
         <View style={styles.copyrightContainer}>

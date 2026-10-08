@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -25,6 +26,7 @@ interface MenuItem {
  * 1:1 문의, FAQ, 공지사항 등 고객 지원 메뉴
  */
 export const CustomerServiceView: React.FC = () => {
+  useAppLanguage();
   const router = useRouter();
 
   /**
@@ -42,8 +44,8 @@ export const CustomerServiceView: React.FC = () => {
       id: 'inquiry',
       icon: 'chatbubble-outline',
       iconBackgroundColor: '#E8F5E9',
-      title: '1:1 문의',
-      description: '빠른 답변을 받아보세요',
+      title: t("1:1 문의"),
+      description: t("빠른 답변을 받아보세요"),
       onPress: () => {
         router.push('/user/inquiry');
       },
@@ -52,8 +54,8 @@ export const CustomerServiceView: React.FC = () => {
       id: 'faq',
       icon: 'document-text-outline',
       iconBackgroundColor: '#E8F5E9',
-      title: '자주 묻는 질문',
-      description: 'FAQ를 확인하세요',
+      title: t("자주 묻는 질문"),
+      description: t("FAQ를 확인하세요"),
       onPress: () => {
         router.push('/user/faq');
       },
@@ -62,8 +64,8 @@ export const CustomerServiceView: React.FC = () => {
       id: 'notice',
       icon: 'notifications-outline',
       iconBackgroundColor: '#E8F5E9',
-      title: '공지사항',
-      description: '최신 소식을 확인하세요',
+      title: t("공지사항"),
+      description: t("최신 소식을 확인하세요"),
       showNewBadge: true,
       onPress: () => {
         router.push('/user/notice');
@@ -82,7 +84,7 @@ export const CustomerServiceView: React.FC = () => {
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
           <Ionicons name="chevron-back" size={24} color={GREY[900]} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>고객센터</Text>
+        <Text style={styles.headerTitle}>{t("고객센터")}</Text>
         <View style={styles.headerRight} />
       </View>
 
@@ -131,7 +133,7 @@ export const CustomerServiceView: React.FC = () => {
 
         {/* 연락처 섹션 */}
         <View style={styles.contactSection}>
-          <Text style={styles.contactSectionTitle}>연락처</Text>
+          <Text style={styles.contactSectionTitle}>{t("연락처")}</Text>
           <TouchableOpacity
             style={styles.contactItem}
             onPress={handleEmailPress}
@@ -139,7 +141,7 @@ export const CustomerServiceView: React.FC = () => {
           >
             <Ionicons name="mail-outline" size={20} color={GREY[500]} />
             <View style={styles.contactTextContainer}>
-              <Text style={styles.contactLabel}>이메일 문의</Text>
+              <Text style={styles.contactLabel}>{t("이메일 문의")}</Text>
               <Text style={styles.contactValue}>{CONTACT.EMAIL}</Text>
             </View>
           </TouchableOpacity>

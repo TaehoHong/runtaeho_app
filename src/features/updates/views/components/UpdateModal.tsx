@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import React from 'react';
 import {
   View,
@@ -25,6 +26,7 @@ export function UpdateModal({
   onClose,
   mandatory = false,
 }: UpdateModalProps) {
+  useAppLanguage();
   const { progress, availableManifest } = useUpdateStore();
   const { downloadUpdate, applyUpdate, isDownloading, isReady, hasError, error } = useUpdateDownload();
 
@@ -46,24 +48,23 @@ export function UpdateModal({
     if (hasError) {
       return (
         <>
-          <Text style={styles.title}>업데이트 실패</Text>
-          <Text style={styles.message}>
-            업데이트 중 오류가 발생했습니다.{'\n'}
-            {error?.message ?? '알 수 없는 오류'}
+          <Text style={styles.title}>{t("업데이트 실패")}</Text>
+          <Text style={styles.message}>{t("업데이트 중 오류가 발생했습니다.")}{'\n'}
+            {error?.message ?? t("알 수 없는 오류")}
           </Text>
           <View style={styles.buttonContainer}>
             <TouchableOpacity
               style={[styles.button, styles.retryButton]}
               onPress={handleDownload}
             >
-              <Text style={styles.retryButtonText}>다시 시도</Text>
+              <Text style={styles.retryButtonText}>{t("다시 시도")}</Text>
             </TouchableOpacity>
             {!mandatory && (
               <TouchableOpacity
                 style={[styles.button, styles.cancelButton]}
                 onPress={handleClose}
               >
-                <Text style={styles.cancelButtonText}>나중에</Text>
+                <Text style={styles.cancelButtonText}>{t("나중에")}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -74,24 +75,21 @@ export function UpdateModal({
     if (isReady) {
       return (
         <>
-          <Text style={styles.title}>업데이트 준비 완료</Text>
-          <Text style={styles.message}>
-            새로운 버전이 다운로드되었습니다.{'\n'}
-            앱을 재시작하여 업데이트를 적용하세요.
-          </Text>
+          <Text style={styles.title}>{t("업데이트 준비 완료")}</Text>
+          <Text style={styles.message}>{t("새로운 버전이 다운로드되었습니다.")}{'\n'}{t("앱을 재시작하여 업데이트를 적용하세요.")}</Text>
           <View style={styles.buttonContainer}>
             <TouchableOpacity
               style={[styles.button, styles.primaryButton]}
               onPress={handleApply}
             >
-              <Text style={styles.primaryButtonText}>지금 재시작</Text>
+              <Text style={styles.primaryButtonText}>{t("지금 재시작")}</Text>
             </TouchableOpacity>
             {!mandatory && (
               <TouchableOpacity
                 style={[styles.button, styles.cancelButton]}
                 onPress={handleClose}
               >
-                <Text style={styles.cancelButtonText}>나중에</Text>
+                <Text style={styles.cancelButtonText}>{t("나중에")}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -102,7 +100,7 @@ export function UpdateModal({
     if (isDownloading) {
       return (
         <>
-          <Text style={styles.title}>업데이트 다운로드 중</Text>
+          <Text style={styles.title}>{t("업데이트 다운로드 중")}</Text>
           <View style={styles.progressContainer}>
             <ActivityIndicator size="large" color={PRIMARY[500]} />
             <Text style={styles.progressText}>{Math.round(progress)}%</Text>
@@ -110,7 +108,7 @@ export function UpdateModal({
           <View style={styles.progressBarContainer}>
             <View style={[styles.progressBar, { width: `${progress}%` }]} />
           </View>
-          <Text style={styles.message}>잠시만 기다려주세요...</Text>
+          <Text style={styles.message}>{t("잠시만 기다려주세요...")}</Text>
         </>
       );
     }
@@ -119,24 +117,24 @@ export function UpdateModal({
     return (
       <>
         <Text style={styles.title}>
-          {mandatory ? '필수 업데이트' : '새 업데이트가 있습니다'}
+          {mandatory ? t("필수 업데이트") : t("새 업데이트가 있습니다")}
         </Text>
         <Text style={styles.message}>
-          {availableManifest?.message ?? '앱을 최신 버전으로 업데이트해주세요.'}
+          {availableManifest?.message ?? t("앱을 최신 버전으로 업데이트해주세요.")}
         </Text>
         <View style={styles.buttonContainer}>
           <TouchableOpacity
             style={[styles.button, styles.primaryButton]}
             onPress={handleDownload}
           >
-            <Text style={styles.primaryButtonText}>업데이트</Text>
+            <Text style={styles.primaryButtonText}>{t("업데이트")}</Text>
           </TouchableOpacity>
           {!mandatory && (
             <TouchableOpacity
               style={[styles.button, styles.cancelButton]}
               onPress={handleClose}
             >
-              <Text style={styles.cancelButtonText}>나중에</Text>
+              <Text style={styles.cancelButtonText}>{t("나중에")}</Text>
             </TouchableOpacity>
           )}
         </View>

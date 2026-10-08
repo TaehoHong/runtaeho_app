@@ -38,6 +38,7 @@ export default {
       usesAppleSignIn: true,
       appleTeamId: "3F893P33SC",
       infoPlist: {
+        CFBundleLocalizations: ["ko", "ja"],
         NSLocationWhenInUseUsageDescription: "RunTaeho는 러닝 중 실시간으로 GPS 경로를 추적하고, 이동 거리와 페이스를 계산합니다.",
         NSLocationAlwaysAndWhenInUseUsageDescription: "RunTaeho는 백그라운드에서도 러닝을 중단 없이 기록하기 위해 위치 접근이 필요합니다. 앱이 백그라운드 상태에서도 러닝 경로, 이동 거리, 페이스가 정확하게 기록됩니다.",
         NSLocationAlwaysUsageDescription: "RunTaeho는 백그라운드에서도 러닝을 중단 없이 기록하기 위해 위치 접근이 필요합니다. 앱이 백그라운드 상태에서도 러닝 경로, 이동 거리, 페이스가 정확하게 기록됩니다.",

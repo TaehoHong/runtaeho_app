@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -16,6 +17,7 @@ interface LeagueResultDetailViewProps {
 }
 
 export const LeagueResultDetailView = ({ result }: LeagueResultDetailViewProps) => {
+  useAppLanguage();
   // 결과 확인 완료 API (캐시 무효화 포함)
   const confirmMutation = useConfirmResult();
 
@@ -56,15 +58,14 @@ export const LeagueResultDetailView = ({ result }: LeagueResultDetailViewProps) 
         <View style={styles.statsRow}>
           {/* 최종 순위 */}
           <View style={styles.statItem}>
-            <Text style={styles.statLabel}>최종 순위</Text>
+            <Text style={styles.statLabel}>{t("최종 순위")}</Text>
             <Text style={styles.statValue}>
-              {result.finalRank}위 / {result.totalParticipants}명
-            </Text>
+              {result.finalRank}{t("위 / ")}{result.totalParticipants}{t("명")}</Text>
           </View>
 
           {/* 총 거리 */}
           <View style={[styles.statItem, styles.statItemRight]}>
-            <Text style={styles.statLabel}>총 거리</Text>
+            <Text style={styles.statLabel}>{t("총 거리")}</Text>
             <Text style={[styles.statValue, styles.distanceValue]}>
               {distanceFormatted}
             </Text>
@@ -74,7 +75,7 @@ export const LeagueResultDetailView = ({ result }: LeagueResultDetailViewProps) 
         {/* 보상 포인트 카드 (승급 시에만) */}
         {showRewardPoints && (
           <View style={styles.rewardCard}>
-            <Text style={styles.rewardLabel}>승격 보상 포인트</Text>
+            <Text style={styles.rewardLabel}>{t("승격 보상 포인트")}</Text>
             <Text style={styles.rewardValue}>
               {RunningStatusFormat.points(result.rewardPoints, { signed: true })}
             </Text>
@@ -99,7 +100,7 @@ export const LeagueResultDetailView = ({ result }: LeagueResultDetailViewProps) 
           disabled={confirmMutation.isPending}
         >
           <Text style={styles.confirmButtonText}>
-            {confirmMutation.isPending ? '처리 중...' : '확인'}
+            {confirmMutation.isPending ? t("처리 중...") : t("확인")}
           </Text>
         </TouchableOpacity>
       </View>

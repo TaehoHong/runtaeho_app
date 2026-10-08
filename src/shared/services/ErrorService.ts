@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import { Alert } from 'react-native';
 
 /**
@@ -76,13 +77,13 @@ export class ErrorService {
   private parseError(error: any, context?: Record<string, any>): ErrorInfo {
     let type = ErrorType.UNKNOWN;
     let level = ErrorLevel.ERROR;
-    let message = '알 수 없는 오류가 발생했습니다.';
+    let message = t("알 수 없는 오류가 발생했습니다.");
 
     // Network 에러
     if (error.name === 'NetworkError' || error.code === 'NETWORK_ERROR') {
       type = ErrorType.NETWORK;
       level = ErrorLevel.WARNING;
-      message = '네트워크 연결을 확인해주세요.';
+      message = t('네트워크 연결을 확인해주세요.');
     }
     // HTTP 에러
     else if (error.status || error.response?.status) {
@@ -91,22 +92,22 @@ export class ErrorService {
       if (status === 401) {
         type = ErrorType.AUTHENTICATION;
         level = ErrorLevel.WARNING;
-        message = '인증이 필요합니다. 다시 로그인해주세요.';
+        message = t('인증이 필요합니다. 다시 로그인해주세요.');
       } else if (status >= 400 && status < 500) {
         type = ErrorType.VALIDATION;
         level = ErrorLevel.WARNING;
-        message = error.message || error.response?.data?.message || '입력 정보를 확인해주세요.';
+        message = error.message || error.response?.data?.message || t("입력 정보를 확인해주세요.");
       } else if (status >= 500) {
         type = ErrorType.SERVER;
         level = ErrorLevel.ERROR;
-        message = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+        message = t('서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
       }
     }
     // 비즈니스 로직 에러
     else if (error.type === 'BUSINESS_ERROR') {
       type = ErrorType.BUSINESS_LOGIC;
       level = ErrorLevel.INFO;
-      message = error.message || '처리할 수 없는 요청입니다.';
+      message = error.message || t("처리할 수 없는 요청입니다.");
     }
     // 기타 에러
     else if (error.message) {
@@ -166,16 +167,16 @@ export class ErrorService {
 
       case ErrorLevel.ERROR:
         // Alert로 명확하게 표시
-        Alert.alert('오류', errorInfo.message, [{ text: '확인' }]);
+        Alert.alert(t("오류"), errorInfo.message, [{ text: t("확인") }]);
         break;
 
       case ErrorLevel.CRITICAL:
         // 크리티컬 에러는 앱 재시작 권유
         Alert.alert(
-          '심각한 오류',
-          '앱에 심각한 문제가 발생했습니다. 앱을 다시 시작해주세요.',
+          t("심각한 오류"),
+          t("앱에 심각한 문제가 발생했습니다. 앱을 다시 시작해주세요."),
           [
-            { text: '확인', style: 'destructive' }
+            { text: t("확인"), style: 'destructive' }
           ]
         );
         break;
@@ -237,6 +238,7 @@ export class ErrorService {
  * React Hook으로 ErrorService 사용
  */
 export const useErrorHandler = () => {
+  useAppLanguage();
   const errorService = ErrorService.getInstance();
 
   const handleError = (

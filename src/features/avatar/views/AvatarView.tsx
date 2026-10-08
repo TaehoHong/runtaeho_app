@@ -16,6 +16,7 @@ import { ItemsGrid } from './components/ItemsGrid';
 import { PurchaseModal } from './components/PurchaseModal';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GREY, PRIMARY, RED } from '~/shared/styles';
+import { t, useAppLanguage } from '~/i18n';
 
 interface AvatarViewProps {
   onClose: () => void;
@@ -36,6 +37,7 @@ export const AvatarView: React.FC<AvatarViewProps> = ({ onClose }) => {
  * 아바타 화면 내부 컨텐츠
  */
 const AvatarViewContent: React.FC<AvatarViewProps> = ({ onClose }) => {
+  useAppLanguage();
   const viewModel = useAvatarViewModel();
   const insets = useSafeAreaInsets();
   const { cancelChanges } = viewModel;
@@ -74,7 +76,7 @@ const AvatarViewContent: React.FC<AvatarViewProps> = ({ onClose }) => {
               style={[styles.filter, viewModel.ownershipFilter === filter && styles.filterSelected]}
               onPress={() => viewModel.selectOwnershipFilter(filter)}
             >
-              <Text style={styles.filterText}>{filter === 'owned' ? '보유' : '전체'}</Text>
+              <Text style={styles.filterText}>{filter === 'owned' ? t('보유') : t('전체')}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -108,14 +110,14 @@ const AvatarViewContent: React.FC<AvatarViewProps> = ({ onClose }) => {
         {viewModel.isItemsFetching && <ActivityIndicator color={PRIMARY[600]} />}
         {viewModel.itemsError ? (
           <View style={styles.listStatus}>
-            <Text style={styles.message}>아이템을 불러오지 못했어요.</Text>
+            <Text style={styles.message}>{t('아이템을 불러오지 못했어요.')}</Text>
             <TouchableOpacity accessibilityRole="button" onPress={() => viewModel.retryItems()}>
-              <Text style={styles.filterText}>다시 시도</Text>
+              <Text style={styles.filterText}>{t('다시 시도')}</Text>
             </TouchableOpacity>
           </View>
         ) : !viewModel.isItemsLoading && viewModel.currentCategoryItems.length === 0 && (
           <Text style={styles.message}>
-            {viewModel.ownershipFilter === 'owned' ? '보유한 아이템이 없어요. 전체에서 둘러보세요.' : '아이템이 없어요.'}
+            {viewModel.ownershipFilter === 'owned' ? t('보유한 아이템이 없어요. 전체에서 둘러보세요.') : t('아이템이 없어요.')}
           </Text>
         )}
         {viewModel.hasNextPage && !viewModel.itemsError && (
@@ -125,7 +127,7 @@ const AvatarViewContent: React.FC<AvatarViewProps> = ({ onClose }) => {
             style={styles.listStatus}
             onPress={() => viewModel.fetchNextPage()}
           >
-            <Text style={styles.filterText}>더 보기</Text>
+            <Text style={styles.filterText}>{t('더 보기')}</Text>
           </TouchableOpacity>
         )}
       </ScrollView>

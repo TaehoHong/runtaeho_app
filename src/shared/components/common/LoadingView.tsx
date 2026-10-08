@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import React, { useEffect } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { Text } from '~/shared/components/typography';
@@ -10,6 +11,7 @@ interface LoadingViewProps {
  * iOS LoadingView 대응
  */
 export const LoadingView: React.FC<LoadingViewProps> = ({ onAppear }) => {
+  useAppLanguage();
   useEffect(() => {
     console.log('⏳ [LoadingView] 로딩 화면 나타남');
     onAppear?.();
@@ -18,7 +20,7 @@ export const LoadingView: React.FC<LoadingViewProps> = ({ onAppear }) => {
   return (
     <View style={styles.container}>
       <ActivityIndicator size="large" color="#4d99e5" />
-      <Text style={styles.loadingText}>로딩 중...</Text>
+      <Text style={styles.loadingText}>{t("로딩 중...")}</Text>
     </View>
   );
 };

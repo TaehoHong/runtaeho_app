@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 /**
  * 약관 동의 Hook
  */
@@ -10,6 +11,7 @@ import { silentTokenRefreshService } from '~/features/auth/services/SilentTokenR
 import { useAuth } from '~/features/auth/hooks/useAuth';
 
 export const useTermsAgreement = () => {
+  useAppLanguage();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { agreements, canProceed, reset: resetTermsStore } = useTermsStore();
@@ -25,8 +27,8 @@ export const useTermsAgreement = () => {
     // 1. 필수 약관 동의 확인
     if (!canProceed()) {
       Alert.alert(
-        '필수 약관 동의',
-        '모든 필수 약관에 동의해야 합니다.\n(서비스 이용약관, 개인정보 처리방침, 위치기반서비스 이용약관)'
+        t("필수 약관 동의"),
+        t("모든 필수 약관에 동의해야 합니다.\n(서비스 이용약관, 개인정보 처리방침, 위치기반서비스 이용약관)")
       );
       return;
     }
@@ -40,7 +42,7 @@ export const useTermsAgreement = () => {
       const termsData = useTermsStore.getState().termsData;
 
       if (!termsData || !termsData.terms || termsData.terms.length === 0) {
-        throw new Error('약관 정보를 불러오지 못했습니다.');
+        throw new Error(t("약관 정보를 불러오지 못했습니다."));
       }
 
       // 3. 약관 동의 API 호출 (DB 업데이트)
@@ -80,20 +82,20 @@ export const useTermsAgreement = () => {
       if (error.response?.status === 401) {
         // 토큰 만료
         Alert.alert(
-          '인증 만료',
-          '인증이 만료되었습니다. 다시 로그인해주세요.'
+          t("인증 만료"),
+          t("인증이 만료되었습니다. 다시 로그인해주세요.")
         );
       } else if (error.response?.status === 400) {
         // 필수 약관 미동의
-        Alert.alert('오류', error.response.data.message || '필수 약관에 모두 동의해야 합니다.');
+        Alert.alert(t("오류"), error.response.data.message || t("필수 약관에 모두 동의해야 합니다."));
       } else if (error.response?.status === 409) {
         // 약관 버전 불일치
         Alert.alert(
-          '약관 업데이트',
-          '약관이 업데이트되었습니다. 새 약관을 확인해주세요.',
+          t("약관 업데이트"),
+          t("약관이 업데이트되었습니다. 새 약관을 확인해주세요."),
           [
             {
-              text: '확인',
+              text: t("확인"),
               onPress: async () => {
                 // 약관 재로드
                 await useTermsStore.getState().fetchTermsContent();
@@ -106,21 +108,21 @@ export const useTermsAgreement = () => {
       } else if (error.code === 'NETWORK_ERROR' || !error.response) {
         // 네트워크 오류
         Alert.alert(
-          '네트워크 오류',
-          '인터넷 연결을 확인하고 다시 시도해주세요.',
+          t("네트워크 오류"),
+          t("인터넷 연결을 확인하고 다시 시도해주세요."),
           [
-            { text: '재시도', onPress: submitAgreement },
-            { text: '취소', style: 'cancel' },
+            { text: t("재시도"), onPress: submitAgreement },
+            { text: t("취소"), style: 'cancel' },
           ]
         );
       } else {
         // 기타 오류
         Alert.alert(
-          '오류',
-          '일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+          t("오류"),
+          t("일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요."),
           [
-            { text: '재시도', onPress: submitAgreement },
-            { text: '취소', style: 'cancel' },
+            { text: t("재시도"), onPress: submitAgreement },
+            { text: t("취소"), style: 'cancel' },
           ]
         );
       }

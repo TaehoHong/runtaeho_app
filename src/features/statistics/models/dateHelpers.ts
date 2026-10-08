@@ -1,3 +1,4 @@
+import { t } from '~/i18n';
 /**
  * Statistics Date Helpers
  * 통계 기간 관련 날짜 헬퍼 함수
@@ -108,22 +109,22 @@ export const formatPeriodLabel = (
       const endDay = sunday.getDate();
 
       const dateRange = startMonth === endMonth
-        ? `${startDay}일~${endDay}일`
-        : `${startDay}일~${endMonth}월${endDay}일`;
+        ? t("{{value0}}일~{{value1}}일", { value0: startDay, value1: endDay })
+        : t("{{value0}}일~{{value1}}월{{value2}}일", { value0: startDay, value1: endMonth, value2: endDay });
 
       return {
-        primary: `${referenceDate.getMonth() + 1}월`,
+        primary: t("{{value0}}월", { value0: referenceDate.getMonth() + 1 }),
         secondary: dateRange,
       };
     }
     case Period.MONTH:
       return {
-        primary: `${referenceDate.getFullYear()}년 ${referenceDate.getMonth() + 1}월`,
+        primary: t("{{value0}}년 {{value1}}월", { value0: referenceDate.getFullYear(), value1: referenceDate.getMonth() + 1 }),
         secondary: undefined,
       };
     case Period.YEAR:
       return {
-        primary: `${referenceDate.getFullYear()}년`,
+        primary: t("{{value0}}년", { value0: referenceDate.getFullYear() }),
         secondary: undefined,
       };
     default:

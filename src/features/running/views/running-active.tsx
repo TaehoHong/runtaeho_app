@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import React from 'react';
 import { Alert, View, StyleSheet } from 'react-native';
 import { useAppStore, RunningState } from '~/stores/app/appStore';
@@ -13,6 +14,7 @@ import { useRunning } from '../contexts';
  * iOS RunningActiveView 대응
  */
 export const RunningActiveView: React.FC = () => {
+  useAppLanguage();
   const setRunningState = useAppStore((state) => state.setRunningState);
   const { pauseRunning, endRunning } = useRunning();
   const buttonBottom = useBottomActionOffset(42);
@@ -37,7 +39,7 @@ export const RunningActiveView: React.FC = () => {
       console.log('✅ [RunningActiveView] 러닝 종료 완료');
     } catch {
       console.error('❌ [RunningActiveView] 러닝 기록 저장 실패');
-      Alert.alert('저장 실패', '러닝 기록을 저장하지 못했어요. 앱을 닫지 말고 종료 버튼을 눌러 다시 시도해주세요.');
+      Alert.alert(t("저장 실패"), t("러닝 기록을 저장하지 못했어요. 앱을 닫지 말고 종료 버튼을 눌러 다시 시도해주세요."));
     }
   };
 

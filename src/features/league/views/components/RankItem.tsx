@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 /**
  * RankItem Component
  * 순위표의 개별 항목
@@ -16,8 +17,9 @@ interface RankItemProps {
 
 
 export const RankItem = ({ participant }: RankItemProps) => {
+  useAppLanguage();
   const isMe = participant.isMe;
-  const displayName = isMe ? '나' : (participant.nickname ?? '익명');
+  const displayName = isMe ? t("나") : (participant.nickname ?? t("익명"));
   const distanceFormatted = formatDistance(participant.distance);
   const fullImageUrl = buildFullImageUrl(participant?.profileImageUrl);
   const imageSource = fullImageUrl

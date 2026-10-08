@@ -1,3 +1,4 @@
+import { t } from '~/i18n';
 /**
  * Shoe 모델
  */
@@ -96,9 +97,9 @@ export const createShoe = (
  * 신발 뷰모델 생성
  * Swift ShoeViewModel init 메서드 대응
  */
-export const createShoeViewModel = (shoe: Shoe): ShoeViewModel => {
+export const createShoeViewModel = (shoe: Shoe, translate: typeof t = t): ShoeViewModel => {
   const displayName = `${shoe.brand} ${shoe.model}`;
-  const formattedDistance = `총 누적 거리 ${formatShoeDistance(shoe.totalDistance)}`;
+  const formattedDistance = translate("총 누적 거리 {{value0}}", { value0: formatShoeDistance(shoe.totalDistance) });
   const isAchieved = !shoe.isEnabled;
 
   // 진행률 계산
@@ -166,19 +167,19 @@ export const validateShoe = (shoe: Partial<Shoe>): {
   const errors: string[] = [];
 
   if (!shoe.brand || shoe.brand.trim().length === 0) {
-    errors.push('브랜드를 입력해주세요.');
+    errors.push(t("브랜드를 입력해주세요."));
   }
 
   if (!shoe.model || shoe.model.trim().length === 0) {
-    errors.push('모델명을 입력해주세요.');
+    errors.push(t("모델명을 입력해주세요."));
   }
 
   if (shoe.targetDistance !== undefined && shoe.targetDistance < 0) {
-    errors.push('목표 거리는 0 이상이어야 합니다.');
+    errors.push(t("목표 거리는 0 이상이어야 합니다."));
   }
 
   if (shoe.totalDistance !== undefined && shoe.totalDistance < 0) {
-    errors.push('총 거리는 0 이상이어야 합니다.');
+    errors.push(t("총 거리는 0 이상이어야 합니다."));
   }
 
   return {
@@ -195,17 +196,17 @@ export const formatShoeDistance = (distanceInMeters: number): string => {
 };
 
 export const formatShoeProgress = (current: number, target?: number): string => {
-  if (!target || target === 0) return '목표 없음';
+  if (!target || target === 0) return t("목표 없음");
 
   const percentage = Math.min((current / target) * 100, 100);
   return `${percentage.toFixed(1)}%`;
 };
 
 export const formatRemainingDistance = (current: number, target?: number): string => {
-  if (!target || target === 0) return '목표 없음';
+  if (!target || target === 0) return t("목표 없음");
 
   const remaining = Math.max(target - current, 0);
-  return remaining > 0 ? `${formatShoeDistance(remaining)} 남음` : '목표 달성!';
+  return remaining > 0 ? t("{{value0}} 남음", { value0: formatShoeDistance(remaining) }) : t("목표 달성!");
 };
 
 /**
@@ -221,47 +222,47 @@ export const analyzeShoeStatus = (shoe: Shoe): {
   if (!shoe.isEnabled) {
     return {
       status: 'retired',
-      statusMessage: '은퇴한 신발',
-      recommendation: '추억을 간직하세요.',
+      statusMessage: t("은퇴한 신발"),
+      recommendation: t("추억을 간직하세요."),
     };
   }
 
   if (shoe.targetDistance && shoe.totalDistance >= shoe.targetDistance) {
     return {
       status: 'achieved',
-      statusMessage: '목표 달성!',
-      recommendation: '새로운 목표를 설정하거나 새 신발을 고려해보세요.',
+      statusMessage: t("목표 달성!"),
+      recommendation: t("새로운 목표를 설정하거나 새 신발을 고려해보세요."),
     };
   }
 
   if (kmDistance === 0) {
     return {
       status: 'new',
-      statusMessage: '새 신발',
-      recommendation: '첫 러닝을 시작해보세요!',
+      statusMessage: t("새 신발"),
+      recommendation: t("첫 러닝을 시작해보세요!"),
     };
   }
 
   if (kmDistance < 100) {
     return {
       status: 'active',
-      statusMessage: '활동 중',
-      recommendation: '꾸준히 러닝을 이어가세요.',
+      statusMessage: t("활동 중"),
+      recommendation: t("꾸준히 러닝을 이어가세요."),
     };
   }
 
   if (kmDistance < 500) {
     return {
       status: 'worn',
-      statusMessage: '많이 신은 신발',
-      recommendation: '신발 상태를 주기적으로 확인하세요.',
+      statusMessage: t("많이 신은 신발"),
+      recommendation: t("신발 상태를 주기적으로 확인하세요."),
     };
   }
 
   return {
     status: 'worn',
-    statusMessage: '교체 고려',
-    recommendation: '새 신발 구매를 고려해보세요.',
+    statusMessage: t("교체 고려"),
+    recommendation: t("새 신발 구매를 고려해보세요."),
   };
 };
 

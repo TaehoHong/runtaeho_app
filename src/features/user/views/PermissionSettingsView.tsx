@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -23,21 +24,22 @@ const getHealthPermissionStatusView = (status: HealthPermissionStatus): {
   variant: StatusVariant;
 } => {
   if (status === 'unavailable') {
-    return { label: '지원 안 함', variant: 'disabled' };
+    return { label: t("지원 안 함"), variant: 'disabled' };
   }
 
   if (Platform.OS === 'ios') {
-    return { label: '건강 앱에서 확인', variant: 'disabled' };
+    return { label: t("건강 앱에서 확인"), variant: 'disabled' };
   }
 
   if (status === 'granted') {
-    return { label: '허용됨', variant: 'enabled' };
+    return { label: t("허용됨"), variant: 'enabled' };
   }
 
-  return { label: '권한 필요', variant: 'warning' };
+  return { label: t("권한 필요"), variant: 'warning' };
 };
 
 export const PermissionSettingsView: React.FC = () => {
+  useAppLanguage();
   const router = useRouter();
   const [permissions, setPermissions] = useState<PermissionState>({
     locationGranted: false,
@@ -90,7 +92,7 @@ export const PermissionSettingsView: React.FC = () => {
     try {
       const available = await healthImportBridge.isAvailable();
       if (!available) {
-        Alert.alert('Health 사용 불가', '이 기기에서는 Health 권한 설정을 사용할 수 없습니다.');
+        Alert.alert(t("Health 사용 불가"), t("이 기기에서는 Health 권한 설정을 사용할 수 없습니다."));
         return;
       }
 
@@ -101,14 +103,14 @@ export const PermissionSettingsView: React.FC = () => {
 
       if (Platform.OS === 'ios') {
         Alert.alert(
-          'Health 권한 확인',
-          '건강 앱 또는 설정 > Health > 데이터 접근 및 기기에서 달려라 태호군의 접근 권한을 확인해주세요.'
+          t("Health 권한 확인"),
+          t("건강 앱 또는 설정 > Health > 데이터 접근 및 기기에서 달려라 태호군의 접근 권한을 확인해주세요.")
         );
       }
 
       await healthImportService.sync();
     } catch {
-      Alert.alert('Health 권한 설정 실패', '기기 Health 설정에서 권한을 직접 변경해주세요.');
+      Alert.alert(t("Health 권한 설정 실패"), t("기기 Health 설정에서 권한을 직접 변경해주세요."));
     } finally {
       void refreshPermissions();
     }
@@ -118,21 +120,21 @@ export const PermissionSettingsView: React.FC = () => {
     try {
       const available = await healthImportBridge.isAvailable();
       if (!available) {
-        Alert.alert('Health 사용 불가', '이 기기에서는 Health 권한 설정을 사용할 수 없습니다.');
+        Alert.alert(t("Health 사용 불가"), t("이 기기에서는 Health 권한 설정을 사용할 수 없습니다."));
         return;
       }
 
       if (Platform.OS === 'ios') {
         Alert.alert(
-          'Health 권한 확인',
-          '건강 앱 또는 설정 > Health > 데이터 접근 및 기기에서 달려라 태호군의 접근 권한을 확인해주세요.'
+          t("Health 권한 확인"),
+          t("건강 앱 또는 설정 > Health > 데이터 접근 및 기기에서 달려라 태호군의 접근 권한을 확인해주세요.")
         );
         return;
       }
 
       await healthImportBridge.openHealthSettings();
     } catch {
-      Alert.alert('Health 권한 설정 실패', '기기 Health 설정에서 권한을 직접 변경해주세요.');
+      Alert.alert(t("Health 권한 설정 실패"), t("기기 Health 설정에서 권한을 직접 변경해주세요."));
     } finally {
       void refreshPermissions();
     }
@@ -153,7 +155,7 @@ export const PermissionSettingsView: React.FC = () => {
         await refreshPermissions();
       }
     } catch {
-      Alert.alert('설정 변경 실패', 'Health 앱 사용 설정을 변경할 수 없습니다.');
+      Alert.alert(t("설정 변경 실패"), t("Health 앱 사용 설정을 변경할 수 없습니다."));
     } finally {
       setIsUpdatingHealthImportEnabled(false);
     }
@@ -165,23 +167,21 @@ export const PermissionSettingsView: React.FC = () => {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="chevron-back" size={24} color={GREY[900]} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>권한 설정</Text>
+        <Text style={styles.headerTitle}>{t("권한 설정")}</Text>
         <View style={styles.headerRight} />
       </View>
 
       <View style={styles.content}>
         <View style={styles.infoSection}>
-          <Text style={styles.infoTitle}>기기 권한 상태</Text>
-          <Text style={styles.infoDescription}>
-            OS 설정에서 허용된 권한을 기준으로 표시돼요
-          </Text>
+          <Text style={styles.infoTitle}>{t("기기 권한 상태")}</Text>
+          <Text style={styles.infoDescription}>{t("OS 설정에서 허용된 권한을 기준으로 표시돼요")}</Text>
         </View>
 
         <View style={styles.section}>
           <PermissionRow
-            title="위치 권한"
-            description="러닝 경로 측정에 사용"
-            statusLabel={permissions.locationGranted ? '활성화' : '비활성화'}
+            title={t("위치 권한")}
+            description={t("러닝 경로 측정에 사용")}
+            statusLabel={permissions.locationGranted ? t("활성화") : t("비활성화")}
             statusVariant={permissions.locationGranted ? 'enabled' : 'disabled'}
             onPress={openLocationSettings}
           />
@@ -195,7 +195,7 @@ export const PermissionSettingsView: React.FC = () => {
           />
         </View>
 
-        <Text style={styles.note}>위치 권한과 Health OS 권한 상태를 눌러 기기 설정을 확인할 수 있습니다.</Text>
+        <Text style={styles.note}>{t("위치 권한과 Health OS 권한 상태를 눌러 기기 설정을 확인할 수 있습니다.")}</Text>
       </View>
     </TopScreenSafeAreaView>
   );
@@ -215,7 +215,7 @@ const PermissionRow: React.FC<PermissionRowProps> = ({
   statusLabel,
   statusVariant,
   onPress,
-}) => (
+}) => { useAppLanguage(); return (
   <TouchableOpacity style={styles.permissionRow} onPress={onPress} activeOpacity={0.7}>
     <View style={styles.permissionText}>
       <Text style={styles.permissionTitle}>{title}</Text>
@@ -226,7 +226,7 @@ const PermissionRow: React.FC<PermissionRowProps> = ({
       <Ionicons name="chevron-forward" size={18} color={GREY[300]} />
     </View>
   </TouchableOpacity>
-);
+); };
 
 type HealthPermissionSectionProps = {
   appEnabled: boolean;
@@ -243,16 +243,17 @@ const HealthPermissionSection: React.FC<HealthPermissionSectionProps> = ({
   onToggleAppEnabled,
   onPressPermission,
 }) => {
+  useAppLanguage();
   const statusView = getHealthPermissionStatusView(permissionStatus);
 
   return (
     <View style={styles.healthSection}>
-      <Text style={styles.permissionTitle}>Health 권한</Text>
+      <Text style={styles.permissionTitle}>{t("Health 권한")}</Text>
 
       <View style={styles.healthAppRow}>
         <View style={styles.permissionText}>
-          <Text style={styles.healthSubTitle}>앱 사용 설정</Text>
-          <Text style={styles.permissionDescription}>Health 러닝 기록 가져오기 사용</Text>
+          <Text style={styles.healthSubTitle}>{t("앱 사용 설정")}</Text>
+          <Text style={styles.permissionDescription}>{t("Health 러닝 기록 가져오기 사용")}</Text>
         </View>
         <Switch
           testID="health-import-enabled-switch"
@@ -274,8 +275,8 @@ const HealthPermissionSection: React.FC<HealthPermissionSectionProps> = ({
         activeOpacity={0.7}
       >
         <View style={styles.permissionText}>
-          <Text style={styles.healthSubTitle}>OS 권한 상태</Text>
-          <Text style={styles.permissionDescription}>건강 앱 권한 기준</Text>
+          <Text style={styles.healthSubTitle}>{t("OS 권한 상태")}</Text>
+          <Text style={styles.permissionDescription}>{t("건강 앱 권한 기준")}</Text>
         </View>
         <View style={styles.permissionAction}>
           <StatusBadge label={statusView.label} variant={statusView.variant} />
@@ -291,11 +292,11 @@ type StatusBadgeProps = {
   variant: StatusVariant;
 };
 
-const StatusBadge: React.FC<StatusBadgeProps> = ({ label, variant }) => (
+const StatusBadge: React.FC<StatusBadgeProps> = ({ label, variant }) => { useAppLanguage(); return (
   <View style={[styles.statusBadge, getStatusBadgeStyle(variant)]}>
     <Text style={[styles.statusText, getStatusTextStyle(variant)]}>{label}</Text>
   </View>
-);
+); };
 
 function getStatusBadgeStyle(variant: StatusVariant) {
   if (variant === 'enabled') return styles.enabledBadge;

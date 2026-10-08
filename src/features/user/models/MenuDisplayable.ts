@@ -1,3 +1,4 @@
+import { t } from '~/i18n';
 /**
  * Menu Displayable Interface
  * Swift MenuDisplayable protocol에서 마이그레이션
@@ -27,19 +28,19 @@ export enum MenuType {
  */
 export const MenuRegistry: Record<MenuType, MenuDisplayableConfig> = {
   [MenuType.USER_ACCOUNT_CONNECTION]: {
-    menuTitle: '계정 연결',
+    get menuTitle() { return t("계정 연결"); },
     menuOrder: 1,
     isEnabled: true,
     componentName: 'UserAccountConnectionView',
   },
   [MenuType.TERMS_OF_SERVICE]: {
-    menuTitle: '이용약관',
+    get menuTitle() { return t("이용약관"); },
     menuOrder: 2,
     isEnabled: true,
     componentName: 'TermsOfServiceView',
   },
   [MenuType.NOTICE]: {
-    menuTitle: '공지사항',
+    get menuTitle() { return t("공지사항"); },
     menuOrder: 3,
     isEnabled: true,
     componentName: 'NoticeView',

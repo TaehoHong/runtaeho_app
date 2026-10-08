@@ -9,6 +9,7 @@ import type { Item } from '~/features/avatar';
 import { GRID_LAYOUT, ITEM_OPACITY, ItemStatus } from '~/features/avatar';
 import { resolveAvatarItemImage } from '~/features/avatar/utils/avatarItemImageResolver';
 import { GREY, PRIMARY } from '~/shared/styles';
+import { t, useAppLanguage } from '~/i18n';
 
 interface Props {
   item: Item;
@@ -23,6 +24,7 @@ const totalColumnSpacing = GRID_LAYOUT.ITEM_SPACING * (GRID_LAYOUT.NUM_COLUMNS -
 const cardWidth = (screenWidth - totalHorizontalPadding - totalColumnSpacing) / GRID_LAYOUT.NUM_COLUMNS;
 
 export const AvatarItemCard: React.FC<Props> = ({ item, hairColor, isSelected, onPress }) => {
+  useAppLanguage();
   const itemImage = resolveAvatarItemImage(item, hairColor);
   // 테두리 색상 결정
   const borderColor = isSelected? PRIMARY[500] : GREY[250];
@@ -35,8 +37,8 @@ export const AvatarItemCard: React.FC<Props> = ({ item, hairColor, isSelected, o
   const borderWidth = isSelected ? 2 : 1;
 
   const backgroundColor = isSelected ? PRIMARY[50] : GREY.WHITE;
-  const label = item.status === ItemStatus.EQUIPPED ? '착용 중'
-    : item.isOwned ? '보유' : item.point === 0 ? '무료' : `${item.point.toLocaleString()} P`;
+  const label = item.status === ItemStatus.EQUIPPED ? t('착용 중')
+    : item.isOwned ? t('보유') : item.point === 0 ? t('무료') : `${item.point.toLocaleString()} P`;
 
   return (
     <TouchableOpacity

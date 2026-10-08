@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
@@ -61,6 +62,7 @@ const LICENSES: LicenseInfo[] = [
  * 오픈소스 라이선스 화면
  */
 export const LicensesView: React.FC = () => {
+  useAppLanguage();
   const router = useRouter();
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
 
@@ -87,15 +89,13 @@ export const LicensesView: React.FC = () => {
         <TouchableOpacity onPress={handleBack} style={styles.headerButton}>
           <Ionicons name="chevron-back" size={24} color={GREY[900]} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>오픈소스 라이선스</Text>
+        <Text style={styles.headerTitle}>{t("오픈소스 라이선스")}</Text>
         <View style={styles.headerButton} />
       </View>
 
       {/* 설명 */}
       <View style={styles.descriptionContainer}>
-        <Text style={styles.description}>
-          이 앱은 아래의 오픈소스 소프트웨어를 사용하고 있습니다.
-        </Text>
+        <Text style={styles.description}>{t("이 앱은 아래의 오픈소스 소프트웨어를 사용하고 있습니다.")}</Text>
       </View>
 
       {/* 라이선스 목록 */}

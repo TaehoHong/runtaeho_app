@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 /**
  * MyRankCard Component
  * 내 순위 정보 카드
@@ -26,6 +27,7 @@ export const MyRankCard = ({
   promotionStatus,
   progressPosition,
 }: MyRankCardProps) => {
+  useAppLanguage();
   // 강등이 없는 티어인지 확인 (BRONZE 등 최하위 티어)
   const hasNoRelegation = relegationCutRank > totalParticipants;
 
@@ -41,17 +43,17 @@ export const MyRankCard = ({
       {/* 내 순위 */}
       <View style={styles.row}>
         <View style={styles.rankSection}>
-          <Text style={styles.label}>내 순위</Text>
+          <Text style={styles.label}>{t("내 순위")}</Text>
           <View style={styles.rankDisplay}>
             <Text style={styles.rankNumber}>{myRank}</Text>
-            <Text style={styles.rankUnit}>위</Text>
-            <Text style={styles.totalParticipants}>/ {totalParticipants}명</Text>
+            <Text style={styles.rankUnit}>{t("위")}</Text>
+            <Text style={styles.totalParticipants}>/ {totalParticipants}{t("명")}</Text>
           </View>
         </View>
 
         {/* 주간 거리 */}
         <View style={styles.distanceSection}>
-          <Text style={styles.label}>주간 거리</Text>
+          <Text style={styles.label}>{t("주간 거리")}</Text>
           <Text style={styles.distanceValue}>{myDistanceFormatted}</Text>
         </View>
       </View>
@@ -86,10 +88,10 @@ export const MyRankCard = ({
 
         {/* 레이블 */}
         <View style={styles.progressLabels}>
-          <Text style={styles.promotionLabel}>승격 (상위 30%)</Text>
-          <Text style={styles.maintainLabel}>유지</Text>
+          <Text style={styles.promotionLabel}>{t("승격 (상위 30%)")}</Text>
+          <Text style={styles.maintainLabel}>{t("유지")}</Text>
           {!hasNoRelegation && (
-            <Text style={styles.relegationLabel}>강등 (하위 20%)</Text>
+            <Text style={styles.relegationLabel}>{t("강등 (하위 20%)")}</Text>
           )}
         </View>
       </View>

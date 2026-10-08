@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import React, { useCallback, useState, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, Dimensions, Alert, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
@@ -33,6 +34,7 @@ const { width } = Dimensions.get('window');
  * 결과 데이터와 저장 버튼 표시
  */
 export const RunningFinishedView: React.FC = () => {
+  useAppLanguage();
   const setRunningState = useAppStore((state) => state.setRunningState);
   const setPreviousLeagueRank = useAppStore((state) => state.setPreviousLeagueRank);
   const scrollContentPaddingBottom = useBottomActionOffset(32);
@@ -160,7 +162,7 @@ export const RunningFinishedView: React.FC = () => {
     // currentRecord가 없으면 에러
     if (!currentRecord) {
       console.error('❌ [RunningFinishedView] currentRecord가 없습니다');
-      Alert.alert('오류', '러닝 기록을 찾을 수 없습니다.');
+      Alert.alert(t("오류"), t("러닝 기록을 찾을 수 없습니다."));
       return;
     }
 
@@ -230,7 +232,7 @@ export const RunningFinishedView: React.FC = () => {
       console.log('🏆 [RunningFinishedView] 리그 탭으로 이동');
     } catch (error) {
       console.error('❌ [RunningFinishedView] 러닝 완료 처리 실패:', error);
-      Alert.alert('오류', '러닝 데이터 저장에 실패했습니다.');
+      Alert.alert(t("오류"), t("러닝 데이터 저장에 실패했습니다."));
     } finally {
       setIsUpdating(false);
     }

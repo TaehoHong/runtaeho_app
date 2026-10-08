@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 /**
  * RankingSection Component
  * 순위표 섹션
@@ -33,6 +34,7 @@ export const RankingSection = ({
   isRefreshing = false,
   onRefresh,
 }: RankingSectionProps) => {
+  useAppLanguage();
   const [isAnimating, setIsAnimating] = useState(false);
   const [displayOrder, setDisplayOrder] = useState<LeagueParticipant[]>(() => [...participants]);
 
@@ -240,7 +242,7 @@ export const RankingSection = ({
           <View style={styles.animatedMeContent}>
             <Text style={styles.animatedRank}>{myCurrentRank}</Text>
             <View style={styles.animatedAvatar} />
-            <Text style={styles.animatedName}>나</Text>
+            <Text style={styles.animatedName}>{t("나")}</Text>
             <Text style={styles.animatedDistance}>
               {RunningStatusFormat.distance(participant.distance)}
             </Text>
@@ -302,10 +304,8 @@ export const RankingSection = ({
     <View style={styles.container}>
       {/* 헤더 */}
       <View style={styles.header}>
-        <Text style={styles.title}>순위표</Text>
-        <Text style={styles.description}>
-          업로드 시각이 아닌 실제 러닝 종료 시각으로 집계해요. 시즌을 넘겨 달리면 종료한 시즌에 전체 거리가 반영돼요.
-        </Text>
+        <Text style={styles.title}>{t("순위표")}</Text>
+        <Text style={styles.description}>{t("업로드 시각이 아닌 실제 러닝 종료 시각으로 집계해요. 시즌을 넘겨 달리면 종료한 시즌에 전체 거리가 반영돼요.")}</Text>
       </View>
 
       {/* 순위 리스트 (FlatList) */}

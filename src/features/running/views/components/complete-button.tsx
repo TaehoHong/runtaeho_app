@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import React from 'react';
 import {
   TouchableOpacity,
@@ -12,6 +13,7 @@ interface CompleteButtonProps {
 }
 
 export const CompleteButton: React.FC<CompleteButtonProps> = ({ onPress, disabled = false }) => {
+  useAppLanguage();
   // TODO: RunningFinishedViewModel에서 버튼 색상 상태 가져오기
   const completeButtonColor = disabled ? GREY[300] : PRIMARY[600]; // 비활성화 시 회색, 활성화 시 녹색
 
@@ -22,7 +24,7 @@ export const CompleteButton: React.FC<CompleteButtonProps> = ({ onPress, disable
       disabled={disabled}
       activeOpacity={disabled ? 1 : 0.7}
     >
-      <Text style={[styles.text, disabled && styles.textDisabled]}>확인</Text>
+      <Text style={[styles.text, disabled && styles.textDisabled]}>{t("확인")}</Text>
     </TouchableOpacity>
   );
 };

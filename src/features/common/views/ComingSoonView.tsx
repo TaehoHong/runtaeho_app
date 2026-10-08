@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -17,8 +18,9 @@ interface ComingSoonViewProps {
  * 아직 준비되지 않은 기능에 대한 안내 화면
  */
 export const ComingSoonView: React.FC<ComingSoonViewProps> = ({
-  title = '설정',
+  title = t("설정"),
 }) => {
+  useAppLanguage();
   const router = useRouter();
 
   const handleBack = () => {
@@ -50,12 +52,10 @@ export const ComingSoonView: React.FC<ComingSoonViewProps> = ({
           </View>
 
           {/* 타이틀 */}
-          <Text style={styles.mainTitle}>준비중입니다</Text>
+          <Text style={styles.mainTitle}>{t("준비중입니다")}</Text>
 
           {/* 설명 */}
-          <Text style={styles.description}>
-            더 나은 서비스 제공을 위해{'\n'}열심히 준비하고 있습니다
-          </Text>
+          <Text style={styles.description}>{t("더 나은 서비스 제공을 위해")}{'\n'}{t("열심히 준비하고 있습니다")}</Text>
 
           {/* 돌아가기 버튼 */}
           <TouchableOpacity
@@ -63,15 +63,13 @@ export const ComingSoonView: React.FC<ComingSoonViewProps> = ({
             onPress={handleBack}
             activeOpacity={0.8}
           >
-            <Text style={styles.goBackButtonText}>돌아가기</Text>
+            <Text style={styles.goBackButtonText}>{t("돌아가기")}</Text>
           </TouchableOpacity>
         </View>
 
         {/* 연락처 섹션 */}
         <View style={styles.contactSection}>
-          <Text style={styles.contactGuide}>
-            궁금한 사항이 있으시면{'\n'}아래 연락처로 문의해주세요
-          </Text>
+          <Text style={styles.contactGuide}>{t("궁금한 사항이 있으시면")}{'\n'}{t("아래 연락처로 문의해주세요")}</Text>
           <TouchableOpacity
             style={styles.contactItem}
             onPress={handleEmailPress}

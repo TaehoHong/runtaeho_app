@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import { useCallback, useState } from 'react';
 import type { RefObject } from 'react';
 import type { View } from 'react-native';
@@ -20,6 +21,7 @@ interface UseShareCaptureActionsValue {
 export const useShareCaptureActions = ({
   runningData,
 }: UseShareCaptureActionsOptions): UseShareCaptureActionsValue => {
+  useAppLanguage();
   const [isCapturing, setIsCapturing] = useState(false);
 
   const runCaptureAction = useCallback(async <T>(action: () => Promise<T>): Promise<T> => {
@@ -43,12 +45,12 @@ export const useShareCaptureActions = ({
       };
     }
 
-    const message = `오늘 ${RunningStatusFormat.distance(runningData.distance)} 달렸어요! #RunTaeho #러닝`;
+    const message = t("오늘 {{value0}} 달렸어요! #RunTaeho #러닝", { value0: RunningStatusFormat.distance(runningData.distance) });
 
     return runCaptureAction(() =>
       captureAndShare(
         exportStageRef,
-        'RunTaeho 러닝 기록',
+        t("RunTaeho 러닝 기록"),
         message,
         exportStageBounds
       )

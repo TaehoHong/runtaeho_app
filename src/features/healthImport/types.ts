@@ -25,11 +25,7 @@ export interface HealthRunningWorkout {
   routeStatus?: HealthRouteStatus;
 }
 
-export interface HealthImportConfiguration {
-  userId: number;
-  healthImportEnabled: boolean;
-  healthImportLastSyncedTimestamp: number | null;
-}
+export type { UserConfiguration as HealthImportConfiguration } from '~/features/user/models/UserConfiguration';
 
 export interface UpdateHealthImportConfigurationRequest {
   healthImportEnabled: boolean;

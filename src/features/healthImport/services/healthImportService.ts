@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import { queryClient, queryKeys } from '~/services/queryClient';
 import { apiClient } from '~/services/api/client';
 import { API_ENDPOINTS } from '~/services/api/config';
+import { userConfigurationService } from '~/features/user/services/userConfigurationService';
 import { healthImportBridge } from '../native/HealthImportBridge';
 import type {
   HealthImportBatchRecord,
@@ -175,13 +176,12 @@ const importWorkouts = async (
 
 export const healthImportService = {
   getConfiguration: async (): Promise<HealthImportConfiguration> => {
-    const { data } = await apiClient.get<HealthImportConfiguration>(API_ENDPOINTS.USER.CONFIGURATION);
-    return data;
+    return userConfigurationService.get();
   },
 
   setHealthImportEnabled: async (enabled: boolean): Promise<HealthImportConfiguration> => {
     const request: UpdateHealthImportConfigurationRequest = { healthImportEnabled: enabled };
-    const { data } = await apiClient.patch<HealthImportConfiguration>(API_ENDPOINTS.USER.CONFIGURATION, request);
+    const data = await userConfigurationService.update(request);
     await queryClient.invalidateQueries({ queryKey: queryKeys.healthImport.configuration });
     return data;
   },

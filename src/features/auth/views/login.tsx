@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import React, { useMemo } from 'react';
 import {
   Dimensions,
@@ -16,6 +17,7 @@ const DESIGN_WIDTH = 375;
 const DESIGN_HEIGHT = 812;
 
 export const Login: React.FC = () => {
+  useAppLanguage();
   console.log('🔐 [LOGIN] 로그인 화면 렌더링');
 
   // 화면 크기 기반 스케일 계산
@@ -137,7 +139,7 @@ export const Login: React.FC = () => {
           >
             <Icon name="google" style={styles.buttonIcon} />
             <Text style={styles.googleButtonText}>
-              {isLoading ? '로그인 중...' : 'Google로 시작하기'}
+              {isLoading ? t("로그인 중...") : t("Google로 시작하기")}
             </Text>
           </TouchableOpacity>
 
@@ -150,9 +152,7 @@ export const Login: React.FC = () => {
               testID="login-apple-button"
             >
               <Icon name="apple" style={styles.buttonIcon}/>
-              <Text style={styles.appleButtonText}>
-                Apple로 시작하기
-              </Text>
+              <Text style={styles.appleButtonText}>{t("Apple로 시작하기")}</Text>
             </TouchableOpacity>
           )}
 

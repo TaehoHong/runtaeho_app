@@ -1,3 +1,4 @@
+import { t } from '~/i18n';
 /**
  * League 모델
  * 백엔드 API Response와 매핑되는 타입 정의
@@ -153,23 +154,23 @@ export const getResultMessage = (
   switch (status) {
     case LeagueResultStatus.PROMOTED:
       return {
-        title: '축하합니다!',
-        subtitle: `${tierName} 리그로 승급했습니다`,
+        title: t("축하합니다!"),
+        subtitle: t("{{value0}} 리그로 승급했습니다", { value0: tierName }),
       };
     case LeagueResultStatus.MAINTAINED:
       return {
-        title: '수고하셨습니다!',
-        subtitle: `${tierName} 리그에 잔류합니다`,
+        title: t("수고하셨습니다!"),
+        subtitle: t("{{value0}} 리그에 잔류합니다", { value0: tierName }),
       };
     case LeagueResultStatus.RELEGATED:
       return {
-        title: '아쉽습니다',
-        subtitle: `${tierName} 리그로 강등되었습니다`,
+        title: t("아쉽습니다"),
+        subtitle: t("{{value0}} 리그로 강등되었습니다", { value0: tierName }),
       };
     case LeagueResultStatus.REBIRTH:
       return {
-        title: '환생!',
-        subtitle: '다시 처음부터 시작합니다',
+        title: t("환생!"),
+        subtitle: t("다시 처음부터 시작합니다"),
       };
   }
 };

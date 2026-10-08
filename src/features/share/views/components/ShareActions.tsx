@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,6 +19,7 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
   onCancel,
   isLoading = false,
 }) => {
+  useAppLanguage();
   return (
     <View style={styles.container}>
       {/* 취소 버튼 - X 아이콘 + 텍스트 */}
@@ -28,7 +30,7 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
         activeOpacity={0.8}
       >
         <Ionicons name="close" size={20} color={GREY[700]} style={styles.buttonIcon} />
-        <Text style={styles.cancelButtonText}>취소</Text>
+        <Text style={styles.cancelButtonText}>{t("취소")}</Text>
       </TouchableOpacity>
 
       {/* 공유 버튼 - 그라데이션 + 공유 아이콘 */}
@@ -49,7 +51,7 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
           ) : (
             <>
               <Ionicons name="share-social" size={20} color="#FFFFFF" style={styles.buttonIcon} />
-              <Text style={styles.shareButtonText}>공유하기</Text>
+              <Text style={styles.shareButtonText}>{t("공유하기")}</Text>
             </>
           )}
         </LinearGradient>

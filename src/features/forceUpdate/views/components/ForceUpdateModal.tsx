@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import React from 'react';
 import {
   View,
@@ -35,6 +36,7 @@ export function ForceUpdateModal({
   error,
   onRetry,
 }: ForceUpdateModalProps) {
+  useAppLanguage();
   /**
    * 앱스토어 열기
    */
@@ -63,7 +65,7 @@ export function ForceUpdateModal({
   const renderChecking = () => (
     <>
       <ActivityIndicator size="large" color={PRIMARY[500]} />
-      <Text style={styles.message}>버전을 확인하고 있습니다...</Text>
+      <Text style={styles.message}>{t("버전을 확인하고 있습니다...")}</Text>
     </>
   );
 
@@ -72,16 +74,16 @@ export function ForceUpdateModal({
    */
   const renderUpdateRequired = () => (
     <>
-      <Text style={styles.title}>업데이트가 필요합니다</Text>
+      <Text style={styles.title}>{t("업데이트가 필요합니다")}</Text>
       <Text style={styles.message}>
-        {message ?? '더 나은 러닝 경험을 위해 업데이트해 주세요.'}
+        {message ?? t("더 나은 러닝 경험을 위해 업데이트해 주세요.")}
       </Text>
       <TouchableOpacity
         style={[styles.button, styles.primaryButton]}
         onPress={handleOpenStore}
         activeOpacity={0.8}
       >
-        <Text style={styles.primaryButtonText}>업데이트하기</Text>
+        <Text style={styles.primaryButtonText}>{t("업데이트하기")}</Text>
       </TouchableOpacity>
     </>
   );
@@ -91,11 +93,8 @@ export function ForceUpdateModal({
    */
   const renderError = () => (
     <>
-      <Text style={styles.title}>연결 오류</Text>
-      <Text style={styles.errorMessage}>
-        네트워크 연결을 확인할 수 없습니다.{'\n'}
-        인터넷 연결 상태를 확인해 주세요.
-      </Text>
+      <Text style={styles.title}>{t("연결 오류")}</Text>
+      <Text style={styles.errorMessage}>{t("네트워크 연결을 확인할 수 없습니다.")}{'\n'}{t("인터넷 연결 상태를 확인해 주세요.")}</Text>
       {__DEV__ && error && (
         <Text style={styles.debugText}>{error.message}</Text>
       )}
@@ -104,7 +103,7 @@ export function ForceUpdateModal({
         onPress={onRetry}
         activeOpacity={0.8}
       >
-        <Text style={styles.retryButtonText}>다시 시도</Text>
+        <Text style={styles.retryButtonText}>{t("다시 시도")}</Text>
       </TouchableOpacity>
     </>
   );

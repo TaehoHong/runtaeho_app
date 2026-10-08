@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import React from 'react';
 import { GREY } from '~/shared/styles';
 import {
@@ -20,6 +21,7 @@ interface DetailedStatisticsCardProps {
 }
 
 const StateItemCompactView: React.FC<StatItemProps> = ({ title, subtitle }) => {
+  useAppLanguage();
   return (
     <View style={styles.statItem}>
       <Text style={styles.statSubtitle}>{subtitle}</Text>
@@ -33,6 +35,7 @@ export const DetailedStatisticsCard: React.FC<DetailedStatisticsCardProps> = ({
   durationSec,
   heartRate,
 }) => {
+  useAppLanguage();
   const { currentRecord } = useRunning();
   const resolvedDistance = distanceMeters ?? currentRecord?.distance;
   const resolvedDurationSec = durationSec ?? currentRecord?.durationSec;
@@ -43,9 +46,9 @@ export const DetailedStatisticsCard: React.FC<DetailedStatisticsCardProps> = ({
     return (
       <View style={styles.container}>
         <View style={styles.row}>
-          <StateItemCompactView title="--" subtitle="심박" />
-          <StateItemCompactView title={RunningStatusFormat.pace(null)} subtitle="페이스" />
-          <StateItemCompactView title={RunningStatusFormat.duration(null)} subtitle="러닝 시간" />
+          <StateItemCompactView title="--" subtitle={t("심박")} />
+          <StateItemCompactView title={RunningStatusFormat.pace(null)} subtitle={t("페이스")} />
+          <StateItemCompactView title={RunningStatusFormat.duration(null)} subtitle={t("러닝 시간")} />
         </View>
       </View>
     );
@@ -63,17 +66,17 @@ export const DetailedStatisticsCard: React.FC<DetailedStatisticsCardProps> = ({
       <View style={styles.row}>
         <StateItemCompactView
           title={heartRateText}
-          subtitle="심박"
+          subtitle={t("심박")}
         />
 
         <StateItemCompactView
           title={paceText}
-          subtitle="페이스"
+          subtitle={t("페이스")}
         />
 
         <StateItemCompactView
           title={timeText}
-          subtitle="러닝 시간"
+          subtitle={t("러닝 시간")}
         />
       </View>
     </View>

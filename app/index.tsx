@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useAppStore, ViewState } from '~/stores/app/appStore';
@@ -9,6 +10,7 @@ import * as Font from 'expo-font'
  * 인증 상태에 따라 로그인/메인 화면으로 분기
  */
 export default function Index() {
+  useAppLanguage();
   console.log('🚀 [APP] 앱 메인 진입점 시작');
 
   const viewState = useAppStore((state) => state.viewState);
@@ -50,7 +52,7 @@ export default function Index() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#4d99e5" />
-        <Text style={styles.loadingText}>로딩 중...</Text>
+        <Text style={styles.loadingText}>{t("로딩 중...")}</Text>
       </View>
     );
   }

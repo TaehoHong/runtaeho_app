@@ -1,3 +1,4 @@
+import { t } from '~/i18n';
 /**
  * Background Task Service
  * Expo Task Manager를 사용하여 백그라운드 위치 추적 구현
@@ -402,8 +403,8 @@ export class BackgroundTaskService {
         // Foreground Service 설정 (Android)
         ...(Platform.OS === 'android' && {
           foregroundService: {
-            notificationTitle: 'RunTaeho 러닝 추적 중',
-            notificationBody: '러닝 기록이 진행 중입니다.',
+            notificationTitle: t("RunTaeho 러닝 추적 중"),
+            notificationBody: t("러닝 기록이 진행 중입니다."),
             notificationColor: RED[400],
           }
         }),

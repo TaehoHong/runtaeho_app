@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 /**
  * 헤어 색상 선택 컴포넌트
  * SRP: 헤어 색상 선택 UI만 담당
@@ -17,9 +18,10 @@ export const HairColorPicker: React.FC<Props> = ({
   selectedColor,
   onSelectColor,
 }) => {
+  useAppLanguage();
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>헤어 색상</Text>
+      <Text style={styles.label}>{t("헤어 색상")}</Text>
       <View style={styles.colorsContainer}>
         {HAIR_COLORS.map((color) => {
           const isSelected = color.hex.toLowerCase() === selectedColor.toLowerCase();

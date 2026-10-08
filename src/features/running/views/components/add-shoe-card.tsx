@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
@@ -10,6 +11,7 @@ import { PRIMARY, GREY } from '~/shared/styles';
  * 피그마 디자인: 261x165 카드 → 클릭 시 모달 오픈
  */
 export const AddShoeCard: React.FC = () => {
+  useAppLanguage();
   const handlePress = () => {
     router.push('/shoes/add-shoe');
   };
@@ -28,15 +30,13 @@ export const AddShoeCard: React.FC = () => {
             <Icon name="confirm" size={24} tintColor={GREY.WHITE} />
           </View>
           {/* "신발 추가하기" 텍스트 */}
-          <Text style={styles.title}>신발 추가하기</Text>
+          <Text style={styles.title}>{t("신발 추가하기")}</Text>
         </View>
       </View>
 
       {/* 하단 안내 문구 */}
       <View style={styles.descriptionContainer}>
-        <Text style={styles.description}>
-          신발을 추가하여 마일리지를 관리해보세요.
-        </Text>
+        <Text style={styles.description}>{t("신발을 추가하여 마일리지를 관리해보세요.")}</Text>
       </View>
     </TouchableOpacity>
   );

@@ -1,0 +1,9 @@
+"NSCameraUsageDescription" = "프로필 사진 및 러닝 기록 공유 배경 촬영을 위해 카메라 접근 권한이 필요합니다.";
+"NSHealthShareUsageDescription" = "러닝 기록과 통계를 동기화하기 위해 Apple Health의 운동 기록, 거리, 심박, 칼로리, 경로 데이터를 읽습니다.";
+"NSHealthUpdateUsageDescription" = "RunTaeho에서 기록한 러닝 운동 데이터를 Apple Health에 저장하거나 업데이트하기 위해 사용합니다.";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "RunTaeho는 백그라운드에서도 러닝을 중단 없이 기록하기 위해 위치 접근이 필요합니다. 앱이 백그라운드 상태에서도 러닝 경로, 이동 거리, 페이스가 정확하게 기록됩니다.";
+"NSLocationAlwaysUsageDescription" = "RunTaeho는 백그라운드에서도 러닝을 중단 없이 기록하기 위해 위치 접근이 필요합니다. 앱이 백그라운드 상태에서도 러닝 경로, 이동 거리, 페이스가 정확하게 기록됩니다.";
+"NSLocationWhenInUseUsageDescription" = "RunTaeho는 러닝 중 실시간으로 GPS 경로를 추적하고, 이동 거리와 페이스를 계산합니다. 예를 들어, 5km 러닝 시 정확한 경로와 거리, 평균 페이스가 기록됩니다.";
+"NSMotionUsageDescription" = "걸음 수 측정 및 러닝 페이스 분석을 위해 동작 및 피트니스 데이터를 사용합니다.";
+"NSPhotoLibraryAddUsageDescription" = "러닝 기록 공유 이미지를 갤러리에 저장하기 위해 사진 라이브러리 접근 권한이 필요합니다.";
+"NSPhotoLibraryUsageDescription" = "프로필 사진 및 러닝 기록 공유 배경 이미지 선택을 위해 사진 라이브러리 접근 권한이 필요합니다.";

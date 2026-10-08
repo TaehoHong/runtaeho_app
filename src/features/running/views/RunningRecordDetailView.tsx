@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -77,6 +78,7 @@ class MapRenderBoundary extends React.Component<
 }
 
 export const RunningRecordDetailView: React.FC = () => {
+  useAppLanguage();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ id?: string }>();
   const recordId = Number(params.id);
@@ -190,7 +192,7 @@ export const RunningRecordDetailView: React.FC = () => {
   if (recordQuery.isLoading && !record) {
     return (
       <View style={styles.screen}>
-        <Header title="러닝 기록" topInset={insets.top} onBack={() => router.back()} />
+        <Header title={t("러닝 기록")} topInset={insets.top} onBack={() => router.back()} />
         <View style={styles.centerState}>
           <ActivityIndicator size="large" color={PRIMARY[600]} />
         </View>
@@ -201,19 +203,19 @@ export const RunningRecordDetailView: React.FC = () => {
   if (showFailure || !record) {
     return (
       <View style={styles.screen}>
-        <Header title="러닝 기록" topInset={insets.top} onBack={() => router.back()} />
+        <Header title={t("러닝 기록")} topInset={insets.top} onBack={() => router.back()} />
         <View style={styles.failureCard}>
           <View style={styles.failureIcon}>
             <Text style={styles.failureIconText}>!</Text>
           </View>
-          <Text style={styles.failureTitle}>기록을 불러오지 못했어요</Text>
+          <Text style={styles.failureTitle}>{t("기록을 불러오지 못했어요")}</Text>
         </View>
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.failureButton}
           activeOpacity={0.8}
         >
-          <Text style={styles.failureButtonText}>이전 화면으로</Text>
+          <Text style={styles.failureButtonText}>{t("이전 화면으로")}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -223,7 +225,7 @@ export const RunningRecordDetailView: React.FC = () => {
     return (
       <View style={styles.screen}>
         <Header
-          title="러닝 기록"
+          title={t("러닝 기록")}
           topInset={insets.top}
           onBack={() => router.back()}
           onShare={handleShare}
@@ -274,7 +276,7 @@ export const RunningRecordDetailView: React.FC = () => {
   return (
     <View style={styles.screen}>
       <Header
-        title="러닝 기록"
+        title={t("러닝 기록")}
         topInset={insets.top}
         onBack={() => router.back()}
         onShare={handleShare}
@@ -324,7 +326,7 @@ interface HeaderProps {
   onShare?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ title, topInset, onBack, onShare }) => (
+const Header: React.FC<HeaderProps> = ({ title, topInset, onBack, onShare }) => { useAppLanguage(); return (
   <View
     style={[
       styles.header,
@@ -343,7 +345,7 @@ const Header: React.FC<HeaderProps> = ({ title, topInset, onBack, onShare }) => 
       <View style={styles.headerButton} />
     )}
   </View>
-);
+); };
 
 interface RecordHeroProps {
   record: RunningRecord;
@@ -351,6 +353,7 @@ interface RecordHeroProps {
 }
 
 const RecordHero: React.FC<RecordHeroProps> = ({ record, variant }) => {
+  useAppLanguage();
   const distance = RunningStatusFormat.distanceParts(record.distance);
 
   return (
@@ -359,7 +362,7 @@ const RecordHero: React.FC<RecordHeroProps> = ({ record, variant }) => {
         <Text style={styles.distanceValue}>{distance.value}</Text>
         <Text style={styles.distanceUnit}>{distance.unit}</Text>
       </View>
-      <Text style={styles.distanceCaption}>오늘의 러닝 거리</Text>
+      <Text style={styles.distanceCaption}>{t("오늘의 러닝 거리")}</Text>
     </View>
   );
 };
@@ -370,6 +373,7 @@ interface StatsGridProps {
 }
 
 const StatsGrid: React.FC<StatsGridProps> = ({ record, variant }) => {
+  useAppLanguage();
   const heartRate = RunningStatusFormat.heartRate(record.heartRate);
   const cadence = RunningStatusFormat.cadence(record.cadence);
   const calories = RunningStatusFormat.calories(record.calorie);
@@ -377,22 +381,22 @@ const StatsGrid: React.FC<StatsGridProps> = ({ record, variant }) => {
   return (
     <View style={[styles.statsGrid, variant === 'route' ? styles.statsGridRoute : styles.statsGridNoMap]}>
       <View style={styles.metricTopRow}>
-        <MetricCard label="총 시간" value={formatDurationMetric(record.durationSec)} />
+        <MetricCard label={t("총 시간")} value={formatDurationMetric(record.durationSec)} />
         <MetricCard
-          label="평균 페이스"
+          label={t("평균 페이스")}
           value={formatPaceMetric(calculateAveragePace(record))}
           unit="/km"
           unitPlacement="below"
         />
-        <MetricCard label="칼로리" value={calories} />
+        <MetricCard label={t("칼로리")} value={calories} />
       </View>
       <View style={styles.metricBottomRow}>
         <MetricCard
-          label="평균 심박"
+          label={t("평균 심박")}
           value={heartRate}
         />
         <MetricCard
-          label="케이던스"
+          label={t("케이던스")}
           value={cadence}
         />
       </View>
@@ -413,9 +417,10 @@ const KilometerSplitsList: React.FC<KilometerSplitsListProps> = ({
   isLoading,
   isError,
 }) => {
+  useAppLanguage();
   const stateText = isError
-    ? '구간 기록을 불러오지 못했어요'
-    : '구간 기록이 없어요';
+    ? t("구간 기록을 불러오지 못했어요")
+    : t("구간 기록이 없어요");
 
   return (
     <View
@@ -425,9 +430,9 @@ const KilometerSplitsList: React.FC<KilometerSplitsListProps> = ({
       ]}
     >
       <View style={styles.splitSectionHeader}>
-        <Text style={styles.splitSectionTitle}>구간 기록</Text>
+        <Text style={styles.splitSectionTitle}>{t("구간 기록")}</Text>
         {splits.length > 0 ? (
-          <Text style={styles.splitSectionCount}>{splits.length}개</Text>
+          <Text style={styles.splitSectionCount}>{splits.length}{t("개")}</Text>
         ) : null}
       </View>
 
@@ -454,7 +459,7 @@ interface KilometerSplitRowProps {
   split: KilometerSplit;
 }
 
-const KilometerSplitRow: React.FC<KilometerSplitRowProps> = ({ split }) => (
+const KilometerSplitRow: React.FC<KilometerSplitRowProps> = ({ split }) => { useAppLanguage(); return (
   <View style={styles.splitRow}>
     <View style={styles.splitRowTop}>
       <Text style={styles.splitLabel}>{formatSplitLabel(split)}</Text>
@@ -465,7 +470,7 @@ const KilometerSplitRow: React.FC<KilometerSplitRowProps> = ({ split }) => (
       <Text style={styles.splitMeta}>{RunningStatusFormat.cadence(split.cadence)}</Text>
     </View>
   </View>
-);
+); };
 
 interface ConnectedShoeCardProps {
   record: RunningRecord;
@@ -478,6 +483,7 @@ const ConnectedShoeCard: React.FC<ConnectedShoeCardProps> = ({
   variant,
   onPress,
 }) => {
+  useAppLanguage();
   const connectedShoe = record.connectedShoe ?? null;
   const isConnected = connectedShoe !== null;
 
@@ -498,23 +504,20 @@ const ConnectedShoeCard: React.FC<ConnectedShoeCardProps> = ({
               <Text style={styles.connectedShoeBrand}>{connectedShoe.brand}</Text>
               {connectedShoe.isMain ? (
                 <View style={styles.connectedShoeMainBadge}>
-                  <Text style={styles.connectedShoeMainBadgeText}>현재 착용</Text>
+                  <Text style={styles.connectedShoeMainBadgeText}>{t("현재 착용")}</Text>
                 </View>
               ) : null}
             </View>
             <Text style={styles.connectedShoeModel} numberOfLines={1}>
               {connectedShoe.model}
             </Text>
-            <Text style={styles.connectedShoeDistance}>
-              누적 거리 {RunningStatusFormat.distance(connectedShoe.totalDistance, { fractionDigits: 1 })}
+            <Text style={styles.connectedShoeDistance}>{t("누적 거리 ")}{RunningStatusFormat.distance(connectedShoe.totalDistance, { fractionDigits: 1 })}
             </Text>
           </>
         ) : (
           <>
-            <Text style={styles.connectedShoeEmptyTitle}>연결된 신발이 없어요</Text>
-            <Text style={styles.connectedShoeEmptySubtitle}>
-              러닝 기록에 신발을 연결해보세요
-            </Text>
+            <Text style={styles.connectedShoeEmptyTitle}>{t("연결된 신발이 없어요")}</Text>
+            <Text style={styles.connectedShoeEmptySubtitle}>{t("러닝 기록에 신발을 연결해보세요")}</Text>
           </>
         )}
       </View>
@@ -527,7 +530,7 @@ const ConnectedShoeCard: React.FC<ConnectedShoeCardProps> = ({
         activeOpacity={0.8}
       >
         <Text style={styles.connectedShoeActionText}>
-          {isConnected ? '변경' : '신발 선택'}
+          {isConnected ? t("변경") : t("신발 선택")}
         </Text>
       </TouchableOpacity>
     </View>
@@ -563,6 +566,7 @@ const ShoeChangeBottomSheet: React.FC<ShoeChangeBottomSheetProps> = ({
   onSelectShoe,
   onSave,
 }) => {
+  useAppLanguage();
   const mainShoeId = shoes.find((shoe) => shoe.isMain)?.id ?? null;
   const canSave = selectedShoeId !== null && selectedShoeId !== currentShoeId && !isSaving;
 
@@ -585,10 +589,8 @@ const ShoeChangeBottomSheet: React.FC<ShoeChangeBottomSheetProps> = ({
           <View style={styles.sheetHandle} />
           <View style={styles.sheetHeader}>
             <View>
-              <Text style={styles.sheetTitle}>연결 신발 변경</Text>
-              <Text style={styles.sheetDescription}>
-                이 러닝 기록에 연결할 신발을 선택하세요
-              </Text>
+              <Text style={styles.sheetTitle}>{t("연결 신발 변경")}</Text>
+              <Text style={styles.sheetDescription}>{t("이 러닝 기록에 연결할 신발을 선택하세요")}</Text>
             </View>
             <TouchableOpacity
               style={styles.sheetCloseButton}
@@ -606,11 +608,11 @@ const ShoeChangeBottomSheet: React.FC<ShoeChangeBottomSheetProps> = ({
             </View>
           ) : isError ? (
             <View style={styles.sheetState}>
-              <Text style={styles.sheetStateText}>신발 목록을 불러오지 못했어요.</Text>
+              <Text style={styles.sheetStateText}>{t("신발 목록을 불러오지 못했어요.")}</Text>
             </View>
           ) : shoes.length === 0 ? (
             <View style={styles.sheetState}>
-              <Text style={styles.sheetStateText}>선택할 수 있는 활성 신발이 없어요.</Text>
+              <Text style={styles.sheetStateText}>{t("선택할 수 있는 활성 신발이 없어요.")}</Text>
             </View>
           ) : (
             <ShoeSnapCarousel
@@ -622,9 +624,7 @@ const ShoeChangeBottomSheet: React.FC<ShoeChangeBottomSheetProps> = ({
           )}
 
           {hasSaveError ? (
-            <Text style={styles.sheetErrorText}>
-              연결 신발을 변경하지 못했어요. 다시 시도해주세요.
-            </Text>
+            <Text style={styles.sheetErrorText}>{t("연결 신발을 변경하지 못했어요. 다시 시도해주세요.")}</Text>
           ) : null}
 
           <TouchableOpacity
@@ -636,10 +636,10 @@ const ShoeChangeBottomSheet: React.FC<ShoeChangeBottomSheetProps> = ({
             {isSaving ? (
               <View style={styles.sheetSavingContent}>
                 <ActivityIndicator size="small" color={GREY.WHITE} />
-                <Text style={styles.sheetSaveButtonText}>변경 중...</Text>
+                <Text style={styles.sheetSaveButtonText}>{t("변경 중...")}</Text>
               </View>
             ) : (
-              <Text style={styles.sheetSaveButtonText}>변경하기</Text>
+              <Text style={styles.sheetSaveButtonText}>{t("변경하기")}</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -660,7 +660,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
   value,
   unit,
   unitPlacement = 'inline',
-}) => (
+}) => { useAppLanguage(); return (
   <View style={styles.metricCard}>
     <Text style={styles.metricLabel}>{label}</Text>
     {unitPlacement === 'below' ? (
@@ -689,7 +689,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
       </View>
     )}
   </View>
-);
+); };
 
 const formatDurationMetric = (seconds: number): string => {
   return RunningStatusFormat.duration(seconds);
@@ -705,7 +705,7 @@ const formatSplitPace = (paceSecPerKm: number): string => {
 
 const formatSplitLabel = (split: KilometerSplit): string => {
   if (split.isPartial) {
-    return `마지막 ${RunningStatusFormat.distance(split.distanceMeters)}`;
+    return t("마지막 {{value0}}", { value0: RunningStatusFormat.distance(split.distanceMeters) });
   }
 
   return RunningStatusFormat.distance(split.splitNumber * 1000);
@@ -716,6 +716,7 @@ interface RouteMapHeroProps {
 }
 
 const RouteMapHero: React.FC<RouteMapHeroProps> = ({ locations }) => {
+  useAppLanguage();
   const coordinates = useMemo<LatLng[]>(() => getRouteCoordinates(locations), [locations]);
   const region = useMemo<Region | null>(() => getRouteRegion(locations), [locations]);
   const startCoordinate = coordinates[0];
@@ -757,10 +758,10 @@ const RouteMapHero: React.FC<RouteMapHeroProps> = ({ locations }) => {
           lineJoin="round"
         />
         <Marker coordinate={startCoordinate} anchor={{ x: 0.5, y: 0.18 }}>
-          <RouteMarker label="출발" />
+          <RouteMarker label={t("출발")} />
         </Marker>
         <Marker coordinate={endCoordinate} anchor={{ x: 0.5, y: 0.18 }}>
-          <RouteMarker label="도착" />
+          <RouteMarker label={t("도착")} />
         </Marker>
       </MapView>
     </View>
@@ -771,14 +772,14 @@ interface RouteMarkerProps {
   label: string;
 }
 
-const RouteMarker: React.FC<RouteMarkerProps> = ({ label }) => (
+const RouteMarker: React.FC<RouteMarkerProps> = ({ label }) => { useAppLanguage(); return (
   <View style={styles.routeMarker}>
     <View style={styles.routeMarkerDot} />
     <View style={styles.routeMarkerLabel}>
       <Text style={styles.routeMarkerLabelText}>{label}</Text>
     </View>
   </View>
-);
+); };
 
 const styles = StyleSheet.create({
   screen: {

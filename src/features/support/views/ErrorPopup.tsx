@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 import React from 'react';
 import { Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +16,7 @@ export const ErrorPopup: React.FC<ErrorPopupProps> = ({
   onClose,
   onInquiry,
 }) => {
+  useAppLanguage();
   return (
     <Modal
       visible={visible}
@@ -28,23 +30,21 @@ export const ErrorPopup: React.FC<ErrorPopupProps> = ({
           <View style={styles.iconBox}>
             <Ionicons name="alert-outline" size={22} color={PRIMARY[600]} />
           </View>
-          <Text style={styles.title}>앱에 문제가 발생했어요</Text>
-          <Text style={styles.message}>
-            문제가 계속되면 오류 문의를 남겨주세요.
-          </Text>
+          <Text style={styles.title}>{t("앱에 문제가 발생했어요")}</Text>
+          <Text style={styles.message}>{t("문제가 계속되면 오류 문의를 남겨주세요.")}</Text>
           <TouchableOpacity
             style={styles.primaryButton}
             onPress={onInquiry}
             activeOpacity={0.8}
           >
-            <Text style={styles.primaryText}>오류 문의하기</Text>
+            <Text style={styles.primaryText}>{t("오류 문의하기")}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.closeButton}
             onPress={onClose}
             activeOpacity={0.8}
           >
-            <Text style={styles.closeText}>닫기</Text>
+            <Text style={styles.closeText}>{t("닫기")}</Text>
           </TouchableOpacity>
         </View>
       </View>

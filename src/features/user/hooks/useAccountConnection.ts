@@ -1,3 +1,4 @@
+import { t, useAppLanguage } from '~/i18n';
 /**
  * useAccountConnection Hook
  *
@@ -31,6 +32,7 @@ if (Platform.OS === 'ios') {
  * 계정 연결 Hook
  */
 export const useAccountConnection = () => {
+  useAppLanguage();
   const { user, refreshUserData } = useAuth();
   const [isConnecting, setIsConnecting] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
@@ -73,12 +75,12 @@ export const useAccountConnection = () => {
    */
   const connectGoogleAccount = useCallback(async (): Promise<void> => {
     if (!user) {
-      Alert.alert('오류', '사용자 정보를 찾을 수 없습니다.');
+      Alert.alert(t("오류"), t("사용자 정보를 찾을 수 없습니다."));
       return;
     }
 
     if (isProviderConnected(AuthProviderType.GOOGLE)) {
-      Alert.alert('알림', '이미 Google 계정이 연결되어 있습니다.');
+      Alert.alert(t("알림"), t("이미 Google 계정이 연결되어 있습니다."));
       return;
     }
 
@@ -97,7 +99,7 @@ export const useAccountConnection = () => {
       // 사용자 데이터 갱신
       await refreshUserData();
 
-      Alert.alert('성공', 'Google 계정이 연결되었습니다.');
+      Alert.alert(t("성공"), t("Google 계정이 연결되었습니다."));
       console.log('✅ [useAccountConnection] Google 계정 연결 완료');
     } catch (error: any) {
       console.error('❌ [useAccountConnection] Google 계정 연결 실패:', error);
@@ -108,17 +110,17 @@ export const useAccountConnection = () => {
           // 사용자가 취소한 경우 - 아무것도 안 함
           return;
         }
-        Alert.alert('오류', 'Google 계정 연결에 실패했습니다. 다시 시도해주세요.');
+        Alert.alert(t("오류"), t("Google 계정 연결에 실패했습니다. 다시 시도해주세요."));
         return;
       }
 
       // API 에러 처리
       if (error.code === 'ACCOUNT_ALREADY_CONNECTED') {
-        Alert.alert('알림', '이미 연결된 계정입니다.');
+        Alert.alert(t("알림"), t("이미 연결된 계정입니다."));
       } else if (error.code === 'ACCOUNT_ALREADY_IN_USE') {
-        Alert.alert('오류', '다른 사용자가 이미 사용 중인 계정입니다.');
+        Alert.alert(t("오류"), t("다른 사용자가 이미 사용 중인 계정입니다."));
       } else {
-        Alert.alert('오류', 'Google 계정 연결에 실패했습니다. 다시 시도해주세요.');
+        Alert.alert(t("오류"), t("Google 계정 연결에 실패했습니다. 다시 시도해주세요."));
       }
     } finally {
       setIsConnecting(false);
@@ -130,17 +132,17 @@ export const useAccountConnection = () => {
    */
   const connectAppleAccount = useCallback(async (): Promise<void> => {
     if (!user) {
-      Alert.alert('오류', '사용자 정보를 찾을 수 없습니다.');
+      Alert.alert(t("오류"), t("사용자 정보를 찾을 수 없습니다."));
       return;
     }
 
     if (Platform.OS !== 'ios') {
-      Alert.alert('오류', 'Apple 계정 연결은 iOS에서만 지원됩니다.');
+      Alert.alert(t("오류"), t("Apple 계정 연결은 iOS에서만 지원됩니다."));
       return;
     }
 
     if (isProviderConnected(AuthProviderType.APPLE)) {
-      Alert.alert('알림', '이미 Apple 계정이 연결되어 있습니다.');
+      Alert.alert(t("알림"), t("이미 Apple 계정이 연결되어 있습니다."));
       return;
     }
 
@@ -154,7 +156,7 @@ export const useAccountConnection = () => {
       });
 
       if (!credential.authorizationCode) {
-        throw new Error('Apple 인증 코드를 받을 수 없습니다.');
+        throw new Error(t("Apple 인증 코드를 받을 수 없습니다."));
       }
 
       // 계정 연결 API 호출
@@ -163,7 +165,7 @@ export const useAccountConnection = () => {
       // 사용자 데이터 갱신
       await refreshUserData();
 
-      Alert.alert('성공', 'Apple 계정이 연결되었습니다.');
+      Alert.alert(t("성공"), t("Apple 계정이 연결되었습니다."));
       console.log('✅ [useAccountConnection] Apple 계정 연결 완료');
     } catch (error: any) {
       console.error('❌ [useAccountConnection] Apple 계정 연결 실패:', error);
@@ -174,11 +176,11 @@ export const useAccountConnection = () => {
       }
 
       if (error.code === 'ACCOUNT_ALREADY_CONNECTED') {
-        Alert.alert('알림', '이미 연결된 계정입니다.');
+        Alert.alert(t("알림"), t("이미 연결된 계정입니다."));
       } else if (error.code === 'ACCOUNT_ALREADY_IN_USE') {
-        Alert.alert('오류', '다른 사용자가 이미 사용 중인 계정입니다.');
+        Alert.alert(t("오류"), t("다른 사용자가 이미 사용 중인 계정입니다."));
       } else {
-        Alert.alert('오류', 'Apple 계정 연결에 실패했습니다. 다시 시도해주세요.');
+        Alert.alert(t("오류"), t("Apple 계정 연결에 실패했습니다. 다시 시도해주세요."));
       }
     } finally {
       setIsConnecting(false);
@@ -197,7 +199,7 @@ export const useAccountConnection = () => {
         await connectAppleAccount();
         break;
       default:
-        Alert.alert('오류', '지원하지 않는 계정 유형입니다.');
+        Alert.alert(t("오류"), t("지원하지 않는 계정 유형입니다."));
     }
   }, [connectGoogleAccount, connectAppleAccount]);
 
@@ -206,16 +208,16 @@ export const useAccountConnection = () => {
    */
   const disconnectAccount = useCallback(async (account: UserAccount): Promise<void> => {
     if (!user) {
-      Alert.alert('오류', '사용자 정보를 찾을 수 없습니다.');
+      Alert.alert(t("오류"), t("사용자 정보를 찾을 수 없습니다."));
       return;
     }
 
     // 마지막 계정인지 확인
     if (!canDisconnect(account.id)) {
       Alert.alert(
-        '연결 해제 불가',
-        '최소 1개의 계정 연결을 유지해야 합니다.\n다른 계정을 먼저 연결한 후 해제해주세요.',
-        [{ text: '확인' }]
+        t("연결 해제 불가"),
+        t("최소 1개의 계정 연결을 유지해야 합니다.\n다른 계정을 먼저 연결한 후 해제해주세요."),
+        [{ text: t("확인") }]
       );
       return;
     }
@@ -224,12 +226,12 @@ export const useAccountConnection = () => {
 
     // 확인 다이얼로그
     Alert.alert(
-      '계정 연결 해제',
-      `${providerInfo.displayName} 계정 연결을 해제하시겠습니까?\n연결 해제 후에도 다시 연결할 수 있습니다.`,
+      t("계정 연결 해제"),
+      t("{{value0}} 계정 연결을 해제하시겠습니까?\n연결 해제 후에도 다시 연결할 수 있습니다.", { value0: providerInfo.displayName }),
       [
-        { text: '취소', style: 'cancel' },
+        { text: t("취소"), style: 'cancel' },
         {
-          text: '해제',
+          text: t("해제"),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -242,17 +244,17 @@ export const useAccountConnection = () => {
               // 사용자 데이터 갱신
               await refreshUserData();
 
-              Alert.alert('성공', `${providerInfo.displayName} 계정 연결이 해제되었습니다.`);
+              Alert.alert(t("성공"), t("{{value0}} 계정 연결이 해제되었습니다.", { value0: providerInfo.displayName }));
               console.log(`✅ [useAccountConnection] ${providerInfo.displayName} 계정 연결 해제 완료`);
             } catch (error: any) {
               console.error('❌ [useAccountConnection] 계정 연결 해제 실패:', error);
 
               if (error.response?.data?.code === 'LAST_ACCOUNT_CANNOT_DISCONNECT') {
-                Alert.alert('오류', '마지막 계정은 해제할 수 없습니다.');
+                Alert.alert(t("오류"), t("마지막 계정은 해제할 수 없습니다."));
               } else if (error.response?.data?.code === 'ACCOUNT_NOT_FOUND') {
-                Alert.alert('오류', '연결된 계정을 찾을 수 없습니다.');
+                Alert.alert(t("오류"), t("연결된 계정을 찾을 수 없습니다."));
               } else {
-                Alert.alert('오류', '계정 연결 해제에 실패했습니다. 다시 시도해주세요.');
+                Alert.alert(t("오류"), t("계정 연결 해제에 실패했습니다. 다시 시도해주세요."));
               }
             } finally {
               setIsDisconnecting(false);
