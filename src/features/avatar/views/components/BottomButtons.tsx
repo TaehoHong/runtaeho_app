@@ -10,6 +10,7 @@ import { BLUE, GREY, PRIMARY } from '~/shared/styles';
 interface Props {
   hasChanges: boolean;
   shouldShowPurchase: boolean;
+  totalPurchasePrice?: number;
   onCancel: () => void;
   onConfirm: () => void;
   isLoading: boolean;
@@ -18,63 +19,78 @@ interface Props {
 export const BottomButtons: React.FC<Props> = ({
   hasChanges,
   shouldShowPurchase,
+  totalPurchasePrice = 0,
   onCancel,
   onConfirm,
   isLoading,
 }) => {
   return (
-    <View style={styles.container}>
-      {/* Cancel Button */}
-      <TouchableOpacity
-        style={[
-          styles.button,
-          styles.cancelButton,
-          !hasChanges && styles.buttonDisabled,
-        ]}
-        onPress={onCancel}
-        disabled={!hasChanges || isLoading}
-        activeOpacity={0.7}
-      >
-        <Text
+    <View style={styles.footer}>
+      {shouldShowPurchase && (
+        <Text style={styles.totalPrice}>총 구매 금액 · {totalPurchasePrice.toLocaleString()} P</Text>
+      )}
+      <View style={styles.container}>
+        {/* Cancel Button */}
+        <TouchableOpacity
           style={[
-            styles.buttonText,
-            !hasChanges && styles.buttonTextDisabled,
+            styles.button,
+            styles.cancelButton,
+            !hasChanges && styles.buttonDisabled,
           ]}
+          onPress={onCancel}
+          disabled={!hasChanges || isLoading}
+          activeOpacity={0.7}
         >
-          취소
-        </Text>
-      </TouchableOpacity>
-
-      {/* Confirm / Purchase Button */}
-      <TouchableOpacity
-        style={[
-          styles.button,
-          shouldShowPurchase ? styles.purchaseButton : styles.confirmButton,
-          !hasChanges && styles.buttonDisabled,
-        ]}
-        onPress={onConfirm}
-        disabled={!hasChanges || isLoading}
-        activeOpacity={0.7}
-      >
-        {isLoading ? (
-          <ActivityIndicator color={GREY.WHITE} />
-        ) : (
           <Text
             style={[
               styles.buttonText,
-              styles.buttonTextWhite,
               !hasChanges && styles.buttonTextDisabled,
             ]}
-          >
-            {shouldShowPurchase ? '구매' : '확인'}
-          </Text>
-        )}
-      </TouchableOpacity>
+          >취소</Text>
+        </TouchableOpacity>
+
+        {/* Confirm / Purchase Button */}
+        <TouchableOpacity
+          style={[
+            styles.button,
+            shouldShowPurchase ? styles.purchaseButton : styles.confirmButton,
+            !hasChanges && styles.buttonDisabled,
+          ]}
+          onPress={onConfirm}
+          disabled={!hasChanges || isLoading}
+          activeOpacity={0.7}
+        >
+          {isLoading ? (
+            <ActivityIndicator color={GREY.WHITE} />
+          ) : (
+            <Text
+              style={[
+                styles.buttonText,
+                styles.buttonTextWhite,
+                !hasChanges && styles.buttonTextDisabled,
+              ]}
+            >
+              {shouldShowPurchase ? '구매 후 적용' : '적용'}
+            </Text>
+          )}
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  footer: {
+    backgroundColor: GREY[50],
+  },
+  totalPrice: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    color: GREY[900],
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'right',
+  },
   container: {
     flexDirection: 'row',
     gap: 11,

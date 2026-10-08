@@ -9,7 +9,7 @@
  * iOS AvatarManagementViewModel 포팅
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ITEM_CATEGORIES,
   ItemStatus,
@@ -17,7 +17,6 @@ import {
   usePurchaseItems,
   useUpdateEquippedItems,
   type Item,
-  type ItemStatusValue,
   type EquippedItemsMap,
   type HairColor,
 } from '~/features/avatar';
@@ -47,41 +46,6 @@ function normalizeEquippedMap(input: unknown): EquippedItemsMap {
   return input as EquippedItemsMap;
 }
 
-function toItems(
-  items: any[],
-  equippedMap: EquippedItemsMap
-): Item[] {
-  return items.map((item) => {
-    // equippedMap에 해당 itemType.id의 아이템이 있고, 그 ID가 현재 item.id와 같으면 EQUIPPED
-    const equippedValues = Object.values(equippedMap);
-    const isEquipped = equippedValues.some(
-      (equippedItem) => equippedItem?.id === item.id
-    );
-
-    // 상태 결정 로직
-    let status: ItemStatusValue;
-    if (isEquipped) {
-      status = ItemStatus.EQUIPPED;      // 착용 중
-    } else if (item.isOwned === true) {
-      status = ItemStatus.OWNED;         // 보유했지만 미착용
-    } else {
-      status = ItemStatus.NOT_OWNED;     // 미보유
-    }
-
-    return {
-      id: item.id,
-      name: item.name,
-      itemType: item.itemType, // 백엔드 구조 그대로 사용 {id, name}
-      filePath: item.filePath,
-      unityFilePath: item.unityFilePath,
-      point: item.point,
-      createdAt: item.createdAt,
-      isOwned: item.isOwned,             // 백엔드 값 유지
-      status,                             // 계산된 상태
-    };
-  });
-}
-
 /**
  * EquippedItemsMap에서 아이템 ID 배열만 추출
  */
@@ -98,8 +62,17 @@ function toItemIds(equippedMap: EquippedItemsMap): readonly number[] {
 /**
  * ViewModel 반환 타입
  */
+export type OwnershipFilter = 'owned' | 'all';
+
 export interface AvatarViewModel {
   // State
+  readonly ownershipFilter: OwnershipFilter;
+  readonly actionError: string | null;
+  readonly isItemsLoading: boolean;
+  readonly isItemsFetching: boolean;
+  readonly itemsError: boolean;
+  retryItems: () => void;
+  selectOwnershipFilter: (filter: OwnershipFilter) => void;
   readonly categories: typeof ITEM_CATEGORIES;
   readonly selectedCategoryIndex: number;
   readonly selectedCategory: number;
@@ -165,6 +138,12 @@ export function useAvatarViewModel(): AvatarViewModel {
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [showInsufficientPointsAlert, setShowInsufficientPointsAlert] = useState(false);
 
+  const [ownershipFilter, setOwnershipFilter] = useState<OwnershipFilter>('owned');
+  const [purchasedIds, setPurchasedIds] = useState<ReadonlySet<number>>(() => new Set());
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const savingRef = useRef(false);
+
   // 카테고리 정의
   const categories = ITEM_CATEGORIES;
 
@@ -188,6 +167,10 @@ export function useAvatarViewModel(): AvatarViewModel {
     data: itemsData,
     fetchNextPage,
     hasNextPage,
+    isLoading: isItemsLoading,
+    isFetching: isItemsFetching,
+    isError: itemsError,
+    refetch: retryItems,
   } = useAvatarItems(selectedCategory);
 
   const purchaseMutation = usePurchaseItems();
@@ -197,18 +180,25 @@ export function useAvatarViewModel(): AvatarViewModel {
   // Computed Values
   // ===================================
 
-  // 전체 아이템 리스트 (페이지 합치기)
-  const allItems = useMemo(() => {
-    if (!itemsData) return [];
-    return itemsData.pages.flatMap((page) =>
-      toItems(page.content, pendingEquippedItems)
-    );
-  }, [itemsData, pendingEquippedItems]);
+  const isOwned = useCallback((item: Item) => (
+    item.isOwned === true || purchasedIds.has(item.id)
+    || Object.values(globalEquippedMap).some(equipped => equipped?.id === item.id)
+  ), [purchasedIds, globalEquippedMap]);
 
-  // 현재 카테고리 아이템만
+  // 선택(미리보기)과 실제 착용 상태는 별도로 표시한다.
   const currentCategoryItems = useMemo(() => {
-    return allItems.filter((item) => item.itemType.id === selectedCategory);
-  }, [allItems, selectedCategory]);
+    const items = itemsData?.pages.flatMap(page => page.content) ?? [];
+    return items
+      .filter(item => item.itemType.id === selectedCategory)
+      .map(item => ({
+        ...item,
+        isOwned: isOwned(item),
+        status: globalEquippedMap[item.itemType.id]?.id === item.id
+          ? ItemStatus.EQUIPPED
+          : isOwned(item) ? ItemStatus.OWNED : ItemStatus.NOT_OWNED,
+      }))
+      .filter(item => ownershipFilter === 'all' || item.isOwned);
+  }, [itemsData, selectedCategory, isOwned, globalEquippedMap, ownershipFilter]);
 
   // Unity 프리뷰용 아이템
   const previewItems = pendingEquippedItems;
@@ -237,17 +227,9 @@ export function useAvatarViewModel(): AvatarViewModel {
   }, [pendingEquippedItems, globalEquippedMap, hasHairColorChanged]);
 
   // 구매해야 할 아이템
-  const itemsToPurchase = useMemo(() => {
-    const items: Item[] = [];
-    for (const item of Object.values(pendingEquippedItems)) {
-      if (!item) continue;
-      const originalItem = allItems.find((i) => i.id === item.id);
-      if (originalItem && !originalItem.isOwned) {
-        items.push(originalItem);
-      }
-    }
-    return items;
-  }, [pendingEquippedItems, allItems]);
+  const itemsToPurchase = useMemo(() => (
+    Object.values(pendingEquippedItems).filter(item => item && !isOwned(item))
+  ), [pendingEquippedItems, isOwned]);
 
   const shouldShowPurchaseButton = itemsToPurchase.length > 0;
 
@@ -259,7 +241,7 @@ export function useAvatarViewModel(): AvatarViewModel {
   // 잔여 포인트
   const remainingPoints = totalPoint - totalPurchasePrice;
 
-  const isLoading = purchaseMutation.isPending || updateEquippedMutation.isPending;
+  const isLoading = isSaving || purchaseMutation.isPending || updateEquippedMutation.isPending;
 
   // ===================================
   // Effects
@@ -283,7 +265,7 @@ export function useAvatarViewModel(): AvatarViewModel {
    * 카테고리 선택
    */
   const selectCategory = useCallback((index: number) => {
-    setSelectedCategoryIndex(index);
+    if (!savingRef.current) setSelectedCategoryIndex(index);
   }, []);
 
   /**
@@ -292,6 +274,8 @@ export function useAvatarViewModel(): AvatarViewModel {
    */
   const selectHairColor = useCallback(
     (color: HairColor) => {
+      if (savingRef.current) return;
+      setActionError(null);
       // 같은 색상 재선택 시 무시
       if (pendingHairColor.toLowerCase() === color.hex.toLowerCase()) {
         return;
@@ -313,6 +297,8 @@ export function useAvatarViewModel(): AvatarViewModel {
    */
   const selectItem = useCallback(
     (item: Item) => {
+      if (savingRef.current) return;
+      setActionError(null);
       // 같은 아이템 재선택 시 무시
       if (pendingEquippedItems[item.itemType.id]?.id === item.id) {
         return;
@@ -342,6 +328,8 @@ export function useAvatarViewModel(): AvatarViewModel {
    * iOS: attemptPurchase()
    */
   const attemptPurchase = useCallback(() => {
+    if (savingRef.current) return;
+    setActionError(null);
     if (totalPoint < totalPurchasePrice) {
       setShowInsufficientPointsAlert(true);
       return;
@@ -355,88 +343,76 @@ export function useAvatarViewModel(): AvatarViewModel {
    *
    * 포인트 동기화는 usePurchaseItems의 onSuccess에서 서버 조회로 처리됨
    */
+  const applySelection = useCallback(async (items: EquippedItemsMap) => {
+    await updateEquippedMutation.mutateAsync({
+      avatarId,
+      itemIds: toItemIds(items),
+      hairColor: pendingHairColor,
+    });
+    setEquippedItems(items);
+    setGlobalHairColor(pendingHairColor);
+  }, [avatarId, pendingHairColor, updateEquippedMutation, setEquippedItems, setGlobalHairColor]);
+
   const confirmPurchase = useCallback(async () => {
-    try {
-      // 1. 아이템 구매 (포인트 동기화는 mutation onSuccess에서 처리)
-      await purchaseMutation.mutateAsync({
-        itemIds: itemsToPurchase.map((i) => i.id),
-      });
-
-      // 2. 착용 상태 업데이트 (헤어 색상 포함)
-      const itemIds = toItemIds(pendingEquippedItems);
-      await updateEquippedMutation.mutateAsync({
-        avatarId,
-        itemIds,
-        hairColor: pendingHairColor,
-      });
-
-      // 3. 전역 상태 동기화 (아이템 + 헤어 색상)
-      setEquippedItems(pendingEquippedItems);
-      setGlobalHairColor(pendingHairColor);
-
-      // 4. 모달 닫기
+    if (savingRef.current || itemsToPurchase.length === 0) return;
+    if (totalPoint < totalPurchasePrice) {
       setShowPurchaseModal(false);
-
-      // TODO: 성공 토스트 표시
-      console.log('✅ 구매 및 착용 완료');
-    } catch (error) {
-      console.error('❌ 구매 실패:', error);
-      // TODO: 에러 토스트 표시
+      setShowInsufficientPointsAlert(true);
+      return;
     }
-  }, [
-    itemsToPurchase,
-    pendingEquippedItems,
-    pendingHairColor,
-    avatarId,
-    purchaseMutation,
-    updateEquippedMutation,
-    setEquippedItems,
-    setGlobalHairColor,
-  ]);
+    savingRef.current = true;
+    setIsSaving(true);
+    setActionError(null);
+    let purchased = false;
+    try {
+      await purchaseMutation.mutateAsync({ itemIds: itemsToPurchase.map(item => item.id) });
+      purchased = true;
+      // 구매와 착용은 별도 API이므로 착용 실패 시에도 구매 완료 상태를 유지한다.
+      setPurchasedIds(previous => new Set([...previous, ...itemsToPurchase.map(item => item.id)]));
+      const ownedSelection = Object.fromEntries(
+        Object.entries(pendingEquippedItems).map(([type, item]) => [type, { ...item, isOwned: true }])
+      );
+      setPendingEquippedItems(ownedSelection);
+      setShowPurchaseModal(false);
+      await applySelection(ownedSelection);
+    } catch {
+      setShowPurchaseModal(false);
+      setActionError(purchased
+        ? '구매는 완료됐지만 적용하지 못했어요. 다시 적용해주세요.'
+        : '아이템 구매에 실패했습니다.');
+    } finally {
+      savingRef.current = false;
+      setIsSaving(false);
+    }
+  }, [itemsToPurchase, totalPoint, totalPurchasePrice, purchaseMutation, pendingEquippedItems, applySelection]);
 
-  /**
-   * 변경사항 확인
-   */
   const confirmChanges = useCallback(async () => {
+    if (savingRef.current || !hasChanges) return;
     if (shouldShowPurchaseButton) {
-      // 구매 필요
       attemptPurchase();
-    } else {
-      // 착용만 업데이트 (헤어 색상 포함)
-      try {
-        const itemIds = toItemIds(pendingEquippedItems);
-        await updateEquippedMutation.mutateAsync({
-          avatarId,
-          itemIds,
-          hairColor: pendingHairColor,
-        });
-
-        // 전역 상태 동기화 (아이템 + 헤어 색상)
-        setEquippedItems(pendingEquippedItems);
-        setGlobalHairColor(pendingHairColor);
-
-        // TODO: 성공 토스트 표시
-        console.log('✅ 착용 완료');
-      } catch (error) {
-        console.error('❌ 착용 실패:', error);
-        // TODO: 에러 토스트 표시
-      }
+      return;
     }
-  }, [
-    shouldShowPurchaseButton,
-    attemptPurchase,
-    pendingEquippedItems,
-    pendingHairColor,
-    avatarId,
-    updateEquippedMutation,
-    setEquippedItems,
-    setGlobalHairColor,
-  ]);
+    savingRef.current = true;
+    setIsSaving(true);
+    setActionError(null);
+    try {
+      await applySelection(pendingEquippedItems);
+    } catch {
+      setActionError('착용 상태 업데이트에 실패했습니다.');
+    } finally {
+      savingRef.current = false;
+      setIsSaving(false);
+    }
+  }, [hasChanges, shouldShowPurchaseButton, attemptPurchase, applySelection, pendingEquippedItems]);
 
   /**
    * 취소
    */
   const cancelChanges = useCallback(() => {
+    if (savingRef.current) return;
+    setActionError(null);
+    setShowPurchaseModal(false);
+    setShowInsufficientPointsAlert(false);
     // 아이템 상태 복원
     setPendingEquippedItems(normalizeEquippedMap(globalEquippedItems));
 
@@ -454,6 +430,13 @@ export function useAvatarViewModel(): AvatarViewModel {
   // ===================================
   return {
     // State
+    ownershipFilter,
+    selectOwnershipFilter: setOwnershipFilter,
+    actionError,
+    isItemsLoading,
+    isItemsFetching,
+    itemsError,
+    retryItems,
     categories,
     selectedCategoryIndex,
     selectedCategory,

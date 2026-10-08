@@ -23,6 +23,20 @@ function createItem(id: number): Item {
 }
 
 describe('AvatarItemCard layout', () => {
+  it('shows the price before selecting an unowned item', () => {
+    renderWithProviders(
+      <AvatarItemCard item={{ ...createItem(1), point: 1000 }} hairColor="#000000" isSelected={false} onPress={jest.fn()} />
+    );
+    expect(screen.getByText('1,000 P')).toBeTruthy();
+  });
+
+  it('shows a free label for an unowned zero-price item', () => {
+    renderWithProviders(
+      <AvatarItemCard item={{ ...createItem(1), point: 0 }} hairColor="#000000" isSelected={false} onPress={jest.fn()} />
+    );
+    expect(screen.getByText('무료')).toBeTruthy();
+  });
+
   it('calculates card width from columns and spacing', () => {
     renderWithProviders(
       <AvatarItemCard

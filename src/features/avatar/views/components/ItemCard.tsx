@@ -8,7 +8,6 @@ import { Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import type { Item } from '~/features/avatar';
 import { GRID_LAYOUT, ITEM_OPACITY, ItemStatus } from '~/features/avatar';
 import { resolveAvatarItemImage } from '~/features/avatar/utils/avatarItemImageResolver';
-import { Icon } from '~/shared/components/ui';
 import { GREY, PRIMARY } from '~/shared/styles';
 
 interface Props {
@@ -36,12 +35,17 @@ export const AvatarItemCard: React.FC<Props> = ({ item, hairColor, isSelected, o
   const borderWidth = isSelected ? 2 : 1;
 
   const backgroundColor = isSelected ? PRIMARY[50] : GREY.WHITE;
+  const label = item.status === ItemStatus.EQUIPPED ? '착용 중'
+    : item.isOwned ? '보유' : item.point === 0 ? '무료' : `${item.point.toLocaleString()} P`;
 
   return (
     <TouchableOpacity
       style={[styles.container, { width: cardWidth }]}
       onPress={onPress}
       activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={`${item.name}, ${label}`}
+      accessibilityState={{ selected: isSelected }}
     >
       <View
         style={[
@@ -58,15 +62,8 @@ export const AvatarItemCard: React.FC<Props> = ({ item, hairColor, isSelected, o
           <Image source={itemImage} style={styles.image} />
         )}
 
-        {/* 가격 배지 (선택된 미보유 아이템만) */}
-        {isSelected && !item.isOwned && item.point && (
-          <View style={styles.priceBadge}>
-            <Icon name='point' size={14}/>
-            {/* <View style={styles.priceIcon} /> */}
-            <Text style={styles.priceText}>{item.point}</Text>
-          </View>
-        )}
       </View>
+      <Text style={styles.priceText}>{label}</Text>
     </TouchableOpacity>
   );
 };
@@ -87,25 +84,11 @@ const styles = StyleSheet.create({
     height: '60%',
     resizeMode: 'contain',
   },
-  priceBadge: {
-    position: 'absolute',
-    // width:43,
-    height:20,
-    top: 6,
-    right: 5,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderRadius: 24,
-    borderColor: PRIMARY[300],
-    borderWidth: 1,
-    gap: 2,
-  },
   priceText: {
     fontSize: 12,
     fontWeight: '600',
     color: GREY[900],
+    textAlign: 'center',
+    marginTop: 6,
   },
 });

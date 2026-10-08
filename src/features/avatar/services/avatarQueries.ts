@@ -141,7 +141,19 @@ export function usePurchaseItems(): UseMutationResult<
   return useMutation({
     mutationFn: (request: PurchaseItemsRequest) =>
       avatarService.purchaseItems(request),
-    onSuccess: async () => {
+    onSuccess: async (_, request) => {
+      // 재진입하거나 목록 갱신이 실패해도 구매한 아이템을 다시 판매하지 않는다.
+      queryClient.setQueriesData<InfiniteData<CursorResult<Item>>>(
+        { queryKey: avatarQueryKeys.items() },
+        data => data && ({
+          ...data,
+          pages: data.pages.map(page => ({
+            ...page,
+            content: page.content.map(item => request.itemIds.includes(item.id)
+              ? { ...item, isOwned: true } : item),
+          })),
+        })
+      );
       // 포인트 동기화 (재시도 로직: 실패 시 최대 3회 재시도)
       const MAX_RETRIES = 3;
       const RETRY_DELAY_MS = 1000;
@@ -168,7 +180,7 @@ export function usePurchaseItems(): UseMutationResult<
         queryKey: avatarQueryKeys.items(),
       });
     },
-    retry: QUERY_OPTIONS.RETRY_COUNT,
+    retry: 0, // 포인트 차감 요청은 응답 유실 시 자동으로 재전송하지 않는다.
   });
 }
 

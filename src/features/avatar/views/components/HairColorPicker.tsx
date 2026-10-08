@@ -66,6 +66,8 @@ const styles = StyleSheet.create({
   },
   colorsContainer: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    rowGap: 8,
     justifyContent: 'space-between',
     alignItems: 'center',
   },

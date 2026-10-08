@@ -15,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import type { Item } from '~/features/avatar';
+import { getCategoryDisplayName } from '~/features/avatar';
 import { resolveAvatarItemImage } from '~/features/avatar/utils/avatarItemImageResolver';
 import { Icon } from '~/shared/components/ui';
 import { BLUE, GREY, PRIMARY, RED } from '~/shared/styles';
@@ -49,23 +50,25 @@ export const PurchaseModal: React.FC<Props> = ({
       visible
       transparent
       animationType="fade"
-      onRequestClose={onCancel}
+      onRequestClose={() => { if (!isLoading) onCancel(); }}
     >
       {/* Dimmed Background */}
       <TouchableOpacity
         style={styles.overlay}
         activeOpacity={1}
         onPress={onCancel}
+        disabled={isLoading}
       >
         {/* Modal Content */}
         <TouchableOpacity
+          style={styles.modalWidth}
           activeOpacity={1}
           onPress={(e) => e.stopPropagation()}
         >
           <View style={styles.modal}>
             {/* Title */}
             <Text style={styles.title}>구매 내역</Text>
-            <Text style={styles.subtitle}>해당 아이템을 구매할까요?</Text>
+            <Text style={styles.subtitle}>선택한 아이템을 구매하고 적용할까요?</Text>
 
             {/* Items Preview */}
             <View style={styles.itemsContainer}>
@@ -78,9 +81,10 @@ export const PurchaseModal: React.FC<Props> = ({
                         <Image source={itemImage} style={styles.itemImage}/>
                       )}
                     </View>
+                    <Text style={styles.itemName}>{getCategoryDisplayName(item.itemType.id)}</Text>
                     <View style={styles.itemPriceContainer}>
                       <Icon name='point' size={24}/>
-                      <Text style={styles.itemPrice}>{item.point}</Text>
+                      <Text style={styles.itemPrice}>{item.point.toLocaleString()}</Text>
                     </View>
                   </View>
                 );
@@ -125,7 +129,7 @@ export const PurchaseModal: React.FC<Props> = ({
                 disabled={isLoading}
                 activeOpacity={0.7}
               >
-                <Text style={styles.cancelButtonText}>구매 취소</Text>
+                <Text style={styles.cancelButtonText}>취소</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -137,7 +141,7 @@ export const PurchaseModal: React.FC<Props> = ({
                 {isLoading ? (
                   <ActivityIndicator color={GREY.WHITE} />
                 ) : (
-                  <Text style={styles.confirmButtonText}>즉시 구매</Text>
+                  <Text style={styles.confirmButtonText}>구매 후 적용</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -154,9 +158,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  modalWidth: {
+    width: '100%',
+    maxWidth: 335,
   },
   modal: {
-    width: 335,
+    width: '100%',
+    maxWidth: 335,
     backgroundColor: GREY[50],
     borderRadius: 16,
     paddingHorizontal: 0,
@@ -181,7 +191,7 @@ const styles = StyleSheet.create({
   },
   itemsContainer: {
     marginBottom: 24,
-    paddingHorizontal: 50,
+    paddingHorizontal: 26,
     alignItems: 'center',
   },
   itemRow: {
@@ -192,14 +202,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   itemImageContainer: {
-    width: 105,
-    height: 105,
+    width: 56,
+    height: 56,
     borderRadius: 14,
     backgroundColor: GREY.WHITE,
     borderWidth: 1,
     borderColor: GREY[250],
-    paddingHorizontal: 20,
-    paddingVertical: 26,
+    padding: 8,
     overflow: 'hidden',
   },
   itemImage: {
@@ -211,6 +220,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+  },
+  itemName: {
+    flex: 1,
+    color: GREY[900],
+    fontSize: 12,
+    marginHorizontal: 8,
   },
   priceIcon: {
     width: 24,
