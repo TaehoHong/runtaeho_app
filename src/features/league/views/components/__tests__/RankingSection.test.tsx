@@ -1,62 +1,49 @@
 import React from 'react';
-import { FlatList } from 'react-native';
-import { screen } from '@testing-library/react-native';
-import type { LeagueParticipant } from '~/features/league/models';
-import { RankingSection } from '~/features/league/views/components/RankingSection';
-import { renderWithProviders } from '~/test-utils/renderWithProviders';
+import { Animated, View } from 'react-native';
+import { act, render, screen } from '@testing-library/react-native';
+import type { LeagueParticipant } from '../../../models';
+import { RankingSection } from '../RankingSection';
 
-function createParticipant(overrides: Partial<LeagueParticipant>): LeagueParticipant {
-  return {
-    id: 1,
-    rank: 1,
-    nickname: 'runner-1',
-    profileImageUrl: null,
-    distance: 1000,
-    isMe: false,
-    isBot: false,
-    ...overrides,
-  };
-}
+jest.mock('react-native/Libraries/Lists/FlatList', () => {
+  const React = require('react');
+  const View = require('react-native/Libraries/Components/View/View').default;
+  return { __esModule: true, default: React.forwardRef(function AllRows({ data, renderItem }: { data: LeagueParticipant[]; renderItem: (value: { item: LeagueParticipant; index: number }) => React.ReactNode }, ref: React.Ref<unknown>) {
+    React.useImperativeHandle(ref, () => ({ scrollToIndex: () => {}, scrollToOffset: () => {} }));
+    return React.createElement(View, null, data.map((item, index) => React.createElement(React.Fragment, { key: item.id }, renderItem({ item, index }))));
+  }) };
+});
 
-describe('RankingSection', () => {
-  it('provides participant data to FlatList on the first render without initialScrollIndex', () => {
-    const participants = [
-      createParticipant({ id: 1, rank: 1, nickname: 'runner-1' }),
-      createParticipant({ id: 2, rank: 2, nickname: 'runner-me', isMe: true, distance: 900 }),
-      createParticipant({ id: 3, rank: 3, nickname: 'runner-3', distance: 800 }),
-    ];
+jest.mock('../RankItem', () => ({ RankItem: ({ participant }: { participant: LeagueParticipant }) => {
+  const React = require('react');
+  const { Text } = require('react-native');
+  return React.createElement(Text, null, participant.nickname);
+} }));
+const participants = (count: number, name = 'runner'): LeagueParticipant[] => Array.from({ length: count }, (_, index) => ({
+  id: index + 1, rank: index + 1, nickname: `${name}-${index}`, profileImageUrl: null,
+  distance: 1000, isMe: index === 0, isBot: false,
+}));
 
-    renderWithProviders(
-      <RankingSection participants={participants} previousRank={undefined} />
-    );
-
-    const list = screen.UNSAFE_getByType(FlatList);
-
-    expect(list.props.data).toEqual(participants);
-    expect(list.props.initialScrollIndex).toBeUndefined();
-    expect(screen.getByText(/실제 러닝 종료 시각으로 집계/)).toBeTruthy();
-    expect(screen.getByText(/종료한 시즌에 전체 거리가 반영/)).toBeTruthy();
+it('allocates displacement values for every row and ignores stopped animation completion', () => {
+  const callbacks: ((result: { finished: boolean }) => void)[] = [];
+  const sequence = jest.spyOn(Animated, 'sequence').mockImplementation(() => ({
+    start: callback => { if (callback) callbacks.push(callback); },
+    stop: () => {}, reset: () => {},
+  }));
+  const { rerender } = render(<RankingSection participants={participants(12)} previousRank={12} />);
+  const translatedViews = screen.UNSAFE_getAllByType(View).filter(node => {
+    const styles = Array.isArray(node.props.style) ? node.props.style : [node.props.style];
+    return styles.some((style: { transform?: unknown[] } | undefined) => style?.transform);
   });
-
-  it('updates FlatList data when participants change outside the ranking animation flow', () => {
-    const initialParticipants = [
-      createParticipant({ id: 1, rank: 1, nickname: 'runner-1' }),
-      createParticipant({ id: 2, rank: 2, nickname: 'runner-me', isMe: true, distance: 900 }),
-    ];
-    const refreshedParticipants = [
-      createParticipant({ id: 1, rank: 1, nickname: 'runner-me', isMe: true, distance: 1200 }),
-      createParticipant({ id: 4, rank: 2, nickname: 'runner-4', distance: 1100 }),
-    ];
-
-    const { rerender } = renderWithProviders(
-      <RankingSection participants={initialParticipants} previousRank={undefined} />
-    );
-
-    rerender(
-      <RankingSection participants={refreshedParticipants} previousRank={undefined} />
-    );
-
-    const list = screen.UNSAFE_getByType(FlatList);
-    expect(list.props.data).toEqual(refreshedParticipants);
+  expect(translatedViews.length).toBeGreaterThan(10);
+  translatedViews.forEach(node => {
+    const styles = Array.isArray(node.props.style) ? node.props.style : [node.props.style];
+    const transform = styles.find((style: { transform?: unknown[] } | undefined) => style?.transform).transform;
+    expect(transform[0].translateY).toBeDefined();
   });
+  const previousCompletion = callbacks[callbacks.length - 1]!;
+  rerender(<RankingSection participants={participants(5, 'updated')} previousRank={5} />);
+  act(() => previousCompletion({ finished: false }));
+  expect(screen.queryByText('runner-11')).toBeNull();
+  expect(screen.getByText('updated-1')).toBeTruthy();
+  sequence.mockRestore();
 });

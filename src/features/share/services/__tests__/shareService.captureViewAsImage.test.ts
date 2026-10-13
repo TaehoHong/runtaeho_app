@@ -10,10 +10,12 @@ import { CANVAS_SIZE } from '~/features/share/constants/shareOptions';
 
 const mockCaptureScreen = jest.fn();
 const mockCaptureRef = jest.fn();
+const mockReleaseCapture = jest.fn();
 
 jest.mock('react-native-view-shot', () => ({
   captureScreen: (...args: unknown[]) => mockCaptureScreen(...args),
   captureRef: (...args: unknown[]) => mockCaptureRef(...args),
+  releaseCapture: (...args: unknown[]) => mockReleaseCapture(...args),
 }));
 
 jest.mock('expo-image-manipulator', () => ({
@@ -201,4 +203,17 @@ describe('shareService', () => {
     });
     expect(shareOpenMock).not.toHaveBeenCalled();
   });
+  it('keeps the Android overlay until composition finishes and releases only that intermediate file', async () => {
+    Platform.OS = 'android';
+    let resolve!: (value: { uri: string; width: number; height: number }) => void;
+    mockComposeShareExportFromUnityAndOverlay.mockImplementationOnce(() => new Promise((done) => { resolve = done; }));
+    const pending = captureAndShare(createViewRef({ x: 0, y: 0, width: 360, height: 450 }));
+    for (let index = 0; index < 20 && !resolve; index++) await Promise.resolve();
+    expect(mockReleaseCapture).not.toHaveBeenCalled();
+    resolve({ uri: 'file://native-share-export.png', width: 1080, height: 1350 });
+    await pending;
+    expect(mockReleaseCapture).toHaveBeenCalledWith('file://overlay-stage.png');
+    expect(mockReleaseCapture).not.toHaveBeenCalledWith('file://native-share-export.png');
+  });
+
 });

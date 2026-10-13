@@ -4,7 +4,6 @@
 
 import { apiClient } from '../../../services/api/client';
 import { API_ENDPOINTS } from '../../../services/api/config';
-import { formatToLocalDateTime } from '~/shared/utils/dateUtils';
 import type {
   Period,
   StatisticsSummary,
@@ -21,11 +20,13 @@ export const statisticsService = {
     startDateTime: Date;
     endDateTime: Date;
     statisticType: Period;
+    timeZone?: string;
   }): Promise<StatisticsSummary> => {
     const requestParams = {
-      startDateTime: formatToLocalDateTime(params.startDateTime),
-      endDateTime: formatToLocalDateTime(params.endDateTime),
+      startDateTime: params.startDateTime.toISOString().replace(/Z$/, ''),
+      endDateTime: params.endDateTime.toISOString().replace(/Z$/, ''),
       statisticType: params.statisticType,
+      timeZone: params.timeZone ?? 'UTC',
     };
 
     console.log('[STATISTICS_SERVICE] Request params:', requestParams);

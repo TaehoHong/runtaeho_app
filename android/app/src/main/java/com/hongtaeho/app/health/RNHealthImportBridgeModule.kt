@@ -42,7 +42,7 @@ class RNHealthImportBridgeModule(
     @ReactMethod
     fun isAvailable(promise: Promise) {
         val available = isHealthConnectAvailable()
-        logHealthRaw("availability response", mapOf("available" to available))
+        logHealthImport("availability response", mapOf("available" to available))
         promise.resolve(available)
     }
 
@@ -59,7 +59,7 @@ class RNHealthImportBridgeModule(
                 val granted = client.permissionController.getGrantedPermissions()
                 val required = requiredPermissions()
                 val optional = optionalPermissions(includeHistory = true, includeRoute = true)
-                logHealthRaw(
+                logHealthImport(
                     "getGrantedPermissions response",
                     mapOf(
                         "grantedCount" to granted.size,
@@ -76,7 +76,7 @@ class RNHealthImportBridgeModule(
                     )
                 )
             } catch (error: Exception) {
-                logHealthRaw("getGrantedPermissions failed", errorLog(error))
+                logHealthImport("getGrantedPermissions failed", errorLog(error))
                 promise.resolve("denied")
             }
         }
@@ -110,7 +110,7 @@ class RNHealthImportBridgeModule(
             includeRoute = options.booleanOrFalse("includeRoute")
         )
 
-        logHealthRaw(
+        logHealthImport(
             "requestPermissions request",
             mapOf(
                 "includeHistory" to options.booleanOrFalse("includeHistory"),
@@ -124,7 +124,7 @@ class RNHealthImportBridgeModule(
         activity.requestHealthConnectPermissions(
             permissions = permissions,
             onSuccess = { granted ->
-                logHealthRaw(
+                logHealthImport(
                     "requestPermissions response",
                     mapOf(
                         "grantedCount" to granted.size,
@@ -137,7 +137,7 @@ class RNHealthImportBridgeModule(
                 promise.resolve(toPermissionStatus(granted, required))
             },
             onError = { error ->
-                logHealthRaw("requestPermissions failed", errorLog(error))
+                logHealthImport("requestPermissions failed", errorLog(error))
                 promise.reject("health_permission_failed", error.message, error)
             }
         )
@@ -164,13 +164,10 @@ class RNHealthImportBridgeModule(
                 var pageToken: String? = null
                 var pageIndex = 0
 
-                logHealthRaw(
+                logHealthImport(
                     "ReadRecordsRequest request",
                     mapOf(
                         "recordType" to "ExerciseSessionRecord",
-                        "requestedStartEpochSecond" to start.epochSecond,
-                        "startEpochSecond" to effectiveStart.epochSecond,
-                        "endEpochSecond" to end.epochSecond,
                         "historyPermissionGranted" to granted.contains(PERMISSION_READ_HEALTH_DATA_HISTORY),
                         "ascendingOrder" to true,
                         "pageSize" to pageSize
@@ -190,7 +187,7 @@ class RNHealthImportBridgeModule(
                     val runningSessions = response.records.filter {
                         it.exerciseType == ExerciseSessionRecord.EXERCISE_TYPE_RUNNING
                     }
-                    logHealthRaw(
+                    logHealthImport(
                         "ReadRecordsResponse response",
                         mapOf(
                             "pageIndex" to pageIndex,
@@ -207,10 +204,10 @@ class RNHealthImportBridgeModule(
                     pageIndex += 1
                 } while (!pageToken.isNullOrBlank())
 
-                logHealthRaw("readRunningWorkouts response", mapOf("recordCount" to records.size()))
+                logHealthImport("readRunningWorkouts response", mapOf("recordCount" to records.size()))
                 promise.resolve(records)
             } catch (error: Exception) {
-                logHealthRaw("ReadRecordsRequest failed", errorLog(error))
+                logHealthImport("ReadRecordsRequest failed", errorLog(error))
                 promise.reject("health_read_failed", error.message, error)
             }
         }
@@ -235,16 +232,11 @@ class RNHealthImportBridgeModule(
         pageIndex: Int,
         sessionIndex: Int
     ) = Arguments.createMap().apply {
-        logHealthRaw(
-            "ExerciseSessionRecord raw response item",
+        logHealthImport(
+            "ExerciseSessionRecord response item",
             mapOf(
                 "pageIndex" to pageIndex,
                 "sessionIndex" to sessionIndex,
-                "sourcePackageName" to session.metadata.dataOrigin.packageName,
-                "exerciseType" to session.exerciseType,
-                "startEpochSecond" to session.startTime.epochSecond,
-                "endEpochSecond" to session.endTime.epochSecond,
-                "durationSec" to (session.endTime.epochSecond - session.startTime.epochSecond).coerceAtLeast(0),
                 "routeResultType" to routeResultType(session.exerciseRouteResult)
             )
         )
@@ -278,16 +270,14 @@ class RNHealthImportBridgeModule(
             is ExerciseRouteResult.Data -> {
                 val points = Arguments.createArray()
                 val route = routeResult.exerciseRoute.route
-                logHealthRaw(
-                    "ExerciseRouteResult raw response",
+                logHealthImport(
+                    "ExerciseRouteResult response",
                     mapOf(
                         "pageIndex" to pageIndex,
                         "sessionIndex" to sessionIndex,
                         "source" to source,
                         "type" to "Data",
                         "locationCount" to route.size,
-                        "firstTimestampMs" to (route.firstOrNull()?.time?.toEpochMilli() ?: 0L),
-                        "lastTimestampMs" to (route.lastOrNull()?.time?.toEpochMilli() ?: 0L)
                     )
                 )
                 route.forEach { location ->
@@ -308,8 +298,8 @@ class RNHealthImportBridgeModule(
                 )
             }
             is ExerciseRouteResult.ConsentRequired -> {
-                logHealthRaw(
-                    "ExerciseRouteResult raw response",
+                logHealthImport(
+                    "ExerciseRouteResult response",
                     mapOf("pageIndex" to pageIndex, "sessionIndex" to sessionIndex, "source" to source, "type" to "ConsentRequired")
                 )
                 RouteReadResult(
@@ -318,8 +308,8 @@ class RNHealthImportBridgeModule(
                 )
             }
             is ExerciseRouteResult.NoData -> {
-                logHealthRaw(
-                    "ExerciseRouteResult raw response",
+                logHealthImport(
+                    "ExerciseRouteResult response",
                     mapOf("pageIndex" to pageIndex, "sessionIndex" to sessionIndex, "source" to source, "type" to "NoData")
                 )
                 RouteReadResult(
@@ -328,8 +318,8 @@ class RNHealthImportBridgeModule(
                 )
             }
             else -> {
-                logHealthRaw(
-                    "ExerciseRouteResult raw response",
+                logHealthImport(
+                    "ExerciseRouteResult response",
                     mapOf("pageIndex" to pageIndex, "sessionIndex" to sessionIndex, "source" to source, "type" to routeResultType(routeResult))
                 )
                 RouteReadResult(
@@ -346,7 +336,7 @@ class RNHealthImportBridgeModule(
         pageIndex: Int,
         sessionIndex: Int
     ): RouteReadResult = try {
-        logHealthRaw(
+        logHealthImport(
             "ReadRecordRequest route request",
             mapOf(
                 "pageIndex" to pageIndex,
@@ -357,19 +347,19 @@ class RNHealthImportBridgeModule(
         val routeResult = client.readRecord(ExerciseSessionRecord::class, session.metadata.id)
             .record
             .exerciseRouteResult
-        logHealthRaw(
+        logHealthImport(
             "ReadRecordRequest route response",
             mapOf("pageIndex" to pageIndex, "sessionIndex" to sessionIndex, "routeResultType" to routeResultType(routeResult))
         )
         mapExerciseRoute(routeResult, pageIndex, sessionIndex, source = "readRecord")
     } catch (error: Exception) {
-        logHealthRaw("ReadRecordRequest route failed", errorLog(error) + mapOf("pageIndex" to pageIndex, "sessionIndex" to sessionIndex))
+        logHealthImport("ReadRecordRequest route failed", errorLog(error) + mapOf("pageIndex" to pageIndex, "sessionIndex" to sessionIndex))
         mapExerciseRoute(session.exerciseRouteResult, pageIndex, sessionIndex, source = "sessionRecord")
     }
 
     private suspend fun readDistance(client: HealthConnectClient, start: Instant, end: Instant): Double {
         return try {
-            logAggregateRequest("DistanceRecord.DISTANCE_TOTAL", start, end)
+            logAggregateRequest("DistanceRecord.DISTANCE_TOTAL")
             val result = client.aggregate(
                 AggregateRequest(
                     metrics = setOf(DistanceRecord.DISTANCE_TOTAL),
@@ -377,17 +367,17 @@ class RNHealthImportBridgeModule(
                 )
             )
             val value = result[DistanceRecord.DISTANCE_TOTAL]?.inMeters ?: 0.0
-            logAggregateResponse("DistanceRecord.DISTANCE_TOTAL", value)
+            logAggregateResponse("DistanceRecord.DISTANCE_TOTAL")
             value
         } catch (error: Exception) {
-            logHealthRaw("AggregateRequest failed", errorLog(error) + mapOf("metric" to "DistanceRecord.DISTANCE_TOTAL"))
-            0.0
+            logHealthImport("AggregateRequest failed", errorLog(error) + mapOf("metric" to "DistanceRecord.DISTANCE_TOTAL"))
+            throw error
         }
     }
 
     private suspend fun readCalories(client: HealthConnectClient, start: Instant, end: Instant): Double {
         return try {
-            logAggregateRequest("ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL", start, end)
+            logAggregateRequest("ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL")
             val result = client.aggregate(
                 AggregateRequest(
                     metrics = setOf(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL),
@@ -395,17 +385,17 @@ class RNHealthImportBridgeModule(
                 )
             )
             val value = result[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories ?: 0.0
-            logAggregateResponse("ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL", value)
+            logAggregateResponse("ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL")
             value
         } catch (error: Exception) {
-            logHealthRaw("AggregateRequest failed", errorLog(error) + mapOf("metric" to "ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL"))
-            0.0
+            logHealthImport("AggregateRequest failed", errorLog(error) + mapOf("metric" to "ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL"))
+            throw error
         }
     }
 
     private suspend fun readHeartRate(client: HealthConnectClient, start: Instant, end: Instant): Double {
         return try {
-            logAggregateRequest("HeartRateRecord.BPM_AVG", start, end)
+            logAggregateRequest("HeartRateRecord.BPM_AVG")
             val result = client.aggregate(
                 AggregateRequest(
                     metrics = setOf(HeartRateRecord.BPM_AVG),
@@ -413,17 +403,17 @@ class RNHealthImportBridgeModule(
                 )
             )
             val value = result[HeartRateRecord.BPM_AVG]?.toDouble() ?: 0.0
-            logAggregateResponse("HeartRateRecord.BPM_AVG", value)
+            logAggregateResponse("HeartRateRecord.BPM_AVG")
             value
         } catch (error: Exception) {
-            logHealthRaw("AggregateRequest failed", errorLog(error) + mapOf("metric" to "HeartRateRecord.BPM_AVG"))
-            0.0
+            logHealthImport("AggregateRequest failed", errorLog(error) + mapOf("metric" to "HeartRateRecord.BPM_AVG"))
+            throw error
         }
     }
 
     private suspend fun readCadence(client: HealthConnectClient, start: Instant, end: Instant): Double {
         return try {
-            logAggregateRequest("StepsCadenceRecord.RATE_AVG", start, end)
+            logAggregateRequest("StepsCadenceRecord.RATE_AVG")
             val result = client.aggregate(
                 AggregateRequest(
                     metrics = setOf(StepsCadenceRecord.RATE_AVG),
@@ -431,37 +421,34 @@ class RNHealthImportBridgeModule(
                 )
             )
             val value = result[StepsCadenceRecord.RATE_AVG] ?: 0.0
-            logAggregateResponse("StepsCadenceRecord.RATE_AVG", value)
+            logAggregateResponse("StepsCadenceRecord.RATE_AVG")
             value
         } catch (error: Exception) {
-            logHealthRaw("AggregateRequest failed", errorLog(error) + mapOf("metric" to "StepsCadenceRecord.RATE_AVG"))
-            0.0
+            logHealthImport("AggregateRequest failed", errorLog(error) + mapOf("metric" to "StepsCadenceRecord.RATE_AVG"))
+            throw error
         }
     }
 
-    private fun logAggregateRequest(metric: String, start: Instant, end: Instant) {
-        logHealthRaw(
+    private fun logAggregateRequest(metric: String) {
+        logHealthImport(
             "AggregateRequest request",
             mapOf(
                 "metric" to metric,
-                "startEpochSecond" to start.epochSecond,
-                "endEpochSecond" to end.epochSecond
             )
         )
     }
 
-    private fun logAggregateResponse(metric: String, value: Double) {
-        logHealthRaw("AggregateRequest response", mapOf("metric" to metric, "value" to value))
+    private fun logAggregateResponse(metric: String) {
+        logHealthImport("AggregateRequest response", mapOf("metric" to metric))
     }
 
-    private fun logHealthRaw(message: String, values: Map<String, Any?> = emptyMap()) {
+    private fun logHealthImport(message: String, values: Map<String, Any?> = emptyMap()) {
         if (!BuildConfig.DEBUG) return
         Log.i(MODULE_NAME, "[HealthImport][Android] $message $values")
     }
 
     private fun errorLog(error: Exception): Map<String, Any?> = mapOf(
-        "errorClass" to error::class.java.simpleName,
-        "errorMessage" to error.message
+        "errorClass" to error::class.java.simpleName
     )
 
     private fun routeResultType(routeResult: ExerciseRouteResult): String = when (routeResult) {

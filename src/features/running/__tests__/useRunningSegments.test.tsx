@@ -1,3 +1,4 @@
+import { toSegmentPayload } from '../services/segmentPayload';
 import { act, renderHook } from '@testing-library/react-native';
 import type { MutableRefObject } from 'react';
 import { useRunningSegments } from '~/features/running/viewmodels/hooks/useRunningSegments';
@@ -85,6 +86,8 @@ describe('useRunningSegments', () => {
     expect(result.current.currentSegmentItems).toHaveLength(1);
     expect(result.current.currentSegmentItems[0]?.distance).toBe(5);
     expect(result.current.currentSegmentItems[0]?.locations).toHaveLength(1);
+    act(() => result.current.finalizeCurrentSegment());
+    expect(result.current.currentSegmentItems).toHaveLength(1);
 
     act(() => {
       result.current.resetSegments();
@@ -95,4 +98,22 @@ describe('useRunningSegments', () => {
     expect(result.current.segmentStartTimeRef.current).toBeNull();
     expect(result.current.segmentLocations).toHaveLength(0);
   });
+  it('uses active duration while preserving wall-clock end and GPS timestamps', () => {
+    const now = jest.spyOn(Date, 'now').mockReturnValue(100000);
+    let activeMs = 0;
+    const location = createLocation();
+    const { result } = renderHook(() => useRunningSegments({ statsRef: createStatsRef(), getActiveElapsedMs: () => activeMs }));
+    act(() => result.current.initializeSegmentTracking());
+    now.mockReturnValue(170000);
+    activeMs = 10000;
+    act(() => { result.current.processDistanceUpdate(12, [location], 10); });
+    const item = result.current.currentSegmentItems[0]!;
+    expect(item.durationSec).toBe(10);
+    expect(item.startTimestamp).toBe(100);
+    expect(item.endTimestamp).toBe(170);
+    expect(toSegmentPayload(item).endTimeStamp).toBe(170);
+    expect(toSegmentPayload(item).gpsPoints[0]?.timestampMs).toBe(1735689600000);
+    now.mockRestore();
+  });
+
 });

@@ -13,6 +13,19 @@ const mockClearBackgroundData = jest.fn();
 const mockGetCurrentLeague = jest.fn();
 const originalSetItem = jest.mocked(AsyncStorage.setItem).getMockImplementation()!;
 
+jest.mock('~/features/auth/stores/authStore', () => ({
+  ...jest.requireActual('~/features/auth/stores/authStore'),
+  getSessionSnapshot: () => ({ generation: 1, userId: 1 }),
+  isSessionCurrent: (session: { generation: number; userId: number }) => session.generation === 1 && session.userId === 1,
+}));
+
+const startTestRun = async (start: () => Promise<RunningRecord>, durationMs = 120000) => {
+  const endTime = Date.now();
+  const clock = jest.spyOn(Date, 'now').mockReturnValue(endTime - durationMs);
+  await act(async () => { await start(); });
+  clock.mockReturnValue(endTime);
+};
+
 jest.mock('~/services/PermissionManager', () => ({
   permissionManager: {
     checkRequiredPermissions: async () => ({ canStartRunning: true }),
@@ -99,6 +112,7 @@ const createProps = (overrides: Partial<UseRunningLifecycleProps> = {}): UseRunn
 });
 
 describe('useRunningLifecycle offline persistence', () => {
+  afterEach(() => { jest.restoreAllMocks(); });
   beforeEach(async () => {
     jest.mocked(AsyncStorage.setItem).mockImplementation(originalSetItem);
     await AsyncStorage.clear();
@@ -114,7 +128,7 @@ describe('useRunningLifecycle offline persistence', () => {
     const props = createProps({ segmentItemsRef: { current: [] } });
     props.finalizeCurrentSegment = () => { props.segmentItemsRef.current = [segment]; };
     const { result, unmount } = renderHook(() => useRunningLifecycle(props));
-    await act(async () => { await result.current.startRunning(); });
+    await startTestRun(result.current.startRunning);
 
     await act(async () => {
       expect(await result.current.endRunning()).toBeNull();
@@ -149,7 +163,7 @@ describe('useRunningLifecycle offline persistence', () => {
       return originalSetItem(key, value);
     });
     const { result } = renderHook(() => useRunningLifecycle(createProps()));
-    await act(async () => { await result.current.startRunning(); });
+    await startTestRun(result.current.startRunning);
 
     let endPromise: ReturnType<typeof result.current.endRunning>;
     act(() => { endPromise = result.current.endRunning(); });
@@ -174,12 +188,12 @@ describe('useRunningLifecycle offline persistence', () => {
     })));
 
     try {
-      await act(async () => { await result.current.startRunning(); });
+      await startTestRun(result.current.startRunning, 1800000);
       await act(async () => { await result.current.endRunning(); });
 
       expect(mockEndRunning).toHaveBeenCalledWith(expect.objectContaining({
         startTimestamp: 1736087400, durationSec: 1800, endTimestamp: 1736091000,
-      }));
+      }), { generation: 1, userId: 1 });
       const pending = await offlineStorageService.getPendingUploads();
       expect(pending[0]?.data).toMatchObject({ endTimestamp: 1736091000 });
     } finally {
@@ -194,7 +208,7 @@ describe('useRunningLifecycle offline persistence', () => {
         return originalSetItem(key, value);
       });
       const { result } = renderHook(() => useRunningLifecycle(createProps()));
-      await act(async () => { await result.current.startRunning(); });
+      await startTestRun(result.current.startRunning);
 
       await act(async () => {
         await expect(result.current.endRunning()).rejects.toThrow('storage-write-failed');
@@ -224,7 +238,7 @@ describe('useRunningLifecycle offline persistence', () => {
       const { result } = renderHook(() => useRunningLifecycle(props));
 
       try {
-        await act(async () => { await result.current.startRunning(); });
+        await startTestRun(result.current.startRunning);
         await act(async () => {
           await expect(result.current.endRunning()).rejects.toThrow('storage-write-failed');
         });
@@ -251,7 +265,7 @@ describe('useRunningLifecycle offline persistence', () => {
     jest.spyOn(AsyncStorage, 'setItem').mockRejectedValueOnce(new Error('storage-write-failed'));
     const props = createProps();
     const { result } = renderHook(() => useRunningLifecycle(props));
-    await act(async () => { await result.current.startRunning(); });
+    await startTestRun(result.current.startRunning);
     await act(async () => {
       await expect(result.current.endRunning()).rejects.toThrow('storage-write-failed');
     });
@@ -267,7 +281,7 @@ describe('useRunningLifecycle offline persistence', () => {
     mockClearBackgroundData.mockRejectedValue(new Error('cleanup-failed'));
     jest.spyOn(AsyncStorage, 'setItem').mockRejectedValue(new Error('storage-write-failed'));
     const { result } = renderHook(() => useRunningLifecycle(createProps()));
-    await act(async () => { await result.current.startRunning(); });
+    await startTestRun(result.current.startRunning);
     await act(async () => {
       expect(await result.current.endRunning()).toEqual({ id: 404, point: 1 });
     });
@@ -278,7 +292,7 @@ describe('useRunningLifecycle offline persistence', () => {
 
   it('saves only the summary when no GPS segments were collected', async () => {
     const { result } = renderHook(() => useRunningLifecycle(createProps({ segmentItemsRef: { current: [] } })));
-    await act(async () => { await result.current.startRunning(); });
+    await startTestRun(result.current.startRunning);
     await act(async () => { await result.current.endRunning(); });
 
     expect(await offlineStorageService.getPendingCount()).toBe(1);
@@ -293,7 +307,7 @@ describe('useRunningLifecycle offline persistence', () => {
       return { id: 404, point: 1 };
     });
     const { result } = renderHook(() => useRunningLifecycle(createProps()));
-    await act(async () => { await result.current.startRunning(); });
+    await startTestRun(result.current.startRunning);
     await act(async () => {
       expect(await result.current.endRunning()).toEqual({ id: 404, point: 1 });
     });
@@ -308,7 +322,7 @@ describe('useRunningLifecycle offline persistence', () => {
     mockEndRunning.mockResolvedValue({ id: 404, point: 1 });
     useAppStore.getState().setLeagueBeforeRunningEnd({ sessionId: 1, rank: 8 });
     const { result } = renderHook(() => useRunningLifecycle(createProps()));
-    await act(async () => { await result.current.startRunning(); });
+    await startTestRun(result.current.startRunning);
     await act(async () => {
       expect(await result.current.endRunning()).toEqual({ id: 404, point: 1 });
     });
@@ -321,7 +335,7 @@ describe('useRunningLifecycle offline persistence', () => {
   it('keeps successful online completion out of the offline queues', async () => {
     mockEndRunning.mockResolvedValue({ id: 404, point: 1 });
     const { result } = renderHook(() => useRunningLifecycle(createProps()));
-    await act(async () => { await result.current.startRunning(); });
+    await startTestRun(result.current.startRunning);
     await act(async () => {
       expect(await result.current.endRunning()).toEqual({ id: 404, point: 1 });
     });
@@ -329,7 +343,7 @@ describe('useRunningLifecycle offline persistence', () => {
     expect(mockSaveItems).toHaveBeenCalledWith({
       runningRecordId: 404,
       items: [expect.objectContaining({ distance: 80, orderIndex: 0 })],
-    });
+    }, { generation: 1, userId: 1 });
     expect(await offlineStorageService.getPendingCount()).toBe(0);
     expect(await offlineStorageService.getPendingSegmentCount()).toBe(0);
     expect(useAppStore.getState().runningState).toBe(RunningState.Finished);
@@ -339,7 +353,7 @@ describe('useRunningLifecycle offline persistence', () => {
     const { result } = renderHook(() => useRunningLifecycle(createProps({
       stopGpsTracking: async () => ({ distance: finalDistance, locations: [] }),
     })));
-    await act(async () => { await result.current.startRunning(); });
+    await startTestRun(result.current.startRunning);
     await act(async () => { expect(await result.current.endRunning()).toBeNull(); });
 
     expect(mockEndRunning).not.toHaveBeenCalled();
@@ -348,4 +362,45 @@ describe('useRunningLifecycle offline persistence', () => {
     expect(await offlineStorageService.getPendingSegmentCount()).toBe(0);
     expect(useAppStore.getState().runningState).toBe(RunningState.Finished);
   });
+  it('coalesces two starts before permission checks finish', async () => {
+    const { result } = renderHook(() => useRunningLifecycle(createProps()));
+    await act(async () => {
+      const first = result.current.startRunning();
+      const second = result.current.startRunning();
+      expect(first).toBe(second);
+      await Promise.all([first, second]);
+    });
+    expect(mockStartRunning).toHaveBeenCalledTimes(1);
+  });
+
+  it('coalesces duplicate end taps and finalizes only once', async () => {
+    const finalize = jest.fn();
+    const stop = jest.fn(async () => ({ distance: 80, locations: [] }));
+    const { result } = renderHook(() => useRunningLifecycle(createProps({ finalizeCurrentSegment: finalize, stopGpsTracking: stop })));
+    await startTestRun(result.current.startRunning);
+    await act(async () => {
+      const first = result.current.endRunning();
+      const second = result.current.endRunning();
+      expect(first).toBe(second);
+      await Promise.all([first, second]);
+    });
+    expect(finalize).toHaveBeenCalledTimes(1);
+    expect(stop).toHaveBeenCalledTimes(1);
+    expect(mockEndRunning).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the end timestamp and segment when GPS cleanup needs a retry', async () => {
+    const now = jest.spyOn(Date, 'now').mockReturnValue(1736091000000);
+    const stop = jest.fn().mockRejectedValueOnce(new Error('GPS cleanup failed'))
+      .mockResolvedValue({ distance: 80, locations: [] });
+    const finalize = jest.fn();
+    const { result } = renderHook(() => useRunningLifecycle(createProps({ stopGpsTracking: stop, finalizeCurrentSegment: finalize })));
+    await startTestRun(result.current.startRunning);
+    await act(async () => { await expect(result.current.endRunning()).rejects.toThrow('GPS cleanup failed'); });
+    now.mockReturnValue(1736091060000);
+    await act(async () => { await result.current.endRunning(); });
+    expect(finalize).toHaveBeenCalledTimes(1);
+    expect((await offlineStorageService.getPendingUploads())[0]?.data).toMatchObject({ endTimestamp: 1736091000, durationSec: 120 });
+  });
+
 });

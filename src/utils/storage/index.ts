@@ -15,7 +15,8 @@
  */
 
 import { secureStorage } from './SecureStorage';
-import type { ITokenStorage } from './types';
+import type { ITokenStorage, TokenWriteOptions } from './types';
+import { SessionSupersededError, SecureStorageError, SecureStorageErrorCode } from './errors';
 
 // ===== Type Exports =====
 export type {
@@ -51,108 +52,74 @@ export const TOKEN_KEYS = {
  * 토큰 저장/로드/삭제를 간편하게 처리
  */
 class TokenStorageImpl implements ITokenStorage {
-  /**
-   * 액세스 토큰과 리프레시 토큰 저장
-   */
-  async saveTokens(accessToken: string, refreshToken?: string): Promise<void> {
-    try {
-      await secureStorage.save(TOKEN_KEYS.ACCESS_TOKEN, accessToken);
+  private tail: Promise<unknown> = Promise.resolve();
 
-      if (refreshToken) {
-        await secureStorage.save(TOKEN_KEYS.REFRESH_TOKEN, refreshToken);
+  private enqueue<T>(operation: () => Promise<T>): Promise<T> {
+    const result = this.tail.then(operation);
+    this.tail = result.catch(() => undefined);
+    return result;
+  }
+
+  private async read() {
+    const [accessToken, refreshToken] = await Promise.all([
+      secureStorage.load(TOKEN_KEYS.ACCESS_TOKEN),
+      secureStorage.load(TOKEN_KEYS.REFRESH_TOKEN),
+    ]);
+    return { accessToken, refreshToken };
+  }
+
+  async saveTokens(accessToken: string, refreshToken?: string, options?: TokenWriteOptions): Promise<void> {
+    return this.enqueue(async () => {
+      const assertCurrent = () => {
+        if (options?.isCurrent && !options.isCurrent()) throw new SessionSupersededError();
+      };
+      assertCurrent();
+      const previous = await this.read();
+      assertCurrent();
+      try {
+        await secureStorage.save(TOKEN_KEYS.ACCESS_TOKEN, accessToken);
+        if (refreshToken !== undefined) await secureStorage.save(TOKEN_KEYS.REFRESH_TOKEN, refreshToken);
+        assertCurrent();
+      } catch (error) {
+        // Keep the legacy key format for OTA rollback. This compensates failed
+        // writes in-process; two Keychain writes are not crash-atomic.
+        const restored = await Promise.allSettled([
+          previous.accessToken === null
+            ? secureStorage.remove(TOKEN_KEYS.ACCESS_TOKEN)
+            : secureStorage.save(TOKEN_KEYS.ACCESS_TOKEN, previous.accessToken),
+          previous.refreshToken === null
+            ? secureStorage.remove(TOKEN_KEYS.REFRESH_TOKEN)
+            : secureStorage.save(TOKEN_KEYS.REFRESH_TOKEN, previous.refreshToken),
+        ]);
+        if (restored.some(result => result.status === 'rejected')) {
+          throw new SecureStorageError(SecureStorageErrorCode.SAVE_FAILED, 'Token rollback failed');
+        }
+        throw error;
       }
-
-      console.log(`🔐 [TokenStorage] Saved tokens`);
-    } catch (error) {
-      console.error(`❌ [TokenStorage] Failed to save tokens:`, error);
-      throw error;
-    }
+      options?.onCommit?.();
+    });
   }
 
-  /**
-   * 액세스 토큰과 리프레시 토큰 로드
-   */
-  async loadTokens(): Promise<{
-    accessToken: string | null;
-    refreshToken: string | null;
-  }> {
-    try {
-      const [accessToken, refreshToken] = await Promise.all([
-        secureStorage.load(TOKEN_KEYS.ACCESS_TOKEN),
-        secureStorage.load(TOKEN_KEYS.REFRESH_TOKEN),
-      ]);
+  loadTokens() { return this.enqueue(() => this.read()); }
 
-      return { accessToken, refreshToken };
-    } catch (error) {
-      console.error(`❌ [TokenStorage] Failed to load tokens:`, error);
-      return { accessToken: null, refreshToken: null };
-    }
-  }
-
-  /**
-   * 모든 토큰 삭제
-   */
-  async clearTokens(): Promise<void> {
-    try {
-      await Promise.all([
+  clearTokens(): Promise<void> {
+    return this.enqueue(async () => {
+      const results = await Promise.allSettled([
         secureStorage.remove(TOKEN_KEYS.ACCESS_TOKEN),
         secureStorage.remove(TOKEN_KEYS.REFRESH_TOKEN),
       ]);
-
-      console.log(`🔐 [TokenStorage] Cleared all tokens`);
-    } catch (error) {
-      console.error(`❌ [TokenStorage] Failed to clear tokens:`, error);
-      throw error;
-    }
+      if (results.some(result => result.status === 'rejected')) {
+        throw new SecureStorageError(SecureStorageErrorCode.DELETE_FAILED, 'Token deletion failed');
+      }
+    });
   }
 
-  /**
-   * 액세스 토큰만 조회
-   */
-  async getAccessToken(): Promise<string | null> {
-    try {
-      return await secureStorage.load(TOKEN_KEYS.ACCESS_TOKEN);
-    } catch (error) {
-      console.error(`❌ [TokenStorage] Failed to get access token:`, error);
-      return null;
-    }
-  }
-
-  /**
-   * 리프레시 토큰만 조회
-   */
-  async getRefreshToken(): Promise<string | null> {
-    try {
-      return await secureStorage.load(TOKEN_KEYS.REFRESH_TOKEN);
-    } catch (error) {
-      console.error(`❌ [TokenStorage] Failed to get refresh token:`, error);
-      return null;
-    }
-  }
-
-  /**
-   * 액세스 토큰만 업데이트
-   */
-  async updateAccessToken(accessToken: string): Promise<void> {
-    try {
-      await secureStorage.save(TOKEN_KEYS.ACCESS_TOKEN, accessToken);
-      console.log(`🔐 [TokenStorage] Updated access token`);
-    } catch (error) {
-      console.error(`❌ [TokenStorage] Failed to update access token:`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * 토큰 존재 여부 확인
-   */
+  async getAccessToken(): Promise<string | null> { return (await this.loadTokens()).accessToken; }
+  async getRefreshToken(): Promise<string | null> { return (await this.loadTokens()).refreshToken; }
+  updateAccessToken(accessToken: string): Promise<void> { return this.saveTokens(accessToken); }
   async hasTokens(): Promise<boolean> {
-    try {
-      const { accessToken, refreshToken } = await this.loadTokens();
-      return !!(accessToken || refreshToken);
-    } catch {
-      return false;
-    }
+    const pair = await this.loadTokens();
+    return !!(pair.accessToken || pair.refreshToken);
   }
 }
 

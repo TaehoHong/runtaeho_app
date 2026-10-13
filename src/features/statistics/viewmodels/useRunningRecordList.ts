@@ -9,6 +9,7 @@
 import { useMemo } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import type { RunningRecord } from '../../running/models';
+import { queryKeys } from '~/services/queryClient';
 import { runningService } from '../../running/services/runningService';
 
 /**
@@ -52,14 +53,11 @@ export const useRunningRecordList = (
   const { startDate, endDate, pageSize = 20 } = params;
 
   // Query Key에 필터 조건 포함 (캐시 무효화 개선)
-  const queryKey = useMemo(() => [
-    'runningRecords',
-    'infinite',
-    {
-      startDate: startDate?.toISOString(),
-      endDate: endDate?.toISOString(),
-    }
-  ], [startDate, endDate]);
+  const queryKey = useMemo(() => queryKeys.running.infinite({
+    ...(startDate && { startDate }),
+    ...(endDate && { endDate }),
+    size: pageSize,
+  }), [startDate, endDate, pageSize]);
 
   const {
     data,

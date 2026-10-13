@@ -1,121 +1,66 @@
+import { API_CONFIG } from '~/services/api/config';
+import { tokenStorage } from '~/utils/storage';
+
 export interface TokenPair {
   accessToken: string;
   refreshToken: string;
 }
 
-export class SilentTokenRefreshService {
-  private static instance: SilentTokenRefreshService;
-  
-  // 최대 재시도 횟수
-  private readonly MAX_RETRY_COUNT = 3;
-  
-  private constructor() {}
-  
-  static getInstance(): SilentTokenRefreshService {
-    if (!SilentTokenRefreshService.instance) {
-      SilentTokenRefreshService.instance = new SilentTokenRefreshService();
-    }
-    return SilentTokenRefreshService.instance;
-  }
-
-  /**
-   * 테스트 격리를 위한 싱글톤 리셋
-   */
-  static resetForTest(): void {
-    SilentTokenRefreshService.instance = new SilentTokenRefreshService();
-  }
-  
-  
-  /**
-   * Silent 토큰 갱신 수행
-   * SwiftUI SilentTokenRefreshService.performSilentRefresh와 동일
-   */
-  async performSilentRefresh(): Promise<TokenPair> {
-    let retryCount = 0;
-    
-    while (retryCount < this.MAX_RETRY_COUNT) {
-      try {
-        console.log(`🔄 [SilentTokenRefreshService] Refresh attempt ${retryCount + 1}/${this.MAX_RETRY_COUNT}`);
-        
-        // 백엔드에 refresh 요청
-        const response = await this.refreshTokens();
-        
-        if (response) {
-          console.log('✅ [SilentTokenRefreshService] Token refresh successful');
-          return response;
-        }
-      } catch (error: any) {
-        console.error(`❌ [SilentTokenRefreshService] Refresh attempt ${retryCount + 1} failed:`, error);
-        
-        if (error.message === 'RefreshTokenExpired') {
-          throw error;
-        }
-        
-        retryCount++;
-        
-        if (retryCount < this.MAX_RETRY_COUNT) {
-          // 재시도 전 대기 (exponential backoff)
-          const waitTime = Math.pow(2, retryCount) * 1000;
-          console.log(`⏳ [SilentTokenRefreshService] Waiting ${waitTime}ms before retry`);
-          await this.delay(waitTime);
-        }
-      }
-    }
-    
-    throw new Error('MaxRetryExceeded');
-  }
-  
-  /**
-   * 백엔드에서 토큰 갱신
-   *
-   * React 표준 패턴: tokenStorage 직접 사용
-   * Backend expects: Header 'Refresh: Bearer {refreshToken}'
-   */
-  private async refreshTokens(): Promise<TokenPair> {
-    // tokenStorage에서 refreshToken 가져오기 (userStateManager 제거)
-    const { tokenStorage } = await import('~/utils/storage');
-    const refreshToken = await tokenStorage.getRefreshToken();
-
-    if (!refreshToken) {
-      throw new Error('RefreshTokenNotFound');
-    }
-
-    // API 호출 - Backend AuthController 스펙: 'Refresh' 헤더에 Bearer 토큰
-    const apiUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
-    const response = await fetch(`${apiUrl}/auth/refresh`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Refresh': `Bearer ${refreshToken}`
-      }
-    });
-    
-    if (!response.ok) {
-      if (response.status === 401 || response.status === 403) {
-        throw new Error('RefreshTokenExpired');
-      }
-      throw new Error(`RefreshFailed: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    if (!data.accessToken || !data.refreshToken) {
-      throw new Error('InvalidRefreshResponse');
-    }
-    
-    return {
-      accessToken: data.accessToken,
-      refreshToken: data.refreshToken,
-    };
-  }
-  
-  /**
-   * 지연 유틸리티
-   */
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
+export class RefreshTokenExpiredError extends Error {
+  constructor() { super('RefreshTokenExpired'); this.name = 'RefreshTokenExpiredError'; }
 }
 
-// Singleton export
+export class SilentTokenRefreshService {
+  private static instance: SilentTokenRefreshService;
+  private readonly MAX_RETRY_COUNT = 3;
+  private constructor() {}
+
+  static getInstance(): SilentTokenRefreshService {
+    if (!this.instance) this.instance = new SilentTokenRefreshService();
+    return this.instance;
+  }
+
+  static resetForTest(): void { this.instance = new SilentTokenRefreshService(); }
+
+  async performSilentRefresh(refreshToken?: string): Promise<TokenPair> {
+    // One flight must never switch to another account's token between retries.
+    const token = refreshToken ?? await tokenStorage.getRefreshToken();
+    if (!token) throw new Error('RefreshTokenNotFound');
+    for (let attempt = 1; attempt <= this.MAX_RETRY_COUNT; attempt++) {
+      try {
+        return await this.refreshTokens(token);
+      } catch (error) {
+        if (error instanceof RefreshTokenExpiredError ||
+            (error instanceof Error && error.message === 'RefreshTokenExpired')) throw error;
+        console.warn('[AuthRefresh] transient failure', { attempt });
+        if (attempt < this.MAX_RETRY_COUNT) await this.delay(2 ** attempt * 1000);
+      }
+    }
+    throw new Error('MaxRetryExceeded');
+  }
+
+  private async refreshTokens(refreshToken: string): Promise<TokenPair> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT);
+    try {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Refresh: `Bearer ${refreshToken}` },
+        signal: controller.signal,
+      });
+      if (response.status === 401 || response.status === 403) throw new RefreshTokenExpiredError();
+      if (!response.ok) throw new Error('RefreshFailed');
+      const data: unknown = await response.json();
+      if (!data || typeof data !== 'object' ||
+          !('accessToken' in data) || typeof data.accessToken !== 'string' || !data.accessToken ||
+          !('refreshToken' in data) || typeof data.refreshToken !== 'string' || !data.refreshToken) {
+        throw new Error('InvalidRefreshResponse');
+      }
+      return { accessToken: data.accessToken, refreshToken: data.refreshToken };
+    } finally { clearTimeout(timeout); }
+  }
+
+  private delay(ms: number): Promise<void> { return new Promise(resolve => setTimeout(resolve, ms)); }
+}
+
 export const silentTokenRefreshService = SilentTokenRefreshService.getInstance();

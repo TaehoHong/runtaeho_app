@@ -105,7 +105,7 @@ describe('RootLayout transparent route policy', () => {
       value: false,
     });
 
-    let RootLayout: React.ComponentType;
+    let RootLayout!: React.ComponentType;
     jest.isolateModules(() => {
       RootLayout = require('../../app/_layout').default as React.ComponentType;
     });

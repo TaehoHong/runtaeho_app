@@ -9,9 +9,7 @@
  * - TokenRefreshInterceptor: 401 자동 처리 + 요청 큐
  */
 
-import { tokenStorage } from '~/utils/storage';
 import { authApiService } from './authApiService';
-import { useAuthStore } from '../stores/authStore';
 import { AuthProviderType } from '../models/AuthType';
 import { type TokenDto, AuthenticationError } from '../models/UserAuthData';
 
@@ -46,7 +44,7 @@ export class AuthenticationService {
 
     console.log(`🔐 [AUTH-${authId}] ${provider} 토큰 요청 시작`);
     console.log(`   Provider: ${provider}`);
-    console.log(`   Code: ${code.substring(0, 20)}...${code.substring(code.length - 10)}`);
+
 
     const startTime = Date.now();
 
@@ -56,20 +54,15 @@ export class AuthenticationService {
 
       const duration = Date.now() - startTime;
 
-      useAuthStore.getState().setAccessToken(result.accessToken);
-      useAuthStore.getState().setRefreshToken(result.refreshToken);
-      tokenStorage.saveTokens(result.accessToken, result.refreshToken)
-
-
       console.log(`✅ [AUTH-${authId}] ${provider} 토큰 수신 성공 (${duration}ms)`);
-      console.log(`   User ID: ${result.userId}`);
+
       console.log(`   Access Token: ${result.accessToken ? '***' : 'null'}`);
       console.log(`   Refresh Token: ${result.refreshToken ? '***' : 'null'}`);
 
       return result;
     } catch (error) {
       const duration = Date.now() - startTime;
-      console.error(`❌ [AUTH-${authId}] ${provider} 토큰 요청 실패 (${duration}ms):`, error);
+      console.error(`[Auth] OAuth request failed`, { provider, duration });
       throw AuthenticationError.networkError(error as Error);
     }
   }

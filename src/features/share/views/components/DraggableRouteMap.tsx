@@ -3,7 +3,7 @@
  * GPS 좌표를 SVG 경로로 시각화하는 드래그 가능한 지도 컴포넌트
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
@@ -49,13 +49,15 @@ export const DraggableRouteMap: React.FC<DraggableRouteMapProps> = ({
     onTransformChange,
   });
 
+  const pathData = useMemo(() => gpsToSVGPath(locations, { width: SVG_WIDTH, height: SVG_HEIGHT }), [locations]);
+
   // 숨김 처리
   if (!visible) {
     return null;
   }
 
   // GPS 좌표 → SVG Path 변환
-  const pathData = gpsToSVGPath(locations, { width: SVG_WIDTH, height: SVG_HEIGHT });
+
 
   // 좌표 데이터가 없으면 렌더링하지 않음
   if (!pathData) {

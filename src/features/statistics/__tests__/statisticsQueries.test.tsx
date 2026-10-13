@@ -56,6 +56,14 @@ describe('useGetStatisticsSummary', () => {
       queryFn: () => Promise<unknown>;
     };
 
+  it('isolates the cache when a time zone changes with identical bounds', () => {
+    renderHook(() => useGetStatisticsSummary({ startDateTime, endDateTime, statisticType: Period.MONTH, timeZone: 'Asia/Seoul' }));
+    const seoulKey = getLastQueryOptions().queryKey;
+    mockUseQuery.mockClear();
+    renderHook(() => useGetStatisticsSummary({ startDateTime, endDateTime, statisticType: Period.MONTH, timeZone: 'America/New_York' }));
+    expect(getLastQueryOptions().queryKey).not.toEqual(seoulKey);
+  });
+
   it('STAT-QUERY-001 builds stable query key with ISO dates', () => {
     renderSummaryHook();
 

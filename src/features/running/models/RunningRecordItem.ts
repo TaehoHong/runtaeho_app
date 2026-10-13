@@ -37,6 +37,7 @@ export const createRunningRecordItem = (data: {
   orderIndex: number;
   durationSec: number;
   startTimestamp: number;
+  endTimestamp?: number;
   locations?: Location[];
 }): RunningRecordItem => ({
   id: data.id,
@@ -47,6 +48,7 @@ export const createRunningRecordItem = (data: {
   orderIndex: data.orderIndex,
   durationSec: data.durationSec,
   startTimestamp: data.startTimestamp,
+  ...(data.endTimestamp !== undefined && { endTimestamp: data.endTimestamp }),
   ...(data.locations !== undefined && { locations: data.locations }),
   isUploaded: false,
 });;

@@ -57,9 +57,17 @@ const resizeImageToBase64 = async (
       { compress: 0.8, format: SaveFormat.JPEG }
     );
 
-    return await FileSystem.readAsStringAsync(manipResult.uri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
+    try {
+      return await FileSystem.readAsStringAsync(manipResult.uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+    } finally {
+      if (manipResult.uri !== uri) {
+        await FileSystem.deleteAsync(manipResult.uri, { idempotent: true }).catch(() => {
+          console.warn('[useShareUnitySync] Failed to remove resized background');
+        });
+      }
+    }
   } catch (error) {
     console.error('[useShareUnitySync] resizeImageToBase64 error:', error);
     throw error;
@@ -92,6 +100,10 @@ export const useShareUnitySync = ({
   const isInitializingRef = useRef(false);
   const restoreInFlightRef = useRef<Promise<void> | null>(null);
   const hasRestoredDefaultsRef = useRef(false);
+  const backgroundRequestIdRef = useRef(0);
+  const visualOperationIdRef = useRef(0);
+  const latestVisualStateRef = useRef({ selectedPose, characterTransform, avatarVisible, animationTime });
+  latestVisualStateRef.current = { selectedPose, characterTransform, avatarVisible, animationTime };
 
   const getInitialAvatarPayload = useCallback(() => {
     if (!currentUser) {
@@ -128,16 +140,17 @@ export const useShareUnitySync = ({
     startUnity();
   }, [startUnity]);
 
-  const applyBackgroundToUnity = useCallback(async (background: BackgroundOption) => {
+  const applyBackgroundToUnity = useCallback(async (background: BackgroundOption, requestId = backgroundRequestIdRef.current) => {
+    if (requestId !== backgroundRequestIdRef.current) return;
     if (background.type === 'unity' && background.unityBackgroundId) {
       await unityService.setBackground(background.unityBackgroundId);
       return;
     }
 
     if (background.type === 'photo' && background.photoUri) {
-      await unityService.setBackgroundFromPhoto(
-        await resizeImageToBase64(background.photoUri)
-      );
+      const photo = await resizeImageToBase64(background.photoUri);
+      if (requestId !== backgroundRequestIdRef.current) return;
+      await unityService.setBackgroundFromPhoto(photo);
       return;
     }
 
@@ -146,37 +159,58 @@ export const useShareUnitySync = ({
     }
   }, []);
 
-  const applyDefaultUnityVisualState = useCallback(async () => {
+  const applyDefaultUnityVisualState = useCallback(async (operationId = visualOperationIdRef.current) => {
+    const assertCurrent = () => {
+      if (operationId !== visualOperationIdRef.current) throw new Error('Unity visual operation superseded');
+    };
+    assertCurrent();
     await applyBackgroundToUnity(DEFAULT_BACKGROUND);
+    assertCurrent();
     await unityService.setCharacterPosition(
       INITIAL_CHARACTER_TRANSFORM.x,
       1 - INITIAL_CHARACTER_TRANSFORM.y
     );
+    assertCurrent();
     await unityService.setCharacterScale(INITIAL_CHARACTER_TRANSFORM.scale);
+    assertCurrent();
     await unityService.setCharacterRotation(INITIAL_CHARACTER_TRANSFORM.rotation ?? 0);
+    assertCurrent();
     await unityService.setCharacterVisible(true);
   }, [applyBackgroundToUnity]);
 
   const applyDefaultShareEditorUnityState = useCallback(async () => {
-    await applyDefaultUnityVisualState();
+    const operationId = visualOperationIdRef.current;
+    await applyDefaultUnityVisualState(operationId);
+    if (operationId !== visualOperationIdRef.current) return;
     await unityService.setPoseForSlider(toCharacterMotion(DEFAULT_POSE.trigger));
+    if (operationId !== visualOperationIdRef.current) return;
     await unityService.setAnimationNormalizedTime(0);
   }, [applyDefaultUnityVisualState]);
 
   const runUnityInitialization = useCallback(
     async (requestId: number) => {
+      const operationId = visualOperationIdRef.current;
+      const backgroundRequestId = backgroundRequestIdRef.current;
+      const isCurrent = () => operationId === visualOperationIdRef.current;
       const initialized = await unityService.runWhenReady(
         async () => {
-          await applyBackgroundToUnity(selectedBackground);
-          await unityService.setPoseForSlider(toCharacterMotion(selectedPose.trigger));
-          await unityService.setAnimationNormalizedTime(animationTime);
+          if (!isCurrent()) return;
+          await applyBackgroundToUnity(selectedBackground, backgroundRequestId);
+          if (!isCurrent()) return;
+          await unityService.setPoseForSlider(toCharacterMotion(latestVisualStateRef.current.selectedPose.trigger));
+          if (!isCurrent()) return;
+          await unityService.setAnimationNormalizedTime(latestVisualStateRef.current.animationTime);
+          if (!isCurrent()) return;
           await unityService.setCharacterPosition(
-            characterTransform.x,
-            1 - characterTransform.y
+            latestVisualStateRef.current.characterTransform.x,
+            1 - latestVisualStateRef.current.characterTransform.y
           );
-          await unityService.setCharacterScale(characterTransform.scale);
-          await unityService.setCharacterRotation(characterTransform.rotation ?? 0);
-          await unityService.setCharacterVisible(avatarVisible);
+          if (!isCurrent()) return;
+          await unityService.setCharacterScale(latestVisualStateRef.current.characterTransform.scale);
+          if (!isCurrent()) return;
+          await unityService.setCharacterRotation(latestVisualStateRef.current.characterTransform.rotation ?? 0);
+          if (!isCurrent()) return;
+          await unityService.setCharacterVisible(latestVisualStateRef.current.avatarVisible);
         },
         { waitForAvatar: false, timeoutMs: 3000, forceReadyOnTimeout: true }
       );
@@ -190,12 +224,8 @@ export const useShareUnitySync = ({
       }
     },
     [
-      animationTime,
       applyBackgroundToUnity,
-      avatarVisible,
-      characterTransform,
       selectedBackground,
-      selectedPose.trigger,
     ]
   );
 
@@ -209,16 +239,19 @@ export const useShareUnitySync = ({
       return;
     }
 
+    backgroundRequestIdRef.current += 1;
+    const operationId = ++visualOperationIdRef.current;
     const restoreTask = (async () => {
       const restored = await unityService.runWhenReady(
         async () => {
-          await applyDefaultUnityVisualState();
+          await applyDefaultUnityVisualState(operationId);
+          if (operationId !== visualOperationIdRef.current) throw new Error('Unity restore superseded');
           await unityService.stopCharacter();
         },
         { waitForAvatar: false, timeoutMs: 3000, forceReadyOnTimeout: true }
       );
 
-      if (!restored) {
+      if (!restored || operationId !== visualOperationIdRef.current) {
         throw new Error('Failed to restore running result defaults');
       }
     })();
@@ -243,6 +276,8 @@ export const useShareUnitySync = ({
     if (wasCanSendMessage && !canSendMessage) {
       console.warn('[useShareUnitySync] Unity message channel disconnected - waiting for recovery');
       initRequestIdRef.current += 1;
+      backgroundRequestIdRef.current += 1;
+      visualOperationIdRef.current += 1;
       isInitializingRef.current = false;
       setHasInitializedUnity(false);
       setIsInitializing(true);
@@ -291,6 +326,8 @@ export const useShareUnitySync = ({
   useEffect(() => {
     return () => {
       initRequestIdRef.current += 1;
+      backgroundRequestIdRef.current += 1;
+      visualOperationIdRef.current += 1;
       isInitializingRef.current = false;
 
       void restoreRunningResultDefaults().catch((error) => {
@@ -300,12 +337,15 @@ export const useShareUnitySync = ({
   }, [restoreRunningResultDefaults]);
 
   const syncBackground = useCallback(async (background: BackgroundOption) => {
+    const requestId = ++backgroundRequestIdRef.current;
+    if (restoreInFlightRef.current) visualOperationIdRef.current += 1;
+    hasRestoredDefaultsRef.current = false;
     if (!canSendMessage) {
       return;
     }
 
     try {
-      await applyBackgroundToUnity(background);
+      await applyBackgroundToUnity(background, requestId);
     } catch (error) {
       console.error('[useShareUnitySync] Failed to change Unity background:', error);
     }
@@ -317,8 +357,10 @@ export const useShareUnitySync = ({
         return;
       }
 
+      const operationId = visualOperationIdRef.current;
       try {
         await unityService.setPoseForSlider(toCharacterMotion(pose.trigger));
+        if (operationId !== visualOperationIdRef.current) return;
 
         if (typeof nextAnimationTime === 'number') {
           await unityService.setAnimationNormalizedTime(nextAnimationTime);
@@ -388,6 +430,8 @@ export const useShareUnitySync = ({
   }, [canSendMessage]);
 
   const resetShareEditorUnityState = useCallback(async () => {
+    backgroundRequestIdRef.current += 1;
+    visualOperationIdRef.current += 1;
     if (!canSendMessage) {
       return;
     }

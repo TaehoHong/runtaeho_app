@@ -9,6 +9,7 @@ import {
   getStartOfWeek,
   getStartOfYear,
   isFutureDate,
+  parseChartDate,
 } from '~/features/statistics/models';
 
 describe('statistics date helpers', () => {
@@ -33,6 +34,22 @@ describe('statistics date helpers', () => {
     expect(monthStart.getDate()).toBe(1);
     expect(yearStart.getMonth()).toBe(0);
     expect(yearStart.getDate()).toBe(1);
+  });
+
+  it('interprets date-only chart buckets as local calendar dates', () => {
+    const date = parseChartDate('2026-01-01');
+    expect(date.getFullYear()).toBe(2026);
+    expect(date.getMonth()).toBe(0);
+    expect(date.getDate()).toBe(1);
+    expect(date.getHours()).toBe(0);
+  });
+
+  it('moves January 31 to February without mutating its input', () => {
+    const current = new Date(2026, 0, 31);
+    const next = calculateNextReferenceDate(current, Period.MONTH, PeriodDirection.NEXT);
+    expect(next.getMonth()).toBe(1);
+    expect(next.getDate()).toBe(1);
+    expect(current.getDate()).toBe(31);
   });
 
   it('moves reference date by period and direction', () => {

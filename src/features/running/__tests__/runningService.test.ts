@@ -1,3 +1,4 @@
+import { getSessionSnapshot } from '~/features/auth/stores/authStore';
 import { API_ENDPOINTS } from '~/services/api/config';
 import { apiClient } from '~/services/api/client';
 import { runningService } from '~/features/running/services/runningService';
@@ -43,13 +44,15 @@ describe('runningService', () => {
       expect.objectContaining({
         startTimestamp: 1700000000,
         timezone: expect.any(String),
-      })
+      }),
+      { sessionSnapshot: getSessionSnapshot() }
     );
     expect(mockApiClient.post).not.toHaveBeenCalledWith(
       API_ENDPOINTS.RUNNING.BASE,
       expect.objectContaining({
         startTimestamp: 1700000001,
-      })
+      }),
+      { sessionSnapshot: getSessionSnapshot() }
     );
     dateNowSpy.mockRestore();
   });
@@ -163,15 +166,18 @@ describe('runningService', () => {
         distance: 4200,
         durationSec: 1500,
         cadence: 168,
-      })
+      }),
+      { sessionSnapshot: getSessionSnapshot() }
     );
     expect(mockApiClient.put).toHaveBeenCalledWith(
       API_ENDPOINTS.RUNNING.DETAIL(77),
-      sampleRecord
+      sampleRecord,
+      { sessionSnapshot: getSessionSnapshot() }
     );
     expect(mockApiClient.put).not.toHaveBeenCalledWith(
       API_ENDPOINTS.RUNNING.DETAIL(78),
-      sampleRecord
+      sampleRecord,
+      { sessionSnapshot: getSessionSnapshot() }
     );
     expect(mockApiClient.post.mock.calls[0]?.[1]).not.toHaveProperty('endTimestamp');
   });
@@ -183,7 +189,8 @@ describe('runningService', () => {
 
     expect(mockApiClient.post).toHaveBeenCalledWith(
       API_ENDPOINTS.RUNNING.END(77),
-      expect.objectContaining({ endTimestamp: 1736091000 })
+      expect.objectContaining({ endTimestamp: 1736091000 }),
+      { sessionSnapshot: getSessionSnapshot() }
     );
   });
 
@@ -232,7 +239,8 @@ describe('runningService', () => {
       API_ENDPOINTS.RUNNING.ITEMS(77),
       expect.objectContaining({
         items: expect.any(Array),
-      })
+      }),
+      { sessionSnapshot: getSessionSnapshot() }
     );
   });
 
@@ -265,17 +273,20 @@ describe('runningService', () => {
     expect(mockApiClient.post).toHaveBeenNthCalledWith(
       1,
       API_ENDPOINTS.RUNNING.END(77),
-      expect.objectContaining({ cadence: 255 })
+      expect.objectContaining({ cadence: 255 }),
+      { sessionSnapshot: getSessionSnapshot() }
     );
     expect(mockApiClient.post).toHaveBeenNthCalledWith(
       2,
       API_ENDPOINTS.RUNNING.END(77),
-      expect.objectContaining({ cadence: 0 })
+      expect.objectContaining({ cadence: 0 }),
+      { sessionSnapshot: getSessionSnapshot() }
     );
     expect(mockApiClient.post).toHaveBeenNthCalledWith(
       3,
       API_ENDPOINTS.RUNNING.END(77),
-      expect.objectContaining({ cadence: 0 })
+      expect.objectContaining({ cadence: 0 }),
+      { sessionSnapshot: getSessionSnapshot() }
     );
   });
 
@@ -319,7 +330,8 @@ describe('runningService', () => {
           expect.objectContaining({ orderIndex: 0, cadence: 255 }),
           expect.objectContaining({ orderIndex: 1, cadence: 0 }),
         ]),
-      })
+      }),
+      { sessionSnapshot: getSessionSnapshot() }
     );
   });
 });

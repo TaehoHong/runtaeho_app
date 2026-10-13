@@ -5,11 +5,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 interface PauseButtonProps {
   onPress: () => void;
+  disabled?: boolean;
 }
 
-export const PauseButton: React.FC<PauseButtonProps> = ({ onPress }) => {
+export const PauseButton: React.FC<PauseButtonProps> = ({ onPress, disabled = false }) => {
   return (
-    <TouchableOpacity style={styles.button} onPress={onPress} activeOpacity={0.8}>
+    <TouchableOpacity style={styles.button} onPress={onPress} disabled={disabled} accessibilityState={{ disabled }} activeOpacity={0.8}>
       <LinearGradient
         colors={[GREY[700], '#ABABAB']}
         locations={[0, 1]}

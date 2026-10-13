@@ -1,3 +1,4 @@
+import { pedometerService } from '../services/sensors/PedometerService';
 /**
  * Running ViewModel (Orchestrator)
  *
@@ -51,6 +52,9 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     formatPace,
   } = useRunningStats();
 
+  const activeElapsedRef = useRef<() => number>(() => 0);
+  const readActiveElapsedMs = useCallback(() => activeElapsedRef.current(), []);
+
   // ============================================
   // 2. Segments Hook - 10m 세그먼트 관리
   // ============================================
@@ -64,7 +68,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     resetSegments,
     setSegmentDistance,
     setSegmentLocations,
-  } = useRunningSegments({ statsRef });
+  } = useRunningSegments({ statsRef, getActiveElapsedMs: readActiveElapsedMs });
 
   // ============================================
   // 3. GPS Tracking Hook - GPS 추적
@@ -104,6 +108,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     currentRecord,
     startTime,
     pausedDuration,
+    getActiveElapsedMs,
     sensorHeartRate,
     sensorCadence,
     isStarting,
@@ -135,6 +140,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     currentSegmentItems,
   });
 
+  activeElapsedRef.current = getActiveElapsedMs;
   autoPauseHandlerRef.current = applyAutoPause;
 
   // ============================================
@@ -182,12 +188,11 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
 
     const runTick = () => {
       const now = Date.now();
-      const totalElapsed = Math.floor((now - startTime) / 1000);
-      const actualElapsed = Math.max(0, totalElapsed - pausedDuration);
+      const actualElapsed = Math.floor(readActiveElapsedMs() / 1000);
       const {
         distance: currentDistance,
         sensorHeartRate: currentHeartRate,
-        sensorCadence: currentCadence,
+
         latestPaceSignal: currentPaceSignal,
       } = liveStatsInputsRef.current;
 
@@ -196,7 +201,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
         currentDistance,
         actualElapsed,
         currentHeartRate,
-        currentCadence,
+        pedometerService.getCadenceSnapshot().cadence,
         currentPaceSignal
       );
 
@@ -210,7 +215,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
         clearTimeout(timeout);
       }
     };
-  }, [runningState, startTime, pausedDuration, updateStats, setElapsedTime]);
+  }, [runningState, startTime, pausedDuration, updateStats, setElapsedTime, readActiveElapsedMs]);
 
   // ============================================
   // Combined Reset

@@ -28,6 +28,9 @@ export const HairColorPicker: React.FC<Props> = ({
           return (
             <TouchableOpacity
               key={color.id}
+              accessibilityRole="button"
+              accessibilityLabel={color.name}
+              accessibilityState={{ selected: isSelected }}
               style={[
                 styles.colorButton,
                 isSelected && styles.colorButtonSelected,

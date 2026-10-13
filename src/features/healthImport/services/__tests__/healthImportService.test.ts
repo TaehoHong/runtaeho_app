@@ -1,6 +1,23 @@
 import { healthImportBridge } from '../../native/HealthImportBridge';
 import { healthImportService } from '../healthImportService';
 import { apiClient } from '~/services/api/client';
+import { isSessionCurrent } from '~/features/auth/stores/authStore';
+import { queryClient } from '~/services/queryClient';
+import type { HealthImportBatchRequest, HealthRunningWorkout } from '../../types';
+
+jest.mock('~/features/auth/stores/authStore', () => ({
+  getSessionSnapshot: jest.fn(() => ({ generation: 1 })),
+  isSessionCurrent: jest.fn(() => true),
+}));
+
+jest.mock('~/services/queryClient', () => ({
+  queryClient: { invalidateQueries: jest.fn().mockResolvedValue(undefined) },
+  queryKeys: {
+    running: { all: ['running'] }, statistics: { all: ['statistics'] },
+    healthImport: { configuration: ['healthImport'] }, league: { current: ['league'] },
+    point: { all: ['point'] }, user: { all: ['user'] },
+  },
+}));
 
 jest.mock('react-native', () => ({
   Platform: { OS: 'android' },
@@ -44,6 +61,7 @@ const enabledConfiguration = {
 describe('healthImportService.sync', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(isSessionCurrent).mockReturnValue(true);
     jest.spyOn(Date, 'now').mockReturnValue(2_000_000);
     mockApiClient.get.mockResolvedValue({ data: enabledConfiguration });
     mockApiClient.post.mockResolvedValue({ data: importResponse });
@@ -118,7 +136,8 @@ describe('healthImportService.sync', () => {
             ],
           }),
         ],
-      }
+      },
+      { sessionSnapshot: { generation: 1 } }
     );
     expect(result).toEqual({ importedCount: 1, duplicateCount: 0, awardedPoint: 3 });
   });
@@ -200,9 +219,108 @@ describe('healthImportService.sync', () => {
             items: [],
           }),
         ],
-      }
+      },
+      { sessionSnapshot: { generation: 1 } }
     );
-    expect(mockApiClient.post).toHaveBeenCalledWith('/running/import-batch', { records: [] });
+    expect(mockApiClient.post).toHaveBeenCalledWith('/running/import-batch', { records: [] }, { sessionSnapshot: { generation: 1 } });
     expect(result).toEqual({ importedCount: 2, duplicateCount: 0, awardedPoint: 3 });
   });
+
+  it('rejects a superseded account after a deferred native read without upload or invalidation', async () => {
+    let finishRead!: (workouts: HealthRunningWorkout[]) => void;
+    let readStarted!: () => void;
+    const started = new Promise<void>((resolve) => { readStarted = resolve; });
+    mockHealthImportBridge.readRunningWorkouts.mockImplementation(() => new Promise((resolve) => {
+      finishRead = resolve;
+      readStarted();
+    }));
+    const sync = healthImportService.sync();
+    await started;
+    jest.mocked(isSessionCurrent).mockReturnValue(false);
+    finishRead([{
+      sourceRecordId: 'test:old-account', startTimestamp: 1100, endTimestamp: 1200,
+      distance: 0, durationSec: 100, routeStatus: 'notAvailable', gpsPoints: [],
+    }]);
+
+    await expect(sync).rejects.toMatchObject({ name: 'SessionSupersededError' });
+    expect(mockApiClient.post).not.toHaveBeenCalled();
+    expect(queryClient.invalidateQueries).not.toHaveBeenCalled();
+  });
+
+  it('rejects a route read failure anywhere in the initial read before any upload or cursor finalization', async () => {
+    mockApiClient.get.mockResolvedValue({ data: { ...enabledConfiguration, healthImportLastSyncedTimestamp: null } });
+    mockHealthImportBridge.readRunningWorkouts.mockResolvedValue([
+      { sourceRecordId: 'test:valid', startTimestamp: 1100, endTimestamp: 1200, distance: 0, durationSec: 100, routeStatus: 'notAvailable' },
+      { sourceRecordId: 'test:failed', startTimestamp: 1200, endTimestamp: 1300, distance: 0, durationSec: 100, routeStatus: 'readFailed' },
+    ]);
+
+    await expect(healthImportService.sync()).rejects.toMatchObject({ code: 'health_read_failed' });
+    expect(mockApiClient.post).not.toHaveBeenCalled();
+  });
+
+  it('imports normal zero metrics and missing routes then finalizes an initial read', async () => {
+    mockApiClient.get.mockResolvedValue({ data: { ...enabledConfiguration, healthImportLastSyncedTimestamp: null } });
+    mockHealthImportBridge.readRunningWorkouts.mockResolvedValue([
+      { sourceRecordId: 'test:no-data', startTimestamp: 1100, endTimestamp: 1200, distance: 0, durationSec: 100, heartRate: null, calorie: null, routeStatus: 'notAvailable' },
+    ]);
+
+    await healthImportService.sync();
+    expect(mockApiClient.post).toHaveBeenCalledTimes(2);
+    expect(mockApiClient.post.mock.calls[0]![1]).toEqual({ records: [expect.objectContaining({ distance: 0, heartRate: 0, calorie: 0, items: [] })] });
+    expect(mockApiClient.post.mock.calls[1]![1]).toEqual({ records: [] });
+  });
+
+
+  it('stops later batches and initial finalization when an account changes during the first POST', async () => {
+    mockApiClient.get.mockResolvedValue({ data: { ...enabledConfiguration, healthImportLastSyncedTimestamp: null } });
+    mockHealthImportBridge.readRunningWorkouts.mockResolvedValue(Array.from({ length: 51 }, (_, index) => ({
+      sourceRecordId: `test:run-${index}`, startTimestamp: 1100 + index, endTimestamp: 1200 + index,
+      distance: 0, durationSec: 100, routeStatus: 'notAvailable',
+    })));
+    let finishPost!: (response: { data: typeof importResponse }) => void;
+    let postStarted!: () => void;
+    const started = new Promise<void>((resolve) => { postStarted = resolve; });
+    mockApiClient.post.mockImplementationOnce(() => new Promise((resolve) => {
+      finishPost = resolve;
+      postStarted();
+    }));
+    const sync = healthImportService.sync();
+    await started;
+    jest.mocked(isSessionCurrent).mockReturnValue(false);
+    finishPost({ data: importResponse });
+
+    await expect(sync).rejects.toMatchObject({ name: 'SessionSupersededError' });
+    expect(mockApiClient.post).toHaveBeenCalledTimes(1);
+    expect(queryClient.invalidateQueries).not.toHaveBeenCalled();
+  });
+
+  it('does not upload or finalize when the native metric read rejects', async () => {
+    mockApiClient.get.mockResolvedValue({ data: { ...enabledConfiguration, healthImportLastSyncedTimestamp: null } });
+    const nativeError = Object.assign(new Error('sensitive native diagnostic'), { code: 'health_read_failed' });
+    mockHealthImportBridge.readRunningWorkouts.mockRejectedValue(nativeError);
+    const logs = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    await expect(healthImportService.sync()).rejects.toBe(nativeError);
+    expect(mockApiClient.post).not.toHaveBeenCalled();
+    expect(JSON.stringify(logs.mock.calls)).not.toContain('sensitive native diagnostic');
+  });
+
+  it('retains every GPS point and the existing 50 record batch boundary', async () => {
+    const gpsPoints = Array.from({ length: 10001 }, (_, index) => ({
+      latitude: 37.5, longitude: 127.0, timestampMs: 1100000 + index, speed: 0, altitude: 20,
+    }));
+    mockHealthImportBridge.readRunningWorkouts.mockResolvedValue(Array.from({ length: 51 }, (_, index) => ({
+      sourceRecordId: `test:run-${index}`, startTimestamp: 1100 + index, endTimestamp: 1200 + index,
+      distance: 0, durationSec: 100, routeStatus: 'available', gpsPoints: index === 0 ? gpsPoints : [],
+    })));
+
+    await healthImportService.sync();
+    expect(mockApiClient.post).toHaveBeenCalledTimes(2);
+    const firstRequest = mockApiClient.post.mock.calls[0]![1] as HealthImportBatchRequest;
+    const secondRequest = mockApiClient.post.mock.calls[1]![1] as HealthImportBatchRequest;
+    expect(firstRequest.records).toHaveLength(50);
+    expect(secondRequest.records).toHaveLength(1);
+    expect(firstRequest.records[0]!.items[0]!.gpsPoints).toEqual(gpsPoints);
+  });
+
 });

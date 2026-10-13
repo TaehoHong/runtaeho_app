@@ -1,5 +1,5 @@
 import React from 'react';
-import TestRenderer, { act } from 'react-test-renderer';
+import { render, waitFor } from '@testing-library/react-native';
 
 const mockDispatchViewManagerCommand = jest.fn();
 const mockGetViewManagerConfig = jest.fn(() => ({
@@ -20,20 +20,20 @@ jest.mock('react-native', () => {
     }
   );
 
-  return {
+  return Object.setPrototypeOf({
     Platform: {
       OS: 'ios',
     },
-    findNodeHandle: (...args: unknown[]) => mockFindNodeHandle(...args),
+    findNodeHandle: mockFindNodeHandle,
     requireNativeComponent: () => MockNativeUnityView,
     StyleSheet: {
       create: (styles: Record<string, unknown>) => styles,
     },
     UIManager: {
       dispatchViewManagerCommand: (...args: unknown[]) => mockDispatchViewManagerCommand(...args),
-      getViewManagerConfig: (...args: unknown[]) => mockGetViewManagerConfig(...args),
+      getViewManagerConfig: mockGetViewManagerConfig,
     },
-  };
+  }, jest.requireActual('react-native'));
 });
 
 jest.mock('~/features/unity/bridge/UnityBridge', () => ({
@@ -58,27 +58,13 @@ describe('UnityView reattach command', () => {
   });
 
   it('dispatches native reattach command when token changes', async () => {
-    let renderer: TestRenderer.ReactTestRenderer;
-
-    await act(async () => {
-      renderer = TestRenderer.create(<UnityView reattachToken={0} />);
-      await Promise.resolve();
-    });
-
-    expect(mockSyncReadyState).toHaveBeenCalled();
+    const renderer = render(<UnityView reattachToken={0} />);
+    await waitFor(() => expect(mockSyncReadyState).toHaveBeenCalled());
     expect(mockDispatchViewManagerCommand).not.toHaveBeenCalled();
 
-    await act(async () => {
-      renderer!.update(<UnityView reattachToken={1} />);
-      await Promise.resolve();
-    });
-
+    renderer.rerender(<UnityView reattachToken={1} />);
+    await waitFor(() => expect(mockDispatchViewManagerCommand).toHaveBeenCalledWith(101, 4, []));
     expect(mockGetViewManagerConfig).toHaveBeenCalledWith('RunTaehoUnityView');
-    expect(mockDispatchViewManagerCommand).toHaveBeenCalledWith(101, 4, []);
-
-    await act(async () => {
-      renderer!.unmount();
-      await Promise.resolve();
-    });
+    renderer.unmount();
   });
 });

@@ -1,4 +1,5 @@
 const mockIsAvailableAsync = jest.fn();
+const mockGetPermissionsAsync = jest.fn();
 const mockWatchStepCount = jest.fn();
 const mockRemove = jest.fn();
 let stepCountCallback: ((result: { steps: number }) => void) | null = null;
@@ -6,6 +7,7 @@ let stepCountCallback: ((result: { steps: number }) => void) | null = null;
 jest.mock('expo-sensors', () => ({
   Pedometer: {
     isAvailableAsync: (...args: unknown[]) => mockIsAvailableAsync(...args),
+    getPermissionsAsync: (...args: unknown[]) => mockGetPermissionsAsync(...args),
     watchStepCount: (...args: unknown[]) => mockWatchStepCount(...args),
   },
 }));
@@ -18,6 +20,7 @@ describe('PedometerService final cadence', () => {
     pedometerService.reset();
     stepCountCallback = null;
     mockIsAvailableAsync.mockResolvedValue(true);
+    mockGetPermissionsAsync.mockResolvedValue({ granted: true });
     mockWatchStepCount.mockImplementation((callback: (result: { steps: number }) => void) => {
       stepCountCallback = callback;
       return { remove: mockRemove };

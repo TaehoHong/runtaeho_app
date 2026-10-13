@@ -24,6 +24,7 @@ export const useGetStatisticsSummary = (
     startDateTime: Date;
     endDateTime: Date;
     statisticType: Period;
+    timeZone?: string;
   },
   options?: { enabled?: boolean }
 ) => {
@@ -35,7 +36,8 @@ export const useGetStatisticsSummary = (
     queryKey: queryKeys.statistics.summary(
       params.statisticType,
       startDateString,
-      endDateString
+      endDateString,
+      params.timeZone ?? 'UTC'
     ),
     queryFn: () => statisticsService.getStatisticsSummary(params),
     enabled: options?.enabled ?? true,

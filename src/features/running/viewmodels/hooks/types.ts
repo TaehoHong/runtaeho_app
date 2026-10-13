@@ -231,6 +231,7 @@ export interface UseRunningLifecycleReturn {
   currentRecord: RunningRecord | null;
   startTime: number | null;
   pausedDuration: number;
+  getActiveElapsedMs: () => number;
 
   // Sensor state (타이머 업데이트에서 사용)
   sensorHeartRate: number | undefined;

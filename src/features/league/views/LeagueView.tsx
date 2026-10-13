@@ -12,7 +12,7 @@ import { t, useAppLanguage } from '~/i18n';
  */
 
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { TopScreenSafeAreaView } from '~/shared/components';
 import { GREY, PRIMARY } from '~/shared/styles';
@@ -28,7 +28,7 @@ import { RankingSection } from './components/RankingSection';
 export const LeagueView = () => {
   useAppLanguage();
   const router = useRouter();
-  const [hasCheckedResult, setHasCheckedResult] = useState(false);
+  const consumedResult = useRef<typeof pendingResult>(null);
 
   // 이전 리그 순위 (애니메이션용) - running-finished에서 설정됨
   const previousLeagueRank = useAppStore((state) => state.previousLeagueRank);
@@ -43,17 +43,15 @@ export const LeagueView = () => {
 
   // 미확인 결과가 있으면 결과 화면으로 리다이렉트
   useEffect(() => {
-    if (pendingResult && !hasCheckedResult) {
-      setHasCheckedResult(true);
+    if (pendingResult && consumedResult.current !== pendingResult) {
       router.push({
         pathname: '/league/result' as const,
         params: { resultData: JSON.stringify(pendingResult) },
       } as any);
+      consumedResult.current = pendingResult;
       clearPendingResult();
-    } else if (!pendingResult && !hasCheckedResult) {
-      setHasCheckedResult(true);
     }
-  }, [pendingResult, hasCheckedResult, router, clearPendingResult]);
+  }, [pendingResult, router, clearPendingResult]);
 
   const {
     formattedData,

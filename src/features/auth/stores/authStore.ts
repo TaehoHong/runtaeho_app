@@ -5,12 +5,29 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { tokenStorage } from '~/utils/storage';
+import { useUserStore } from '~/stores/user/userStore';
 
 /**
  * Authentication State
  * 인증 플로우 전체를 관리
  */
+export interface SessionSnapshot {
+  readonly generation: number;
+  readonly userId: number | null;
+}
+
+export interface LoginAttempt {
+  readonly attempt: number;
+  readonly generation: number;
+}
+
 interface AuthState {
+  tokensRevoked: boolean;
+  sessionGeneration: number;
+  loginAttemptGeneration: number;
+  beginLoginAttempt: () => LoginAttempt;
+  invalidateSession: () => number;
+
   // Auth Status
   isLoggedIn: boolean;
   accessToken: string | null;
@@ -42,6 +59,19 @@ interface AuthState {
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
+      tokensRevoked: false,
+      sessionGeneration: 0,
+      loginAttemptGeneration: 0,
+      beginLoginAttempt: () => {
+        const attempt = get().loginAttemptGeneration + 1;
+        set({ loginAttemptGeneration: attempt });
+        return { attempt, generation: get().sessionGeneration };
+      },
+      invalidateSession: () => {
+        const generation = get().sessionGeneration + 1;
+        set({ sessionGeneration: generation, loginAttemptGeneration: get().loginAttemptGeneration + 1 });
+        return generation;
+      },
       // Initial State
       isLoggedIn: false,
       accessToken: null,
@@ -57,6 +87,7 @@ export const useAuthStore = create<AuthState>()(
       setLoggedIn: (isLoggedIn) =>
         set({
           isLoggedIn,
+          ...(isLoggedIn ? { tokensRevoked: false } : {}),
         }),
       
       setAccessToken: (accessToken) =>
@@ -106,14 +137,17 @@ export const useAuthStore = create<AuthState>()(
        * 로그아웃 (상태만 변경)
        * 모든 인증 상태를 초기화
        */
-      logout: () =>
+      logout: () => {
+        get().invalidateSession();
         set({
           isLoggedIn: false,
+          tokensRevoked: true,
           accessToken: null,
           refreshToken: null,
           isLoading: false,
           error: null,
-        }),
+        });
+      },
 
       /**
        * 인증 상태 초기화
@@ -130,9 +164,12 @@ export const useAuthStore = create<AuthState>()(
        * 앱 시작 시 한 번 호출
        */
       initializeTokens: async () => {
+        if (get().tokensRevoked) return;
+        const generation = get().sessionGeneration;
         try {
           console.log('🔐 [AuthStore] Initializing tokens from SecureStorage...');
           const { accessToken, refreshToken } = await tokenStorage.loadTokens();
+          if (get().sessionGeneration !== generation) return;
 
           set({
             accessToken,
@@ -144,8 +181,9 @@ export const useAuthStore = create<AuthState>()(
           } else {
             console.log('⚪ [AuthStore] No tokens found in SecureStorage');
           }
-        } catch (error) {
-          console.error('❌ [AuthStore] Failed to initialize tokens:', error);
+        } catch {
+          console.error('[AuthStore] initializeTokens failed');
+          if (get().sessionGeneration !== generation) return;
           set({
             accessToken: null,
             refreshToken: null,
@@ -159,6 +197,7 @@ export const useAuthStore = create<AuthState>()(
        */
       getAccessTokenSafe: async (): Promise<string | null> => {
         const state = get();
+        if (state.tokensRevoked) return null;
 
         // 메모리에 있으면 반환
         if (state.accessToken) {
@@ -170,14 +209,15 @@ export const useAuthStore = create<AuthState>()(
           console.log('🔍 [AuthStore] AccessToken not in memory, loading from SecureStorage...');
           const token = await tokenStorage.getAccessToken();
 
+          if (get().sessionGeneration !== state.sessionGeneration) return null;
           if (token) {
             set({ accessToken: token });
             console.log('✅ [AuthStore] AccessToken loaded from SecureStorage');
           }
 
           return token;
-        } catch (error) {
-          console.error('❌ [AuthStore] Failed to get access token:', error);
+        } catch {
+          console.error('[AuthStore] getAccessToken failed');
           return null;
         }
       },
@@ -188,6 +228,7 @@ export const useAuthStore = create<AuthState>()(
        */
       getRefreshTokenSafe: async (): Promise<string | null> => {
         const state = get();
+        if (state.tokensRevoked) return null;
 
         // 메모리에 있으면 반환
         if (state.refreshToken) {
@@ -199,14 +240,15 @@ export const useAuthStore = create<AuthState>()(
           console.log('🔍 [AuthStore] RefreshToken not in memory, loading from SecureStorage...');
           const token = await tokenStorage.getRefreshToken();
 
+          if (get().sessionGeneration !== state.sessionGeneration) return null;
           if (token) {
             set({ refreshToken: token });
             console.log('✅ [AuthStore] RefreshToken loaded from SecureStorage');
           }
 
           return token;
-        } catch (error) {
-          console.error('❌ [AuthStore] Failed to get refresh token:', error);
+        } catch {
+          console.error('[AuthStore] getRefreshToken failed');
           return null;
         }
       },
@@ -228,3 +270,20 @@ export const useAuthStore = create<AuthState>()(
 export const selectIsLoggedIn = () => useAuthStore.getState().isLoggedIn;
 export const selectAuthLoading = () => useAuthStore.getState().isLoading;
 export const selectAuthError = () => useAuthStore.getState().error;
+
+export const getSessionSnapshot = (): SessionSnapshot => ({
+  generation: useAuthStore.getState().sessionGeneration,
+  userId: useUserStore.getState().currentUser?.id ?? null,
+});
+
+export const isSessionCurrent = (snapshot: SessionSnapshot): boolean =>
+  snapshot.generation === useAuthStore.getState().sessionGeneration &&
+  snapshot.userId === (useUserStore.getState().currentUser?.id ?? null);
+
+export const isSessionGenerationCurrent = (generation: number): boolean =>
+  generation === useAuthStore.getState().sessionGeneration;
+
+export const isLoginAttemptCurrent = (attempt: LoginAttempt): boolean => {
+  const state = useAuthStore.getState();
+  return state.sessionGeneration === attempt.generation && state.loginAttemptGeneration === attempt.attempt;
+};

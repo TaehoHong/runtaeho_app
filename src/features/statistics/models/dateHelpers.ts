@@ -48,6 +48,7 @@ export const calculateNextReferenceDate = (
       result.setDate(result.getDate() + 7 * direction);
       break;
     case Period.MONTH:
+      result.setDate(1);
       result.setMonth(result.getMonth() + direction);
       break;
     case Period.YEAR:
@@ -176,4 +177,13 @@ export const getEndOfPeriod = (referenceDate: Date, period: Period): Date => {
 
   result.setHours(23, 59, 59, 999);
   return result;
+};
+
+/** Server chart dates describe calendar days in the requested time zone. */
+export const parseChartDate = (value: string): Date => {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split('-').map(Number);
+    return new Date(year!, month! - 1, day!);
+  }
+  return new Date(value);
 };

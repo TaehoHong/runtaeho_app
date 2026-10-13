@@ -22,6 +22,7 @@ if (__DEV__) {
 }
 
 const { RNUnityBridge: NativeUnityBridge } = NativeModules;
+let avatarRequestSequence = 0;
 
 /**
  * Unity Ready 이벤트 타입
@@ -333,7 +334,15 @@ class UnityBridgeImpl implements UnityBridgeInterface {
 
     try {
       console.log(`[UnityBridge] changeAvatarAndWait: ${objectName}.${methodName}`);
-      const result = await NativeUnityBridge.changeAvatarAndWait(objectName, methodName, data);
+      const version = NativeUnityBridge.getAvatarProtocolVersion
+        ? await NativeUnityBridge.getAvatarProtocolVersion()
+        : 0;
+      const requestId = `${Date.now()}-${++avatarRequestSequence}`;
+      const result = version >= 1 && NativeUnityBridge.changeAvatarCorrelatedAndWait
+        ? await NativeUnityBridge.changeAvatarCorrelatedAndWait(
+          objectName, JSON.stringify({ requestId, payload: data }), requestId
+        )
+        : await NativeUnityBridge.changeAvatarAndWait(objectName, methodName, data);
       console.log(`[UnityBridge] Avatar change completed: ${result}`);
       return result;
     } catch (error) {

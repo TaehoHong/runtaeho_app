@@ -1,238 +1,73 @@
+import React from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
-import { PointFilter, type PointHistory } from '~/features/point/models';
-import {
-  usePointFilterViewModel,
-  usePointHistoryItemViewModel,
-  usePointViewModel,
-} from '~/features/point/viewmodels/PointViewModel';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { createTestQueryClient } from '~/test-utils/queryClient';
+import { PointFilter, type PointHistory, type PointHistoryRequest } from '~/features/point/models';
+import { pointService } from '~/features/point/services/pointService';
+import { usePointViewModel, usePointFilterViewModel, usePointHistoryItemViewModel } from '~/features/point/viewmodels/PointViewModel';
 
-const mockUseGetRecentPointHistories = jest.fn();
-const mockUseGetPointHistories = jest.fn();
-const mockUseUserStore = jest.fn();
+jest.mock('~/features/point/services/pointService', () => ({ pointService: { getPointHistories: jest.fn() } }));
+jest.mock('~/stores/user/userStore', () => ({ useUserStore: (selector: (state: { totalPoint: number }) => number) => selector({ totalPoint: 1200 }) }));
+const history = (id: number, point = 10): PointHistory => ({ id, point, pointType: 'test', createdTimestamp: 1760000000 });
+const request = jest.mocked(pointService.getPointHistories);
+const setup = () => {
+  const client = createTestQueryClient();
+  const wrapper = ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  return renderHook(() => usePointViewModel(), { wrapper });
+};
 
-jest.mock('~/features/point/services', () => ({
-  useGetRecentPointHistories: (...args: unknown[]) => mockUseGetRecentPointHistories(...args),
-  useGetPointHistories: (...args: unknown[]) => mockUseGetPointHistories(...args),
-}));
-
-jest.mock('~/stores/user/userStore', () => ({
-  useUserStore: (selector: (state: { totalPoint: number }) => number) => mockUseUserStore(selector),
-}));
-
-const createHistory = (overrides?: Partial<PointHistory>): PointHistory => ({
-  id: 1,
-  point: 100,
-  pointType: '적립',
-  createdTimestamp: 1760000000,
-  ...overrides,
-});
-
-describe('usePointViewModel', () => {
-  const mockRefetchRecent = jest.fn();
-  const mockRefetchOlder = jest.fn();
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockUseUserStore.mockImplementation((selector: (state: { totalPoint: number }) => number) =>
-      selector({ totalPoint: 1200 })
-    );
-
-    mockUseGetRecentPointHistories.mockReturnValue({
-      data: undefined,
-      error: null,
-      isLoading: false,
-      refetch: mockRefetchRecent,
+describe('point history pagination', () => {
+  beforeEach(() => jest.clearAllMocks());
+  it('continues from recent cursor and then advances to the next page without duplicate IDs', async () => {
+    request.mockImplementation(async (params: PointHistoryRequest) => {
+      if (params.startCreatedTimestamp !== undefined) return { content: [history(100)], cursor: 100, hasNext: true };
+      if (params.cursor === 100) return { content: [history(99)], cursor: 99, hasNext: true };
+      return { content: [history(99), history(98)], cursor: 98, hasNext: false };
     });
-
-    mockUseGetPointHistories.mockReturnValue({
-      data: undefined,
-      error: null,
-      isLoading: false,
-      isFetching: false,
-      refetch: mockRefetchOlder,
-    });
+    const { result } = setup();
+    await waitFor(() => expect(result.current.filteredPointHistory.map(item => item.id)).toEqual([100, 99]));
+    await act(async () => { await result.current.loadMoreHistories(); });
+    await waitFor(() => expect(result.current.filteredPointHistory.map(item => item.id)).toEqual([100, 99, 98]));
+    expect(result.current.hasMoreData).toBe(false);
   });
-
-  it('POINT-VM-001 maps recent histories and supports earned filter selection', async () => {
-    mockUseGetRecentPointHistories.mockReturnValue({
-      data: {
-        content: [
-          createHistory({ id: 10, point: 120, pointType: '러닝 보상' }),
-          createHistory({ id: 9, point: -30, pointType: '아이템 구매' }),
-        ],
-        cursor: 9,
-        hasNext: true,
-      },
-      error: null,
-      isLoading: false,
-      refetch: mockRefetchRecent,
-    });
-
-    const { result } = renderHook(() => usePointViewModel());
-
-    await waitFor(() => {
-      expect(result.current.filteredPointHistory).toHaveLength(2);
-    });
-
-    expect(result.current.currentPoints).toBe(1200);
-    expect(result.current.hasError).toBe(false);
-    expect(result.current.totalHistoryCount).toBe(2);
-
-    act(() => {
-      result.current.selectFilter(PointFilter.EARNED);
-    });
-
-    expect(result.current.filteredPointHistory).toHaveLength(1);
-    expect(result.current.filteredPointHistory[0].isPositive).toBe(true);
-    expect(mockRefetchOlder).not.toHaveBeenCalled();
+  it('loads past history when recent history is empty', async () => {
+    request.mockImplementation(async params => params.startCreatedTimestamp !== undefined
+      ? { content: [], hasNext: false }
+      : { content: [history(9)], cursor: 9, hasNext: false });
+    const { result } = setup();
+    await waitFor(() => expect(result.current.filteredPointHistory.map(item => item.id)).toEqual([9]));
   });
-
-  it('POINT-VM-002 reloads older histories when filter changes after pagination data exists', async () => {
-    mockUseGetRecentPointHistories.mockReturnValue({
-      data: {
-        content: [createHistory({ id: 101, point: 200 })],
-        cursor: 50,
-        hasNext: true,
-      },
-      error: null,
-      isLoading: false,
-      refetch: mockRefetchRecent,
-    });
-
-    mockUseGetPointHistories.mockReturnValue({
-      data: {
-        content: [createHistory({ id: 49, point: -70, pointType: '사용' })],
-        cursor: 30,
-        hasNext: true,
-      },
-      error: null,
-      isLoading: false,
-      isFetching: false,
-      refetch: mockRefetchOlder,
-    });
-
-    const { result } = renderHook(() => usePointViewModel());
-
-    await waitFor(() => {
-      expect(result.current.olderHistories).toHaveLength(1);
-    });
-
-    act(() => {
-      result.current.selectFilter(PointFilter.SPENT);
-    });
-
-    await waitFor(() => {
-      expect(result.current.olderHistories).toHaveLength(0);
-    });
-
-    expect(mockRefetchOlder).toHaveBeenCalledTimes(1);
-    expect(result.current.showFilterDropdown).toBe(false);
-
-    act(() => {
-      result.current.selectFilter(PointFilter.SPENT);
-    });
-
-    expect(mockRefetchOlder).toHaveBeenCalledTimes(1);
+  it('refreshes recent and paginated history without duplicating an unchanged cursor', async () => {
+    request.mockImplementation(async params => params.startCreatedTimestamp !== undefined
+      ? { content: [history(100)], cursor: 100, hasNext: true }
+      : { content: [history(99)], cursor: 99, hasNext: false });
+    const { result } = setup();
+    await waitFor(() => expect(result.current.filteredPointHistory.map(item => item.id)).toEqual([100, 99]));
+    await act(async () => { await result.current.refreshPointHistory(); });
+    expect(result.current.filteredPointHistory.map(item => item.id)).toEqual([100, 99]);
   });
-
-  it('POINT-VM-003 refreshes recent histories and resets cursor when response has no data', async () => {
-    mockUseGetRecentPointHistories.mockReturnValue({
-      data: {
-        content: [createHistory({ id: 10, point: 90 })],
-        cursor: 10,
-        hasNext: true,
-      },
-      error: null,
-      isLoading: false,
-      refetch: mockRefetchRecent,
-    });
-
-    mockRefetchRecent.mockResolvedValueOnce({ data: undefined });
-    const { result } = renderHook(() => usePointViewModel());
-
-    await waitFor(() => {
-      expect(result.current.filteredPointHistory).toHaveLength(1);
-    });
-
-    await act(async () => {
-      await result.current.refreshPointHistory();
-    });
-
-    expect(result.current.filteredPointHistory).toHaveLength(0);
-
-    await act(async () => {
-      await result.current.loadMoreHistories();
-    });
-
-    expect(mockRefetchOlder).not.toHaveBeenCalled();
+  it('exposes recent request errors without attempting past history', async () => {
+    request.mockRejectedValue(new Error('request-failed'));
+    const { result } = setup();
+    await waitFor(() => expect(result.current.hasError).toBe(true));
+    expect(result.current.recentError?.message).toBe('request-failed');
+    expect(result.current.filteredPointHistory).toEqual([]);
   });
-
-  it('loads more histories when cursor exists and exposes loading flags', async () => {
-    mockUseGetRecentPointHistories.mockReturnValue({
-      data: {
-        content: [createHistory({ id: 20, point: 10 })],
-        cursor: 20,
-        hasNext: true,
-      },
-      error: null,
-      isLoading: true,
-      refetch: mockRefetchRecent,
+  it('starts each filter at the recent cursor instead of the previous filter page', async () => {
+    request.mockImplementation(async params => {
+      if (params.startCreatedTimestamp !== undefined) return { content: [history(100)], cursor: 100, hasNext: true };
+      if (params.isEarned === false) return { content: [history(99, -10)], cursor: 99, hasNext: false };
+      return { content: [history(98)], cursor: 98, hasNext: false };
     });
-
-    mockUseGetPointHistories.mockReturnValue({
-      data: {
-        content: [createHistory({ id: 19, point: -10 })],
-        cursor: 10,
-        hasNext: true,
-      },
-      error: new Error('older-failed'),
-      isLoading: false,
-      isFetching: true,
-      refetch: mockRefetchOlder,
-    });
-
-    const { result } = renderHook(() => usePointViewModel());
-
-    await waitFor(() => {
-      expect(result.current.olderHistories).toHaveLength(1);
-    });
-
-    await act(async () => {
-      await result.current.loadMoreHistories();
-    });
-
-    expect(mockRefetchOlder).toHaveBeenCalledTimes(1);
-    expect(result.current.hasError).toBe(true);
-    expect(result.current.isLoading).toBe(true);
-    expect(result.current.isLoadingMore).toBe(true);
-    expect(result.current.hasMoreData).toBe(true);
-    expect(result.current.canLoadMore).toBe(true);
-  });
-
-  it('uses override point value and logs debug state safely', () => {
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
-    const { result, rerender } = renderHook(({ pointOverride }) => usePointViewModel(pointOverride), {
-      initialProps: { pointOverride: undefined as number | undefined },
-    });
-
-    expect(result.current.currentPoints).toBe(1200);
-
-    rerender({ pointOverride: 7777 });
-
-    expect(result.current.currentPoints).toBe(7777);
-
-    act(() => {
-      result.current.debugLoadingState();
-      result.current.toggleDropdown();
-    });
-
-    expect(consoleSpy).toHaveBeenCalled();
-    expect(result.current.showFilterDropdown).toBe(true);
-    consoleSpy.mockRestore();
+    const { result } = setup();
+    await waitFor(() => expect(result.current.olderHistories).toHaveLength(1));
+    act(() => result.current.selectFilter(PointFilter.SPENT));
+    await waitFor(() => expect(result.current.filteredPointHistory.map(item => item.id)).toEqual([99]));
+    expect(request).toHaveBeenCalledWith({ cursor: 100, isEarned: false, size: 30 });
   });
 });
 
-describe('point viewmodel helpers', () => {
+describe('point viewmodel helpers' , () => {
   it('maps item view model and validates positive constraints', () => {
     const { result: validResult } = renderHook(() =>
       usePointHistoryItemViewModel({

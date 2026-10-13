@@ -1,15 +1,6 @@
-/**
- * App Reset Service
- *
- * 앱의 모든 로컬 데이터를 초기화하는 서비스
- * 로그아웃, 회원탈퇴 시 사용
- */
-
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as SecureStore from 'expo-secure-store';
 import type { QueryClient } from '@tanstack/react-query';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-
 import { useAppStore } from '~/stores/app/appStore';
 import { useAuthStore } from '~/features/auth/stores/authStore';
 import { useUserStore } from '~/stores/user/userStore';
@@ -17,104 +8,62 @@ import { useUnityStore } from '~/stores/unity/unityStore';
 import { useTermsStore } from '~/features/terms/stores/termsStore';
 import { useLeagueCheckStore } from '~/stores/league/leagueCheckStore';
 import { clearUserContext } from '~/config/sentry';
+import { tokenStorage } from '~/utils/storage';
 
-/**
- * SecureStore 키 목록
- */
-const SECURE_STORE_KEYS = [
-  'accessToken',
-  'refreshToken',
-] as const;
+let logoutBarrier: Promise<void> | null = null;
+let cleanupFailed = false;
+let clearAllRequested = false;
+let retryCleanup: (() => Promise<void>) | null = null;
 
-/**
- * 모든 Zustand 스토어 초기화
- */
-const resetAllStores = (): void => {
-  console.log('🔄 [AppReset] Zustand 스토어 초기화...');
+/** Login must not race old Google sign-out or storage cleanup. */
+export const waitForLogout = async (): Promise<void> => {
+  if (cleanupFailed && retryCleanup) await retryCleanup();
+  else if (logoutBarrier) await logoutBarrier;
+};
 
-  useAppStore.getState().resetAppState();
+export const resetAllAppData = (
+  queryClient: QueryClient,
+  reason: 'manual' | 'auth-expired' = 'manual'
+): Promise<void> => {
+  if (logoutBarrier && !cleanupFailed) {
+    if (reason === 'manual') clearAllRequested = true;
+    return logoutBarrier;
+  }
+  cleanupFailed = false;
+  clearAllRequested = reason === 'manual';
+  retryCleanup = () => resetAllAppData(queryClient, clearAllRequested ? 'manual' : 'auth-expired');
+  // Revoke old asynchronous work before any external operation can yield.
   useAuthStore.getState().logout();
+  queryClient.clear();
+  useAppStore.getState().resetAppState();
   useUserStore.getState().logout();
   useUnityStore.getState().resetUnityState();
   useTermsStore.getState().reset();
   useLeagueCheckStore.getState().reset();
-
-  console.log('✅ [AppReset] Zustand 스토어 초기화 완료');
-};
-
-/**
- * AsyncStorage 완전 삭제
- */
-const clearAsyncStorage = async (): Promise<void> => {
-  console.log('🔄 [AppReset] AsyncStorage 초기화...');
-
-  await AsyncStorage.clear();
-
-  console.log('✅ [AppReset] AsyncStorage 초기화 완료');
-};
-
-/**
- * SecureStore (Keychain) 토큰 삭제
- */
-const clearSecureStore = async (): Promise<void> => {
-  console.log('🔄 [AppReset] SecureStore 초기화...');
-
-  for (const key of SECURE_STORE_KEYS) {
-    try {
-      await SecureStore.deleteItemAsync(key);
-    } catch {
-      // 키가 존재하지 않으면 무시
+  clearUserContext();
+  const tokenCleanup = tokenStorage.clearTokens();
+  const operation = (async () => {
+    const results = await Promise.allSettled([
+      tokenCleanup,
+      (async () => {
+        try { await GoogleSignin.signOut(); }
+        catch { console.warn('[AppReset] Google sign-out failed'); }
+        if (clearAllRequested) await AsyncStorage.clear();
+        else {
+          await AsyncStorage.multiRemove(['auth-storage', 'user-storage', 'backgroundEnterTime']);
+          // A manual logout can join an automatic cleanup while it is awaiting storage.
+          if (clearAllRequested) await AsyncStorage.clear();
+        }
+      })(),
+    ]);
+    if (results.some(result => result.status === 'rejected')) {
+      throw new Error('Session cleanup failed');
     }
-  }
-
-  console.log('✅ [AppReset] SecureStore 초기화 완료');
-};
-
-/**
- * 앱의 모든 로컬 데이터 초기화
- *
- * 초기화 대상:
- * - React Query 캐시
- * - Zustand 스토어 (app, auth, user, unity, terms)
- * - AsyncStorage (Zustand persist 데이터)
- * - SecureStore (JWT 토큰)
- * - Sentry 사용자 컨텍스트
- *
- * @param queryClient - React Query 클라이언트
- */
-export const resetAllAppData = async (queryClient: QueryClient): Promise<void> => {
-  console.log('🔄 [AppReset] 앱 데이터 초기화 시작...');
-
-  try {
-    // 1. React Query 캐시 클리어
-    queryClient.clear();
-    console.log('✅ [AppReset] React Query 캐시 클리어 완료');
-
-    // 2. Google Sign-Out (다음 로그인 시 계정 선택 화면 표시를 위해)
-    try {
-      await GoogleSignin.signOut();
-      console.log('✅ [AppReset] Google Sign-Out 완료');
-    } catch (error) {
-      console.warn('⚠️ [AppReset] Google Sign-Out 실패 (무시됨):', error);
-      // Google signOut 실패해도 앱 로그아웃은 계속 진행
-    }
-
-    // 3. Zustand 스토어 초기화
-    resetAllStores();
-
-    // 4. AsyncStorage 삭제
-    await clearAsyncStorage();
-
-    // 5. SecureStore 토큰 삭제
-    await clearSecureStore();
-
-    // 6. Sentry 사용자 컨텍스트 제거
-    clearUserContext();
-    console.log('✅ [AppReset] Sentry 컨텍스트 제거 완료');
-
-    console.log('✅ [AppReset] 앱 데이터 초기화 완료');
-  } catch (error) {
-    console.error('❌ [AppReset] 앱 데이터 초기화 실패:', error);
-    throw error;
-  }
+  })();
+  // Keep a failed barrier: do not permit a new login over undeleted credentials.
+  logoutBarrier = operation;
+  void operation.then(() => {
+    if (logoutBarrier === operation) logoutBarrier = null;
+  }, () => { cleanupFailed = true; });
+  return operation;
 };

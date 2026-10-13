@@ -1,5 +1,8 @@
 import { t, useAppLanguage } from '~/i18n';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+import { useAuthStore, isLoginAttemptCurrent } from '../stores/authStore';
+import { waitForLogout } from '~/shared/services/AppResetService';
+import { SessionSupersededError } from '~/utils/storage/errors';
 import { Alert } from 'react-native';
 import { AuthMessages } from '../constants/AuthMessages';
 import { AuthError, AuthErrorType } from '../models/AuthError';
@@ -19,6 +22,7 @@ import { useAuth } from './useAuth';
 export const useAuthSignIn = () => {
   useAppLanguage();
   const [isLoading, setIsLoading] = useState(false);
+  const inFlight = useRef(false);
   const { completeLogin } = useAuth();
   const authService = AuthenticationService.shared;
 
@@ -73,12 +77,15 @@ export const useAuthSignIn = () => {
    * 라우팅은 AuthProvider가 자동 처리 (약관 동의 체크 포함)
    */
   const handleSignIn = async (provider: AuthProviderType): Promise<void> => {
-    if (isLoading) return;
+    if (inFlight.current) return;
+    inFlight.current = true;
 
     console.log(`🔐 [LOGIN] ${provider} 로그인 시도`);
     setIsLoading(true);
 
     try {
+      await waitForLogout();
+      const attempt = useAuthStore.getState().beginLoginAttempt();
       // 1. Strategy 패턴으로 OAuth 인증 코드 획득
       const strategy = AuthStrategyFactory.getStrategy(provider);
 
@@ -88,20 +95,25 @@ export const useAuthSignIn = () => {
 
       const authCodeResult = await strategy.getAuthorizationCode();
 
+      if (!isLoginAttemptCurrent(attempt)) throw new SessionSupersededError();
+
       // 2. 백엔드 API로 JWT 토큰 획득
       const tokenDto = await authService.getToken(
         provider,
         authCodeResult.authorizationCode
       );
 
+      if (!isLoginAttemptCurrent(attempt)) throw new SessionSupersededError();
+
       // 3. 로그인 완료 처리 (사용자 데이터 조회 + Store 저장)
-      await completeLogin(tokenDto.accessToken, tokenDto.refreshToken);
+      await completeLogin(tokenDto.accessToken, tokenDto.refreshToken, attempt);
 
       // 4. 성공 로그 (라우팅은 AuthProvider가 자동 처리)
       console.log(`✅ [LOGIN] ${provider} 로그인 완료 (AuthProvider가 라우팅 처리)`);
 
     } catch (error: any) {
-      console.error(`❌ [LOGIN] ${provider} 로그인 실패:`, error);
+      if (error instanceof SessionSupersededError) return;
+      console.error(`[Auth] sign-in failed`, { provider, category: error instanceof AuthError ? error.type : 'unknown' });
 
       // AuthError 타입별 처리
       if (error instanceof AuthError) {
@@ -110,6 +122,7 @@ export const useAuthSignIn = () => {
         Alert.alert(AuthMessages.LOGIN_FAILED, error.message || AuthMessages.UNKNOWN_ERROR);
       }
     } finally {
+      inFlight.current = false;
       setIsLoading(false);
     }
   };

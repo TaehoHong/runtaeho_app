@@ -82,8 +82,14 @@ export type BiometryType = 'fingerprint' | 'face' | 'iris' | 'none';
 /**
  * 토큰 저장소 인터페이스
  */
+export interface TokenWriteOptions {
+  isCurrent?: () => boolean;
+  /** Synchronous publication while this write still owns the storage queue. */
+  onCommit?: () => void;
+}
+
 export interface ITokenStorage {
-  saveTokens(accessToken: string, refreshToken?: string): Promise<void>;
+  saveTokens(accessToken: string, refreshToken?: string, options?: TokenWriteOptions): Promise<void>;
   loadTokens(): Promise<{ accessToken: string | null; refreshToken: string | null }>;
   clearTokens(): Promise<void>;
   getAccessToken(): Promise<string | null>;

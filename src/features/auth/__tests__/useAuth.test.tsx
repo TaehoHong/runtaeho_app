@@ -29,6 +29,7 @@ jest.mock('~/config/sentry', () => ({
 
 jest.mock('~/shared/services/AppResetService', () => ({
   resetAllAppData: jest.fn(),
+  waitForLogout: jest.fn().mockResolvedValue(undefined),
 }));
 
 const mockTokenStorage = tokenStorage as jest.Mocked<typeof tokenStorage>;
@@ -39,7 +40,9 @@ describe('useAuth', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     resetAllStores();
+    useAuthStore.setState({ tokensRevoked: false });
     mockTokenStorage.getAccessToken.mockResolvedValue(null);
+    mockTokenStorage.saveTokens.mockImplementation(async (_access, _refresh, options) => { options?.onCommit?.(); });
   });
 
   it('AUTH-HOOK-001 returns false when there is no access token', async () => {
@@ -81,7 +84,7 @@ describe('useAuth', () => {
       await result.current.completeLogin('access-token', 'refresh-token');
     });
 
-    expect(mockTokenStorage.saveTokens).toHaveBeenCalledWith('access-token', 'refresh-token');
+    expect(mockTokenStorage.saveTokens).toHaveBeenCalledWith('access-token', 'refresh-token', { isCurrent: expect.any(Function), onCommit: expect.any(Function) });
     expect(useAuthStore.getState().isLoggedIn).toBe(true);
     expect(useUserStore.getState().currentUser?.nickname).toBe('Runner');
     expect(useUserStore.getState().hairColor).toBe('#000000');
@@ -100,4 +103,38 @@ describe('useAuth', () => {
     expect(mockSetUserContext).not.toHaveBeenCalled();
     expect(useUserStore.getState().currentUser).toBeNull();
   });
+});
+
+
+it('does not replace user state when login storage fails', async () => {
+  resetAllStores();
+  mockGetUserData.mockResolvedValue({ id: 22, name: 'New Runner', totalPoint: 20,
+    avatarId: 1, haveRunningRecord: false, equippedItems: [], userAccounts: [], hairColor: '#000000' });
+  mockTokenStorage.saveTokens.mockRejectedValueOnce(new Error('Secure storage save failed'));
+  const { result } = renderHook(() => useAuth());
+  await act(async () => {
+    await expect(result.current.completeLogin('new-token', 'new-refresh')).rejects.toThrow('Secure storage save failed');
+  });
+  expect(useUserStore.getState().currentUser).toBeNull();
+  expect(useAuthStore.getState().isLoggedIn).toBe(false);
+});
+
+it('ignores a delayed profile response after the session changes', async () => {
+  resetAllStores();
+  let resolve!: (value: unknown) => void;
+  mockGetUserData.mockReturnValueOnce(new Promise(yes => { resolve = yes; }));
+  const { result } = renderHook(() => useAuth());
+  let pending!: Promise<void>;
+  act(() => { pending = result.current.refreshUserData(); });
+  act(() => {
+    useAuthStore.getState().logout();
+    useUserStore.getState().setTotalPoint(900);
+  });
+  await act(async () => {
+    resolve({ id: 1, name: 'Old Runner', totalPoint: 1, avatarId: 0,
+      haveRunningRecord: false, equippedItems: [], userAccounts: [], hairColor: '#000000' });
+    await pending;
+  });
+  expect(useUserStore.getState().totalPoint).toBe(900);
+  expect(useUserStore.getState().currentUser).toBeNull();
 });

@@ -124,19 +124,24 @@ export class PedometerService {
    *
    * @param callback - 걸음 수 업데이트 콜백
    */
+  private trackingGeneration = 0;
+
   async startTracking(callback: (data: PedometerData) => void): Promise<void> {
     if (this.isTracking) {
       console.warn('[PedometerService] Already tracking');
       return;
     }
 
+    const generation = ++this.trackingGeneration;
     const permission = await Pedometer.getPermissionsAsync();
+    if (generation !== this.trackingGeneration) return;
     if (!permission.granted) {
       throw new Error('Motion permission required');
     }
 
     try {
       const available = await this.isAvailable();
+      if (generation !== this.trackingGeneration) return;
       if (!available) {
         console.warn('[PedometerService] Pedometer not available');
         return;
@@ -154,6 +159,7 @@ export class PedometerService {
       console.log('[PedometerService] Starting tracking...');
 
       this.subscription = Pedometer.watchStepCount((result) => {
+        if (generation !== this.trackingGeneration) return;
         try {
           const now = Date.now();
 
@@ -206,7 +212,7 @@ export class PedometerService {
       console.log('[PedometerService] Tracking started successfully');
     } catch (error) {
       console.error('[PedometerService] Failed to start tracking:', error);
-      this.isTracking = false;
+      if (generation === this.trackingGeneration) this.isTracking = false;
       throw error;
     }
   }
@@ -215,6 +221,7 @@ export class PedometerService {
    * 걸음 수 추적 중지
    */
   stopTracking(): void {
+    this.trackingGeneration++;
     if (!this.isTracking) {
       console.warn('[PedometerService] Not tracking');
       return;

@@ -5,11 +5,12 @@ import { GREY } from '~/shared/styles';
 
 interface StopButtonProps {
   onPress: () => void;
+  disabled?: boolean;
 }
 
-export const StopButton: React.FC<StopButtonProps> = ({ onPress }) => {
+export const StopButton: React.FC<StopButtonProps> = ({ onPress, disabled = false }) => {
   return (
-    <TouchableOpacity style={styles.button} onPress={onPress} activeOpacity={0.8}>
+    <TouchableOpacity style={styles.button} onPress={onPress} disabled={disabled} accessibilityState={{ disabled }} activeOpacity={0.8}>
       <LinearGradient
         colors={[GREY[700], '#ABABAB']}
         locations={[0, 1]}

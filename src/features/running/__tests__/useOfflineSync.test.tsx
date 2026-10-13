@@ -1,3 +1,5 @@
+import { useUserStore } from '~/stores/user/userStore';
+import { getSessionSnapshot } from '~/features/auth/stores/authStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, renderHook } from '@testing-library/react-native';
 import { useOfflineSync } from '../hooks/useOfflineSync';
@@ -57,6 +59,7 @@ const segment: RunningRecordItem = {
 describe('offline GPS segment synchronization', () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
+    useUserStore.setState({ currentUser: { id: 7, nickname: 'runner', userAccounts: [], level: 1, createdAt: new Date(0) } });
     mockSaveItems.mockReset().mockResolvedValue(undefined);
     mockEndRunning.mockReset().mockResolvedValue(undefined);
   });
@@ -105,7 +108,7 @@ describe('offline GPS segment synchronization', () => {
           speed: 3.3, altitude: 21, accuracy: undefined,
         }],
       }],
-    });
+    }, getSessionSnapshot());
     expect(await offlineStorageService.getPendingSegmentCount()).toBe(0);
     expect(mockEndRunning).not.toHaveBeenCalled();
   });
@@ -145,7 +148,7 @@ describe('offline GPS segment synchronization', () => {
         expect.objectContaining({ orderIndex: 0, gpsPoints: [] }),
         expect.objectContaining({ orderIndex: 1, gpsPoints: [] }),
       ],
-    });
+    }, getSessionSnapshot());
   });
 
   it('does not call the API when no uploads are pending', async () => {
@@ -153,6 +156,20 @@ describe('offline GPS segment synchronization', () => {
     await act(async () => { expect(await result.current.syncOfflineData()).toBeNull(); });
     expect(mockSaveItems).not.toHaveBeenCalled();
     expect(mockEndRunning).not.toHaveBeenCalled();
+  });
+
+  it('keeps another account\'s GPS queue untouched until its owner returns', async () => {
+    await offlineStorageService.addPendingSegmentUpload(404, [segment]);
+    const stored = await AsyncStorage.getItem('@pending_segment_uploads');
+    useUserStore.setState({ currentUser: { id: 8, nickname: 'other runner', userAccounts: [], level: 1, createdAt: new Date(0) } });
+    const { result } = renderHook(() => useOfflineSync());
+    await act(async () => { await result.current.syncOfflineData(); });
+    expect(mockSaveItems).not.toHaveBeenCalled();
+    expect(await AsyncStorage.getItem('@pending_segment_uploads')).toBe(stored);
+    useUserStore.setState({ currentUser: { id: 7, nickname: 'runner', userAccounts: [], level: 1, createdAt: new Date(0) } });
+    await act(async () => { await result.current.syncOfflineData(); });
+    expect(mockSaveItems).toHaveBeenCalledTimes(1);
+    expect(await offlineStorageService.getPendingSegmentCount()).toBe(0);
   });
 
   it('preserves the original end timestamp when a summary is retried the next day', async () => {
@@ -174,8 +191,8 @@ describe('offline GPS segment synchronization', () => {
       await act(async () => {
         expect((await result.current.syncOfflineData())?.records).toEqual({ success: 1, failed: 0 });
       });
-      expect(mockEndRunning).toHaveBeenNthCalledWith(1, record);
-      expect(mockEndRunning).toHaveBeenNthCalledWith(2, record);
+      expect(mockEndRunning).toHaveBeenNthCalledWith(1, record, getSessionSnapshot());
+      expect(mockEndRunning).toHaveBeenNthCalledWith(2, record, getSessionSnapshot());
       expect(await offlineStorageService.getPendingCount()).toBe(0);
     } finally {
       dateNowSpy.mockRestore();

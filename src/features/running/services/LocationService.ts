@@ -164,8 +164,10 @@ export class LocationService {
    * 추적 재개
    */
   resumeTracking(): void {
-    if (!this.isTracking) return;
+    if (!this.isTracking || !this.isPaused) return;
 
+    this.gpsFilterState = createInitialGpsFilterState();
+    this.latestPaceSignal = null;
     this.isPaused = false;
     console.log('[LocationService] Tracking resumed');
     this.notifyTrackingDataUpdate();

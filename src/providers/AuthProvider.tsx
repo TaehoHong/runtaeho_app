@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from '../features/auth/hooks/useAuth';
-import { useAuthStore } from '../features/auth/stores/authStore';
+import { useAuthStore, isSessionGenerationCurrent } from '../features/auth/stores/authStore';
 import { isAgreedOnTermsFromToken } from '~/features/auth/utils/jwtUtils';
 import { useOfflineSync } from '../features/running/hooks/useOfflineSync';
 import { useAppStore, ViewState } from '~/stores';
@@ -41,25 +41,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
    * NOTE: 리그 결과 확인은 RunningView/LeagueView에서 처리
    */
   const initializeAuthState = useCallback(async () => {
+    const generation = useAuthStore.getState().sessionGeneration;
     try {
       console.log('🔍 [AuthProvider] 저장된 인증 상태 확인 중...');
 
       // 1. AuthStore에 SecureStorage 토큰 동기화
       const initializeTokens = useAuthStore.getState().initializeTokens;
       await initializeTokens();
+      if (!isSessionGenerationCurrent(generation)) return;
 
       // 2. 토큰 검증 및 자동 갱신 (useAuth hook)
       const isTokenValid = await verifyAndRefreshToken();
 
       // 3. 로그인 상태이고 토큰이 유효하면 오프라인 데이터 동기화
-      if (isTokenValid && useAuthStore.getState().isLoggedIn) {
+      if (isSessionGenerationCurrent(generation) && isTokenValid && useAuthStore.getState().isLoggedIn) {
         await refreshUserData();
-        await syncOfflineData();
+        if (isSessionGenerationCurrent(generation)) await syncOfflineData();
       }
 
       console.log('✅ [AuthProvider] 인증 상태 복원 완료');
-    } catch (error) {
-      console.error('⚠️ [AuthProvider] 인증 상태 초기화 실패:', error);
+    } catch {
+      console.error('⚠️ [AuthProvider] 인증 상태 초기화 실패:');
     }
   }, [verifyAndRefreshToken, refreshUserData, syncOfflineData]);
 
@@ -150,8 +152,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         useAppStore.getState().setViewState(ViewState.Loaded);
         console.log('✅ [AuthProvider] 로그인 화면 이동 - Loaded 상태로 전환');
       }
-    } catch (error) {
-      console.warn('⚠️ [AuthProvider] 네비게이션 실패, 재시도 예약:', error);
+    } catch {
+      console.warn('⚠️ [AuthProvider] 네비게이션 실패, 재시도 예약:');
       // 네비게이션 실패시 잠시 후 재시도
       setTimeout(() => {
         setIsNavigationReady(false);

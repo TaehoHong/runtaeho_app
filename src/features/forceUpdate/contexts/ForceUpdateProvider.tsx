@@ -2,6 +2,7 @@ import React, { ReactNode, createContext, useContext, useMemo } from 'react';
 import { useForceUpdateCheck } from '../hooks/useForceUpdateCheck';
 import { ForceUpdateModal } from '../views/components/ForceUpdateModal';
 import { ForceUpdateStatus } from '../models/ForceUpdateState';
+import { useAppStore, RunningState } from '~/stores/app/appStore';
 
 interface ForceUpdateContextValue {
   /** 업데이트 필요 여부 */
@@ -66,11 +67,13 @@ export function ForceUpdateProvider({
     [isUpdateRequired, isChecking, isError, minimumVersion, message, checkForUpdate]
   );
 
+  const isRunning = useAppStore((state) => state.runningState !== RunningState.Stopped);
+
   // 포그라운드 복귀 체크는 조용히 실행하고, 결과가 필요할 때만 모달을 표시한다.
-  const showModal =
+  const showModal = !(checkSource === 'foreground' && isRunning) && (
     (status === ForceUpdateStatus.CHECKING && checkSource !== 'foreground') ||
     status === ForceUpdateStatus.UPDATE_REQUIRED ||
-    status === ForceUpdateStatus.ERROR;
+    status === ForceUpdateStatus.ERROR);
 
   const handleRetry = () => {
     checkForUpdate(true); // force 체크

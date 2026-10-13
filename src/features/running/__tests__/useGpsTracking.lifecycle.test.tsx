@@ -144,7 +144,7 @@ describe('useGpsTracking lifecycle', () => {
   });
 
   it('creates one coordinator and cleans up app-state and coordinator subscriptions on unmount', () => {
-    const MockedCoordinator = RunningTrackingCoordinator as jest.Mock;
+    const MockedCoordinator = jest.mocked(RunningTrackingCoordinator);
     const { unmount } = renderHook(() => useGpsTracking(createProps()));
 
     expect(MockedCoordinator).toHaveBeenCalledWith('active');

@@ -85,6 +85,8 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
     /** 아바타 변경 대기 중인 Promise */
     @Volatile
     private var pendingAvatarResolve: Promise? = null
+    private var pendingAvatarRequestId: String? = null
+    private var avatarProtocolVersion = 0
 
     /** 아바타 타임아웃 핸들러 */
     private var avatarTimeoutHandler: Handler? = null
@@ -221,6 +223,7 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
     private fun handleAvatarReadyCallback() {
         Log.d(TAG, "handleAvatarReadyCallback() called")
 
+        if (pendingAvatarRequestId != null) return
         // 이벤트 방식도 함께 호출
         handleAvatarReady()
 
@@ -341,19 +344,21 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
      */
     @ReactMethod
     fun forceResetUnity(promise: Promise) {
-        Log.d(TAG, "🔄 Force reset requested")
-        try {
-            UnityHolder.forceReset()
-
-            // Bridge 상태도 리셋
-            synchronized(eventsLock) {
-                pendingEvents.clear()
+        mainHandler.post {
+            synchronized(avatarLock) {
+                avatarTimeoutHandler?.removeCallbacksAndMessages(null)
+                avatarTimeoutHandler = null
+                pendingAvatarResolve?.reject("RESET", "Unity reset", null)
+                pendingAvatarResolve = null
+                pendingAvatarRequestId = null
             }
-
-            promise.resolve(null)
-        } catch (e: Exception) {
-            Log.e(TAG, "Force reset failed: ${e.message}", e)
-            promise.reject("RESET_ERROR", e.message, e)
+            try {
+                UnityHolder.forceReset()
+                synchronized(eventsLock) { pendingEvents.clear() }
+                promise.resolve(null)
+            } catch (error: Exception) {
+                promise.reject("RESET_ERROR", "Unity reset failed", error)
+            }
         }
     }
 
@@ -638,40 +643,66 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
         data: String,
         promise: Promise
     ) {
-        Log.d(TAG, "changeAvatarAndWait: $objectName.$methodName($data)")
+        beginAvatarChange(objectName, methodName, data, null, promise)
+    }
 
-        synchronized(avatarLock) {
-            // 이전 pending promise 정리 (새 요청이 들어오면 이전 요청은 취소)
-            pendingAvatarResolve?.reject("CANCELLED", "New avatar change request", null)
-            avatarTimeoutHandler?.removeCallbacksAndMessages(null)
+    @ReactMethod
+    fun getAvatarProtocolVersion(promise: Promise) {
+        mainHandler.post { promise.resolve(avatarProtocolVersion) }
+    }
 
-            // 새 promise 설정
-            pendingAvatarResolve = promise
+    fun handleAvatarProtocolVersion(version: Int) {
+        mainHandler.post { avatarProtocolVersion = version }
+    }
 
-            // 타임아웃 설정
-            avatarTimeoutHandler = Handler(Looper.getMainLooper())
-            avatarTimeoutHandler?.postDelayed({
-                synchronized(avatarLock) {
-                    if (pendingAvatarResolve === promise) {
-                        Log.w(TAG, "Avatar change timed out after ${AVATAR_TIMEOUT_MS}ms")
-                        pendingAvatarResolve?.resolve(false)
-                        pendingAvatarResolve = null
-                        avatarTimeoutHandler = null
-                    }
-                }
-            }, AVATAR_TIMEOUT_MS)
-        }
+    @ReactMethod
+    fun changeAvatarCorrelatedAndWait(objectName: String, data: String, requestId: String, promise: Promise) {
+        beginAvatarChange(objectName, "SetSpritesCorrelated", data, requestId, promise)
+    }
 
-        // Unity 메시지 전송
-        try {
-            UnityHolder.sendMessage(objectName, methodName, data)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to send avatar change message: ${e.message}", e)
+    private fun beginAvatarChange(objectName: String, methodName: String, data: String, requestId: String?, promise: Promise) {
+        mainHandler.post {
             synchronized(avatarLock) {
+                pendingAvatarResolve?.reject("CANCELLED", "New avatar change request", null)
+                avatarTimeoutHandler?.removeCallbacksAndMessages(null)
+                pendingAvatarResolve = promise
+                pendingAvatarRequestId = requestId
+                avatarTimeoutHandler = Handler(Looper.getMainLooper()).also { handler ->
+                    handler.postDelayed({
+                        synchronized(avatarLock) {
+                            if (pendingAvatarResolve === promise) {
+                                pendingAvatarResolve = null
+                                pendingAvatarRequestId = null
+                                avatarTimeoutHandler = null
+                                promise.resolve(false)
+                            }
+                        }
+                    }, AVATAR_TIMEOUT_MS)
+                }
+                try {
+                    UnityHolder.sendMessage(objectName, methodName, data)
+                } catch (error: Exception) {
+                    avatarTimeoutHandler?.removeCallbacksAndMessages(null)
+                    avatarTimeoutHandler = null
+                    pendingAvatarResolve = null
+                    pendingAvatarRequestId = null
+                    promise.reject("UNITY_MESSAGE_ERROR", "Failed to send avatar", error)
+                }
+            }
+        }
+    }
+
+    fun handleAvatarApplied(requestId: String, success: Boolean) {
+        mainHandler.post {
+            synchronized(avatarLock) {
+                if (pendingAvatarRequestId != requestId) return@post
                 avatarTimeoutHandler?.removeCallbacksAndMessages(null)
                 avatarTimeoutHandler = null
-                pendingAvatarResolve?.reject("UNITY_MESSAGE_ERROR", "Failed to send message: ${e.message}", e)
+                val promise = pendingAvatarResolve
                 pendingAvatarResolve = null
+                pendingAvatarRequestId = null
+                promise?.resolve(success)
+                if (success) handleAvatarReady()
             }
         }
     }
@@ -809,7 +840,10 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
         synchronized(avatarLock) {
             avatarTimeoutHandler?.removeCallbacksAndMessages(null)
             avatarTimeoutHandler = null
+            pendingAvatarResolve?.reject("DESTROYED", "Unity host destroyed", null)
             pendingAvatarResolve = null
+            pendingAvatarRequestId = null
+            avatarProtocolVersion = 0
         }
 
         synchronized(captureLock) {

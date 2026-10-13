@@ -1,3 +1,4 @@
+import { SessionSupersededError } from '~/utils/storage/errors';
 import { t, useAppLanguage } from '~/i18n';
 import React from 'react';
 import { Alert, View, StyleSheet } from 'react-native';
@@ -16,7 +17,7 @@ import { useRunning } from '../contexts';
 export const RunningActiveView: React.FC = () => {
   useAppLanguage();
   const setRunningState = useAppStore((state) => state.setRunningState);
-  const { pauseRunning, endRunning } = useRunning();
+  const { pauseRunning, endRunning, isEnding } = useRunning();
   const buttonBottom = useBottomActionOffset(42);
 
   const handlePauseRunning = () => {
@@ -37,7 +38,8 @@ export const RunningActiveView: React.FC = () => {
       await endRunning();
 
       console.log('✅ [RunningActiveView] 러닝 종료 완료');
-    } catch {
+    } catch (error) {
+      if (error instanceof SessionSupersededError) return;
       console.error('❌ [RunningActiveView] 러닝 기록 저장 실패');
       Alert.alert(t("저장 실패"), t("러닝 기록을 저장하지 못했어요. 앱을 닫지 말고 종료 버튼을 눌러 다시 시도해주세요."));
     }
@@ -58,8 +60,8 @@ export const RunningActiveView: React.FC = () => {
         testID="running-active-button-container"
         style={[styles.buttonContainer, { bottom: buttonBottom }]}
       >
-        <PauseButton onPress={handlePauseRunning} />
-        <StopButton onPress={handleStopRunning} />
+        <PauseButton disabled={isEnding} onPress={handlePauseRunning} />
+        <StopButton disabled={isEnding} onPress={handleStopRunning} />
       </View>
     </View>
   );

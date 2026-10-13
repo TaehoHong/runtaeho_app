@@ -16,6 +16,7 @@ describe('authStore', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     resetAllStores();
+    useAuthStore.setState({ tokensRevoked: false });
   });
 
   it('AUTH-STORE-001 handles token and login state transitions', () => {
@@ -68,4 +69,22 @@ describe('authStore', () => {
     expect(refreshToken).toBe('fallback-refresh');
     expect(useAuthStore.getState().refreshToken).toBe('fallback-refresh');
   });
+});
+
+
+it('does not restore a token read begun before logout', async () => {
+  let resolve!: (token: string) => void;
+  useAuthStore.setState({ accessToken: null, tokensRevoked: false });
+  mockTokenStorage.getAccessToken.mockReturnValue(new Promise<string>(yes => { resolve = yes; }));
+  const read = useAuthStore.getState().getAccessTokenSafe();
+  useAuthStore.getState().logout();
+  resolve('old-access');
+  await expect(read).resolves.toBeNull();
+  expect(useAuthStore.getState().accessToken).toBeNull();
+});
+
+it('does not revive deleted credentials even when disk deletion previously failed', async () => {
+  useAuthStore.getState().logout();
+  mockTokenStorage.getAccessToken.mockResolvedValue('undeleted-token');
+  await expect(useAuthStore.getState().getAccessTokenSafe()).resolves.toBeNull();
 });

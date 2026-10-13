@@ -54,6 +54,7 @@ export const queryKeys = {
     }) => ['running', 'list', filters] as const,
     detail: (id: number) => ['running', id] as const,
     infinite: (filters?: {
+      size?: number;
       startDate?: Date;
       endDate?: Date;
     }) => ['running', 'infinite', filters] as const,
@@ -94,6 +95,7 @@ export const queryKeys = {
       size?: number;
     }) => ['point', 'history', filters] as const,
     infiniteHistory: (filters?: {
+      initialCursor?: number | undefined;
       isEarned?: boolean;
       startCreatedTimestamp?: number;
       size?: number;
@@ -119,8 +121,8 @@ export const queryKeys = {
   statistics: {
     all: ['statistics'] as const,
     // 객체 대신 개별 primitive 값으로 분리하여 캐시 키 안정화
-    summary: (statisticType: string, startDateTime: string, endDateTime: string) =>
-      ['statistics', 'summary', statisticType, startDateTime, endDateTime] as const,
+    summary: (statisticType: string, startDateTime: string, endDateTime: string, timeZone = 'UTC') =>
+      ['statistics', 'summary', statisticType, startDateTime, endDateTime, timeZone] as const,
     chart: (filters: {
       period: string;
       startDate?: string;

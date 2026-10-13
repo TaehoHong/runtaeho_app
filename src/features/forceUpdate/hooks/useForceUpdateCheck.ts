@@ -38,6 +38,10 @@ export function useForceUpdateCheck(options: UseForceUpdateCheckOptions = {}) {
 
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const isCheckingRef = useRef(false);
+  const requestIdRef = useRef(0);
+  const activeSourceRef = useRef<ForceUpdateCheckSource | null>(null);
+  const recheckAfterRunningRef = useRef(false);
+  const previousRunningRef = useRef(isRunning);
   const performVersionCheckRef = useRef<(
     (force: boolean, source: ForceUpdateCheckSource) => Promise<void>
   ) | null>(null);
@@ -66,6 +70,17 @@ export function useForceUpdateCheck(options: UseForceUpdateCheckOptions = {}) {
         }
       }
 
+      const requestId = ++requestIdRef.current;
+      activeSourceRef.current = source;
+      recheckAfterRunningRef.current = false;
+      const isCurrent = () => requestIdRef.current === requestId;
+      const deferForegroundResult = () => {
+        if (source === 'foreground' && useAppStore.getState().runningState !== RunningState.Stopped) {
+          recheckAfterRunningRef.current = true;
+          return true;
+        }
+        return false;
+      };
       try {
         isCheckingRef.current = true;
         setChecking(source);
@@ -73,6 +88,7 @@ export function useForceUpdateCheck(options: UseForceUpdateCheckOptions = {}) {
         if (__DEV__) console.log('[ForceUpdate] Checking version...');
 
         const response = await checkVersionFromServer();
+        if (!isCurrent() || deferForegroundResult()) return;
 
         if (response.forceUpdate && response.minimumVersion) {
           if (__DEV__) {
@@ -86,12 +102,16 @@ export function useForceUpdateCheck(options: UseForceUpdateCheckOptions = {}) {
           setUpToDate();
         }
       } catch (err) {
+        if (!isCurrent() || deferForegroundResult()) return;
         const error =
           err instanceof Error ? err : new Error('Unknown error occurred');
         if (__DEV__) console.error('[ForceUpdate] Check failed:', error);
         setError(error);
       } finally {
-        isCheckingRef.current = false;
+        if (isCurrent()) {
+          isCheckingRef.current = false;
+          activeSourceRef.current = null;
+        }
       }
     },
     [lastCheckedAt, setChecking, setUpdateRequired, setUpToDate, setError]
@@ -107,6 +127,28 @@ export function useForceUpdateCheck(options: UseForceUpdateCheckOptions = {}) {
   useEffect(() => {
     performVersionCheckRef.current = performVersionCheck;
   }, [performVersionCheck]);
+
+  useEffect(() => {
+    const wasRunning = previousRunningRef.current;
+    previousRunningRef.current = isRunning;
+    if (isRunning && !wasRunning && (activeSourceRef.current === 'foreground' || (checkSource === 'foreground' && status !== ForceUpdateStatus.IDLE))) {
+      requestIdRef.current += 1;
+      isCheckingRef.current = false;
+      activeSourceRef.current = null;
+      recheckAfterRunningRef.current = true;
+      setChecking('foreground');
+    }
+    if (!isRunning && wasRunning && recheckAfterRunningRef.current) {
+      recheckAfterRunningRef.current = false;
+      void performVersionCheckRef.current?.(true, 'foreground');
+    }
+  }, [checkSource, isRunning, setChecking, status]);
+
+  useEffect(() => () => {
+    requestIdRef.current += 1;
+    isCheckingRef.current = false;
+    activeSourceRef.current = null;
+  }, []);
 
   /**
    * 앱 상태 변경 핸들러 (포그라운드 복귀 감지)

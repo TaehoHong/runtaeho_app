@@ -56,8 +56,8 @@ function parseToken(token: string): JWTPayload | null {
 
     const decoded = atob(base64);
     return JSON.parse(decoded) as JWTPayload;
-  } catch (error) {
-    console.error('[jwtUtils] Failed to parse token payload:', error);
+  } catch {
+    console.error('[jwtUtils] Failed to parse token payload:');
     return null;
   }
 }
@@ -102,8 +102,8 @@ function verifyToken(token: string): typeof TokenStatus[keyof typeof TokenStatus
     }
 
     return TokenStatus.VALID;
-  } catch (error) {
-    console.error('❌ [jwtUtils] Failed to check token status:', error);
+  } catch {
+    console.error('❌ [jwtUtils] Failed to check token status:');
     return TokenStatus.EXPIRED;
   }
 }

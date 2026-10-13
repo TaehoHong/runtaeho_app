@@ -1,3 +1,4 @@
+import { doViewportFramesMatch as matchViewportFrames } from '~/features/unity/utils/viewportFrames';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
@@ -23,10 +24,7 @@ const waitForAnimationFrames = async (frameCount: number = 1): Promise<void> => 
 };
 
 const doViewportFramesMatch = (expected: ViewBounds, actual: ViewBounds): boolean =>
-  Math.abs(expected.x - actual.x) <= VIEWPORT_MATCH_EPSILON
-  && Math.abs(expected.y - actual.y) <= VIEWPORT_MATCH_EPSILON
-  && Math.abs(expected.width - actual.width) <= VIEWPORT_MATCH_EPSILON
-  && Math.abs(expected.height - actual.height) <= VIEWPORT_MATCH_EPSILON;
+  matchViewportFrames(expected, actual, VIEWPORT_MATCH_EPSILON);
 
 interface UseShareExportSurfaceOptions {
   previewRef: RefObject<View | null>;
@@ -47,10 +45,7 @@ const doViewportFramesEqual = (
   left: UnityViewportFrame,
   right: UnityViewportFrame
 ): boolean =>
-  Math.abs(left.x - right.x) <= VIEWPORT_MATCH_EPSILON
-  && Math.abs(left.y - right.y) <= VIEWPORT_MATCH_EPSILON
-  && Math.abs(left.width - right.width) <= VIEWPORT_MATCH_EPSILON
-  && Math.abs(left.height - right.height) <= VIEWPORT_MATCH_EPSILON;
+  matchViewportFrames(left, right, VIEWPORT_MATCH_EPSILON);
 
 const doViewportsEqual = (
   left: UnityViewport | null,

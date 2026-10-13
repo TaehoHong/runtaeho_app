@@ -1,3 +1,4 @@
+import { getSessionSnapshot, isSessionCurrent } from '~/features/auth/stores/authStore';
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useUserStore, useAppStore, RunningState } from '~/stores';
@@ -13,7 +14,7 @@ export const RunningStartView: React.FC = () => {
   const setRunningState = useAppStore((state) => state.setRunningState);
   const haveRunningRecord = useUserStore((state) => state.haveRunningRecord);
 
-  const { startRunning } = useRunning();
+  const { startRunning, isStarting } = useRunning();
   const [showPermissionModal, setShowPermissionModal] = useState(false);
 
   useEffect(() => {
@@ -21,10 +22,12 @@ export const RunningStartView: React.FC = () => {
   }, [haveRunningRecord]);
 
   const handleStartRunning = async () => {
+    const session = getSessionSnapshot();
     console.log('🏃 [RunningStartView] 러닝 시작 버튼 눌러짐');
 
     console.log('[RunningStartView] Checking permissions...');
     const permissionCheck = await permissionManager.checkRequiredPermissions();
+    if (!isSessionCurrent(session)) return;
 
     if (!permissionCheck.canStartRunning) {
       console.warn('[RunningStartView] Missing permissions:', permissionCheck);
@@ -35,7 +38,7 @@ export const RunningStartView: React.FC = () => {
     try {
       console.log('✅ [RunningStartView] All permissions granted, starting running...');
       await startRunning();
-      setRunningState(RunningState.Running);
+      if (isSessionCurrent(session)) setRunningState(RunningState.Running);
       console.log('✅ [RunningStartView] 러닝 시작 완료');
     } catch (error) {
       console.error('❌ [RunningStartView] 러닝 시작 실패:', error);
@@ -49,6 +52,7 @@ export const RunningStartView: React.FC = () => {
   return (
     <View style={styles.container}>
       <StartButton
+        disabled={isStarting}
         onPress={handleStartRunning}
         haveRunningRecord={haveRunningRecord}
       />

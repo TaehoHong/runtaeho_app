@@ -17,6 +17,8 @@ RCT_EXTERN_METHOD(sendUnityMessage:(NSString *)objectName methodName:(NSString *
 RCT_EXTERN_METHOD(sendUnityJSON:(NSString *)objectName methodName:(NSString *)methodName data:(NSArray *)data resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 
 // Native Promise Hold (Avatar Change And Wait)
+RCT_EXTERN_METHOD(getAvatarProtocolVersion:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
+RCT_EXTERN_METHOD(changeAvatarCorrelatedAndWait:(NSString *)objectName data:(NSString *)data requestId:(NSString *)requestId resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 RCT_EXTERN_METHOD(changeAvatarAndWait:(NSString *)objectName methodName:(NSString *)methodName data:(NSString *)data resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 
 // State Query Methods (Pull Pattern)

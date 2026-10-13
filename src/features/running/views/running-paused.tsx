@@ -1,7 +1,7 @@
+import { SessionSupersededError } from '~/utils/storage/errors';
 import { t, useAppLanguage } from '~/i18n';
 import React from 'react';
 import { Alert, View, StyleSheet } from 'react-native';
-import { useAppStore, RunningState } from '~/stores/app/appStore';
 import { StatsView } from './stats-view';
 import { MainDistanceCard } from './components/main-distance-card';
 import { StopButton } from './components/stop-button';
@@ -15,8 +15,7 @@ import { useRunning } from '../contexts';
  */
 export const RunningPausedView: React.FC = () => {
   useAppLanguage();
-  const setRunningState = useAppStore((state) => state.setRunningState);
-  const { currentRecord, resumeRunning, endRunning } = useRunning();
+  const { currentRecord, resumeRunning, endRunning, isEnding } = useRunning();
   const buttonBottom = useBottomActionOffset(42);
 
   const handleStopRunning = async () => {
@@ -27,7 +26,8 @@ export const RunningPausedView: React.FC = () => {
       await endRunning();
 
       console.log('✅ [RunningPausedView] 러닝 종료 완료');
-    } catch {
+    } catch (error) {
+      if (error instanceof SessionSupersededError) return;
       console.error('❌ [RunningPausedView] 러닝 기록 저장 실패');
       Alert.alert(t("저장 실패"), t("러닝 기록을 저장하지 못했어요. 앱을 닫지 말고 종료 버튼을 눌러 다시 시도해주세요."));
     }
@@ -39,7 +39,6 @@ export const RunningPausedView: React.FC = () => {
     // RunningViewModel.resumeRunning() 호출 (GPS 추적 재개, 타이머 재개)
     resumeRunning();
 
-    setRunningState(RunningState.Running);
     console.log('✅ [RunningPausedView] 러닝 재개 완료');
   };
 
@@ -58,8 +57,8 @@ export const RunningPausedView: React.FC = () => {
         testID="running-paused-button-container"
         style={[styles.buttonContainer, { bottom: buttonBottom }]}
       >
-        {currentRecord?.endTimestamp === undefined && <PlayButton onPress={handleResumeRunning} />}
-        <StopButton onPress={handleStopRunning} />
+        {currentRecord?.endTimestamp === undefined && <PlayButton disabled={isEnding} onPress={handleResumeRunning} />}
+        <StopButton disabled={isEnding} onPress={handleStopRunning} />
       </View>
     </View>
   );

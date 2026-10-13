@@ -3,7 +3,7 @@
  * 공유 에디터 화면이 사용하는 상태와 액션을 조합한다.
  */
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import type { View } from 'react-native';
 import type {
   BackgroundOption,
@@ -61,7 +61,7 @@ interface UseShareEditorReturn {
 
 export const useShareEditor = ({ runningData }: UseShareEditorProps): UseShareEditorReturn => {
   const canvasRef = useRef<View>(null);
-  const includeMap = hasRenderableRoute(runningData.locations ?? []);
+  const includeMap = useMemo(() => hasRenderableRoute(runningData.locations ?? []), [runningData.locations]);
   const {
     selectedBackground,
     selectedPose,

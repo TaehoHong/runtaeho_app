@@ -1,3 +1,4 @@
+import { toSegmentPayload } from '../../services/segmentPayload';
 /**
  * useRunningLifecycle Hook
  *
@@ -13,6 +14,9 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { getSessionSnapshot, isSessionCurrent, useAuthStore, type SessionSnapshot } from '~/features/auth/stores/authStore';
+import { SessionSupersededError } from '~/utils/storage/errors';
+import { RunningClock } from '../../models/RunningClock';
 import type { RunningRecord, EndRunningRecord } from '../../models';
 import { updateRunningRecord } from '../../models';
 import { useStartRunning, useEndRunning, useUpdateRunningRecord } from '../../services';
@@ -53,6 +57,8 @@ export const useRunningLifecycle = ({
   const [currentRecord, setCurrentRecord] = useState<RunningRecord | null>(null);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [pausedDuration, setPausedDuration] = useState<number>(0);
+  const clockRef = useRef(new RunningClock());
+  const getActiveElapsedMs = useCallback(() => clockRef.current.elapsed(Date.now()), []);
   const pauseStartTimeRef = useRef<number | null>(null);
 
   // Sensor state
@@ -60,37 +66,56 @@ export const useRunningLifecycle = ({
   const [sensorCadence, setSensorCadence] = useState<number | undefined>(undefined);
   const [pedometerData, setPedometerData] = useState<PedometerData | null>(null);
 
+  const generationRef = useRef(0);
+  const sessionRef = useRef<SessionSnapshot | null>(null);
+  const startOperationRef = useRef<Promise<RunningRecord> | null>(null);
+  const endOperationRef = useRef<Promise<EndRunningRecord | null> | null>(null);
+  const finalRecordRef = useRef<RunningRecord | null>(null);
+  const endTimeRef = useRef<number | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
+  const [isEnding, setIsEnding] = useState(false);
+
   // React Query Mutations
-  const { mutateAsync: startRunningMutation, isPending: isStarting } = useStartRunning();
-  const { mutateAsync: endRunningMutation, isPending: isEnding } = useEndRunning();
+  const { mutateAsync: startRunningMutation } = useStartRunning();
+  const { mutateAsync: endRunningMutation } = useEndRunning();
   const { mutateAsync: updateRecordMutation } = useUpdateRunningRecord();
 
   /**
    * 러닝 시작
    */
-  const startRunning = useCallback(async (): Promise<RunningRecord> => {
+  const performStart = useCallback(async (session: SessionSnapshot, generation: number): Promise<RunningRecord> => {
+    const checkCurrent = () => {
+      if (generation !== generationRef.current || !isSessionCurrent(session)) throw new SessionSupersededError();
+    };
     try {
+      checkCurrent();
       const permissionCheck = await permissionManager.checkRequiredPermissions();
+      checkCurrent();
       if (!permissionCheck.canStartRunning) {
         throw new Error(
           permissionManager.getMissingPermissionsMessage(permissionCheck) || 'Required permissions missing'
         );
       }
 
-      const record = await startRunningMutation();
+      const record = await startRunningMutation(session);
+      checkCurrent();
+      finalRecordRef.current = null;
+      endTimeRef.current = null;
       setCurrentRecord(record);
-      setStartTime(Date.now());
+      const startedAt = Date.now();
+      clockRef.current.start(startedAt);
+      setStartTime(startedAt);
       setPausedDuration(0);
       pauseStartTimeRef.current = null;
-      setRunningState(RunningState.Running);
-
       await startGpsTracking(record.id);
+      checkCurrent();
 
       setSensorHeartRate(undefined);
       setSensorCadence(undefined);
       console.log('[useRunningLifecycle] Heart-rate monitoring skipped (not implemented)');
 
       await pedometerService.startTracking((data) => {
+        if (generation !== generationRef.current || !isSessionCurrent(session)) return;
         setPedometerData(data);
         console.log(
           '[useRunningLifecycle] Pedometer - Steps:',
@@ -99,14 +124,17 @@ export const useRunningLifecycle = ({
           data.cadence
         );
       });
+      checkCurrent();
       console.log('[useRunningLifecycle] Pedometer started');
 
       resetStats();
       paceSnapshotsRef.current = [];
       initializeSegmentTracking();
+      setRunningState(RunningState.Running);
 
       return record;
     } catch (error) {
+      checkCurrent();
       console.error('[useRunningLifecycle] Failed to start running:', error);
 
       resetGpsTracking();
@@ -128,10 +156,28 @@ export const useRunningLifecycle = ({
     setRunningState,
   ]);
 
+  const startRunning = useCallback((): Promise<RunningRecord> => {
+    if (startOperationRef.current) return startOperationRef.current;
+    if (currentRecord && runningState !== RunningState.Stopped) return Promise.resolve(currentRecord);
+    setIsStarting(true);
+    const session = getSessionSnapshot();
+    sessionRef.current = session;
+    const generation = generationRef.current;
+    const operation = Promise.resolve().then(() => performStart(session, generation)).finally(() => {
+      if (startOperationRef.current === operation) {
+        startOperationRef.current = null;
+        setIsStarting(false);
+      }
+    });
+    startOperationRef.current = operation;
+    return operation;
+  }, [performStart, currentRecord, runningState]);
+
   const applyPauseTransition = useCallback(
     (reason: 'manual' | 'auto') => {
       if (pauseStartTimeRef.current === null) {
         const now = Date.now();
+        clockRef.current.pause(now);
         pauseStartTimeRef.current = now;
       }
 
@@ -157,11 +203,12 @@ export const useRunningLifecycle = ({
    * 러닝 재개
    */
   const resumeRunning = useCallback(() => {
-    if (currentRecord?.endTimestamp !== undefined) return;
+    if (endOperationRef.current || endTimeRef.current !== null || currentRecord?.endTimestamp !== undefined) return;
     const pauseStartedAt = pauseStartTimeRef.current;
     if (pauseStartedAt !== null) {
       const now = Date.now();
-      const pauseDuration = Math.floor((now - pauseStartedAt) / 1000);
+      clockRef.current.resume(now);
+      const pauseDuration = (now - pauseStartedAt) / 1000;
       setPausedDuration((prev) => prev + pauseDuration);
       pauseStartTimeRef.current = null;
       console.log(`[useRunningLifecycle] Paused for ${pauseDuration}s before resume`);
@@ -175,21 +222,32 @@ export const useRunningLifecycle = ({
   /**
    * 러닝 종료
    */
-  const endRunning = useCallback(async (): Promise<EndRunningRecord | null> => {
+  const performEnd = useCallback(async (): Promise<EndRunningRecord | null> => {
     if (!currentRecord) return null;
-    const isRetry = currentRecord.endTimestamp !== undefined;
+    const generation = generationRef.current;
+    const session = sessionRef.current ?? getSessionSnapshot();
+    const checkCurrent = () => {
+      if (generation !== generationRef.current || !isSessionCurrent(session)) throw new SessionSupersededError();
+    };
+    checkCurrent();
+    const isRetry = finalRecordRef.current !== null || currentRecord.endTimestamp !== undefined;
 
     try {
-      let finalRecord = currentRecord;
+      let finalRecord = finalRecordRef.current ?? currentRecord;
       // 저장 재시도에서는 첫 종료의 시각·거리·세그먼트를 그대로 사용한다.
       if (!isRetry) {
-        const endTimestamp = Math.floor(Date.now() / 1000);
+        const firstEndAttempt = endTimeRef.current === null;
+        const endedAt = endTimeRef.current ?? Date.now();
+        endTimeRef.current = endedAt;
+        clockRef.current.pause(endedAt);
+        const endTimestamp = Math.floor(endedAt / 1000);
         setLeagueBeforeRunningEnd(null);
         // 0. 마지막 세그먼트 저장
-        finalizeCurrentSegment();
+        if (firstEndAttempt) finalizeCurrentSegment();
 
         // 1. GPS 추적 중지
         const { distance: finalDistance } = await stopGpsTracking();
+        checkCurrent();
 
         // 2. Pedometer 중지
         pedometerService.stopTracking();
@@ -216,10 +274,11 @@ export const useRunningLifecycle = ({
           cadence: finalCadence,
           heartRate: stats.bpm ?? null,
           calorie: stats.calories ? Math.round(stats.calories) : 0,
-          durationSec: elapsedTime,
+          durationSec: Math.floor(clockRef.current.elapsed(endedAt) / 1000),
           endTimestamp,
         });
 
+        finalRecordRef.current = finalRecord;
         setCurrentRecord(finalRecord);
 
         // 4. 10m 미만이면 API 호출 없이 완료 화면으로 전환
@@ -235,6 +294,7 @@ export const useRunningLifecycle = ({
         // 종료 API가 리그를 갱신하기 전에 애니메이션에 사용할 순위를 보관한다.
         try {
           const league = await leagueService.getCurrentLeague();
+          checkCurrent();
           setLeagueBeforeRunningEnd(league && league.myRank > 0
             ? { sessionId: league.sessionId, rank: league.myRank }
             : null);
@@ -243,47 +303,32 @@ export const useRunningLifecycle = ({
         }
       }
 
+      checkCurrent();
       // 5. 백엔드 API: 러닝 종료
       try {
-        const endRecord = await endRunningMutation(finalRecord);
+        const endRecord = await endRunningMutation(finalRecord, session);
+        checkCurrent();
         setRunningState(RunningState.Finished);
         console.log('[useRunningLifecycle] Running completed, data sent to server');
 
         // 5. 세그먼트 비동기 업로드
         const segmentsToUpload = segmentItemsRef.current;
         if (segmentsToUpload.length > 0) {
-          const itemsForServer = segmentsToUpload.map((segment) => ({
-            distance: segment.distance,
-            durationSec: segment.durationSec,
-            cadence: segment.cadence ?? 0,
-            heartRate: segment.heartRate ?? 0,
-            minHeartRate: segment.heartRate ?? 0,
-            maxHeartRate: segment.heartRate ?? 0,
-            orderIndex: segment.orderIndex,
-            startTimeStamp: segment.startTimestamp,
-            endTimeStamp: segment.startTimestamp + segment.durationSec,
-            gpsPoints: (segment.locations ?? []).map((point) => ({
-              latitude: point.latitude,
-              longitude: point.longitude,
-              timestampMs: point.timestamp.getTime(),
-              speed: point.speed,
-              altitude: point.altitude,
-              ...(point.accuracy !== undefined && { accuracy: point.accuracy }),
-            })),
-          }));
+          const itemsForServer = segmentsToUpload.map(toSegmentPayload);
 
           // 비동기로 전송 (UI 블로킹 방지)
           runningService
             .saveRunningRecordItems({
               runningRecordId: currentRecord.id,
               items: itemsForServer,
-            })
+            }, session)
             .then(() => {
               console.log(
                 `[useRunningLifecycle] ${segmentsToUpload.length} segments uploaded`
               );
             })
             .catch(async (error) => {
+              if (!isSessionCurrent(session)) return;
               console.warn(
                 '[useRunningLifecycle] Segment upload failed, saving offline:',
                 error
@@ -291,7 +336,8 @@ export const useRunningLifecycle = ({
               try {
                 await offlineStorageService.addPendingSegmentUpload(
                   currentRecord.id,
-                  segmentsToUpload
+                  segmentsToUpload,
+                  session
                 );
                 console.log(
                   `[useRunningLifecycle] ${segmentsToUpload.length} segments saved offline`
@@ -314,6 +360,7 @@ export const useRunningLifecycle = ({
 
         return endRecord;
       } catch (apiError: unknown) {
+        checkCurrent();
         // 네트워크 에러 시 오프라인 저장
         const errorMessage =
           apiError instanceof Error ? apiError.message : 'Unknown error';
@@ -321,18 +368,22 @@ export const useRunningLifecycle = ({
           '[useRunningLifecycle] API failed, saving offline:',
           errorMessage
         );
-        await offlineStorageService.addPendingUpload(currentRecord.id, finalRecord);
+        await offlineStorageService.addPendingUpload(currentRecord.id, finalRecord, session);
+        checkCurrent();
         const segmentsToSave = segmentItemsRef.current;
         if (segmentsToSave.length > 0) {
           await offlineStorageService.addPendingSegmentUpload(
             currentRecord.id,
-            segmentsToSave
+            segmentsToSave,
+            session
           );
+          checkCurrent();
         }
         setRunningState(RunningState.Finished);
         return null;
       }
     } catch (error) {
+      checkCurrent();
       console.error('[useRunningLifecycle] Failed to end running:', error);
 
       // 저장 실패 시 추적을 멈추되 최종 기록과 GPS는 재시도를 위해 유지한다.
@@ -357,11 +408,27 @@ export const useRunningLifecycle = ({
     setLeagueBeforeRunningEnd,
   ]);
 
+  const endRunning = useCallback((): Promise<EndRunningRecord | null> => {
+    if (endOperationRef.current) return endOperationRef.current;
+    if (runningState === RunningState.Finished) return Promise.resolve(null);
+    setIsEnding(true);
+    const operation = Promise.resolve().then(performEnd).finally(() => {
+      if (endOperationRef.current === operation) {
+        endOperationRef.current = null;
+        setIsEnding(false);
+      }
+    });
+    endOperationRef.current = operation;
+    return operation;
+  }, [performEnd, runningState]);
+
   /**
    * 러닝 기록 업데이트
    */
   const updateCurrentRecord = useCallback(async () => {
     if (!currentRecord) return;
+    const session = sessionRef.current;
+    if (!session || !isSessionCurrent(session)) return;
 
     try {
       const updatedRecord = updateRunningRecord(currentRecord, {
@@ -372,7 +439,8 @@ export const useRunningLifecycle = ({
         durationSec: elapsedTime,
       });
 
-      await updateRecordMutation(updatedRecord);
+      await updateRecordMutation(updatedRecord, session);
+      if (!isSessionCurrent(session)) return;
       setCurrentRecord(updatedRecord);
     } catch (error) {
       console.error('[useRunningLifecycle] Failed to update record:', error);
@@ -383,9 +451,18 @@ export const useRunningLifecycle = ({
    * 러닝 초기화
    */
   const resetRunning = useCallback(() => {
+    generationRef.current++;
+    sessionRef.current = null;
+    startOperationRef.current = null;
+    endOperationRef.current = null;
+    finalRecordRef.current = null;
+    endTimeRef.current = null;
+    setIsStarting(false);
+    setIsEnding(false);
     setRunningState(RunningState.Stopped);
     setCurrentRecord(null);
     setStartTime(null);
+    clockRef.current.reset();
     setPausedDuration(0);
     pauseStartTimeRef.current = null;
     setSensorHeartRate(undefined);
@@ -398,6 +475,14 @@ export const useRunningLifecycle = ({
 
     console.log('[useRunningLifecycle] Running reset');
   }, [setRunningState, resetStats, resetSegments, paceSnapshotsRef]);
+
+  useEffect(() => useAuthStore.subscribe((state, previous) => {
+    if (state.sessionGeneration !== previous.sessionGeneration) {
+      resetRunning();
+      resetGpsTracking();
+      pedometerService.stopTracking();
+    }
+  }), [resetRunning, resetGpsTracking]);
 
   /**
    * Pedometer 데이터로 케이던스 업데이트
@@ -420,6 +505,7 @@ export const useRunningLifecycle = ({
     currentRecord,
     startTime,
     pausedDuration,
+    getActiveElapsedMs,
 
     // Sensor state (타이머 업데이트에서 사용)
     sensorHeartRate,

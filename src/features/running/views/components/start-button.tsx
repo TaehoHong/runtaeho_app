@@ -10,12 +10,14 @@ import { PRIMARY } from '~/shared/styles';
 
 interface StartButtonProps {
   onPress: () => void;
+  disabled?: boolean;
   haveRunningRecord: boolean;
 }
 
 export const StartButton: React.FC<StartButtonProps> = ({
   onPress,
-  haveRunningRecord
+  haveRunningRecord,
+  disabled = false
 }) => {
   useAppLanguage();
   return (
@@ -26,7 +28,7 @@ export const StartButton: React.FC<StartButtonProps> = ({
       end={{ x: 1, y: 0.5 }}
       style={styles.gradientBorder}
     >
-      <TouchableOpacity style={styles.button} onPress={onPress}>
+      <TouchableOpacity style={styles.button} onPress={onPress} disabled={disabled} accessibilityState={{ disabled }}>
         <Text style={styles.subText}>
           {haveRunningRecord ? t("다시 달려볼까요?") : t("한번 달려볼까요?")}
         </Text>

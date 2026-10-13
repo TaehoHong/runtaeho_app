@@ -27,7 +27,7 @@ export class AppleAuthStrategy implements AuthProviderStrategy {
       });
 
       if (appleAuthRequestResponse.authorizationCode) {
-        console.log('Apple Sign-In 성공:', appleAuthRequestResponse.authorizationCode);
+        console.log('Apple Sign-In 성공');
 
         return {
           authorizationCode: appleAuthRequestResponse.authorizationCode,
@@ -47,7 +47,7 @@ export class AppleAuthStrategy implements AuthProviderStrategy {
       if (error.code === appleAuth.Error.CANCELED) {
         throw AuthError.cancelled();
       } else {
-        console.error('Apple Sign-In Error:', error);
+        console.error('Apple Sign-In Error:');
         throw AuthError.unknown(error.message || 'Unknown error');
       }
     }

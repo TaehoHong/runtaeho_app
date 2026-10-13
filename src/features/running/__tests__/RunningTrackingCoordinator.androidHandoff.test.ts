@@ -1,3 +1,4 @@
+import { waitFor } from '@testing-library/react-native';
 import type { AppStateStatus } from 'react-native';
 import { RunningState } from '~/stores/app/appStore';
 import { RunningTrackingCoordinator } from '~/features/running/services/RunningTrackingCoordinator';
@@ -29,9 +30,9 @@ jest.mock('~/features/running/services/BackgroundTaskService', () => ({
     stopBackgroundTracking: (...args: unknown[]) => mockBackgroundStopTracking(...args),
     clearBackgroundData: (...args: unknown[]) => mockBackgroundClearData(...args),
     isTaskRegistered: (...args: unknown[]) => mockBackgroundIsTaskRegistered(...args),
-    syncBackgroundTracking: (...args: unknown[]) => mockBackgroundSyncTracking(...args),
-    resumeBackgroundTracking: (...args: unknown[]) => mockBackgroundResumeTracking(...args),
-    pauseBackgroundTracking: (...args: unknown[]) => mockBackgroundPauseTracking(...args),
+    persistBackgroundTrackingState: (...args: unknown[]) => mockBackgroundSyncTracking(...args),
+    activateBackgroundSession: (...args: unknown[]) => mockBackgroundResumeTracking(...args),
+    deactivateBackgroundSession: (...args: unknown[]) => mockBackgroundPauseTracking(...args),
     getTotalDistance: (...args: unknown[]) => mockGetTotalDistance(...args),
     getBackgroundLocations: (...args: unknown[]) => mockGetBackgroundLocations(...args),
     getLatestPaceSignal: (...args: unknown[]) => mockGetLatestPaceSignal(...args),
@@ -63,11 +64,6 @@ const createDeferred = <T = void>() => {
   return { promise, resolve, reject };
 };
 
-const flushMicrotasks = async () => {
-  await Promise.resolve();
-  await Promise.resolve();
-};
-
 const createCoordinator = (appState: AppStateStatus = 'active') =>
   new RunningTrackingCoordinator(appState);
 
@@ -81,7 +77,7 @@ describe('RunningTrackingCoordinator Android background handoff', () => {
   let consoleWarnSpy: jest.SpyInstance;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
 
     mockBackgroundStartTracking.mockResolvedValue(undefined);
     mockBackgroundStopTracking.mockResolvedValue(undefined);
@@ -107,8 +103,8 @@ describe('RunningTrackingCoordinator Android background handoff', () => {
     consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
   });
 
-  afterEach(() => {
-    coordinator?.destroy();
+  afterEach(async () => {
+    await coordinator?.destroy();
     coordinator = null;
     consoleWarnSpy.mockRestore();
   });
@@ -118,7 +114,7 @@ describe('RunningTrackingCoordinator Android background handoff', () => {
 
     await coordinator.startSession(101);
 
-    expect(mockBackgroundStartTracking).toHaveBeenCalledWith(101, {}, { isActive: false });
+    expect(mockBackgroundStartTracking).toHaveBeenCalledWith(101, {}, { shouldProcessLocations: false });
     expect(mockLocationStartTracking).toHaveBeenCalledTimes(1);
     expect(mockBackgroundSyncTracking).not.toHaveBeenCalled();
     expect(coordinator.getSnapshot().source).toBe('foreground');
@@ -142,7 +138,7 @@ describe('RunningTrackingCoordinator Android background handoff', () => {
     expect(mockBackgroundSyncTracking).toHaveBeenCalledWith(
       102,
       expect.objectContaining({ totalDistance: 0 }),
-      { isActive: true }
+      { shouldProcessLocations: true }
     );
     expect(mockBackgroundResumeTracking).toHaveBeenCalledWith({ resetFilterState: false });
     expect(coordinator.getSnapshot().source).toBe('background');
@@ -154,8 +150,7 @@ describe('RunningTrackingCoordinator Android background handoff', () => {
     coordinator = createCoordinator('active');
 
     const startPromise = coordinator.startSession(103);
-    await flushMicrotasks();
-    expect(mockLocationStartTracking).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(mockLocationStartTracking).toHaveBeenCalledTimes(1));
 
     const appStateResult = await coordinator.handleAppStateChange('background');
     expect(appStateResult).toBeNull();
@@ -167,7 +162,7 @@ describe('RunningTrackingCoordinator Android background handoff', () => {
     expect(mockBackgroundSyncTracking).toHaveBeenCalledWith(
       103,
       expect.objectContaining({ filterState }),
-      { isActive: true }
+      { shouldProcessLocations: true }
     );
     expect(mockBackgroundResumeTracking).toHaveBeenCalledWith({ resetFilterState: false });
     expect(coordinator.getSnapshot().source).toBe('background');
@@ -179,8 +174,7 @@ describe('RunningTrackingCoordinator Android background handoff', () => {
     coordinator = createCoordinator('active');
 
     const startPromise = coordinator.startSession(104);
-    await flushMicrotasks();
-    expect(mockLocationStartTracking).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(mockLocationStartTracking).toHaveBeenCalledTimes(1));
 
     const appStateResult = await coordinator.handleAppStateChange('background');
     expect(appStateResult).toBeNull();
@@ -192,7 +186,7 @@ describe('RunningTrackingCoordinator Android background handoff', () => {
     expect(mockBackgroundSyncTracking).toHaveBeenCalledWith(
       104,
       expect.objectContaining({ totalDistance: 0 }),
-      { isActive: true }
+      { shouldProcessLocations: true }
     );
     expect(mockBackgroundResumeTracking).toHaveBeenCalledWith({ resetFilterState: false });
     expect(mockBackgroundStopTracking).not.toHaveBeenCalled();
@@ -200,7 +194,7 @@ describe('RunningTrackingCoordinator Android background handoff', () => {
     expect(coordinator.getSnapshot().source).toBe('background');
   });
 
-  it('does not auto-pause or start a new background task when handoff happens after task unregisters', async () => {
+  it('auto-pauses without starting a new background task when the registered task disappears', async () => {
     coordinator = createCoordinator('active');
     await coordinator.startSession(105);
     mockBackgroundStartTracking.mockClear();
@@ -208,15 +202,12 @@ describe('RunningTrackingCoordinator Android background handoff', () => {
 
     const result = await coordinator.handleAppStateChange('background');
 
-    expect(result).toBeNull();
+    expect(result).toEqual({ autoPaused: true, reason: 'background_tracking_unavailable' });
     expect(mockBackgroundStartTracking).not.toHaveBeenCalled();
-    expect(mockLocationStopTracking).not.toHaveBeenCalled();
+    expect(mockLocationStopTracking).toHaveBeenCalledTimes(1);
     expect(mockBackgroundSyncTracking).not.toHaveBeenCalled();
     expect(mockBackgroundResumeTracking).not.toHaveBeenCalled();
-    expect(consoleWarnSpy).toHaveBeenCalledWith(
-      '[RunningTrackingCoordinator] Background task is unavailable during background handoff; keeping current source active'
-    );
-    expect(coordinator.getSnapshot().source).toBe('foreground');
+    expect(coordinator.getSnapshot().source).toBe('idle');
   });
 
   it('fails initial background start when no registered task is available and clears startup state', async () => {
@@ -246,6 +237,7 @@ describe('RunningTrackingCoordinator Android background handoff', () => {
     coordinator = createCoordinator('active');
 
     const startPromise = coordinator.startSession(107);
+    await waitFor(() => expect(mockBackgroundStartTracking).toHaveBeenCalled());
     await coordinator.handleAppStateChange('background');
     mockBackgroundIsTaskRegistered.mockResolvedValueOnce(false);
     registration.resolve(undefined);
@@ -259,4 +251,43 @@ describe('RunningTrackingCoordinator Android background handoff', () => {
 
     expect(mockLocationStartTracking).not.toHaveBeenCalled();
   });
+  it('converges to active when foreground return arrives during background handoff', async () => {
+    coordinator = createCoordinator();
+    await coordinator.startSession(108);
+    const handoff = createDeferred();
+    mockBackgroundSyncTracking.mockReturnValueOnce(handoff.promise);
+    const background = coordinator.handleAppStateChange('background');
+    await waitFor(() => expect(mockBackgroundSyncTracking).toHaveBeenCalled());
+    const active = coordinator.handleAppStateChange('active');
+    handoff.resolve();
+    await Promise.all([background, active]);
+    expect(coordinator.getSnapshot().source).toBe('foreground');
+    expect(mockLocationStartTracking).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the foreground source during inactive and active transitions', async () => {
+    coordinator = createCoordinator();
+    await coordinator.startSession(109);
+    await coordinator.handleAppStateChange('inactive');
+    await coordinator.handleAppStateChange('active');
+    expect(coordinator.getSnapshot().source).toBe('foreground');
+    expect(mockBackgroundSyncTracking).not.toHaveBeenCalled();
+    expect(mockLocationStartTracking).toHaveBeenCalledTimes(1);
+  });
+
+  it('finishes reset cleanup before registering a new session', async () => {
+    coordinator = createCoordinator();
+    await coordinator.startSession(110);
+    const cleanup = createDeferred();
+    mockBackgroundClearData.mockReturnValueOnce(cleanup.promise);
+    coordinator.resetSession();
+    const next = coordinator.startSession(111);
+    await waitFor(() => expect(mockBackgroundClearData).toHaveBeenCalled());
+    expect(mockBackgroundStartTracking).toHaveBeenCalledTimes(1);
+    cleanup.resolve();
+    await next;
+    expect(mockBackgroundStartTracking).toHaveBeenLastCalledWith(111, {}, { shouldProcessLocations: false });
+    expect(coordinator.getSnapshot().source).toBe('foreground');
+  });
+
 });

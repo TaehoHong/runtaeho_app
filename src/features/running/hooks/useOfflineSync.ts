@@ -1,3 +1,5 @@
+import { getSessionSnapshot, isSessionCurrent } from '~/features/auth/stores/authStore';
+import { toSegmentPayload } from '../services/segmentPayload';
 /**
  * 오프라인 러닝 데이터 동기화 Hook
  *
@@ -37,17 +39,17 @@ export const useOfflineSync = () => {
    * - NetInfo.addEventListener로 실시간 감지
    */
   const syncOfflineData = useCallback(async (): Promise<SyncResult | null> => {
+    const session = getSessionSnapshot();
+    if (session.userId === null) return null;
     try {
       const { offlineStorageService } = await import('../services/OfflineStorageService');
       const { runningService } = await import('../services/runningService');
+      if (!isSessionCurrent(session)) return null;
+      return await offlineStorageService.serializeReplay(async () => {
+      if (!isSessionCurrent(session)) return null;
 
       const pendingCount = await offlineStorageService.getPendingCount();
       const pendingSegmentCount = await offlineStorageService.getPendingSegmentCount();
-
-      if (pendingCount === 0 && pendingSegmentCount === 0) {
-        console.log('⚪ [useOfflineSync] 동기화할 오프라인 데이터 없음');
-        return null;
-      }
 
       const result: SyncResult = {
         records: { success: 0, failed: 0 },
@@ -60,8 +62,8 @@ export const useOfflineSync = () => {
 
         const recordResult = await offlineStorageService.retryAllPendingUploads(
           async (record) => {
-            await runningService.endRunning(record);
-          }
+            await runningService.endRunning(record, session);
+          }, session
         );
 
         result.records = recordResult;
@@ -78,31 +80,13 @@ export const useOfflineSync = () => {
 
         const segmentResult = await offlineStorageService.retryAllPendingSegmentUploads(
           async (runningRecordId, segments) => {
-            const itemsForServer = segments.map(segment => ({
-              distance: segment.distance,
-              durationSec: segment.durationSec,
-              cadence: segment.cadence ?? 0,
-              heartRate: segment.heartRate ?? 0,
-              minHeartRate: segment.heartRate ?? 0,
-              maxHeartRate: segment.heartRate ?? 0,
-              orderIndex: segment.orderIndex,
-              startTimeStamp: segment.startTimestamp,
-              endTimeStamp: segment.startTimestamp + segment.durationSec,
-              gpsPoints: (segment.locations ?? []).map((point) => ({
-                latitude: point.latitude,
-                longitude: point.longitude,
-                timestampMs: point.timestamp.getTime(),
-                speed: point.speed,
-                altitude: point.altitude,
-                accuracy: point.accuracy,
-              })),
-            }));
+            const itemsForServer = segments.map(toSegmentPayload);
 
             await runningService.saveRunningRecordItems({
               runningRecordId,
               items: itemsForServer,
-            });
-          }
+            }, session);
+          }, session
         );
 
         result.segments = segmentResult;
@@ -113,7 +97,9 @@ export const useOfflineSync = () => {
         }
       }
 
-      return result;
+      await offlineStorageService.retryPendingShoePatches(session);
+      return pendingCount === 0 && pendingSegmentCount === 0 ? null : result;
+      });
     } catch (error) {
       console.error('❌ [useOfflineSync] 오프라인 데이터 동기화 실패:', error);
       return null;

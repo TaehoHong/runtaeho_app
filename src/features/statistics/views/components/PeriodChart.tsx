@@ -1,3 +1,4 @@
+import { parseChartDate } from '../../models/dateHelpers';
 import { useAppTranslation } from '~/i18n';
 /**
  * Period Chart Component
@@ -212,7 +213,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
 
   // 실제 날짜 기반 X 위치 계산
   const getBarXPosition = (point: ChartDataPoint) => {
-    const date = new Date(point.datetime);
+    const date = parseChartDate(point.datetime);
     let position = 0;
 
     switch (period) {
@@ -273,14 +274,14 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
 
   const buildCumulativeTrend = useCallback((points: ChartDataPoint[], periodReferenceDate: Date, extendToToday = false) => {
     const sortedPoints = [...points].sort(
-      (a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime()
+      (a, b) => parseChartDate(a.datetime).getTime() - parseChartDate(b.datetime).getTime()
     );
     let cumulativeDistanceKm = 0;
 
     const trendData = sortedPoints.map((point) => {
       cumulativeDistanceKm += point.distance / 1000;
       return {
-        x: getTrendXPositionForDate(new Date(point.datetime), periodReferenceDate),
+        x: getTrendXPositionForDate(parseChartDate(point.datetime), periodReferenceDate),
         distanceKm: cumulativeDistanceKm,
       };
     });
@@ -294,7 +295,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
     const lastTrendPoint = trendData[trendData.length - 1];
     if (!lastDataPoint || !lastTrendPoint) return trendData;
 
-    const lastDate = new Date(lastDataPoint.datetime);
+    const lastDate = parseChartDate(lastDataPoint.datetime);
     if (getCalendarDayTime(lastDate) >= getCalendarDayTime(today)) return trendData;
 
     const todayX = getTrendXPositionForDate(today, periodReferenceDate);

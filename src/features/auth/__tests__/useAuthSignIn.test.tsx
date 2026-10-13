@@ -1,3 +1,4 @@
+import { useAuthStore } from '~/features/auth/stores/authStore';
 import { Alert } from 'react-native';
 import { act, renderHook } from '@testing-library/react-native';
 import { useAuthSignIn } from '~/features/auth/hooks/useAuthSignIn';
@@ -61,11 +62,13 @@ describe('useAuthSignIn', () => {
 
     expect(mockGetStrategy).toHaveBeenCalledWith(AuthProviderType.GOOGLE);
     expect(getTokenMock).toHaveBeenCalledWith(AuthProviderType.GOOGLE, 'oauth-code');
-    expect(mockCompleteLogin).toHaveBeenCalledWith('access-token', 'refresh-token');
+    expect(mockCompleteLogin).toHaveBeenCalledWith('access-token', 'refresh-token', { attempt: expect.any(Number), generation: expect.any(Number) });
     expect(result.current.isLoading).toBe(false);
   });
 
   it('AUTH-SIGNIN-002 shows no alert when login is cancelled', async () => {
+    useAuthStore.setState({ isLoggedIn: true, accessToken: 'existing-a', refreshToken: 'refresh-a' });
+    const generation = useAuthStore.getState().sessionGeneration;
     getAuthorizationCodeMock.mockRejectedValue(AuthError.cancelled());
     const { result } = renderHook(() => useAuthSignIn());
 
@@ -75,6 +78,8 @@ describe('useAuthSignIn', () => {
 
     expect(mockCompleteLogin).not.toHaveBeenCalled();
     expect(Alert.alert).not.toHaveBeenCalled();
+    expect(useAuthStore.getState().accessToken).toBe('existing-a');
+    expect(useAuthStore.getState().sessionGeneration).toBe(generation);
     expect(result.current.isLoading).toBe(false);
   });
 
@@ -94,4 +99,22 @@ describe('useAuthSignIn', () => {
     expect(Alert.alert).toHaveBeenCalled();
     expect(mockCompleteLogin).not.toHaveBeenCalled();
   });
+
+  it('ignores an older OAuth completion when a newer attempt has started', async () => {
+    let releaseOld!: (value: { authorizationCode: string }) => void;
+    getAuthorizationCodeMock.mockReturnValueOnce(new Promise(resolve => { releaseOld = resolve; }));
+    const first = renderHook(() => useAuthSignIn());
+    const second = renderHook(() => useAuthSignIn());
+    let oldLogin!: Promise<void>;
+    await act(async () => {
+      oldLogin = first.result.current.signInWithGoogle();
+      await Promise.resolve();
+    });
+    await act(async () => { await second.result.current.signInWithGoogle(); });
+    await act(async () => { releaseOld({ authorizationCode: 'old-code' }); await oldLogin; });
+    expect(getTokenMock).toHaveBeenCalledTimes(1);
+    expect(getTokenMock).toHaveBeenCalledWith(AuthProviderType.GOOGLE, 'oauth-code');
+    expect(mockCompleteLogin).toHaveBeenCalledTimes(1);
+  });
+
 });

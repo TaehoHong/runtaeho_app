@@ -1,3 +1,4 @@
+import { getSessionSnapshot, isSessionCurrent, type SessionSnapshot } from '~/features/auth/stores/authStore';
 /**
  * Running React Query Hooks
  * 기존 runningApi.ts의 RTK Query hooks를 React Query로 마이그레이션
@@ -21,7 +22,7 @@ export const useStartRunning = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: () => runningService.startRunning(),
+    mutationFn: (session: SessionSnapshot = getSessionSnapshot()) => runningService.startRunning(session),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.running.all });
     },
@@ -39,9 +40,10 @@ export const useEndRunning = () => {
   const queryClient = useQueryClient();
   const setTotalPoint = useUserStore((state) => state.setTotalPoint);
 
-  return useMutation({
-    mutationFn: (runningRecord: RunningRecord) => runningService.endRunning(runningRecord),
-    onSuccess: (endRecord) => {
+  const mutation = useMutation({
+    mutationFn: ({ record, session }: { record: RunningRecord; session: SessionSnapshot }) => runningService.endRunning(record, session),
+    onSuccess: (endRecord, { session }) => {
+      if (!isSessionCurrent(session)) return;
       // 서버 응답의 총 포인트로 전역 상태 동기화
       if (endRecord.point !== undefined) {
         setTotalPoint(endRecord.point);
@@ -50,6 +52,11 @@ export const useEndRunning = () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.running.all });
     },
   });
+  return {
+    ...mutation,
+    mutateAsync: (record: RunningRecord, session: SessionSnapshot = getSessionSnapshot()) =>
+      mutation.mutateAsync({ record, session }),
+  };
 };
 
 /**
@@ -59,13 +66,19 @@ export const useEndRunning = () => {
 export const useUpdateRunningRecord = () => {
   const queryClient = useQueryClient();
 
-  return useMutation({
-    mutationFn: (runningRecord: RunningRecord) =>
-      runningService.updateRunningRecord(runningRecord),
-    onSuccess: (_, runningRecord) => {
+  const mutation = useMutation({
+    mutationFn: ({ record, session }: { record: RunningRecord; session: SessionSnapshot }) =>
+      runningService.updateRunningRecord(record, session),
+    onSuccess: (_, { record: runningRecord, session }) => {
+      if (!isSessionCurrent(session)) return;
       queryClient.invalidateQueries({ queryKey: [...queryKeys.running.all, runningRecord.id] });
     },
   });
+  return {
+    ...mutation,
+    mutateAsync: (record: RunningRecord, session: SessionSnapshot = getSessionSnapshot()) =>
+      mutation.mutateAsync({ record, session }),
+  };
 };
 
 /**
@@ -143,9 +156,11 @@ export const useInfiniteRunningRecords = (
   return useInfiniteQuery<CursorResult<RunningRecord>>({
     queryKey: queryKeys.running.infinite(params),
     queryFn: ({ pageParam }) =>
-      runningService.loadMoreRecords({
+      runningService.getRunningRecords({
         ...(pageParam !== undefined && { cursor: pageParam as number }),
         size: params.size,
+        ...(params.startDate && { startDate: params.startDate }),
+        ...(params.endDate && { endDate: params.endDate }),
       }),
     initialPageParam: undefined as number | undefined,
     getNextPageParam: (lastPage) => (lastPage.hasNext ? lastPage.cursor : undefined),

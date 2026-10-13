@@ -9,11 +9,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 interface PlayButtonProps {
   onPress: () => void;
+  disabled?: boolean;
 }
 
-export const PlayButton: React.FC<PlayButtonProps> = ({ onPress }) => {
+export const PlayButton: React.FC<PlayButtonProps> = ({ onPress, disabled = false }) => {
   return (
-    <TouchableOpacity style={styles.button} onPress={onPress} activeOpacity={0.8}>
+    <TouchableOpacity style={styles.button} onPress={onPress} disabled={disabled} accessibilityState={{ disabled }} activeOpacity={0.8}>
       <LinearGradient
         colors={['#45DA31', '#59EC3A']}
         locations={[0, 1]}

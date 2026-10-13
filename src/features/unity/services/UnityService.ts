@@ -52,7 +52,8 @@ export class UnityService {
 
   // Avatar 변경 Lock 메커니즘 - 동시 호출로 인한 CANCELLED 에러 방지
   private isChangingAvatar: boolean = false;
-  private pendingAvatarChange: { items: Item[]; hairColor?: string } | null = null;
+  private latestAvatarPayload: { items: Item[]; hairColor?: string } | null = null;
+  private pendingAvatarChange: { items: Item[]; hairColor?: string; resolve: (success: boolean) => void } | null = null;
 
   static getInstance = (): UnityService => {
     if (!UnityService.instance) {
@@ -178,6 +179,10 @@ export class UnityService {
     }
   }
 
+  getLatestAvatarPayload(): { items: Item[]; hairColor?: string } | null {
+    return this.latestAvatarPayload;
+  }
+
   async syncAvatar(
     items: Item[],
     hairColor?: string,
@@ -191,6 +196,7 @@ export class UnityService {
       ? { items: validItems, hairColor }
       : { items: validItems };
 
+    this.latestAvatarPayload = payload;
     unitySessionController.setCurrentAvatarPayload(payload);
 
     if (!hasAvatarPayload) {
@@ -210,16 +216,12 @@ export class UnityService {
       }
     }
 
+    if (unitySessionController.computeAvatarPayloadHash(payload) !== useUnityStore.getState().currentAvatarPayloadHash) return 'failed';
     store.setAvatarReady(false);
 
     try {
       const success = await this.executeAvatarChangeWithLock(validItems, hairColor);
-      if (!success) {
-        store.setAvatarReady(true);
-        return 'failed';
-      }
-      unitySessionController.markAvatarApplied(payload);
-      return 'applied';
+      return success ? 'applied' : 'failed';
     } catch (error) {
       this.logError('syncAvatar failed', error);
       store.setAvatarReady(true);
@@ -440,30 +442,38 @@ export class UnityService {
   /**
    * 실제 아바타 변경 로직 (Lock 기반 직렬 처리)
    */
-  private async executeAvatarChangeWithLock(items: Item[], hairColor?: string): Promise<boolean> {
-    // 진행 중이면 대기열에 추가하고 리턴 (최신 요청만 유지)
-    if (this.isChangingAvatar) {
-      this.log('⏳ Avatar change in progress, queueing request');
-      this.pendingAvatarChange = hairColor ? { items, hairColor } : { items };
-      return true;
-    }
-
-    this.isChangingAvatar = true;
-    let lastResult = true;
-
-    try {
-      lastResult = await this.executeChangeAvatar(items, hairColor);
-
-      // 대기 중인 요청 처리 (while loop로 연속 요청 처리)
-      while (this.pendingAvatarChange) {
-        const pending = this.pendingAvatarChange;
-        this.pendingAvatarChange = null;
-        this.log('📋 Processing queued avatar change request');
-        lastResult = await this.executeChangeAvatar(pending.items, pending.hairColor);
+  private executeAvatarChangeWithLock(items: Item[], hairColor?: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      const request = hairColor === undefined ? { items, resolve } : { items, hairColor, resolve };
+      if (this.isChangingAvatar) {
+        this.pendingAvatarChange?.resolve(false);
+        this.pendingAvatarChange = request;
+        return;
       }
-      return lastResult;
+      this.isChangingAvatar = true;
+      void this.drainAvatarChanges(request);
+    });
+  }
+
+  private async drainAvatarChanges(initial: NonNullable<UnityService['pendingAvatarChange']>): Promise<void> {
+    let request: typeof this.pendingAvatarChange = initial;
+    try {
+      while (request) {
+        useUnityStore.getState().setAvatarReady(false);
+        let success = false;
+        try {
+          success = await this.executeChangeAvatar(request.items, request.hairColor);
+          if (success) unitySessionController.markAvatarApplied(request);
+        } catch (error) {
+          this.logError('Avatar request failed', error);
+        }
+        request.resolve(success);
+        request = this.pendingAvatarChange;
+        this.pendingAvatarChange = null;
+      }
     } finally {
       this.isChangingAvatar = false;
+      useUnityStore.getState().setAvatarReady(true);
     }
   }
 

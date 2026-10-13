@@ -1,7 +1,7 @@
 import React, { useEffect, type ReactNode, useCallback, useRef } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import { useAppStore, ViewState } from '~/stores';
-import { useAuthStore } from '~/features';
+import { useAuthStore, getSessionSnapshot, isSessionCurrent, type SessionSnapshot } from '~/features/auth/stores/authStore';
 import { useUserStore } from '~/stores/user/userStore';
 import { pointService } from '~/features/point/services/pointService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -85,8 +85,8 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
       const bgMillis = Number(ts);
       if (!Number.isFinite(bgMillis)) return 0;
       return (Date.now() - bgMillis) / 1000;
-    } catch (error) {
-      console.error('⚠️ [AppStateProvider] 백그라운드 시간 계산 실패:', error);
+    } catch {
+      console.error('⚠️ [AppStateProvider] 백그라운드 시간 계산 실패:');
       return 0;
     }
   }, []);
@@ -96,16 +96,17 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
    * 포인트 동기화: 다른 디바이스에서의 변경사항이나
    * 서버 측 보정을 반영하기 위해 서버 포인트로 동기화
    */
-  const syncUserDataFromServer = useCallback(async () => {
+  const syncUserDataFromServer = useCallback(async (snapshot: SessionSnapshot) => {
     console.log('🔄 [AppStateProvider] Syncing user data from server');
 
     // 포인트 동기화
     try {
       const { point } = await pointService.getUserPoint();
+      if (!isSessionCurrent(snapshot)) return;
       useUserStore.getState().setTotalPoint(point);
-      console.log(`💰 [AppStateProvider] 포인트 동기화 완료: ${point}`);
-    } catch (error) {
-      console.error('❌ [AppStateProvider] 포인트 동기화 실패:', error);
+      console.log('[AppStateProvider] point sync completed');
+    } catch {
+      console.error('❌ [AppStateProvider] 포인트 동기화 실패:');
     }
 
     // TODO: 기타 사용자 데이터 동기화 (필요시 추가)
@@ -129,8 +130,8 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
     try {
       const result = await unityService.recoverConnection();
       console.log('✅ [AppStateProvider] Unity connection checked:', result);
-    } catch (error) {
-      console.error('❌ [AppStateProvider] Unity check failed:', error);
+    } catch {
+      console.error('❌ [AppStateProvider] Unity check failed:');
     }
   }, []);
 
@@ -142,7 +143,8 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
     // TODO: 백그라운드에서 실패한 API 호출 재시도 등
   }, []);
 
-  const performForegroundTasks = useCallback(async (backgroundDuration: number) => {
+  const performForegroundTasks = useCallback(async (backgroundDuration: number, snapshot: SessionSnapshot) => {
+    if (!isSessionCurrent(snapshot)) return;
     console.log('📋 [AppStateProvider] Handling pending background tasks');
 
     // ★ 5분 이상 백그라운드 시 Unity 상태 강제 리셋 + 아바타 재적용
@@ -153,11 +155,14 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
       await unityService.resetReadyAndResync();
 
       // 2. 사용자 데이터 동기화
-      await syncUserDataFromServer();
+      if (!isSessionCurrent(snapshot)) return;
+      await syncUserDataFromServer(snapshot);
+      if (!isSessionCurrent(snapshot)) return;
 
       // 3. Unity 재초기화 완료 후 아바타 재적용
       await unityService.runWhenReady(async () => {
         try {
+          if (!isSessionCurrent(snapshot)) return;
           const currentState = useUserStore.getState();
           const items = Object.values(currentState.equippedItems).filter(
             (item): item is Item => !!item
@@ -168,12 +173,13 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
           console.log(
             `✅ [AppStateProvider] 아바타 재적용 완료 (${items.length}개, result=${syncResult})`
           );
-        } catch (error) {
-          console.error('❌ [AppStateProvider] 아바타 재적용 실패:', error);
+        } catch {
+          console.error('❌ [AppStateProvider] 아바타 재적용 실패:');
         }
       }, { waitForAvatar: false, timeoutMs: 3000, forceReadyOnTimeout: true });
     }
 
+    if (!isSessionCurrent(snapshot)) return;
     // 2. 시스템 권한 상태 재확인
     await checkSystemPermissions();
 
@@ -188,10 +194,12 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
    * 앱이 Foreground로 진입할 때 처리
    */
   const handleAppForeground = useCallback(async () => {
+    if (!useAuthStore.getState().isLoggedIn) return;
     if (fgInFlight.current) {
       console.log('🛡️ [AppStateProvider] Foreground 작업이 이미 진행 중, 중복 호출 차단');
       return;
     }
+    const snapshot = getSessionSnapshot();
     fgInFlight.current = true;
     try {
       console.log('🌅 [AppStateProvider] App entering foreground, performing comprehensive check');
@@ -203,7 +211,8 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
         // TODO: 토큰 검증 로직 (SessionGuard.verifyOnForeground 등)
       }
 
-      await performForegroundTasks(backgroundDuration);
+      await performForegroundTasks(backgroundDuration, snapshot);
+      if (!isSessionCurrent(snapshot)) return;
       await AsyncStorage.removeItem('backgroundEnterTime');
     } finally {
       fgInFlight.current = false;

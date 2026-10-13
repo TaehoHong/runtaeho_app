@@ -1,3 +1,7 @@
+import { queryClient, queryKeys } from '~/services/queryClient';
+import { getSessionSnapshot, isSessionCurrent, type SessionSnapshot } from '~/features/auth/stores/authStore';
+import { SessionSupersededError } from '~/utils/storage/errors';
+import { runningService } from './runningService';
 /**
  * Offline Storage Service
  * 네트워크 오프라인 시 러닝 데이터 로컬 저장 및 재시도 관리
@@ -14,6 +18,7 @@ const STORAGE_KEYS = {
   PENDING_UPLOADS: '@pending_running_uploads',
   PENDING_SEGMENT_UPLOADS: '@pending_segment_uploads', // 세그먼트 업로드 대기열
   FAILED_UPLOADS: '@failed_running_uploads',
+  PENDING_SHOE_PATCHES: '@pending_running_shoe_patches',
   OFFLINE_MODE: '@offline_mode',
 } as const;
 
@@ -21,6 +26,7 @@ const STORAGE_KEYS = {
  * 대기 중인 업로드 데이터
  */
 interface PendingUpload {
+  ownerUserId?: number;
   id: string; // UUID
   runningRecordId: number;
   data: RunningRecord;
@@ -33,6 +39,7 @@ interface PendingUpload {
  * 대기 중인 세그먼트 업로드 데이터
  */
 interface PendingSegmentUpload {
+  ownerUserId?: number;
   id: string; // UUID
   runningRecordId: number;
   segments: RunningRecordItem[];
@@ -41,12 +48,84 @@ interface PendingSegmentUpload {
   lastError?: string;
 }
 
+interface PendingShoePatch {
+  id: string;
+  ownerUserId?: number;
+  runningRecordId: number;
+  shoeId: number;
+}
+
+type OwnedUpload = { id: string; ownerUserId?: number; runningRecordId: number };
+
 /**
  * Offline Storage Service
  */
 export class OfflineStorageService {
   private static instance: OfflineStorageService;
   private maxRetryCount = 3;
+  private writes: Promise<unknown> = Promise.resolve();
+  private replay: Promise<unknown> = Promise.resolve();
+
+  private assertSession(session: SessionSnapshot): void {
+    if (session.userId === null || !isSessionCurrent(session)) throw new SessionSupersededError();
+  }
+
+  private async readQueue<T>(key: string): Promise<T[]> {
+    const raw = await AsyncStorage.getItem(key);
+    return raw ? JSON.parse(raw) : [];
+  }
+
+  private write<T>(session: SessionSnapshot, action: () => Promise<T>): Promise<T> {
+    const result = this.writes.then(async () => {
+      this.assertSession(session);
+      return action();
+    });
+    this.writes = result.catch(() => undefined);
+    return result;
+  }
+
+  private async upsert<T extends OwnedUpload>(key: string, upload: T, session: SessionSnapshot, replace = true): Promise<void> {
+    await this.write(session, async () => {
+      const pending = await this.readQueue<T>(key);
+      this.assertSession(session);
+      const remaining = replace ? pending.filter(item => item.runningRecordId !== upload.runningRecordId || item.ownerUserId !== session.userId) : pending;
+      await AsyncStorage.setItem(key, JSON.stringify([...remaining, upload]));
+      this.assertSession(session);
+    });
+  }
+
+  private async removeOwned(key: string, id: string, session: SessionSnapshot): Promise<void> {
+    await this.write(session, async () => {
+      const pending = await this.readQueue<OwnedUpload>(key);
+      this.assertSession(session);
+      await AsyncStorage.setItem(key, JSON.stringify(pending.filter(item => item.id !== id || item.ownerUserId !== session.userId)));
+      this.assertSession(session);
+    });
+  }
+
+  private async claim(key: string, upload: OwnedUpload, session: SessionSnapshot): Promise<boolean> {
+    this.assertSession(session);
+    if (upload.ownerUserId !== undefined) return upload.ownerUserId === session.userId;
+    await runningService.verifyOwnership(upload.runningRecordId, session);
+    this.assertSession(session);
+    return this.write(session, async () => {
+      const pending = await this.readQueue<OwnedUpload>(key);
+      this.assertSession(session);
+      const current = pending.find(item => item.id === upload.id);
+      if (!current || (current.ownerUserId !== undefined && current.ownerUserId !== session.userId)) return false;
+      current.ownerUserId = session.userId!;
+      await AsyncStorage.setItem(key, JSON.stringify(pending));
+      this.assertSession(session);
+      upload.ownerUserId = session.userId!;
+      return true;
+    });
+  }
+
+  serializeReplay<T>(action: () => Promise<T>): Promise<T> {
+    const result = this.replay.then(action);
+    this.replay = result.catch(() => undefined);
+    return result;
+  }
 
   private constructor() {}
 
@@ -67,37 +146,12 @@ export class OfflineStorageService {
   /**
    * 업로드 대기열에 추가
    */
-  async addPendingUpload(
-    runningRecordId: number,
-    data: RunningRecord
-  ): Promise<void> {
-    try {
-      const pending = await this.getPendingUploads();
-
-      const newUpload: PendingUpload = {
-        id: this.generateId(),
-        runningRecordId,
-        data,
-        timestamp: Date.now(),
-        retryCount: 0,
-      };
-
-      const existingUpload = pending.find(upload => upload.runningRecordId === runningRecordId);
-      if (existingUpload) {
-        existingUpload.data = data;
-      } else {
-        pending.push(newUpload);
-      }
-      await AsyncStorage.setItem(
-        STORAGE_KEYS.PENDING_UPLOADS,
-        JSON.stringify(pending)
-      );
-
-      console.log(`[OfflineStorage] Added pending upload: ${existingUpload?.id ?? newUpload.id}`);
-    } catch (error) {
-      console.error('[OfflineStorage] Failed to add pending upload:', error);
-      throw error;
-    }
+  async addPendingUpload(runningRecordId: number, data: RunningRecord, session: SessionSnapshot = getSessionSnapshot()): Promise<void> {
+    this.assertSession(session);
+    await this.upsert(STORAGE_KEYS.PENDING_UPLOADS, {
+      id: this.generateId(), ownerUserId: session.userId!, runningRecordId, data,
+      timestamp: Date.now(), retryCount: 0,
+    }, session);
   }
 
   /**
@@ -116,77 +170,33 @@ export class OfflineStorageService {
   /**
    * 업로드 성공 시 대기열에서 제거
    */
-  async removePendingUpload(uploadId: string): Promise<void> {
-    try {
-      const pending = await this.getPendingUploads();
-      const filtered = pending.filter(item => item.id !== uploadId);
-
-      await AsyncStorage.setItem(
-        STORAGE_KEYS.PENDING_UPLOADS,
-        JSON.stringify(filtered)
-      );
-
-      console.log(`[OfflineStorage] Removed pending upload: ${uploadId}`);
-    } catch (error) {
-      console.error('[OfflineStorage] Failed to remove pending upload:', error);
-    }
+  async removePendingUpload(uploadId: string, session: SessionSnapshot = getSessionSnapshot()): Promise<void> {
+    await this.removeOwned(STORAGE_KEYS.PENDING_UPLOADS, uploadId, session);
   }
 
   /**
    * 업로드 실패 시 재시도 카운트 증가
    */
-  async incrementRetryCount(uploadId: string, errorMessage?: string): Promise<void> {
-    try {
+  async incrementRetryCount(uploadId: string, errorMessage?: string, session: SessionSnapshot = getSessionSnapshot()): Promise<void> {
+    await this.write(session, async () => {
       const pending = await this.getPendingUploads();
-      const upload = pending.find(item => item.id === uploadId);
-
-      if (!upload) {
-        console.warn(`[OfflineStorage] Upload not found: ${uploadId}`);
-        return;
-      }
-
+      const upload = pending.find(item => item.id === uploadId && item.ownerUserId === session.userId);
+      if (!upload) return;
       upload.retryCount++;
-      if (errorMessage !== undefined) {
-        upload.lastError = errorMessage;
-      }
-
-      // 최대 재시도 횟수 초과 시 실패 목록으로 이동
+      if (errorMessage !== undefined) upload.lastError = errorMessage;
       if (upload.retryCount >= this.maxRetryCount) {
-        await this.moveToFailed(upload);
-        await this.removePendingUpload(uploadId);
+        const failed = await this.getFailedUploads();
+        this.assertSession(session);
+        await AsyncStorage.multiSet([
+          [STORAGE_KEYS.FAILED_UPLOADS, JSON.stringify([...failed, upload])],
+          [STORAGE_KEYS.PENDING_UPLOADS, JSON.stringify(pending.filter(item => item.id !== uploadId))],
+        ]);
       } else {
-        await AsyncStorage.setItem(
-          STORAGE_KEYS.PENDING_UPLOADS,
-          JSON.stringify(pending)
-        );
+        this.assertSession(session);
+        await AsyncStorage.setItem(STORAGE_KEYS.PENDING_UPLOADS, JSON.stringify(pending));
       }
-
-      console.log(
-        `[OfflineStorage] Retry count for ${uploadId}: ${upload.retryCount}`
-      );
-    } catch (error) {
-      console.error('[OfflineStorage] Failed to increment retry count:', error);
-    }
-  }
-
-  /**
-   * 실패한 업로드 목록으로 이동
-   */
-  private async moveToFailed(upload: PendingUpload): Promise<void> {
-    try {
-      const failedData = await AsyncStorage.getItem(STORAGE_KEYS.FAILED_UPLOADS);
-      const failed: PendingUpload[] = failedData ? JSON.parse(failedData) : [];
-
-      failed.push(upload);
-      await AsyncStorage.setItem(
-        STORAGE_KEYS.FAILED_UPLOADS,
-        JSON.stringify(failed)
-      );
-
-      console.log(`[OfflineStorage] Moved to failed: ${upload.id}`);
-    } catch (error) {
-      console.error('[OfflineStorage] Failed to move to failed list:', error);
-    }
+      this.assertSession(session);
+    });
   }
 
   /**
@@ -206,61 +216,54 @@ export class OfflineStorageService {
    * 실패한 업로드 재시도 (수동)
    */
   async retryFailedUpload(uploadId: string): Promise<void> {
-    try {
-      const failed = await this.getFailedUploads();
-      const upload = failed.find(item => item.id === uploadId);
-
-      if (!upload) {
-        console.warn(`[OfflineStorage] Failed upload not found: ${uploadId}`);
-        return;
-      }
-
-      // 재시도 카운트 초기화 후 대기열로 이동
-      upload.retryCount = 0;
-      delete upload.lastError;
-
+    const session = getSessionSnapshot();
+    this.assertSession(session);
+    const failed = await this.getFailedUploads();
+    const upload = failed.find(item => item.id === uploadId);
+    if (!upload || !await this.claim(STORAGE_KEYS.FAILED_UPLOADS, upload, session)) return;
+    await this.write(session, async () => {
+      const currentFailed = await this.getFailedUploads();
+      const current = currentFailed.find(item => item.id === uploadId && item.ownerUserId === session.userId);
+      if (!current) return;
       const pending = await this.getPendingUploads();
-      pending.push(upload);
-
-      const filteredFailed = failed.filter(item => item.id !== uploadId);
-
+      this.assertSession(session);
+      current.retryCount = 0;
+      delete current.lastError;
       await AsyncStorage.multiSet([
-        [STORAGE_KEYS.PENDING_UPLOADS, JSON.stringify(pending)],
-        [STORAGE_KEYS.FAILED_UPLOADS, JSON.stringify(filteredFailed)],
+        [STORAGE_KEYS.PENDING_UPLOADS, JSON.stringify([...pending, current])],
+        [STORAGE_KEYS.FAILED_UPLOADS, JSON.stringify(currentFailed.filter(item => item.id !== uploadId))],
       ]);
-
-      console.log(`[OfflineStorage] Retrying failed upload: ${uploadId}`);
-    } catch (error) {
-      console.error('[OfflineStorage] Failed to retry upload:', error);
-    }
+      this.assertSession(session);
+    });
   }
 
   /**
    * 모든 대기 중인 업로드 재시도
    */
   async retryAllPendingUploads(
-    uploadFn: (data: RunningRecord) => Promise<void>
+    uploadFn: (data: RunningRecord) => Promise<void>,
+    session: SessionSnapshot = getSessionSnapshot(),
   ): Promise<{ success: number; failed: number }> {
     const pending = await this.getPendingUploads();
-    let successCount = 0;
-    let failedCount = 0;
-
+    let success = 0;
+    let failed = 0;
     for (const upload of pending) {
+      this.assertSession(session);
       try {
+        if (!await this.claim(STORAGE_KEYS.PENDING_UPLOADS, upload, session)) continue;
+        this.assertSession(session);
         await uploadFn(upload.data);
-        await this.removePendingUpload(upload.id);
-        successCount++;
-      } catch (error: any) {
-        await this.incrementRetryCount(upload.id, error.message);
-        failedCount++;
+        this.assertSession(session);
+        await this.removePendingUpload(upload.id, session);
+        success++;
+      } catch {
+        this.assertSession(session);
+        // Ownership rejection never changes an unclaimed legacy entry.
+        if (upload.ownerUserId === session.userId) await this.incrementRetryCount(upload.id, 'Upload failed', session);
+        failed++;
       }
     }
-
-    console.log(
-      `[OfflineStorage] Retry all completed: ${successCount} success, ${failedCount} failed`
-    );
-
-    return { success: successCount, failed: failedCount };
+    return { success, failed };
   }
 
   /**
@@ -312,6 +315,7 @@ export class OfflineStorageService {
         STORAGE_KEYS.PENDING_UPLOADS,
         STORAGE_KEYS.PENDING_SEGMENT_UPLOADS,
         STORAGE_KEYS.FAILED_UPLOADS,
+        STORAGE_KEYS.PENDING_SHOE_PATCHES,
         STORAGE_KEYS.OFFLINE_MODE,
       ]);
       console.log('[OfflineStorage] Cleared all offline data');
@@ -329,32 +333,12 @@ export class OfflineStorageService {
   /**
    * 세그먼트 업로드 대기열에 추가
    */
-  async addPendingSegmentUpload(
-    runningRecordId: number,
-    segments: RunningRecordItem[]
-  ): Promise<void> {
-    try {
-      const pending = await this.getPendingSegmentUploads();
-
-      const newUpload: PendingSegmentUpload = {
-        id: this.generateId(),
-        runningRecordId,
-        segments,
-        timestamp: Date.now(),
-        retryCount: 0,
-      };
-
-      pending.push(newUpload);
-      await AsyncStorage.setItem(
-        STORAGE_KEYS.PENDING_SEGMENT_UPLOADS,
-        JSON.stringify(pending)
-      );
-
-      console.log(`[OfflineStorage] Added pending segment upload: ${newUpload.id}, ${segments.length} segments`);
-    } catch (error) {
-      console.error('[OfflineStorage] Failed to add pending segment upload:', error);
-      throw error;
-    }
+  async addPendingSegmentUpload(runningRecordId: number, segments: RunningRecordItem[], session: SessionSnapshot = getSessionSnapshot()): Promise<void> {
+    this.assertSession(session);
+    await this.upsert(STORAGE_KEYS.PENDING_SEGMENT_UPLOADS, {
+      id: this.generateId(), ownerUserId: session.userId!, runningRecordId, segments,
+      timestamp: Date.now(), retryCount: 0,
+    }, session, false);
   }
 
   /**
@@ -382,50 +366,66 @@ export class OfflineStorageService {
   /**
    * 세그먼트 업로드 제거
    */
-  async removePendingSegmentUpload(uploadId: string): Promise<void> {
-    try {
-      const pending = await this.getPendingSegmentUploads();
-      const filtered = pending.filter(item => item.id !== uploadId);
-
-      await AsyncStorage.setItem(
-        STORAGE_KEYS.PENDING_SEGMENT_UPLOADS,
-        JSON.stringify(filtered)
-      );
-
-      console.log(`[OfflineStorage] Removed pending segment upload: ${uploadId}`);
-    } catch (error) {
-      console.error('[OfflineStorage] Failed to remove pending segment upload:', error);
-    }
+  async removePendingSegmentUpload(uploadId: string, session: SessionSnapshot = getSessionSnapshot()): Promise<void> {
+    await this.removeOwned(STORAGE_KEYS.PENDING_SEGMENT_UPLOADS, uploadId, session);
   }
 
   /**
    * 모든 대기 중인 세그먼트 업로드 재시도
    */
   async retryAllPendingSegmentUploads(
-    uploadFn: (runningRecordId: number, segments: RunningRecordItem[]) => Promise<void>
+    uploadFn: (runningRecordId: number, segments: RunningRecordItem[]) => Promise<void>,
+    session: SessionSnapshot = getSessionSnapshot(),
   ): Promise<{ success: number; failed: number }> {
     const pending = await this.getPendingSegmentUploads();
-    let successCount = 0;
-    let failedCount = 0;
-
+    let success = 0;
+    let failed = 0;
     for (const upload of pending) {
+      this.assertSession(session);
       try {
+        if (!await this.claim(STORAGE_KEYS.PENDING_SEGMENT_UPLOADS, upload, session)) continue;
+        this.assertSession(session);
         await uploadFn(upload.runningRecordId, upload.segments);
-        await this.removePendingSegmentUpload(upload.id);
-        successCount++;
-        console.log(`[OfflineStorage] Segment upload succeeded: ${upload.id}`);
-      } catch (error: any) {
-        failedCount++;
-        console.error(`[OfflineStorage] Segment upload failed: ${upload.id}`, error);
-        // TODO: 재시도 카운트 관리 (필요 시 추가)
+        this.assertSession(session);
+        await this.removePendingSegmentUpload(upload.id, session);
+        success++;
+      } catch {
+        this.assertSession(session);
+        failed++;
       }
     }
+    return { success, failed };
+  }
 
-    console.log(
-      `[OfflineStorage] Segment retry all completed: ${successCount} success, ${failedCount} failed`
-    );
+  async addPendingShoePatch(runningRecordId: number, shoeId: number, session: SessionSnapshot = getSessionSnapshot()): Promise<void> {
+    this.assertSession(session);
+    await this.upsert(STORAGE_KEYS.PENDING_SHOE_PATCHES, {
+      id: this.generateId(), ownerUserId: session.userId!, runningRecordId, shoeId,
+    }, session);
+  }
 
-    return { success: successCount, failed: failedCount };
+  async retryPendingShoePatches(session: SessionSnapshot): Promise<void> {
+    const patches = await this.readQueue<PendingShoePatch>(STORAGE_KEYS.PENDING_SHOE_PATCHES);
+    for (const patch of patches) {
+      this.assertSession(session);
+      if (patch.ownerUserId !== session.userId) continue;
+      const pending = await this.getPendingUploads();
+      const failed = await this.getFailedUploads();
+      this.assertSession(session);
+      if ([...pending, ...failed].some(item => item.runningRecordId === patch.runningRecordId && (item.ownerUserId === session.userId || item.ownerUserId === undefined))) continue;
+      try {
+        await runningService.updateRunningRecordShoe({ runningRecordId: patch.runningRecordId, shoeId: patch.shoeId }, session);
+        this.assertSession(session);
+        await this.removeOwned(STORAGE_KEYS.PENDING_SHOE_PATCHES, patch.id, session);
+        this.assertSession(session);
+        await queryClient.invalidateQueries({ queryKey: queryKeys.shoe.all });
+        this.assertSession(session);
+        await queryClient.invalidateQueries({ queryKey: queryKeys.running.all });
+      } catch {
+        this.assertSession(session);
+        console.warn('[OfflineStorage] Shoe update remains pending');
+      }
+    }
   }
 
   /**

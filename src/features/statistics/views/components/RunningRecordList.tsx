@@ -29,7 +29,7 @@ export const RunningRecordList: React.FC<RunningRecordListProps> = ({
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
-  } = useRunningRecordList({ startDate, endDate });
+  } = useRunningRecordList({ ...(startDate && { startDate }), ...(endDate && { endDate }) });
 
   if (isLoading) {
     return (

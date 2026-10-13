@@ -55,6 +55,16 @@ object UnityNativeBridge {
      * Unity의 AndroidJavaClass.CallStatic()에서 호출됨
      */
     @JvmStatic
+    fun notifyAvatarProtocolVersion(version: Int) {
+        RNUnityBridgeModule.getInstance()?.handleAvatarProtocolVersion(version)
+    }
+
+    @JvmStatic
+    fun notifyAvatarApplied(requestId: String, success: Boolean) {
+        RNUnityBridgeModule.getInstance()?.handleAvatarApplied(requestId, success)
+    }
+
+    @JvmStatic
     fun notifyAvatarReady() {
         Log.d(TAG, "notifyAvatarReady() called from Unity C#")
 

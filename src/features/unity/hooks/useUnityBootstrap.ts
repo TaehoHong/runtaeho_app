@@ -58,6 +58,10 @@ export const useUnityBootstrap = (
 
   const [bootstrapPhase, setBootstrapPhase] = useState<UnityBootstrapPhase>('idle');
   const [isInitialAvatarSynced, setIsInitialAvatarSynced] = useState(false);
+  const [awaitingSupersedingAvatar, setAwaitingSupersedingAvatar] = useState(false);
+  const currentAvatarHash = useUnityStore((state) => state.currentAvatarPayloadHash);
+  const appliedAvatarHash = useUnityStore((state) => state.lastAppliedAvatarHash);
+  const avatarReady = useUnityStore((state) => state.isAvatarReady);
   const readyEventVersion = useUnityStore((state) => state.lastUnityReadyEvent?.version ?? 0);
   const requestIdRef = useRef(0);
   const inFlightRef = useRef(false);
@@ -124,6 +128,11 @@ export const useUnityBootstrap = (
     void unityService
       .syncAvatar(payload.items, payload.hairColor, { waitForReady: false })
       .then((result) => {
+        if (unitySessionController.computeAvatarPayloadHash(payload) !== useUnityStore.getState().currentAvatarPayloadHash) {
+          clearReattachRetrySchedule();
+          pendingReattachResyncRef.current = false;
+          return;
+        }
         if (result === 'failed') {
           console.warn('[useUnityBootstrap] reattach avatar sync failed, scheduling retry');
           scheduleReattachRetry();
@@ -214,6 +223,7 @@ export const useUnityBootstrap = (
     reattachSyncInFlightRef.current = false;
     lastReattachReadyAtRef.current = 0;
     setIsInitialAvatarSynced(false);
+    setAwaitingSupersedingAvatar(false);
     setBootstrapPhase('idle');
     reset();
   }, [clearReattachRetrySchedule, clearRetrySchedule, reset]);
@@ -245,7 +255,8 @@ export const useUnityBootstrap = (
 
   useEffect(() => {
     if (
-      hasSyncedSuccessfullyRef.current
+      (awaitingSupersedingAvatar && bootstrapPhase !== 'waiting-ready')
+      || hasSyncedSuccessfullyRef.current
       || inFlightRef.current
       || retryScheduledRef.current
     ) {
@@ -259,7 +270,9 @@ export const useUnityBootstrap = (
       return;
     }
 
-    const payload = getInitialAvatarPayload();
+    const payload = awaitingSupersedingAvatar
+      ? unityService.getLatestAvatarPayload()
+      : getInitialAvatarPayload();
     if (!payload) {
       setBootstrapPhase('waiting-payload');
       return;
@@ -285,6 +298,10 @@ export const useUnityBootstrap = (
           return;
         }
 
+        if (unitySessionController.computeAvatarPayloadHash(payload) !== useUnityStore.getState().currentAvatarPayloadHash) {
+          setAwaitingSupersedingAvatar(true);
+          return;
+        }
         if (result === 'failed') {
           setIsInitialAvatarSynced(false);
           setBootstrapPhase('error');
@@ -295,6 +312,7 @@ export const useUnityBootstrap = (
         clearRetrySchedule();
         hasSyncedSuccessfullyRef.current = true;
         setIsInitialAvatarSynced(true);
+        setAwaitingSupersedingAvatar(false);
         setBootstrapPhase('done');
       })
       .catch((error) => {
@@ -312,7 +330,21 @@ export const useUnityBootstrap = (
         }
         inFlightRef.current = false;
       });
-  }, [bootstrapPhase, canSendMessage, clearRetrySchedule, getInitialAvatarPayload, scheduleRetry]);
+  }, [awaitingSupersedingAvatar, bootstrapPhase, canSendMessage, clearRetrySchedule, getInitialAvatarPayload, scheduleRetry]);
+
+  useEffect(() => {
+    if (!awaitingSupersedingAvatar || !avatarReady) return;
+    const applied = currentAvatarHash != null && currentAvatarHash === appliedAvatarHash;
+    hasSyncedSuccessfullyRef.current = applied;
+    setIsInitialAvatarSynced(applied);
+    setBootstrapPhase(applied ? 'done' : 'error');
+    if (applied) {
+      clearRetrySchedule();
+      setAwaitingSupersedingAvatar(false);
+    } else {
+      scheduleRetry(requestIdRef.current);
+    }
+  }, [appliedAvatarHash, awaitingSupersedingAvatar, avatarReady, clearRetrySchedule, currentAvatarHash, scheduleRetry]);
 
   useEffect(() => {
     return () => {

@@ -11,6 +11,7 @@ import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import type { ShareResult } from '../models/types';
 import { CANVAS_SIZE } from '../constants/shareOptions';
 
+let releaseCapture: ((uri: string) => void) | null = null;
 let captureScreen: ((options?: object) => Promise<string>) | null = null;
 let captureRef: ((viewRef: RefObject<View | null>, options?: object) => Promise<string>) | null = null;
 let Share: { open: (options: object) => Promise<any> } | null = null;
@@ -41,6 +42,7 @@ const ensureShareDependenciesLoaded = async () => {
       const viewShot = await import('react-native-view-shot').catch(() => require('react-native-view-shot'));
       captureScreen = viewShot.captureScreen;
       captureRef = viewShot.captureRef;
+      releaseCapture = viewShot.releaseCapture;
     } catch (error) {
       console.warn('[ShareService] react-native-view-shot not available:', error);
     }
@@ -54,6 +56,14 @@ const ensureShareDependenciesLoaded = async () => {
     } catch (error) {
       console.warn('[ShareService] react-native-share not available:', error);
     }
+  }
+};
+
+const releaseIntermediateCapture = (uri: string): void => {
+  try {
+    releaseCapture?.(uri);
+  } catch {
+    console.warn('[ShareService] Failed to release intermediate capture');
   }
 };
 
@@ -110,10 +120,12 @@ const captureOverlaySnapshot = async (
     height: CANVAS_SIZE.height,
   });
 
-  return {
-    uri: overlayUri,
-    size: await getImageSize(overlayUri),
-  };
+  try {
+    return { uri: overlayUri, size: await getImageSize(overlayUri) };
+  } catch (error) {
+    releaseIntermediateCapture(overlayUri);
+    throw error;
+  }
 };
 
 const captureStageImageAndroid = async (
@@ -125,13 +137,16 @@ const captureStageImageAndroid = async (
   }
 
   const overlayCapture = await captureOverlaySnapshot(viewRef);
-  const composedImage = await nativeBridge.composeShareExportFromUnityAndOverlay(
-    overlayCapture.uri,
-    overlayCapture.size.width,
-    overlayCapture.size.height
-  );
-
-  return composedImage.uri;
+  try {
+    const composedImage = await nativeBridge.composeShareExportFromUnityAndOverlay(
+      overlayCapture.uri,
+      overlayCapture.size.width,
+      overlayCapture.size.height
+    );
+    return composedImage.uri;
+  } finally {
+    releaseIntermediateCapture(overlayCapture.uri);
+  }
 };
 
 const captureStageImageIOS = async (
@@ -153,36 +168,40 @@ const captureStageImageIOS = async (
     quality: 1,
     result: 'tmpfile',
   });
-  const screenshotSize = await getImageSize(screenshotUri);
-  const scaleX = screenshotSize.width / windowSize.width;
-  const scaleY = screenshotSize.height / windowSize.height;
-  const originX = Math.min(
-    Math.max(0, Math.round(bounds.x * scaleX)),
-    Math.max(0, screenshotSize.width - 1)
-  );
-  const originY = Math.min(
-    Math.max(0, Math.round(bounds.y * scaleY)),
-    Math.max(0, screenshotSize.height - 1)
-  );
-  const width = Math.max(
-    1,
-    Math.min(screenshotSize.width - originX, Math.round(bounds.width * scaleX))
-  );
-  const height = Math.max(
-    1,
-    Math.min(screenshotSize.height - originY, Math.round(bounds.height * scaleY))
-  );
+  try {
+    const screenshotSize = await getImageSize(screenshotUri);
+    const scaleX = screenshotSize.width / windowSize.width;
+    const scaleY = screenshotSize.height / windowSize.height;
+    const originX = Math.min(
+      Math.max(0, Math.round(bounds.x * scaleX)),
+      Math.max(0, screenshotSize.width - 1)
+    );
+    const originY = Math.min(
+      Math.max(0, Math.round(bounds.y * scaleY)),
+      Math.max(0, screenshotSize.height - 1)
+    );
+    const width = Math.max(
+      1,
+      Math.min(screenshotSize.width - originX, Math.round(bounds.width * scaleX))
+    );
+    const height = Math.max(
+      1,
+      Math.min(screenshotSize.height - originY, Math.round(bounds.height * scaleY))
+    );
 
-  const exportedImage = await manipulateAsync(
-    screenshotUri,
-    [
-      { crop: { originX, originY, width, height } },
-      { resize: CANVAS_SIZE },
-    ],
-    { compress: 1, format: SaveFormat.PNG }
-  );
+    const exportedImage = await manipulateAsync(
+      screenshotUri,
+      [
+        { crop: { originX, originY, width, height } },
+        { resize: CANVAS_SIZE },
+      ],
+      { compress: 1, format: SaveFormat.PNG }
+    );
 
-  return exportedImage.uri;
+    return exportedImage.uri;
+  } finally {
+    releaseIntermediateCapture(screenshotUri);
+  }
 };
 
 export const captureViewAsImage = async (

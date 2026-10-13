@@ -106,3 +106,11 @@ export class SecureStorageError extends Error {
     }`;
   }
 }
+
+/** An operation belongs to a session or login attempt that has ended. */
+export class SessionSupersededError extends Error {
+  constructor() {
+    super('Session superseded');
+    this.name = 'SessionSupersededError';
+  }
+}

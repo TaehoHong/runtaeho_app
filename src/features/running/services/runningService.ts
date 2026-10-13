@@ -1,3 +1,4 @@
+import { getSessionSnapshot, type SessionSnapshot } from '~/features/auth/stores/authStore';
 /**
  * Running Service
  * 기존 runningApi.ts에서 마이그레이션
@@ -69,7 +70,7 @@ export const runningService = {
    * Request: { startTimestamp: number (s), timezone: string }
    * Response: { id: number }
    */
-  startRunning: async (): Promise<RunningRecord> => {
+  startRunning: async (sessionSnapshot: SessionSnapshot = getSessionSnapshot()): Promise<RunningRecord> => {
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Seoul';
 
     const { data } = await apiClient.post<{ id: number }>(
@@ -77,7 +78,8 @@ export const runningService = {
       {
         startTimestamp: (Date.now() / 1000), // seconds
         timezone,
-      }
+      },
+      { sessionSnapshot }
     );
 
     return createRunningRecord(data.id);
@@ -90,7 +92,7 @@ export const runningService = {
    * Request: { distance, durationSec, cadence, heartRate, calorie, endTimestamp? }
    * Response: EndRunningRecord
    */
-  endRunning: async (runningRecord: RunningRecord): Promise<EndRunningRecord> => {
+  endRunning: async (runningRecord: RunningRecord, sessionSnapshot: SessionSnapshot = getSessionSnapshot()): Promise<EndRunningRecord> => {
     const { data } = await apiClient.post<EndRunningRecord>(
       API_ENDPOINTS.RUNNING.END(runningRecord.id),
       {
@@ -100,7 +102,8 @@ export const runningService = {
         heartRate: runningRecord.heartRate || 0,
         calorie: runningRecord.calorie || 0,
         ...(runningRecord.endTimestamp !== undefined && { endTimestamp: runningRecord.endTimestamp }),
-      }
+      },
+      { sessionSnapshot }
     );
     return data;
   },
@@ -109,8 +112,8 @@ export const runningService = {
    * 러닝 기록 업데이트
    * 기존: updateRunningRecord mutation
    */
-  updateRunningRecord: async (runningRecord: RunningRecord): Promise<void> => {
-    await apiClient.put(API_ENDPOINTS.RUNNING.DETAIL(runningRecord.id), runningRecord);
+  updateRunningRecord: async (runningRecord: RunningRecord, sessionSnapshot: SessionSnapshot = getSessionSnapshot()): Promise<void> => {
+    await apiClient.put(API_ENDPOINTS.RUNNING.DETAIL(runningRecord.id), runningRecord, { sessionSnapshot });
   },
 
   /**
@@ -120,10 +123,11 @@ export const runningService = {
   updateRunningRecordShoe: async ({
     runningRecordId,
     shoeId,
-  }: UpdateRunningRecordShoeParams): Promise<RunningRecord> => {
+  }: UpdateRunningRecordShoeParams, sessionSnapshot: SessionSnapshot = getSessionSnapshot()): Promise<RunningRecord> => {
     const { data } = await apiClient.patch<RunningRecord>(
       API_ENDPOINTS.RUNNING.SHOE(runningRecordId),
-      { shoeId }
+      { shoeId },
+      { sessionSnapshot }
     );
     return data;
   },
@@ -225,6 +229,10 @@ export const runningService = {
    * POST /api/v1/running/{id}/items
    * Request: { items: CreationRunningRecordItemDto[] }
    */
+  verifyOwnership: async (recordId: number, sessionSnapshot: SessionSnapshot): Promise<void> => {
+    await apiClient.get(`${API_ENDPOINTS.RUNNING.DETAIL(recordId)}/ownership`, { sessionSnapshot });
+  },
+
   saveRunningRecordItems: async (params: {
     runningRecordId: number;
     items: {
@@ -239,7 +247,7 @@ export const runningService = {
       endTimeStamp: number;       // Unix timestamp (초)
       gpsPoints?: RunningRecordItemGpsPoint[];
     }[];
-  }): Promise<void> => {
+  }, sessionSnapshot: SessionSnapshot = getSessionSnapshot()): Promise<void> => {
     const sanitizedItems = params.items.map((item) => ({
       ...item,
       cadence: normalizeCadence(item.cadence),
@@ -247,7 +255,8 @@ export const runningService = {
 
     await apiClient.post(
       API_ENDPOINTS.RUNNING.ITEMS(params.runningRecordId),
-      { items: sanitizedItems }
+      { items: sanitizedItems },
+      { sessionSnapshot }
     );
   },
 

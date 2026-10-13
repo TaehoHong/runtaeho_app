@@ -6,7 +6,7 @@ import type { Platform } from './models/ForceUpdateState';
  */
 export const STORE_URLS = {
   IOS: 'https://apps.apple.com/app/runtaeho/id6755414468',
-  ANDROID: 'https://play.google.com/store/apps/details?id=com.hongtaeho.app',
+  ANDROID: 'https://play.google.com/store/apps/details?id=com.runtaeho.runtaeho',
 } as const;
 
 /**

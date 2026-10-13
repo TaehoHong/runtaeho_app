@@ -223,4 +223,24 @@ describe('AppStateProvider lifecycle', () => {
     expect(mockGetUserPoint).not.toHaveBeenCalled();
     expect(mockRecoverConnection).not.toHaveBeenCalled();
   });
+
+  it('does not apply account A point data after logout and account B login', async () => {
+    useAuthStore.getState().setLoggedIn(true);
+    jest.spyOn(Date, 'now').mockReturnValue(2_000_000);
+    asyncStorageMock.getItem.mockResolvedValue(String(2_000_000 - 301_000));
+    const oldPoint = createDeferred<{ userId: number; point: number }>();
+    mockGetUserPoint.mockReturnValue(oldPoint.promise);
+    renderProvider();
+    emitAppState('active');
+    await waitFor(() => expect(mockGetUserPoint).toHaveBeenCalledTimes(1));
+    act(() => {
+      useAuthStore.getState().logout();
+      useAuthStore.getState().setLoggedIn(true);
+      useUserStore.getState().setTotalPoint(900);
+    });
+    await act(async () => { oldPoint.resolve({ userId: 1, point: 1 }); });
+    expect(useUserStore.getState().totalPoint).toBe(900);
+    expect(mockSyncAvatar).not.toHaveBeenCalled();
+  });
+
 });

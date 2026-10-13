@@ -9,7 +9,7 @@ import { t, useAppLanguage } from '~/i18n';
  * - 스케일 효과로 이동 중인 항목 강조
  */
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Animated, Easing, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from 'expo-router';
@@ -45,10 +45,11 @@ export const RankingSection = ({
   const myAnimatedY = useRef(new Animated.Value(0)).current;
   const myAnimatedScale = useRef(new Animated.Value(1)).current;
 
-  // 밀려나는 항목들의 애니메이션 값 (최대 10개 지원)
-  const displacedAnimations = useRef(
-    Array.from({ length: 10 }, () => new Animated.Value(0))
-  ).current;
+  const animationOperation = useRef(0);
+  const displacedAnimations = useMemo(
+    () => Array.from({ length: participants.length }, () => new Animated.Value(0)),
+    [participants.length]
+  );
 
   // "나" 참가자 찾기
   const myParticipant = participants.find(p => p.isMe);
@@ -130,6 +131,7 @@ export const RankingSection = ({
 
   // 애니메이션 실행
   useEffect(() => {
+    const operation = ++animationOperation.current;
     if (previousRank === undefined || myCurrentRank <= 0 || totalSteps <= 0) {
       setDisplayOrder([...participants]);
       setIsAnimating(false);
@@ -204,13 +206,15 @@ export const RankingSection = ({
       scaleDownAnimation,
     ]);
 
-    animation.start(() => {
+    animation.start(({ finished }) => {
+      if (!finished || operation !== animationOperation.current) return;
       setIsAnimating(false);
       setDisplayOrder([...participants]);
     });
 
     // 컴포넌트 언마운트 시 애니메이션 정리
     return () => {
+      animationOperation.current += 1;
       animation.stop();
     };
   }, [
@@ -254,7 +258,7 @@ export const RankingSection = ({
     // 애니메이션 중 밀려나는 항목들 ("나" 위의 항목들)
     if (isAnimating && myInitialIndex > 0) {
       const displacedIndex = myInitialIndex - 1 - index;
-      if (displacedIndex >= 0 && displacedIndex < totalSteps) {
+      if (displacedIndex >= 0 && displacedIndex < totalSteps && displacedIndex < displacedAnimations.length) {
         return (
           <Animated.View
             style={[
@@ -293,12 +297,12 @@ export const RankingSection = ({
     }
     if (isAnimating && myInitialIndex > 0) {
       const displacedIndex = myInitialIndex - 1 - index;
-      if (displacedIndex >= 0 && displacedIndex < totalSteps) {
+      if (displacedIndex >= 0 && displacedIndex < totalSteps && displacedIndex < displacedAnimations.length) {
         return `displaced-${item.rank}-${index}`;
       }
     }
     return `${item.rank}`;
-  }, [isAnimating, myInitialIndex, totalSteps]);
+  }, [isAnimating, myInitialIndex, totalSteps, displacedAnimations.length]);
 
   return (
     <View style={styles.container}>

@@ -72,7 +72,8 @@ export const GlobalUnityHost: React.FC = () => {
       hostRef.current?.measureInWindow((x, y, width, height) => {
         const currentViewport = useUnityStore.getState().activeViewport;
         if (
-          measureToken !== renderedViewportMeasureTokenRef.current
+          !currentViewport
+          || measureToken !== renderedViewportMeasureTokenRef.current
           || width <= MIN_HOST_SIZE
           || height <= MIN_HOST_SIZE
           || !doesViewportMeasurementMatch(currentViewport, resolvedViewport)

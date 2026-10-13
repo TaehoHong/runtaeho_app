@@ -1,3 +1,4 @@
+import { doViewportFramesMatch as matchViewportFrames } from '~/features/unity/utils/viewportFrames';
 import type {
   RenderedUnityViewport,
   UnityViewport,
@@ -10,10 +11,7 @@ export const doShareViewportFramesMatch = (
   left: UnityViewportFrame,
   right: UnityViewportFrame
 ): boolean =>
-  Math.abs(left.x - right.x) <= VIEWPORT_FRAME_EPSILON
-  && Math.abs(left.y - right.y) <= VIEWPORT_FRAME_EPSILON
-  && Math.abs(left.width - right.width) <= VIEWPORT_FRAME_EPSILON
-  && Math.abs(left.height - right.height) <= VIEWPORT_FRAME_EPSILON;
+  matchViewportFrames(left, right, VIEWPORT_FRAME_EPSILON);
 
 export const isShareSurfaceAttached = (
   activeViewport: UnityViewport | null,

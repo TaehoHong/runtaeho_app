@@ -76,7 +76,7 @@ export class GoogleAuthStrategy implements AuthProviderStrategy {
       } else if (error.code === statusCodes.IN_PROGRESS) {
         throw AuthError.inProgress();
       } else {
-        console.error('Google Sign-In Error:', error);
+        console.error('Google Sign-In Error:');
         throw AuthError.unknown(error.message || 'Unknown error');
       }
     }
@@ -90,8 +90,8 @@ export class GoogleAuthStrategy implements AuthProviderStrategy {
     try {
       await GoogleSignin.signOut();
       console.log('✅ [GoogleAuthStrategy] Google Sign-Out 완료');
-    } catch (error) {
-      console.error('❌ [GoogleAuthStrategy] Google Sign-Out 실패:', error);
+    } catch {
+      console.error('❌ [GoogleAuthStrategy] Google Sign-Out 실패:');
       // 실패해도 앱 로그아웃은 진행되어야 하므로 에러를 throw하지 않음
     }
   }

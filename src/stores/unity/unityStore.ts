@@ -1,3 +1,4 @@
+import { doViewportFramesMatch as matchViewportFrames } from '~/features/unity/utils/viewportFrames';
 /**
  * Unity Store (Zustand)
  * 기존 unitySlice.ts에서 마이그레이션
@@ -71,10 +72,7 @@ const areViewportFramesEqual = (
   left: UnityViewportFrame,
   right: UnityViewportFrame
 ): boolean =>
-  Math.abs(left.x - right.x) <= VIEWPORT_FRAME_EPSILON
-  && Math.abs(left.y - right.y) <= VIEWPORT_FRAME_EPSILON
-  && Math.abs(left.width - right.width) <= VIEWPORT_FRAME_EPSILON
-  && Math.abs(left.height - right.height) <= VIEWPORT_FRAME_EPSILON;
+  matchViewportFrames(left, right, VIEWPORT_FRAME_EPSILON);
 
 const areActiveViewportsEqual = (
   left: UnityViewport | null,
@@ -380,7 +378,6 @@ export const useUnityStore = create<UnityState>((set) => ({
 
   markAvatarPayloadApplied: (hash) =>
     set({
-      currentAvatarPayloadHash: hash,
       lastAppliedAvatarHash: hash,
       lastInteraction: new Date().toISOString(),
     }),

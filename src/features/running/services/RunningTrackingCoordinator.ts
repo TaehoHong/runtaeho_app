@@ -103,6 +103,21 @@ export class RunningTrackingCoordinator {
   private appState: AppStateStatus = 'active';
   private source: TrackingSource = 'idle';
   private transitionInFlight = false;
+  private static operations: Promise<unknown> = Promise.resolve();
+  private generation = 0;
+  private executingGeneration = 0;
+
+  private enqueue<T>(operation: () => Promise<T>): Promise<T> {
+    const result = RunningTrackingCoordinator.operations.then(operation);
+    RunningTrackingCoordinator.operations = result.catch(() => undefined);
+    return result;
+  }
+
+  private assertCurrentOperation(): void {
+    if (this.executingGeneration !== this.generation) {
+      throw new Error('Tracking session superseded');
+    }
+  }
 
   private foregroundDistanceBase = 0;
   private foregroundLocationsBase: Location[] = [];
@@ -160,11 +175,13 @@ export class RunningTrackingCoordinator {
     });
   }
 
-  destroy(): void {
+  destroy(): Promise<void> {
+    const cleanup = this.resetSession();
     this.unsubscribeForegroundLocation();
     this.unsubscribeForegroundTracking();
     this.unsubscribeForegroundPaceSignal();
     this.listeners.clear();
+    return cleanup;
   }
 
   subscribe(listener: SnapshotListener): () => void {
@@ -192,7 +209,18 @@ export class RunningTrackingCoordinator {
     this.runningState = runningState;
   }
 
-  async startSession(recordId: number): Promise<void> {
+  startSession(recordId: number): Promise<void> {
+    const generation = ++this.generation;
+    this.transitionInFlight = true;
+    return this.enqueue(async () => {
+      if (generation !== this.generation) throw new Error('Tracking session superseded');
+      this.executingGeneration = generation;
+      await this.startSessionInternal(recordId);
+      if (generation !== this.generation) throw new Error('Tracking session superseded');
+    });
+  }
+
+  private async startSessionInternal(recordId: number): Promise<void> {
     this.currentRecordId = recordId;
     this.runningState = RunningState.Running;
     this.source = 'idle';
@@ -209,6 +237,7 @@ export class RunningTrackingCoordinator {
         await backgroundTaskService.startBackgroundTracking(recordId, {}, {
           shouldProcessLocations: false,
         });
+        this.assertCurrentOperation();
 
         if (this.appState !== 'active') {
           await this.startBackgroundSource({ requireRegisteredTask: true });
@@ -236,18 +265,28 @@ export class RunningTrackingCoordinator {
 
       await this.startBackgroundSource({ requireRegisteredTask: true });
     } catch (error) {
-      if (shouldCleanupBackgroundTask) {
-        backgroundTaskService.stopBackgroundTracking().catch(() => undefined);
-        backgroundTaskService.clearBackgroundData().catch(() => undefined);
+      try {
+        if (shouldCleanupBackgroundTask) await this.cleanupBackground();
+      } catch (cleanupError) {
+        console.error('[RunningTrackingCoordinator] Failed to clean up startup:', cleanupError);
+      } finally {
+        this.resetFailedStartState();
       }
-      this.resetFailedStartState();
       throw error;
     } finally {
       this.transitionInFlight = false;
     }
   }
 
-  async stopSession(): Promise<{ distance: number; locations: Location[] }> {
+  stopSession(): Promise<{ distance: number; locations: Location[] }> {
+    const generation = ++this.generation;
+    return this.enqueue(async () => {
+      this.executingGeneration = generation;
+      return this.stopSessionInternal();
+    });
+  }
+
+  private async stopSessionInternal(): Promise<{ distance: number; locations: Location[] }> {
     try {
       const hasRegisteredBackgroundTask = await backgroundTaskService.isTaskRegistered();
 
@@ -284,92 +323,79 @@ export class RunningTrackingCoordinator {
 
   pauseSession(): void {
     this.runningState = RunningState.Paused;
-
-    if (this.source === 'foreground') {
-      locationService.pauseTracking();
-      return;
-    }
-
-    if (this.source === 'background') {
-      backgroundTaskService.deactivateBackgroundSession().catch((error) => {
-        console.error('[RunningTrackingCoordinator] Failed to deactivate background session:', error);
-      });
-    }
+    const generation = this.generation;
+    void this.enqueue(async () => {
+      if (generation !== this.generation) return;
+      if (this.source === 'foreground') locationService.pauseTracking();
+      else if (this.source === 'background') await backgroundTaskService.deactivateBackgroundSession();
+    }).catch((error) => console.error('[RunningTrackingCoordinator] Failed to pause:', error));
   }
 
   resumeSession(): void {
     this.runningState = RunningState.Running;
+    const generation = this.generation;
+    void this.enqueue(async () => {
+      if (generation !== this.generation || this.currentRecordId === null) return;
+      if (this.source === 'foreground') locationService.resumeTracking();
+      else if (this.source === 'background') await backgroundTaskService.activateBackgroundSession();
+      else if (this.appState === 'active') await this.startForegroundSource();
+      else await this.startBackgroundSource();
+    }).catch((error) => console.error('[RunningTrackingCoordinator] Failed to resume:', error));
+  }
 
-    if (this.source === 'foreground') {
-      locationService.resumeTracking();
-      return;
-    }
-
-    if (this.source === 'background') {
-      backgroundTaskService.activateBackgroundSession().catch((error) => {
-        console.error('[RunningTrackingCoordinator] Failed to activate background session:', error);
-      });
-      return;
-    }
-
-    if (this.currentRecordId === null) return;
-
-    if (this.appState === 'active') {
-      void this.startForegroundSource().catch((error) => {
-        console.error('[RunningTrackingCoordinator] Failed to resume foreground tracking:', error);
-      });
-      return;
-    }
-
-    void this.startBackgroundSource().catch((error) => {
-      console.error('[RunningTrackingCoordinator] Failed to start background source:', error);
+  resetSession(): Promise<void> {
+    const generation = ++this.generation;
+    this.runningState = RunningState.Stopped;
+    return this.enqueue(async () => {
+      this.executingGeneration = generation;
+      locationService.stopTracking();
+      try {
+        await this.cleanupBackground();
+      } finally {
+        this.resetFailedStartState();
+      }
+    }).catch((error) => {
+      console.error('[RunningTrackingCoordinator] Failed to reset tracking:', error);
     });
   }
 
-  resetSession(): void {
-    this.currentRecordId = null;
-    this.runningState = RunningState.Stopped;
-    this.source = 'idle';
-    this.foregroundDistanceBase = 0;
-    this.foregroundLocationsBase = [];
-    this.foregroundLiveLocations = [];
-
-    locationService.stopTracking();
-    backgroundTaskService.stopBackgroundTracking().catch(() => undefined);
-    backgroundTaskService.clearBackgroundData().catch(() => undefined);
-
-    this.setSnapshot(EMPTY_SNAPSHOT);
+  private async cleanupBackground(): Promise<void> {
+    try {
+      await backgroundTaskService.stopBackgroundTracking();
+    } finally {
+      await backgroundTaskService.clearBackgroundData();
+    }
   }
 
   async handleAppStateChange(nextAppState: AppStateStatus): Promise<AppStateTransitionResult | null> {
-    const previousAppState = this.appState;
+    // Inactive (for example Control Center) is not a request to hand off tracking.
+    if (nextAppState !== 'active' && nextAppState !== 'background') return null;
+    if (this.appState === nextAppState) return null;
     this.appState = nextAppState;
-
-    if (previousAppState === nextAppState || this.currentRecordId === null) {
+    const generation = this.generation;
+    const wasStarting = this.transitionInFlight;
+    const transition = this.enqueue(async () => {
+      if (generation !== this.generation || this.currentRecordId === null) return null;
+      this.executingGeneration = generation;
+      let result: AppStateTransitionResult | null = null;
+      let target: AppStateStatus;
+      do {
+        target = this.appState;
+        if (target === 'background') result = await this.handleBackgroundEntry();
+        else if (target === 'active') await this.handleActiveEntry();
+      } while (generation === this.generation && target !== this.appState);
+      return generation === this.generation ? result : null;
+    });
+    if (wasStarting) {
+      void transition.catch((error) => {
+        console.error('[RunningTrackingCoordinator] Failed to handle app state change:', error);
+      });
       return null;
     }
-
-    if (this.transitionInFlight) {
-      return null;
-    }
-
-    this.transitionInFlight = true;
-
-    try {
-      if (nextAppState === 'background') {
-        return await this.handleBackgroundEntry();
-      }
-
-      if (nextAppState === 'active') {
-        await this.handleActiveEntry();
-      }
-    } catch (error) {
-      console.error('[RunningTrackingCoordinator] Failed to handle app state change:', error);
-    } finally {
-      this.transitionInFlight = false;
-    }
-
-    return null;
+    return transition.catch((error) => {
+      if (generation !== this.generation) return null;
+      throw error;
+    });
   }
 
   private async handleBackgroundEntry(): Promise<AppStateTransitionResult | null> {
@@ -378,6 +404,7 @@ export class RunningTrackingCoordinator {
         await this.startBackgroundSource();
         return null;
       } catch (error) {
+        this.assertCurrentOperation();
         return this.autoPauseAfterBackgroundFailure(error);
       }
     }
@@ -405,6 +432,7 @@ export class RunningTrackingCoordinator {
     }
 
     const backgroundState = await this.readBackgroundState();
+    this.assertCurrentOperation();
     this.setSnapshot(backgroundState.snapshot, false);
 
     if (this.runningState === RunningState.Running) {
@@ -438,9 +466,11 @@ export class RunningTrackingCoordinator {
       await backgroundTaskService.deactivateBackgroundSession();
     }
 
+    this.assertCurrentOperation();
     await locationService.startTracking({
       ...(filterState !== undefined && { filterState }),
     });
+    this.assertCurrentOperation();
     this.source = 'foreground';
     this.setSnapshot({
       source: 'foreground',
@@ -455,6 +485,7 @@ export class RunningTrackingCoordinator {
     }
 
     const isRegistered = await backgroundTaskService.isTaskRegistered();
+    this.assertCurrentOperation();
 
     if (!isRegistered && (this.appState !== 'active' || requireRegisteredTask)) {
       throw new Error(BACKGROUND_TASK_UNAVAILABLE_MESSAGE);
@@ -478,11 +509,13 @@ export class RunningTrackingCoordinator {
       await backgroundTaskService.persistBackgroundTrackingState(this.currentRecordId, seed, {
         shouldProcessLocations: true,
       });
+      this.assertCurrentOperation();
       await backgroundTaskService.activateBackgroundSession({ resetFilterState: false });
     } else {
       await backgroundTaskService.startBackgroundTracking(this.currentRecordId, seed);
     }
 
+    this.assertCurrentOperation();
     this.source = 'background';
     this.setSnapshot({
       source: 'background',
@@ -501,15 +534,18 @@ export class RunningTrackingCoordinator {
     this.setSnapshot(EMPTY_SNAPSHOT);
   }
 
-  private autoPauseAfterBackgroundFailure(error: unknown): AppStateTransitionResult {
+  private async autoPauseAfterBackgroundFailure(error: unknown): Promise<AppStateTransitionResult> {
     console.warn(
       '[RunningTrackingCoordinator] Auto-pausing session because background tracking is unavailable:',
       error
     );
 
     locationService.stopTracking();
-    backgroundTaskService.stopBackgroundTracking().catch(() => undefined);
-    backgroundTaskService.clearBackgroundData().catch(() => undefined);
+    try {
+      await this.cleanupBackground();
+    } catch (cleanupError) {
+      console.error('[RunningTrackingCoordinator] Failed to clean up paused session:', cleanupError);
+    }
 
     this.runningState = RunningState.Paused;
     this.source = 'idle';
@@ -571,6 +607,7 @@ export class RunningTrackingCoordinator {
   }
 
   private setSnapshot(nextSnapshot: Partial<TrackingSnapshot> | TrackingSnapshot, emit: boolean = true): void {
+    if (this.executingGeneration !== this.generation) return;
     const merged: TrackingSnapshot = {
       distance:
         'distance' in nextSnapshot && nextSnapshot.distance !== undefined

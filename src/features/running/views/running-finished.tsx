@@ -1,5 +1,9 @@
+import { queryClient, queryKeys } from '~/services/queryClient';
+import { leagueService } from '~/features/league/services/leagueService';
+import { getSessionSnapshot, isSessionCurrent } from '~/features/auth/stores/authStore';
+import { offlineStorageService } from '../services/OfflineStorageService';
 import { t, useAppLanguage } from '~/i18n';
-import React, { useCallback, useState, useMemo } from 'react';
+import React, { useCallback, useState, useMemo, useRef } from 'react';
 import { View, StyleSheet, ScrollView, Dimensions, Alert, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { useAppStore, RunningState } from '~/stores/app/appStore';
@@ -13,9 +17,8 @@ import { PointInfoBar } from './components/point-info-bar';
 import { AddShoeCard } from './components/add-shoe-card';
 import { useRunning } from '../contexts';
 import { runningService } from '../services/runningService';
-import { type Location, type RunningRecord } from '../models';
+import { type Location } from '../models';
 import { useShoeViewModel } from '~/features/shoes/viewmodels';
-import { leagueService } from '~/features/league/services/leagueService';
 import { useShareStore } from '~/features/share/stores/shareStore';
 import { useShareEntryTransitionStore } from '~/features/share/stores/shareEntryTransitionStore';
 import {
@@ -52,6 +55,7 @@ export const RunningFinishedView: React.FC = () => {
   const { shoes, mainShoe, isLoadingShoes } = useShoeViewModel();
   const [selectedShoeId, setSelectedShoeId] = useState<number | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
+  const confirmationRef = useRef(false);
 
   // 사용자 포인트 (Single Source of Truth: userStore)
   const totalPoint = useUserStore((state) => state.totalPoint);
@@ -148,6 +152,8 @@ export const RunningFinishedView: React.FC = () => {
   };
 
   const handleComplete = async () => {
+    if (confirmationRef.current) return;
+    const session = getSessionSnapshot();
     console.log('🏁 [RunningFinishedView] 러닝 완료 확인 버튼 눌러짐');
 
     // 10m 미만이면 API 호출 없이 초기화
@@ -167,57 +173,43 @@ export const RunningFinishedView: React.FC = () => {
     }
 
     try {
+      confirmationRef.current = true;
       setIsUpdating(true);
 
       // 선택된 신발이 있으면 runningRecord 업데이트
       console.log(`👟 [RunningFinishedView] 선택된 신발 ID: ${selectedShoeId}로 업데이트 중...`);
 
       const newShoeId = selectedShoeId ?? mainShoe?.id ?? currentRecord.shoeId;
-      const updatedRecord: RunningRecord = {
-        ...currentRecord,
-        ...(newShoeId != null && { shoeId: newShoeId }),
-      };
-
-      await runningService.updateRunningRecord(updatedRecord);
-      console.log('✅ [RunningFinishedView] 신발 정보 업데이트 완료');
-
-      // 리그 거리 업데이트 (순위 애니메이션을 위한 처리)
-      let rankForAnimation: number | null = null;
-      try {
-        // 1. 현재 리그 정보 조회
-        let currentLeague = await leagueService.getCurrentLeague();
-
-        // 리그 세션이 없으면 자동으로 리그 참가
-        if (!currentLeague) {
-          console.log('🏆 [RunningFinishedView] 리그 세션 없음, 자동 참가 진행...');
-          await leagueService.joinLeague();
-          console.log('✅ [RunningFinishedView] 리그 참가 완료');
-
-          // 참가 후 리그 정보 다시 조회
-          currentLeague = await leagueService.getCurrentLeague();
-        }
-
-        if (currentLeague) {
-          const myParticipant = currentLeague.participants.find(p => p.isMe);
-
-          if (myParticipant) {
-            const previousLeague = useAppStore.getState().leagueBeforeRunningEnd;
-            if (previousLeague?.sessionId === currentLeague.sessionId) {
-              rankForAnimation = previousLeague.rank;
-            }
-
-            // 2. 리그 참가자 거리 업데이트
-            await leagueService.updateParticipantDistance(myParticipant.id, finalSummary.distanceMeters);
-            console.log(`📊 [RunningFinishedView] 리그 거리 업데이트 완료: ${finalSummary.distanceMeters}m`);
-          }
-        }
-      } catch (leagueError) {
-        // 리그 관련 에러는 무시 (리그 참가 실패 등)
-        console.log('ℹ️ [RunningFinishedView] 리그 업데이트 스킵:', leagueError);
+      if (newShoeId != null) {
+        await offlineStorageService.addPendingShoePatch(currentRecord.id, newShoeId, session);
       }
+      if (!isSessionCurrent(session)) return;
+      // The selection is durable; replay waits for any pending end request first.
+      void offlineStorageService.serializeReplay(() => offlineStorageService.retryPendingShoePatches(session))
+        .catch(() => console.warn('[RunningFinishedView] Shoe update remains pending'));
+
+      const previousLeague = useAppStore.getState().leagueBeforeRunningEnd;
+      setPreviousLeagueRank(null);
+      void (async () => {
+        let league = await leagueService.getCurrentLeague();
+        if (!isSessionCurrent(session)) return;
+        if (!league) {
+          await leagueService.joinLeague();
+          if (!isSessionCurrent(session)) return;
+          league = await leagueService.getCurrentLeague();
+          if (!isSessionCurrent(session)) return;
+        }
+        if (league && previousLeague?.sessionId === league.sessionId) {
+          setPreviousLeagueRank(previousLeague.rank);
+        }
+        const participant = league?.participants.find(item => item.isMe);
+        if (participant) await leagueService.updateParticipantDistance(participant.id, finalSummary.distanceMeters);
+        if (isSessionCurrent(session)) {
+          await queryClient.invalidateQueries({ queryKey: queryKeys.league.current });
+        }
+      })().catch(() => console.warn('[RunningFinishedView] League update unavailable'));
 
       // 완료 화면에서 기다리는 동안 종료 전 순위가 소비되지 않도록, 이동 직전에 전달한다.
-      setPreviousLeagueRank(rankForAnimation);
       useAppStore.getState().setLeagueBeforeRunningEnd(null);
 
       // 러닝 상태 초기화
@@ -234,7 +226,8 @@ export const RunningFinishedView: React.FC = () => {
       console.error('❌ [RunningFinishedView] 러닝 완료 처리 실패:', error);
       Alert.alert(t("오류"), t("러닝 데이터 저장에 실패했습니다."));
     } finally {
-      setIsUpdating(false);
+      confirmationRef.current = false;
+      if (isSessionCurrent(session)) setIsUpdating(false);
     }
   };
 

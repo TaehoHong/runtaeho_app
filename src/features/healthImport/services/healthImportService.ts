@@ -1,3 +1,5 @@
+import { getSessionSnapshot, isSessionCurrent } from '~/features/auth/stores/authStore';
+import { SessionSupersededError } from '~/utils/storage/errors';
 import { Platform } from 'react-native';
 import { queryClient, queryKeys } from '~/services/queryClient';
 import { apiClient } from '~/services/api/client';
@@ -28,9 +30,15 @@ const logHealthImport = (message: string, data?: Record<string, unknown>) => {
   console.log(`[HealthImport] ${message}`);
 };
 
-const getErrorMessage = (error: unknown): string => {
-  if (error instanceof Error) return error.message;
-  return String(error);
+type SessionSnapshot = ReturnType<typeof getSessionSnapshot>;
+
+const assertCurrentSession = (snapshot: SessionSnapshot) => {
+  if (!isSessionCurrent(snapshot)) throw new SessionSupersededError();
+};
+
+const getErrorCode = (error: unknown): string => {
+  if (error instanceof SessionSupersededError) return 'session_superseded';
+  return 'health_import_failed';
 };
 
 const normalizeNumber = (value: number | null | undefined): number => {
@@ -116,31 +124,42 @@ const toBatchRecord = (workout: HealthRunningWorkout): HealthImportBatchRecord =
   };
 };
 
-const invalidateAfterImport = async (response: HealthImportBatchResponse) => {
+const invalidateAfterImport = async (response: HealthImportBatchResponse, snapshot: SessionSnapshot) => {
+  assertCurrentSession(snapshot);
   await queryClient.invalidateQueries({ queryKey: queryKeys.running.all });
+  assertCurrentSession(snapshot);
   await queryClient.invalidateQueries({ queryKey: queryKeys.statistics.all });
+  assertCurrentSession(snapshot);
   await queryClient.invalidateQueries({ queryKey: ['runningRecords'] });
+  assertCurrentSession(snapshot);
   await queryClient.invalidateQueries({ queryKey: queryKeys.healthImport.configuration });
 
   if (response.leagueDistanceChanged) {
+    assertCurrentSession(snapshot);
     await queryClient.invalidateQueries({ queryKey: queryKeys.league.current });
   }
 
   if (response.awardedPoint > 0) {
+    assertCurrentSession(snapshot);
     await queryClient.invalidateQueries({ queryKey: queryKeys.point.all });
+    assertCurrentSession(snapshot);
     await queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
+    assertCurrentSession(snapshot);
   }
+  assertCurrentSession(snapshot);
 };
 
-const finalizeSync = async (): Promise<HealthImportSyncResult> => {
+const finalizeSync = async (snapshot: SessionSnapshot): Promise<HealthImportSyncResult> => {
+  assertCurrentSession(snapshot);
   logHealthImport('finalize sync cursor');
-  const response = await healthImportService.importBatch({ records: [] });
-  await invalidateAfterImport(response);
+  const response = await healthImportService.importBatch({ records: [] }, snapshot);
+  await invalidateAfterImport(response, snapshot);
   return { importedCount: 0, duplicateCount: 0, awardedPoint: 0 };
 };
 
 const importWorkouts = async (
-  workouts: HealthRunningWorkout[]
+  workouts: HealthRunningWorkout[],
+  snapshot: SessionSnapshot
 ): Promise<HealthImportSyncResult> => {
   let importedCount = 0;
   let duplicateCount = 0;
@@ -151,14 +170,16 @@ const importWorkouts = async (
   }
 
   for (let index = 0; index < workouts.length; index += BATCH_SIZE) {
+    assertCurrentSession(snapshot);
     const records = workouts.slice(index, index + BATCH_SIZE).map(toBatchRecord);
     if (records.length === 0) continue;
 
     logHealthImport('import batch request', summarizeBatchRecords(records));
-    const response = await healthImportService.importBatch({ records }).catch((error: unknown) => {
-      logHealthImport('import batch failed', { error: getErrorMessage(error) });
+    const response = await healthImportService.importBatch({ records }, snapshot).catch((error: unknown) => {
+      logHealthImport('import batch failed', { errorCode: getErrorCode(error) });
       throw error;
     });
+    assertCurrentSession(snapshot);
     logHealthImport('import batch response', {
       createdCount: response.createdCount,
       updatedCount: response.updatedCount,
@@ -168,31 +189,41 @@ const importWorkouts = async (
     importedCount += response.createdCount + response.updatedCount;
     duplicateCount += response.duplicateCount;
     awardedPoint += response.awardedPoint;
-    await invalidateAfterImport(response);
+    await invalidateAfterImport(response, snapshot);
   }
 
   return { importedCount, duplicateCount, awardedPoint };
 };
 
 export const healthImportService = {
-  getConfiguration: async (): Promise<HealthImportConfiguration> => {
-    return userConfigurationService.get();
+  getConfiguration: async (snapshot = getSessionSnapshot()): Promise<HealthImportConfiguration> => {
+    assertCurrentSession(snapshot);
+    const configuration = await userConfigurationService.get(undefined, snapshot);
+    assertCurrentSession(snapshot);
+    return configuration;
   },
 
-  setHealthImportEnabled: async (enabled: boolean): Promise<HealthImportConfiguration> => {
+  setHealthImportEnabled: async (enabled: boolean, snapshot = getSessionSnapshot()): Promise<HealthImportConfiguration> => {
+    assertCurrentSession(snapshot);
     const request: UpdateHealthImportConfigurationRequest = { healthImportEnabled: enabled };
-    const data = await userConfigurationService.update(request);
+    const data = await userConfigurationService.update(request, undefined, snapshot);
+    assertCurrentSession(snapshot);
     await queryClient.invalidateQueries({ queryKey: queryKeys.healthImport.configuration });
+    assertCurrentSession(snapshot);
     return data;
   },
 
-  importBatch: async (request: HealthImportBatchRequest): Promise<HealthImportBatchResponse> => {
-    const { data } = await apiClient.post<HealthImportBatchResponse>(API_ENDPOINTS.RUNNING.IMPORT_BATCH, request);
+  importBatch: async (request: HealthImportBatchRequest, snapshot = getSessionSnapshot()): Promise<HealthImportBatchResponse> => {
+    assertCurrentSession(snapshot);
+    const { data } = await apiClient.post<HealthImportBatchResponse>(API_ENDPOINTS.RUNNING.IMPORT_BATCH, request, { sessionSnapshot: snapshot });
+    assertCurrentSession(snapshot);
     return data;
   },
 
-  sync: async (): Promise<HealthImportSyncResult> => {
-    const configuration = await healthImportService.getConfiguration();
+  sync: async (snapshot = getSessionSnapshot()): Promise<HealthImportSyncResult> => {
+    assertCurrentSession(snapshot);
+    const configuration = await healthImportService.getConfiguration(snapshot);
+    assertCurrentSession(snapshot);
     logHealthImport('sync start', {
       platform: Platform.OS,
       enabled: configuration.healthImportEnabled,
@@ -204,6 +235,7 @@ export const healthImportService = {
     }
 
     const available = await healthImportBridge.isAvailable();
+    assertCurrentSession(snapshot);
     logHealthImport('native availability checked', { available });
     if (!available) {
       logHealthImport('sync skipped: health unavailable');
@@ -213,6 +245,7 @@ export const healthImportService = {
     const permission = Platform.OS === 'android'
       ? await healthImportBridge.getPermissionStatus()
       : 'granted';
+    assertCurrentSession(snapshot);
     logHealthImport('permission checked', { permission });
     if (permission !== 'granted') {
       logHealthImport('sync skipped: permission not granted', { permission });
@@ -225,9 +258,13 @@ export const healthImportService = {
       startTimestamp,
       endTimestamp: nowTimestamp,
     }).catch((error: unknown) => {
-      logHealthImport('native workouts read failed', { error: getErrorMessage(error) });
+      logHealthImport('native workouts read failed', { errorCode: getErrorCode(error) });
       throw error;
     });
+    assertCurrentSession(snapshot);
+    if (workouts.some((workout) => workout.routeStatus === 'readFailed')) {
+      throw Object.assign(new Error('Health workout read failed'), { code: 'health_read_failed' });
+    }
     logHealthImport('native workouts read', summarizeWorkouts(workouts));
     const importableWorkouts = sortWorkoutsForCursor(workouts);
     logHealthImport('importable workouts selected', {
@@ -236,8 +273,9 @@ export const healthImportService = {
     });
 
     if (configuration.healthImportLastSyncedTimestamp == null) {
-      const result = await importWorkouts(importableWorkouts);
-      await finalizeSync();
+      const result = await importWorkouts(importableWorkouts, snapshot);
+      assertCurrentSession(snapshot);
+      await finalizeSync(snapshot);
       return result;
     }
 
@@ -245,6 +283,6 @@ export const healthImportService = {
       return { importedCount: 0, duplicateCount: 0, awardedPoint: 0 };
     }
 
-    return importWorkouts(importableWorkouts);
+    return importWorkouts(importableWorkouts, snapshot);
   },
 };

@@ -11,14 +11,10 @@ class RNHealthImportBridge: NSObject {
         let status: String
     }
 
-    private func logHealthRaw(_ message: String, _ values: [String: Any] = [:]) {
+    private func logHealthImport(_ message: String, _ values: [String: Any] = [:]) {
         #if DEBUG
         NSLog("[HealthImport][iOS] \(message) \(values)")
         #endif
-    }
-
-    private func timestamp(_ date: Date) -> Int {
-        return Int(date.timeIntervalSince1970)
     }
 
     private func errorInfo(_ error: Error?) -> [String: Any] {
@@ -75,17 +71,17 @@ class RNHealthImportBridge: NSObject {
             readTypes.insert(HKSeriesType.workoutRoute())
         }
 
-        logHealthRaw("requestAuthorization request", [
+        logHealthImport("requestAuthorization request", [
             "readTypes": readTypes.map { $0.identifier }.sorted(),
             "includeRoute": (options["includeRoute"] as? Bool) == true
         ])
         healthStore.requestAuthorization(toShare: nil, read: readTypes) { _, error in
             if let error = error {
-                self.logHealthRaw("requestAuthorization response", self.errorInfo(error))
+                self.logHealthImport("requestAuthorization response", self.errorInfo(error))
                 reject("health_permission_failed", error.localizedDescription, error)
                 return
             }
-            self.logHealthRaw("requestAuthorization response", ["success": true])
+            self.logHealthImport("requestAuthorization response", ["success": true])
             resolve("notDetermined")
         }
     }
@@ -112,11 +108,9 @@ class RNHealthImportBridge: NSObject {
         let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [datePredicate, runningPredicate])
         let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
 
-        logHealthRaw("HKSampleQuery workout request", [
+        logHealthImport("HKSampleQuery workout request", [
             "sampleType": HKObjectType.workoutType().identifier,
             "activityType": "running",
-            "startTimestamp": timestamp(startDate),
-            "endTimestamp": timestamp(endDate),
             "limit": limit,
             "sort": "startDate.asc"
         ])
@@ -125,16 +119,15 @@ class RNHealthImportBridge: NSObject {
             predicate: predicate,
             limit: limit,
             sortDescriptors: [sort]
-        ) { [weak self] _, samples, error in
-            guard let self = self else { return }
+        ) { _, samples, error in
             if let error = error {
-                self.logHealthRaw("HKSampleQuery workout response", self.errorInfo(error))
+                self.logHealthImport("HKSampleQuery workout response", self.errorInfo(error))
                 reject("health_read_failed", error.localizedDescription, error)
                 return
             }
 
             let workouts = (samples as? [HKWorkout]) ?? []
-            self.logHealthRaw("HKSampleQuery workout response", [
+            self.logHealthImport("HKSampleQuery workout response", [
                 "rawSampleCount": samples?.count ?? 0,
                 "workoutCount": workouts.count
             ])
@@ -146,22 +139,34 @@ class RNHealthImportBridge: NSObject {
             let group = DispatchGroup()
             let lock = NSLock()
             var records: [[String: Any]] = []
+            var readError: Error?
 
             for (index, workout) in workouts.enumerated() {
                 group.enter()
-                self.buildRecord(for: workout, index: index) { record in
+                self.buildRecord(for: workout, index: index) { result in
                     lock.lock()
-                    records.append(record)
+                    switch result {
+                    case .success(let record): records.append(record)
+                    case .failure(let error): if readError == nil { readError = error }
+                    }
                     lock.unlock()
                     group.leave()
                 }
             }
 
             group.notify(queue: .main) {
-                records.sort {
+                lock.lock()
+                let error = readError
+                var completedRecords = records
+                lock.unlock()
+                if let error = error {
+                    reject("health_read_failed", "Health workout metrics could not be read.", error)
+                    return
+                }
+                completedRecords.sort {
                     ($0["startTimestamp"] as? TimeInterval ?? 0) < ($1["startTimestamp"] as? TimeInterval ?? 0)
                 }
-                resolve(records)
+                resolve(completedRecords)
             }
         }
 
@@ -173,91 +178,99 @@ class RNHealthImportBridge: NSObject {
         reject("health_settings_unavailable", "Health permission settings cannot be opened directly on iOS.", nil)
     }
 
-    private func buildRecord(for workout: HKWorkout, index: Int, completion: @escaping ([String: Any]) -> Void) {
+    private func buildRecord(for workout: HKWorkout, index: Int, completion: @escaping (Result<[String: Any], Error>) -> Void) {
         let group = DispatchGroup()
         var routeResult = RouteReadResult(points: [], status: "notAvailable")
-        var averageHeartRate: Double?
+        let lock = NSLock()
+        var heartRateResult: Result<Double?, Error> = .success(nil)
 
-        logHealthRaw("HKWorkout raw response item", [
+        logHealthImport("HKWorkout response item", [
             "index": index,
-            "sourceBundleId": workout.sourceRevision.source.bundleIdentifier,
-            "startTimestamp": timestamp(workout.startDate),
-            "endTimestamp": timestamp(workout.endDate),
-            "durationSec": Int(workout.duration.rounded()),
-            "distanceMeters": Int((workout.totalDistance?.doubleValue(for: HKUnit.meter()) ?? 0).rounded()),
-            "calorieKcal": Int((workout.totalEnergyBurned?.doubleValue(for: HKUnit.kilocalorie()) ?? 0).rounded()),
             "hasDistance": workout.totalDistance != nil,
             "hasEnergy": workout.totalEnergyBurned != nil
         ])
 
         group.enter()
         readWorkoutRoute(workout, workoutIndex: index) { result in
+            lock.lock()
             routeResult = result
+            lock.unlock()
             group.leave()
         }
 
         group.enter()
-        readAverageHeartRate(startDate: workout.startDate, endDate: workout.endDate, workoutIndex: index) { value in
-            averageHeartRate = value
+        readAverageHeartRate(startDate: workout.startDate, endDate: workout.endDate, workoutIndex: index) { result in
+            lock.lock()
+            heartRateResult = result
+            lock.unlock()
             group.leave()
         }
 
         group.notify(queue: .global(qos: .userInitiated)) {
+            lock.lock()
+            let completedRoute = routeResult
+            let completedHeartRate = heartRateResult
+            lock.unlock()
+            let averageHeartRate: Double?
+            switch completedHeartRate {
+            case .success(let value): averageHeartRate = value
+            case .failure(let error):
+                completion(.failure(error))
+                return
+            }
             var record: [String: Any] = [
                 "sourceRecordId": "apple-health:\(workout.uuid.uuidString)",
                 "sourceBundleId": workout.sourceRevision.source.bundleIdentifier,
                 "startTimestamp": Int(workout.startDate.timeIntervalSince1970),
                 "endTimestamp": Int(workout.endDate.timeIntervalSince1970),
-                "distance": Int((workout.totalDistance?.doubleValue(for: HKUnit.meter()) ?? 0).rounded()),
                 "durationSec": Int(workout.duration.rounded()),
+                "distance": Int((workout.totalDistance?.doubleValue(for: HKUnit.meter()) ?? 0).rounded()),
                 "calorie": Int((workout.totalEnergyBurned?.doubleValue(for: HKUnit.kilocalorie()) ?? 0).rounded()),
                 "cadence": 0,
-                "gpsPoints": routeResult.points,
-                "routeStatus": routeResult.status
+                "gpsPoints": completedRoute.points,
+                "routeStatus": completedRoute.status
             ]
 
             if let averageHeartRate = averageHeartRate {
                 record["heartRate"] = Int(averageHeartRate.rounded())
             }
 
-            completion(record)
+            completion(.success(record))
         }
     }
 
-    private func readAverageHeartRate(startDate: Date, endDate: Date, workoutIndex: Int, completion: @escaping (Double?) -> Void) {
+    private func readAverageHeartRate(startDate: Date, endDate: Date, workoutIndex: Int, completion: @escaping (Result<Double?, Error>) -> Void) {
         guard let heartRateType = HKObjectType.quantityType(forIdentifier: .heartRate) else {
-            completion(nil)
+            completion(.success(nil))
             return
         }
 
         let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: [.strictStartDate])
-        logHealthRaw("HKStatisticsQuery heartRate request", [
+        logHealthImport("HKStatisticsQuery heartRate request", [
             "workoutIndex": workoutIndex,
             "quantityType": heartRateType.identifier,
-            "startTimestamp": timestamp(startDate),
-            "endTimestamp": timestamp(endDate),
             "options": "discreteAverage"
         ])
         let query = HKStatisticsQuery(quantityType: heartRateType, quantitySamplePredicate: predicate, options: .discreteAverage) {
-            [weak self] _, statistics, _ in
-            guard let self = self else {
-                completion(nil)
+            _, statistics, error in
+            if let error = error {
+                self.logHealthImport("HKStatisticsQuery heartRate failed", self.errorInfo(error))
+                completion(.failure(error))
                 return
             }
             let value = statistics?.averageQuantity()?.doubleValue(for: self.heartRateUnit)
-            self.logHealthRaw("HKStatisticsQuery heartRate response", [
+            self.logHealthImport("HKStatisticsQuery heartRate response", [
                 "workoutIndex": workoutIndex,
                 "hasAverage": value != nil,
-                "averageBpm": value.map { Int($0.rounded()) } ?? 0
             ])
-            completion(value)
+            completion(.success(value))
         }
         healthStore.execute(query)
     }
 
     private func readWorkoutRoute(_ workout: HKWorkout, workoutIndex: Int, completion: @escaping (RouteReadResult) -> Void) {
         guard #available(iOS 11.0, *) else {
-            logHealthRaw("HKSampleQuery route skipped", [
+            logHealthImport("HKSampleQuery route skipped", [
                 "workoutIndex": workoutIndex,
                 "reason": "iOS<11"
             ])
@@ -267,7 +280,7 @@ class RNHealthImportBridge: NSObject {
 
         let routeType = HKSeriesType.workoutRoute()
         let predicate = HKQuery.predicateForObjects(from: workout)
-        logHealthRaw("HKSampleQuery route request", [
+        logHealthImport("HKSampleQuery route request", [
             "workoutIndex": workoutIndex,
             "sampleType": routeType.identifier
         ])
@@ -279,7 +292,7 @@ class RNHealthImportBridge: NSObject {
             }
 
             if error != nil {
-                self.logHealthRaw("HKSampleQuery route response", [
+                self.logHealthImport("HKSampleQuery route response", [
                     "workoutIndex": workoutIndex
                 ].merging(self.errorInfo(error)) { _, new in new })
                 completion(RouteReadResult(points: [], status: "readFailed"))
@@ -287,7 +300,7 @@ class RNHealthImportBridge: NSObject {
             }
 
             let routes = (samples as? [HKWorkoutRoute]) ?? []
-            self.logHealthRaw("HKSampleQuery route response", [
+            self.logHealthImport("HKSampleQuery route response", [
                 "workoutIndex": workoutIndex,
                 "rawSampleCount": samples?.count ?? 0,
                 "routeCount": routes.count
@@ -304,71 +317,61 @@ class RNHealthImportBridge: NSObject {
 
             for (routeIndex, route) in routes.enumerated() {
                 group.enter()
-                self.logHealthRaw("HKWorkoutRouteQuery request", [
+                self.logHealthImport("HKWorkoutRouteQuery request", [
                     "workoutIndex": workoutIndex,
                     "routeIndex": routeIndex
                 ])
+                var finished = false
                 let locationQuery = HKWorkoutRouteQuery(route: route) { _, locations, done, error in
+                    lock.lock()
+                    if finished {
+                        lock.unlock()
+                        return
+                    }
+                    let terminal = done || error != nil
+                    if terminal { finished = true }
+                    if error != nil { didFail = true }
+                    if error == nil, let locations = locations {
+                        points.append(contentsOf: locations.map { self.mapLocation($0) })
+                    }
+                    lock.unlock()
                     if error != nil {
-                        self.logHealthRaw("HKWorkoutRouteQuery response", [
-                            "workoutIndex": workoutIndex,
-                            "routeIndex": routeIndex,
-                            "done": done
-                        ].merging(self.errorInfo(error)) { _, new in new })
-                        lock.lock()
-                        didFail = true
-                        lock.unlock()
+                        self.logHealthImport("HKWorkoutRouteQuery failed", self.errorInfo(error))
                     }
-
-                    if let locations = locations {
-                        let mapped = locations.map { location in
-                            self.mapLocation(location)
-                        }
-                        self.logHealthRaw("HKWorkoutRouteQuery response", [
-                            "workoutIndex": workoutIndex,
-                            "routeIndex": routeIndex,
-                            "locationCount": locations.count,
-                            "done": done,
-                            "firstTimestamp": locations.first.map { self.timestamp($0.timestamp) } ?? 0,
-                            "lastTimestamp": locations.last.map { self.timestamp($0.timestamp) } ?? 0
-                        ])
-                        lock.lock()
-                        points.append(contentsOf: mapped)
-                        lock.unlock()
-                    }
-
-                    if done {
-                        group.leave()
-                    }
+                    if terminal { group.leave() }
                 }
                 self.healthStore.execute(locationQuery)
             }
 
             group.notify(queue: .global(qos: .userInitiated)) {
-                points.sort {
+                lock.lock()
+                var completedPoints = points
+                let failed = didFail
+                lock.unlock()
+                completedPoints.sort {
                     ($0["timestampMs"] as? Int ?? 0) < ($1["timestampMs"] as? Int ?? 0)
                 }
-                if didFail {
-                    self.logHealthRaw("HKWorkoutRouteQuery completed", [
+                if failed {
+                    self.logHealthImport("HKWorkoutRouteQuery completed", [
                         "workoutIndex": workoutIndex,
                         "routeStatus": "readFailed",
-                        "totalLocationCount": points.count
+                        "totalLocationCount": completedPoints.count
                     ])
                     completion(RouteReadResult(points: [], status: "readFailed"))
-                } else if points.isEmpty {
-                    self.logHealthRaw("HKWorkoutRouteQuery completed", [
+                } else if completedPoints.isEmpty {
+                    self.logHealthImport("HKWorkoutRouteQuery completed", [
                         "workoutIndex": workoutIndex,
                         "routeStatus": "notAvailable",
                         "totalLocationCount": 0
                     ])
                     completion(RouteReadResult(points: [], status: "notAvailable"))
                 } else {
-                    self.logHealthRaw("HKWorkoutRouteQuery completed", [
+                    self.logHealthImport("HKWorkoutRouteQuery completed", [
                         "workoutIndex": workoutIndex,
                         "routeStatus": "available",
-                        "totalLocationCount": points.count
+                        "totalLocationCount": completedPoints.count
                     ])
-                    completion(RouteReadResult(points: points, status: "available"))
+                    completion(RouteReadResult(points: completedPoints, status: "available"))
                 }
             }
         }

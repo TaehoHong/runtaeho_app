@@ -75,6 +75,21 @@ export function useAutoUpdate(options: UseAutoUpdateOptions = {}): UseAutoUpdate
   // 중복 실행 방지를 위한 ref
   const isRunningRef = useRef(false);
   const hasStartedRef = useRef(false);
+  const retryCountRef = useRef(0);
+  const generationRef = useRef(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelFlow = useCallback(() => {
+    generationRef.current += 1;
+    if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+    retryTimerRef.current = null;
+    isRunningRef.current = false;
+  }, []);
+
+  useEffect(() => () => {
+    cancelFlow();
+    hasStartedRef.current = false;
+  }, [cancelFlow]);
 
   const {
     setStatus: setStoreStatus,
@@ -103,6 +118,8 @@ export function useAutoUpdate(options: UseAutoUpdateOptions = {}): UseAutoUpdate
     }
 
     isRunningRef.current = true;
+    const generation = generationRef.current;
+    const isCurrent = () => generationRef.current === generation;
 
     try {
       // 1. 업데이트 확인
@@ -112,6 +129,7 @@ export function useAutoUpdate(options: UseAutoUpdateOptions = {}): UseAutoUpdate
       setError(null);
 
       const result = await checkForUpdate();
+      if (!isCurrent()) return;
 
       if (!result.isAvailable) {
         console.log('[AutoUpdate] No update available');
@@ -131,10 +149,12 @@ export function useAutoUpdate(options: UseAutoUpdateOptions = {}): UseAutoUpdate
       setStoreProgress(0);
 
       await downloadUpdateService((progressInfo) => {
+        if (!isCurrent()) return;
         setProgress(progressInfo.percentage);
         setStoreProgress(progressInfo.percentage);
       });
 
+      if (!isCurrent()) return;
       console.log('[AutoUpdate] Download complete, applying...');
 
       // 3. 업데이트 적용 (앱 재시작)
@@ -145,25 +165,28 @@ export function useAutoUpdate(options: UseAutoUpdateOptions = {}): UseAutoUpdate
       // 잠시 대기 후 재시작 (UI 업데이트 반영)
       await new Promise((resolve) => setTimeout(resolve, 500));
 
+      if (!isCurrent()) return;
       await applyUpdateService();
       // reloadAsync가 성공하면 앱이 재시작되므로 여기까지 오지 않음
 
     } catch (err) {
+      if (!isCurrent()) return;
       console.error('[AutoUpdate] Error:', err);
       const updateError = err instanceof Error ? err : new Error(String(err));
       setError(updateError);
       setStoreStatus(UpdateStatus.ERROR);
 
       // 재시도 로직
-      const newRetryCount = retryCount + 1;
+      const newRetryCount = ++retryCountRef.current;
       setRetryCount(newRetryCount);
 
       if (newRetryCount < maxRetries) {
         console.log(`[AutoUpdate] Retrying (${newRetryCount}/${maxRetries})...`);
         isRunningRef.current = false;
         // 1초 후 자동 재시도
-        setTimeout(() => {
-          runUpdateFlow();
+        retryTimerRef.current = setTimeout(() => {
+          retryTimerRef.current = null;
+          if (isCurrent()) runUpdateFlow();
         }, 1000);
         return;
       }
@@ -172,29 +195,31 @@ export function useAutoUpdate(options: UseAutoUpdateOptions = {}): UseAutoUpdate
       setStatus('error');
       isRunningRef.current = false;
     }
-  }, [retryCount, maxRetries, skipIfDisabled, setStoreStatus, setStoreProgress, setAutoUpdateCompleted]);
+  }, [maxRetries, skipIfDisabled, setStoreStatus, setStoreProgress, setAutoUpdateCompleted]);
 
   /**
    * 수동 재시도
    */
   const retry = useCallback(() => {
     console.log('[AutoUpdate] Manual retry requested');
+    cancelFlow();
+    retryCountRef.current = 0;
     setRetryCount(0);
     setError(null);
-    isRunningRef.current = false;
     runUpdateFlow();
-  }, [runUpdateFlow]);
+  }, [cancelFlow, runUpdateFlow]);
 
   /**
    * 건너뛰기
    */
   const skip = useCallback(() => {
     console.log('[AutoUpdate] Skipped by user');
+    cancelFlow();
     setStatus('skipped');
     setError(null);
     setAutoUpdateCompleted(true);
     isRunningRef.current = false;
-  }, [setAutoUpdateCompleted]);
+  }, [cancelFlow, setAutoUpdateCompleted]);
 
   /**
    * 수동 시작

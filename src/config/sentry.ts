@@ -52,16 +52,12 @@ export const initializeSentry = () => {
     enabled: true,
 
     // 사용자 정보 자동 수집 비활성화 (개인정보 보호)
-    sendDefaultPii: true,
+    sendDefaultPii: false,
 
     // 에러 필터링
     beforeSend(event, hint) {
-      // 개발 환경에서도 콘솔에 출력
-      if (__DEV__) {
-        console.error('Sentry Event (sending to Sentry):', event);
-        console.error('Original Error:', hint.originalException);
-      }
-
+      // Request metadata may contain OAuth codes, tokens and user payloads.
+      if (event.request) event.request = event.request.method ? { method: event.request.method } : {};
       // 특정 에러 무시 (예: 네트워크 타임아웃)
       const error = hint.originalException as Error;
       if (error?.message?.includes('Network request failed')) {
@@ -73,12 +69,13 @@ export const initializeSentry = () => {
 
     // Breadcrumb 필터링
     beforeBreadcrumb(breadcrumb) {
-      // 민감한 정보가 포함된 breadcrumb 제외
-      if (breadcrumb.category === 'console' && breadcrumb.data?.arguments) {
-        const args = breadcrumb.data.arguments;
-        if (args.some((arg: string) => arg?.includes('token') || arg?.includes('password'))) {
-          return null;
-        }
+      // Console arguments are free-form objects and cannot be safely allowlisted.
+      if (breadcrumb.category === 'console') return null;
+      if (breadcrumb.type === 'http' || breadcrumb.category === 'http' || breadcrumb.category === 'fetch' || breadcrumb.category === 'xhr') {
+        return { ...breadcrumb, message: 'HTTP request', data: {
+          method: breadcrumb.data?.method,
+          status_code: breadcrumb.data?.status_code,
+        } };
       }
       return breadcrumb;
     },
@@ -110,7 +107,7 @@ const isSentryEnabled = (): boolean => {
  */
 export const reportError = (error: Error, context?: Record<string, unknown>) => {
   if (!isSentryEnabled()) {
-    console.log('[Sentry Disabled] Error:', error.message, context);
+    console.log('[Sentry Disabled] Error');
     return;
   }
   Sentry.captureException(error, {
@@ -125,7 +122,7 @@ export const reportError = (error: Error, context?: Record<string, unknown>) => 
  */
 export const reportMessage = (message: string, level: Sentry.SeverityLevel = 'info') => {
   if (!isSentryEnabled()) {
-    console.log(`[Sentry Disabled] Message (${level}):`, message);
+    console.log(`[Sentry Disabled] Message (${level})`);
     return;
   }
   Sentry.captureMessage(message, level);
@@ -136,7 +133,7 @@ export const reportMessage = (message: string, level: Sentry.SeverityLevel = 'in
  */
 export const setUserContext = (userId: string, email: string, username: string) => {
   if (!isSentryEnabled()) {
-    console.log('[Sentry Disabled] Set User Context:', { userId, email, username });
+    console.log('[Sentry Disabled] Set User Context');
     return;
   }
   Sentry.setUser({
@@ -162,7 +159,7 @@ export const clearUserContext = () => {
  */
 export const addTag = (key: string, value: string) => {
   if (!isSentryEnabled()) {
-    console.log('[Sentry Disabled] Add Tag:', { key, value });
+    console.log('[Sentry Disabled] Add Tag');
     return;
   }
   Sentry.setTag(key, value);
@@ -173,7 +170,7 @@ export const addTag = (key: string, value: string) => {
  */
 export const addContext = (name: string, context: Record<string, unknown>) => {
   if (!isSentryEnabled()) {
-    console.log('[Sentry Disabled] Add Context:', { name, context });
+    console.log('[Sentry Disabled] Add Context');
     return;
   }
   Sentry.setContext(name, context);
@@ -184,7 +181,7 @@ export const addContext = (name: string, context: Record<string, unknown>) => {
  */
 export const addBreadcrumb = (message: string, category: string, data?: Record<string, unknown>) => {
   if (!isSentryEnabled()) {
-    console.log('[Sentry Disabled] Add Breadcrumb:', { message, category, data });
+    console.log('[Sentry Disabled] Add Breadcrumb');
     return;
   }
   const breadcrumb: Sentry.Breadcrumb = {

@@ -1,5 +1,7 @@
+import { routerMock } from '~/test-utils/mocks/native';
+import { LeagueResultStatus, LeagueTierType } from '~/features/league/models';
 import React from 'react';
-import { screen } from '@testing-library/react-native';
+import { act, screen } from '@testing-library/react-native';
 import { LeagueView } from '~/features/league/views/LeagueView';
 import { renderWithProviders } from '~/test-utils/renderWithProviders';
 import { resetAllStores } from '~/test-utils/resetState';
@@ -76,6 +78,20 @@ describe('LeagueView', () => {
       error: null,
       handleRefresh: mockHandleRefresh,
     });
+  });
+
+  it('routes an unchecked result arriving after the initial empty render only once', () => {
+    renderWithProviders(<LeagueView />);
+    const pending = {
+      previousTier: LeagueTierType.BRONZE, currentTier: LeagueTierType.BRONZE,
+      resultStatus: LeagueResultStatus.MAINTAINED, finalRank: 3,
+      totalParticipants: 12, totalDistance: 1000, rewardPoints: null, participants: [],
+    };
+    act(() => useLeagueCheckStore.getState().setChecked(pending));
+    expect(routerMock.push).toHaveBeenCalledTimes(1);
+    expect(useLeagueCheckStore.getState().pendingResult).toBeNull();
+    act(() => useLeagueCheckStore.getState().setChecked(pending));
+    expect(routerMock.push).toHaveBeenCalledTimes(1);
   });
 
   it('LEAGUE-SCREEN-001 renders not-joined state when user has no league data', () => {

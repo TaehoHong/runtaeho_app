@@ -1,3 +1,5 @@
+import { getSessionSnapshot, isSessionCurrent } from '~/features/auth/stores/authStore';
+import { SessionSupersededError } from '~/utils/storage/errors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useState } from 'react';
 import { healthImportBridge } from '../native/HealthImportBridge';
@@ -24,8 +26,8 @@ export const useHealthPermissionModal = () => {
       }
 
       setVisible(true);
-    } catch (error) {
-      console.warn('[HealthImport] 최초 Health 권한 안내 확인 실패:', error);
+    } catch {
+      console.warn('[HealthImport] permission notice check failed');
     }
   }, []);
 
@@ -36,16 +38,20 @@ export const useHealthPermissionModal = () => {
 
   const requestPermission = useCallback(() => {
     setVisible(false);
+    const snapshot = getSessionSnapshot();
     void (async () => {
       try {
         await healthImportBridge.requestPermissions({
           includeHistory: true,
           includeRoute: true,
         });
-        await healthImportService.setHealthImportEnabled(true);
-        await healthImportService.sync();
+        if (!isSessionCurrent(snapshot)) throw new SessionSupersededError();
+        await healthImportService.setHealthImportEnabled(true, snapshot);
+        await healthImportService.sync(snapshot);
       } catch (error) {
-        console.warn('[HealthImport] 최초 Health 권한 요청 실패:', error);
+        console.warn('[HealthImport] permission request failed', {
+          errorCode: error instanceof SessionSupersededError ? 'session_superseded' : 'health_permission_failed',
+        });
       } finally {
         await markSeen();
       }

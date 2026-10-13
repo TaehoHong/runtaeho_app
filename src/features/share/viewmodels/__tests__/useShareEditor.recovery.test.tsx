@@ -1,3 +1,5 @@
+import { manipulateAsync } from 'expo-image-manipulator';
+import * as FileSystem from 'expo-file-system/legacy';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import type { BackgroundOption, PoseOption, ShareRunningData } from '~/features/share/models/types';
 import { useShareEditor } from '~/features/share/viewmodels/useShareEditor';
@@ -20,6 +22,7 @@ const mockStartUnity = jest.fn();
 
 jest.mock('expo-file-system/legacy', () => ({
   readAsStringAsync: jest.fn().mockResolvedValue('photo-base64'),
+  deleteAsync: jest.fn().mockResolvedValue(undefined),
   EncodingType: {
     Base64: 'base64',
   },
@@ -432,4 +435,23 @@ describe('useShareEditor recovery', () => {
     expect(mockSetCharacterVisible).not.toHaveBeenCalled();
     expect(mockStopCharacter).not.toHaveBeenCalled();
   });
+  it('does not replay a resized photo after a newer color selection or result restore', async () => {
+    readinessState.canSendMessage = true;
+    readinessState.isInitialAvatarSynced = true;
+    readinessState.isReady = true;
+    const { result, unmount } = renderHook(() => useShareEditor({ runningData: createRunningData() }));
+    await waitFor(() => expect(mockSetCharacterVisible).toHaveBeenCalled());
+    let resolve!: (value: Awaited<ReturnType<typeof manipulateAsync>>) => void;
+    jest.mocked(manipulateAsync).mockImplementationOnce(() => new Promise((done) => { resolve = done; }));
+    let pending!: Promise<void>;
+    act(() => { pending = result.current.setSelectedBackground({ id: 'photo', name: 'Photo', type: 'photo', photoUri: 'file://original.jpg', source: 'file://original.jpg' }); });
+    await act(async () => result.current.setSelectedBackground(customBackground));
+    await act(async () => result.current.restoreRunningResultDefaults());
+    await act(async () => { resolve({ uri: 'file://resized.jpg', width: 1080, height: 1080 }); await pending; });
+    expect(mockSetBackgroundFromPhoto).not.toHaveBeenCalled();
+    expect(FileSystem.deleteAsync).toHaveBeenCalledWith('file://resized.jpg', { idempotent: true });
+    expect(FileSystem.deleteAsync).not.toHaveBeenCalledWith('file://original.jpg', expect.anything());
+    unmount();
+  });
+
 });

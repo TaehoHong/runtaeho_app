@@ -28,10 +28,10 @@ export const useGetPointHistories = (
  */
 export const useInfinitePointHistories = (
   params: Omit<PointHistoryRequest, 'cursor'>,
-  options?: { enabled?: boolean }
+  options?: { enabled?: boolean; initialCursor?: number | undefined }
 ) => {
   return useInfiniteQuery({
-    queryKey: queryKeys.point.infiniteHistory(params),
+    queryKey: queryKeys.point.infiniteHistory({ ...params, initialCursor: options?.initialCursor }),
     queryFn: ({ pageParam }) => {
       const queryParams: PointHistoryRequest = {
         ...params,
@@ -39,11 +39,11 @@ export const useInfinitePointHistories = (
       };
       return pointService.getPointHistories(queryParams);
     },
-    initialPageParam: undefined as number | undefined,
+    initialPageParam: options?.initialCursor as number | undefined,
     getNextPageParam: (lastPage) => {
       return lastPage.hasNext && lastPage.cursor !== undefined ? lastPage.cursor : undefined;
     },
-    ...options,
+    enabled: options?.enabled ?? true,
   });
 };
 

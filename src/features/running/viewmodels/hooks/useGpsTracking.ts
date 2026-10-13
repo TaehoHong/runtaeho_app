@@ -139,7 +139,7 @@ export const useGpsTracking = ({
         if (result?.autoPaused) {
           onAutoPauseRef.current?.();
         }
-      });
+      }).catch((error) => console.error('[useGpsTracking] App state handoff failed:', error));
     });
 
     return () => {

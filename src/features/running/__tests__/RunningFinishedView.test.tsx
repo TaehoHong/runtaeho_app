@@ -1,5 +1,9 @@
+import { useUserStore } from '~/stores/user/userStore';
+import { getSessionSnapshot } from '~/features/auth/stores/authStore';
+import { queryClient, queryKeys } from '~/services/queryClient';
 import React from 'react';
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { Alert } from 'react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { RunningFinishedView } from '~/features/running/views/running-finished';
 import { RunningState, useAppStore } from '~/stores/app/appStore';
 import { renderWithProviders } from '~/test-utils/renderWithProviders';
@@ -8,8 +12,12 @@ import { resetAllStores } from '~/test-utils/resetState';
 const mockUseRunning = jest.fn();
 const mockUseShoeViewModel = jest.fn();
 const mockUpdateRunningRecord = jest.fn();
+const mockAddPendingShoePatch = jest.fn();
+const mockRetryPendingShoePatches = jest.fn();
+const mockSerializeReplay = jest.fn();
 const mockGetRunningRecordItems = jest.fn();
 const mockGetCurrentLeague = jest.fn();
+const mockJoinLeague = jest.fn();
 const mockUpdateParticipantDistance = jest.fn();
 const mockRouterReplace = jest.fn();
 const mockRouterPush = jest.fn();
@@ -41,10 +49,18 @@ jest.mock('~/features/running/services/runningService', () => ({
   },
 }));
 
+jest.mock('~/features/running/services/OfflineStorageService', () => ({
+  offlineStorageService: {
+    addPendingShoePatch: (...args: unknown[]) => mockAddPendingShoePatch(...args),
+    retryPendingShoePatches: (...args: unknown[]) => mockRetryPendingShoePatches(...args),
+    serializeReplay: (...args: unknown[]) => mockSerializeReplay(...args),
+  },
+}));
+
 jest.mock('~/features/league/services/leagueService', () => ({
   leagueService: {
     getCurrentLeague: (...args: unknown[]) => mockGetCurrentLeague(...args),
-    joinLeague: jest.fn(),
+    joinLeague: (...args: unknown[]) => mockJoinLeague(...args),
     updateParticipantDistance: (...args: unknown[]) => mockUpdateParticipantDistance(...args),
   },
 }));
@@ -114,6 +130,7 @@ describe('RunningFinishedView', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     resetAllStores();
+    useUserStore.setState({ currentUser: { id: 7, nickname: 'runner', userAccounts: [], level: 1, createdAt: new Date(0) } });
     useAppStore.getState().setRunningState(RunningState.Finished);
 
     mockUseRunning.mockReturnValue({
@@ -151,6 +168,9 @@ describe('RunningFinishedView', () => {
     });
 
     mockUpdateRunningRecord.mockResolvedValue(undefined);
+    mockAddPendingShoePatch.mockResolvedValue(undefined);
+    mockRetryPendingShoePatches.mockResolvedValue(undefined);
+    mockSerializeReplay.mockImplementation((action: () => Promise<void>) => action());
     mockGetRunningRecordItems.mockResolvedValue([]);
     mockGetCurrentLeague.mockRejectedValue(new Error('skip league'));
   });
@@ -161,12 +181,10 @@ describe('RunningFinishedView', () => {
     fireEvent.press(screen.getByText('확인'));
 
     await waitFor(() => {
-      expect(mockUpdateRunningRecord).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: 303,
-          shoeId: 11,
-        })
-      );
+      expect(mockAddPendingShoePatch).toHaveBeenCalledWith(303, 11, getSessionSnapshot());
+      expect(mockSerializeReplay).toHaveBeenCalledTimes(1);
+      expect(mockRetryPendingShoePatches).toHaveBeenCalledWith(getSessionSnapshot());
+      expect(mockRouterReplace).toHaveBeenCalledWith('/(tabs)/league');
     });
   });
 
@@ -280,4 +298,61 @@ describe('RunningFinishedView', () => {
       }));
     });
   });
+  it('navigates after shoe selection is durable without waiting for replay', async () => {
+    let finishReplay!: () => void;
+    mockRetryPendingShoePatches.mockImplementationOnce(() => new Promise<void>((resolve) => { finishReplay = resolve; }));
+    renderWithProviders(<RunningFinishedView />);
+    fireEvent.press(screen.getByText('확인'));
+    await waitFor(() => expect(mockRouterReplace).toHaveBeenCalledWith('/(tabs)/league'));
+    expect(mockAddPendingShoePatch).toHaveBeenCalledWith(303, 11, getSessionSnapshot());
+    expect(mockRetryPendingShoePatches).toHaveBeenCalledTimes(1);
+    expect(mockRouterReplace.mock.invocationCallOrder[0]).toBeGreaterThan(mockAddPendingShoePatch.mock.invocationCallOrder[0]!);
+    await act(async () => finishReplay());
+  });
+
+  it('keeps the finished screen and allows retry when durable shoe selection fails', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    try {
+      mockAddPendingShoePatch.mockRejectedValueOnce(new Error('storage unavailable'));
+      renderWithProviders(<RunningFinishedView />);
+      fireEvent.press(screen.getByText('확인'));
+      await waitFor(() => expect(alert).toHaveBeenCalled());
+      expect(mockRouterReplace).not.toHaveBeenCalled();
+      expect(mockRetryPendingShoePatches).not.toHaveBeenCalled();
+      expect(useAppStore.getState().runningState).toBe(RunningState.Finished);
+      fireEvent.press(screen.getByText('확인'));
+      await waitFor(() => expect(mockRouterReplace).toHaveBeenCalledWith('/(tabs)/league'));
+      expect(mockAddPendingShoePatch).toHaveBeenCalledTimes(2);
+    } finally {
+      alert.mockRestore();
+    }
+  });
+
+  it.each([false, true])('refreshes the league after deferred joining only for the same session (switched=%s)', async (switched) => {
+    const invalidate = jest.spyOn(queryClient, 'invalidateQueries').mockResolvedValue(undefined);
+    let finishJoin!: () => void;
+    mockGetCurrentLeague.mockResolvedValueOnce(null).mockResolvedValue({ sessionId: 1, participants: [{ id: 11, rank: 3, isMe: true }] });
+    mockJoinLeague.mockImplementationOnce(() => new Promise<void>((resolve) => { finishJoin = resolve; }));
+    try {
+      renderWithProviders(<RunningFinishedView />);
+      fireEvent.press(screen.getByText('확인'));
+      await waitFor(() => expect(mockRouterReplace).toHaveBeenCalledWith('/(tabs)/league'));
+      expect(mockJoinLeague).toHaveBeenCalledTimes(1);
+      expect(invalidate).not.toHaveBeenCalled();
+      if (switched) {
+        useUserStore.setState({ currentUser: { id: 8, nickname: 'other runner', userAccounts: [], level: 1, createdAt: new Date(0) } });
+      }
+      await act(async () => finishJoin());
+      if (switched) {
+        expect(invalidate).not.toHaveBeenCalled();
+        expect(mockUpdateParticipantDistance).not.toHaveBeenCalled();
+      } else {
+        expect(mockUpdateParticipantDistance).toHaveBeenCalledWith(11, 2000);
+        expect(invalidate).toHaveBeenCalledWith({ queryKey: queryKeys.league.current });
+      }
+    } finally {
+      invalidate.mockRestore();
+    }
+  });
+
 });

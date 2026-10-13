@@ -4,6 +4,7 @@
  * RTK Query → Axios
  */
 
+import type { AxiosRequestConfig } from 'axios';
 import { userDataDtoToUser, type User, type UserDataDto } from '~/features/user/models';
 import { apiClient } from '../../../services/api/client';
 import { API_ENDPOINTS } from '../../../services/api/config';
@@ -34,8 +35,10 @@ export const userService = {
    * 현재 사용자 데이터 조회 (UserDataDto)
    * 기존: getUserData query
    */
-  getUserData: async (): Promise<UserDataDto> => {
-    const { data } = await apiClient.get<UserDataDto>(API_ENDPOINTS.USER.ME);
+  getUserData: async (config?: AxiosRequestConfig): Promise<UserDataDto> => {
+    const { data } = config === undefined
+      ? await apiClient.get<UserDataDto>(API_ENDPOINTS.USER.ME)
+      : await apiClient.get<UserDataDto>(API_ENDPOINTS.USER.ME, config);
     return data;
   },
 

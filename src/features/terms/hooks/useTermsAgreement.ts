@@ -7,7 +7,8 @@ import { useState } from 'react';
 import { Alert } from 'react-native';
 import { useTermsStore } from '../stores';
 import { termsApiService } from '../services';
-import { silentTokenRefreshService } from '~/features/auth/services/SilentTokenRefreshService';
+import { getSessionSnapshot, isSessionGenerationCurrent } from '~/features/auth/stores/authStore';
+import { SessionSupersededError } from '~/utils/storage/errors';
 import { useAuth } from '~/features/auth/hooks/useAuth';
 
 export const useTermsAgreement = () => {
@@ -33,6 +34,7 @@ export const useTermsAgreement = () => {
       return;
     }
 
+    const snapshot = getSessionSnapshot();
     setIsSubmitting(true);
 
     try {
@@ -64,7 +66,12 @@ export const useTermsAgreement = () => {
       console.log('✅ [TERMS_AGREEMENT] 약관 동의 저장 완료');
 
       // 4. 토큰 재발행 API 호출 (isAgreedOnTerms=true 토큰 발급)
-      const tokenResponse = await silentTokenRefreshService.performSilentRefresh();
+      if (!isSessionGenerationCurrent(snapshot.generation)) throw new SessionSupersededError();
+      // Lazy loading avoids the apiClient / refresh coordinator initialization cycle.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { tokenRefreshInterceptor } = require('~/shared/services/TokenRefreshInterceptor') as typeof import('~/shared/services/TokenRefreshInterceptor');
+      const tokenResponse = await tokenRefreshInterceptor.refreshAfterConsent();
+      if (!isSessionGenerationCurrent(snapshot.generation)) throw new SessionSupersededError();
 
       console.log('✅ [TERMS_AGREEMENT] 토큰 재발행 완료 (isAgreedOnTerms=true)');
 
@@ -77,7 +84,8 @@ export const useTermsAgreement = () => {
       console.log('✅ [TERMS_AGREEMENT] 약관 동의 완료 (AuthProvider가 라우팅 처리)');
 
     } catch (error: any) {
-      console.error('❌ [TERMS_AGREEMENT] 약관 동의 처리 실패:', error);
+      if (error instanceof SessionSupersededError || !isSessionGenerationCurrent(snapshot.generation)) return;
+      console.error('[Terms] agreement failed', { status: error.response?.status });
 
       if (error.response?.status === 401) {
         // 토큰 만료

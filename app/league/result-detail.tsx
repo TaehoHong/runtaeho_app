@@ -11,7 +11,7 @@ import { useEffect } from 'react';
 import { BackHandler } from 'react-native';
 import { useLocalSearchParams, Redirect, useNavigation } from 'expo-router';
 import { LeagueResultDetailView } from '~/features/league/views';
-import type { LeagueResult } from '~/features/league/models';
+import { parseLeagueResult } from '~/features/league/models/parseLeagueResult';
 
 export default function LeagueResultDetailScreen() {
   const params = useLocalSearchParams<{ resultData?: string }>();
@@ -34,19 +34,10 @@ export default function LeagueResultDetailScreen() {
     return () => backHandler.remove();
   }, []);
 
-  // resultData가 없으면 리그 메인으로 리다이렉트
-  if (!params.resultData) {
-    console.warn('[LEAGUE_RESULT_DETAIL] resultData 없음, 리다이렉트');
-    return <Redirect href={'/(tabs)/league' as any} />;
-  }
-
-  // JSON 파싱
-  let result: LeagueResult;
-  try {
-    result = JSON.parse(params.resultData) as LeagueResult;
-  } catch (error) {
-    console.error('[LEAGUE_RESULT_DETAIL] JSON 파싱 실패:', error);
-    return <Redirect href={'/(tabs)/league' as any} />;
+  const result = parseLeagueResult(params.resultData);
+  if (!result) {
+    console.warn('[LEAGUE_RESULT_DETAIL] 유효하지 않은 결과, 리다이렉트');
+    return <Redirect href="/(tabs)/league" />;
   }
 
   console.log('🏆 [LEAGUE_RESULT_DETAIL] 리그 결과 상세 화면 렌더링');

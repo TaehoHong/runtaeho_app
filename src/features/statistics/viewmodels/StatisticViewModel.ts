@@ -10,6 +10,7 @@ import {
   getStartOfMonth,
   getStartOfYear,
   getEndOfPeriod,
+  parseChartDate,
 } from '../models';
 import { useGetStatisticsSummary } from '../services';
 import { RunningStatusFormat } from '~/shared/utils/formatters';
@@ -66,33 +67,40 @@ export const useStatisticsViewModel = (
   referenceDate: Date = new Date()
 ) => {
   const language = useAppLanguage();
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   // Period에 따른 날짜 범위 계산 (현재 기간)
   const { startDateTime, endDateTime } = useMemo(() => {
     return calculateDateRange(period, referenceDate);
-  }, [period, referenceDate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- A time zone change must recompute local Date bounds.
+  }, [period, referenceDate, timeZone]);
 
   // 이전 기간 날짜 범위 계산
   const prevReferenceDate = useMemo(() => {
     return calculateNextReferenceDate(referenceDate, period, PeriodDirection.PREVIOUS);
-  }, [referenceDate, period]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- A time zone change must recompute local Date bounds.
+  }, [referenceDate, period, timeZone]);
 
   const { startDateTime: prevStartDateTime, endDateTime: prevEndDateTime } = useMemo(() => {
     return calculateDateRange(period, prevReferenceDate);
-  }, [period, prevReferenceDate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- A time zone change must recompute local Date bounds.
+  }, [period, prevReferenceDate, timeZone]);
 
   // 다음 기간 날짜 범위 계산
   const nextReferenceDate = useMemo(() => {
     return calculateNextReferenceDate(referenceDate, period, PeriodDirection.NEXT);
-  }, [referenceDate, period]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- A time zone change must recompute local Date bounds.
+  }, [referenceDate, period, timeZone]);
 
   const { startDateTime: nextStartDateTime, endDateTime: nextEndDateTime } = useMemo(() => {
     return calculateDateRange(period, nextReferenceDate);
-  }, [period, nextReferenceDate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- A time zone change must recompute local Date bounds.
+  }, [period, nextReferenceDate, timeZone]);
 
   // 다음 기간이 미래인지 체크
   const isNextFuture = useMemo(() => {
     return isFutureDate(nextReferenceDate, period);
-  }, [nextReferenceDate, period]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- A time zone change must recompute local Date bounds.
+  }, [nextReferenceDate, period, timeZone]);
 
   // 백엔드 통계 조회 (현재 기간)
   // period가 변경되면 자동으로 새로운 쿼리 실행
@@ -106,6 +114,7 @@ export const useStatisticsViewModel = (
     startDateTime,
     endDateTime,
     statisticType: period,
+    timeZone,
   });
 
   // 이전 기간 쿼리 (프리페칭)
@@ -113,6 +122,7 @@ export const useStatisticsViewModel = (
     startDateTime: prevStartDateTime,
     endDateTime: prevEndDateTime,
     statisticType: period,
+    timeZone,
   });
 
   // 다음 기간 쿼리 (프리페칭, 미래 날짜면 비활성화)
@@ -121,6 +131,7 @@ export const useStatisticsViewModel = (
       startDateTime: nextStartDateTime,
       endDateTime: nextEndDateTime,
       statisticType: period,
+      timeZone,
     },
     { enabled: !isNextFuture }
   );
@@ -201,7 +212,7 @@ export const useStatisticsViewModel = (
 
     return chartData.map((point: ChartDataPoint) => ({
       ...point,
-      formattedDate: new Date(point.datetime).toLocaleDateString(language === 'ja' ? 'ja-JP' : 'ko-KR', {
+      formattedDate: parseChartDate(point.datetime).toLocaleDateString(language === 'ja' ? 'ja-JP' : 'ko-KR', {
         month: 'short',
         day: 'numeric',
       }),

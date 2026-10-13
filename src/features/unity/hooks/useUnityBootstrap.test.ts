@@ -8,6 +8,7 @@ import type { InitialAvatarPayload } from './useUnityBootstrap';
 import { useUnityBootstrap } from './useUnityBootstrap';
 
 const mockSyncAvatar = jest.fn();
+const mockGetLatestAvatarPayload = jest.fn();
 const mockUseUnityReadiness = jest.fn();
 const mockBaseHandleUnityReady = jest.fn();
 const mockStartUnity = jest.fn();
@@ -58,6 +59,7 @@ jest.mock('react-native-reanimated', () => {
 jest.mock('../services/UnityService', () => ({
   unityService: {
     syncAvatar: (...args: unknown[]) => mockSyncAvatar(...args),
+    getLatestAvatarPayload: () => mockGetLatestAvatarPayload(),
     resetGameObjectReady: (...args: unknown[]) => mockResetGameObjectReady(...args),
   },
 }));
@@ -107,6 +109,7 @@ describe('useUnityBootstrap', () => {
     jest.clearAllMocks();
     useUnityStore.getState().resetUnityState();
     mockSyncAvatar.mockReset();
+    mockGetLatestAvatarPayload.mockReset();
     mockUseUnityReadiness.mockReset();
     mockResetGameObjectReady.mockReset();
     mockSyncReadyState.mockReset();
@@ -121,6 +124,52 @@ describe('useUnityBootstrap', () => {
     mockUseUnityReadiness.mockImplementation(() => ({
       ...readinessState,
     }));
+  });
+
+  it('waits for the latest applied avatar after its queued request is superseded without retrying the old payload', async () => {
+    let finish!: (value: string) => void;
+    mockSyncAvatar.mockImplementation(() => new Promise<string>(resolve => { finish = resolve; }));
+    readinessState.canSendMessage = true;
+    const payload: InitialAvatarPayload = { items: [createItem(12)], hairColor: '#111111' };
+    const { result } = renderHook(() => useUnityBootstrap({ getInitialAvatarPayload: () => payload }));
+    await waitFor(() => expect(mockSyncAvatar).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      useUnityStore.getState().setCurrentAvatarPayloadHash('newer-avatar');
+      finish('failed');
+    });
+    expect(result.current.isInitialAvatarSynced).toBe(false);
+    act(() => {
+      useUnityStore.getState().markAvatarPayloadApplied('newer-avatar');
+      useUnityStore.getState().setAvatarReady(true);
+    });
+    await waitFor(() => expect(result.current.bootstrapPhase).toBe('done'));
+    expect(result.current.isInitialAvatarSynced).toBe(true);
+    expect(mockSyncAvatar).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries only the latest payload after a superseded bootstrap and a latest-request failure', async () => {
+    jest.useFakeTimers();
+    let finishInitial!: (value: string) => void;
+    const initial: InitialAvatarPayload = { items: [createItem(20)], hairColor: '#111111' };
+    const latest: InitialAvatarPayload = { items: [createItem(21)], hairColor: '#222222' };
+    mockGetLatestAvatarPayload.mockReturnValue(latest);
+    mockSyncAvatar.mockImplementationOnce(() => new Promise<string>(resolve => { finishInitial = resolve; }))
+      .mockImplementationOnce(async () => {
+        useUnityStore.getState().markAvatarPayloadApplied(useUnityStore.getState().currentAvatarPayloadHash);
+        return 'applied';
+      });
+    readinessState.canSendMessage = true;
+    const { result } = renderHook(() => useUnityBootstrap({ getInitialAvatarPayload: () => initial }));
+    await act(async () => {
+      useUnityStore.getState().setCurrentAvatarPayloadHash('latest-payload');
+      finishInitial('failed');
+    });
+    act(() => useUnityStore.getState().setAvatarReady(true));
+    await act(async () => { jest.advanceTimersByTime(1000); });
+    expect(mockSyncAvatar).toHaveBeenCalledTimes(2);
+    expect(mockSyncAvatar).toHaveBeenLastCalledWith(latest.items, latest.hairColor, { waitForReady: false });
+    expect(result.current.bootstrapPhase).toBe('done');
+    expect(result.current.isInitialAvatarSynced).toBe(true);
   });
 
   it('ignores ready events that were published before the hook mounted', async () => {
