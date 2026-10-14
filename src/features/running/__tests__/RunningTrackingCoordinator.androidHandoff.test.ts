@@ -10,6 +10,7 @@ const mockBackgroundIsTaskRegistered = jest.fn();
 const mockBackgroundSyncTracking = jest.fn();
 const mockBackgroundResumeTracking = jest.fn();
 const mockBackgroundPauseTracking = jest.fn();
+const mockTakeBackgroundTrackingState = jest.fn();
 const mockGetTotalDistance = jest.fn();
 const mockGetBackgroundLocations = jest.fn();
 const mockGetLatestPaceSignal = jest.fn();
@@ -33,6 +34,7 @@ jest.mock('~/features/running/services/BackgroundTaskService', () => ({
     persistBackgroundTrackingState: (...args: unknown[]) => mockBackgroundSyncTracking(...args),
     activateBackgroundSession: (...args: unknown[]) => mockBackgroundResumeTracking(...args),
     deactivateBackgroundSession: (...args: unknown[]) => mockBackgroundPauseTracking(...args),
+    takeBackgroundTrackingState: (...args: unknown[]) => mockTakeBackgroundTrackingState(...args),
     getTotalDistance: (...args: unknown[]) => mockGetTotalDistance(...args),
     getBackgroundLocations: (...args: unknown[]) => mockGetBackgroundLocations(...args),
     getLatestPaceSignal: (...args: unknown[]) => mockGetLatestPaceSignal(...args),
@@ -90,6 +92,9 @@ describe('RunningTrackingCoordinator Android background handoff', () => {
     mockGetBackgroundLocations.mockResolvedValue([]);
     mockGetLatestPaceSignal.mockResolvedValue(null);
     mockGetBackgroundGpsFilterState.mockResolvedValue(filterState);
+    mockTakeBackgroundTrackingState.mockResolvedValue({
+      totalDistance: 0, locations: [], latestPaceSignal: null, filterState,
+    });
 
     mockLocationStartTracking.mockResolvedValue(undefined);
     mockLocationStopTracking.mockImplementation(() => undefined);
@@ -273,6 +278,41 @@ describe('RunningTrackingCoordinator Android background handoff', () => {
     expect(coordinator.getSnapshot().source).toBe('foreground');
     expect(mockBackgroundSyncTracking).not.toHaveBeenCalled();
     expect(mockLocationStartTracking).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves background distance and route on return without restarting the native task', async () => {
+    coordinator = createCoordinator('active');
+    await coordinator.startSession(112);
+    await coordinator.handleAppStateChange('inactive');
+    await coordinator.handleAppStateChange('background');
+    expect(coordinator.getSnapshot().source).toBe('background');
+
+    const storedLocation = {
+      latitude: 37, longitude: 127, timestamp: 5000,
+      speed: 3, altitude: 10, accuracy: 5,
+    };
+    mockTakeBackgroundTrackingState.mockResolvedValue({
+      totalDistance: 120, locations: [storedLocation], latestPaceSignal: null, filterState,
+    });
+    mockGetTotalDistance.mockResolvedValue(120);
+    mockGetBackgroundLocations.mockResolvedValue([storedLocation]);
+    await coordinator.handleAppStateChange('active');
+
+    expect(coordinator.getSnapshot()).toEqual(expect.objectContaining({
+      source: 'foreground',
+      distance: 120,
+      locations: [{ ...storedLocation, timestamp: new Date(5000) }],
+    }));
+    expect(mockBackgroundStartTracking).toHaveBeenCalledTimes(1);
+    expect(mockBackgroundStopTracking).not.toHaveBeenCalled();
+
+    await coordinator.handleAppStateChange('background');
+    expect(mockBackgroundSyncTracking).toHaveBeenLastCalledWith(
+      112,
+      expect.objectContaining({ totalDistance: 120, locations: [storedLocation] }),
+      { shouldProcessLocations: true }
+    );
+    expect(mockBackgroundStartTracking).toHaveBeenCalledTimes(1);
   });
 
   it('finishes reset cleanup before registering a new session', async () => {

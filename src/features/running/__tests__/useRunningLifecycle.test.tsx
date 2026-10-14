@@ -202,7 +202,6 @@ describe('useRunningLifecycle', () => {
       canStartRunning: true,
       hasAllPermissions: true,
       location: true,
-      locationBackground: true,
       motion: true,
     });
     mockStartRunningMutation.mockResolvedValue(record);
@@ -221,14 +220,13 @@ describe('useRunningLifecycle', () => {
     expect(mockLocationStopTracking).not.toHaveBeenCalled();
   });
 
-  it('rejects missing background permission without starting GPS', async () => {
+  it('rejects missing motion permission without starting GPS', async () => {
     const record = createRunningRecord(102);
     mockCheckRequiredPermissions.mockResolvedValue({
       canStartRunning: false,
       hasAllPermissions: false,
       location: true,
-      locationBackground: false,
-      motion: true,
+      motion: false,
     });
     mockStartRunningMutation.mockResolvedValue(record);
     mockPedometerStartTracking.mockRejectedValue(new Error('pedometer-unavailable'));
@@ -269,7 +267,6 @@ describe('useRunningLifecycle', () => {
       canStartRunning: false,
       hasAllPermissions: false,
       location: false,
-      locationBackground: false,
       motion: true,
     });
 
@@ -349,7 +346,6 @@ describe('useRunningLifecycle', () => {
       canStartRunning: true,
       hasAllPermissions: true,
       location: true,
-      locationBackground: true,
       motion: true,
     });
     mockStartRunningMutation.mockResolvedValue(record);
@@ -404,7 +400,6 @@ describe('useRunningLifecycle', () => {
       canStartRunning: true,
       hasAllPermissions: true,
       location: true,
-      locationBackground: true,
       motion: true,
     });
     mockStartRunningMutation.mockResolvedValue(record);
@@ -448,7 +443,6 @@ describe('useRunningLifecycle', () => {
       canStartRunning: true,
       hasAllPermissions: true,
       location: true,
-      locationBackground: true,
       motion: true,
     });
     mockStartRunningMutation.mockResolvedValue(record);
@@ -477,7 +471,6 @@ describe('useRunningLifecycle', () => {
       canStartRunning: true,
       hasAllPermissions: true,
       location: true,
-      locationBackground: true,
       motion: true,
     });
     mockStartRunningMutation.mockResolvedValue(record);
@@ -523,7 +516,6 @@ describe('useRunningLifecycle', () => {
       canStartRunning: true,
       hasAllPermissions: true,
       location: true,
-      locationBackground: true,
       motion: true,
     });
     mockStartRunningMutation.mockResolvedValue(record);
@@ -569,7 +561,6 @@ describe('useRunningLifecycle', () => {
       canStartRunning: true,
       hasAllPermissions: true,
       location: true,
-      locationBackground: true,
       motion: true,
     });
     mockStartRunningMutation.mockResolvedValue(record);
@@ -596,7 +587,6 @@ describe('useRunningLifecycle', () => {
       canStartRunning: true,
       hasAllPermissions: true,
       location: true,
-      locationBackground: true,
       motion: true,
     });
     mockStartRunningMutation.mockResolvedValue(record);
@@ -629,7 +619,6 @@ describe('useRunningLifecycle', () => {
       canStartRunning: true,
       hasAllPermissions: true,
       location: true,
-      locationBackground: true,
       motion: true,
     });
     mockStartRunningMutation.mockResolvedValue(record);
@@ -660,7 +649,6 @@ describe('useRunningLifecycle', () => {
       canStartRunning: true,
       hasAllPermissions: true,
       location: true,
-      locationBackground: true,
       motion: true,
     });
     mockStartRunningMutation.mockResolvedValue(record);

@@ -99,7 +99,7 @@ describe('BackgroundTaskService permissions', () => {
     await backgroundTaskService.startBackgroundTracking(101);
 
     expect(locationMock.getForegroundPermissionsAsync).toHaveBeenCalledTimes(1);
-    expect(locationMock.getBackgroundPermissionsAsync).toHaveBeenCalledTimes(1);
+    expect(locationMock.getBackgroundPermissionsAsync).not.toHaveBeenCalled();
     expect(locationMock.requestForegroundPermissionsAsync).not.toHaveBeenCalled();
     expect(locationMock.requestBackgroundPermissionsAsync).not.toHaveBeenCalled();
     expect(taskManagerMock.isTaskRegisteredAsync).toHaveBeenCalledWith(BACKGROUND_LOCATION_TASK);
@@ -117,6 +117,24 @@ describe('BackgroundTaskService permissions', () => {
         }),
       })
     );
+  });
+
+  it.each(['ios', 'android'] as const)('starts %s tracking with only while-in-use permission', async (platform) => {
+    Object.defineProperty(Platform, 'OS', { configurable: true, value: platform });
+    locationMock.getBackgroundPermissionsAsync.mockResolvedValue({
+      status: 'denied', granted: false, canAskAgain: true, expires: 'never',
+    } as never);
+
+    await backgroundTaskService.startBackgroundTracking(102);
+
+    expect(locationMock.startLocationUpdatesAsync).toHaveBeenCalledWith(
+      BACKGROUND_LOCATION_TASK,
+      expect.objectContaining(platform === 'android'
+        ? { foregroundService: expect.objectContaining({ notificationTitle: 'RunTaeho 러닝 추적 중' }) }
+        : { showsBackgroundLocationIndicator: true })
+    );
+    expect(locationMock.getBackgroundPermissionsAsync).not.toHaveBeenCalled();
+    expect(locationMock.requestBackgroundPermissionsAsync).not.toHaveBeenCalled();
   });
 
   it('BGTASK-PERM-002 fails fast when foreground permission is missing', async () => {

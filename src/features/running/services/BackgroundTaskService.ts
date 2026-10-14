@@ -379,11 +379,8 @@ export class BackgroundTaskService {
         throw new Error('Foreground location permission required');
       }
 
-      const { status: backgroundStatus } = await Location.getBackgroundPermissionsAsync();
-      if (backgroundStatus !== 'granted') {
-        throw new Error('Background location permission required');
-      }
-
+      // Coordinator가 앱 활성 상태에서 시작한 추적을 화면 잠금 후에도 유지한다.
+      // iOS background updates / Android foreground service는 사용 중 위치 권한을 사용한다.
       await this.persistTrackingState(runningRecordId, seed, options);
 
       // Task가 이미 등록되어 있는지 확인

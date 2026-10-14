@@ -58,7 +58,7 @@ export const PermissionSettingsView: React.FC = () => {
         : 'unavailable';
 
       setPermissions({
-        locationGranted: Boolean(locationPermission?.location && locationPermission.locationBackground),
+        locationGranted: Boolean(locationPermission?.location),
         healthImportEnabled: configuration.healthImportEnabled,
         healthPermissionStatus,
       });

@@ -3,7 +3,7 @@ import { t, useAppLanguage } from '~/i18n';
  * Permission Request Modal (v3.0)
  *
  * 러닝 시작 시 권한이 없을 경우 표시되는 모달 (화면 하단 절반)
- * - 위치 권한 (Foreground + Background)
+ * - 위치 권한 (앱 사용 중)
  * - 동작/피트니스 권한
  * - 버튼 클릭 시 iOS 설정 화면으로 이동
  */

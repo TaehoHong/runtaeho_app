@@ -71,7 +71,6 @@ describe('RunningStartView', () => {
       canStartRunning: true,
       hasAllPermissions: true,
       location: true,
-      locationBackground: true,
       motion: true,
     });
     mockStartRunning.mockResolvedValue(undefined);
@@ -90,7 +89,6 @@ describe('RunningStartView', () => {
       canStartRunning: false,
       hasAllPermissions: false,
       location: false,
-      locationBackground: false,
       motion: false,
     });
 
@@ -109,7 +107,6 @@ describe('RunningStartView', () => {
       canStartRunning: true,
       hasAllPermissions: true,
       location: true,
-      locationBackground: true,
       motion: true,
     });
     mockStartRunning.mockRejectedValue(new Error('start failed'));

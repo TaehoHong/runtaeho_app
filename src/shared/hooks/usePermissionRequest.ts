@@ -32,7 +32,7 @@ export const usePermissionRequest = () => {
    * - 단순화된 권한 관리 (복잡도 80% 감소)
    * - 최초 요청 여부 추적 (AsyncStorage)
    * - 로그인 직후 바로 권한 요청 (모달 없이)
-   * - 순서: Location(Foreground) → Location(Background) → Motion/Fitness
+   * - 순서: Location(앱 사용 중) → Motion/Fitness
    * - 이미 권한이 있으면 재요청 안함
    *
    * @returns 권한 요청 성공 여부

@@ -3,7 +3,7 @@ import { t } from '~/i18n';
  * Permission Manager (v3.0)
  *
  * 단순하고 명확한 권한 관리
- * - 위치 권한 (Foreground + Background)
+ * - 위치 권한 (앱 사용 중)
  * - 동작/피트니스 권한 (iOS: Core Motion, Android: ACTIVITY_RECOGNITION)
  */
 
@@ -18,7 +18,6 @@ export type PermissionCheckResult = {
   canStartRunning: boolean;
   hasAllPermissions: boolean;
   location: boolean;
-  locationBackground: boolean;
   motion: boolean;
 };
 
@@ -58,22 +57,18 @@ export class PermissionManager {
    *
    * 정책:
    * - 위치(사용 중)
-   * - 위치(항상)
    * - 동작 및 피트니스
    */
   async checkRequiredPermissions(): Promise<PermissionCheckResult> {
     const foreground = await Location.getForegroundPermissionsAsync();
-    const background = await Location.getBackgroundPermissionsAsync();
     const locationForeground = foreground.granted;
-    const locationBackground = background.granted;
     const motion = (await Pedometer.getPermissionsAsync()).granted;
-    const canStartRunning = locationForeground && locationBackground && motion;
+    const canStartRunning = locationForeground && motion;
 
     return {
       canStartRunning,
       hasAllPermissions: canStartRunning,
       location: locationForeground,
-      locationBackground,
       motion,
     };
   }
@@ -81,20 +76,18 @@ export class PermissionManager {
   /**
    * 모든 필수 권한 요청
    *
-   * 순서: 위치(Foreground) → 위치(Background) → 모션/피트니스
+   * 순서: 위치(앱 사용 중) → 모션/피트니스
    */
   async requestAllPermissions(): Promise<{
     success: boolean;
     granted: {
       location: boolean;
-      locationBackground: boolean;
       motion: boolean;
     };
   }> {
     try {
       const granted = {
         location: false,
-        locationBackground: false,
         motion: false
       };
 
@@ -107,14 +100,6 @@ export class PermissionManager {
         return { success: false, granted };
       }
 
-      console.log('[PermissionManager] Requesting background location...');
-      const background = await Location.requestBackgroundPermissionsAsync();
-      granted.locationBackground = background.granted;
-
-      if (!background.granted) {
-        console.warn('[PermissionManager] Background location denied');
-      }
-
       console.log('[PermissionManager] Requesting motion permission...');
       try {
         const motionPermission = await Pedometer.requestPermissionsAsync();
@@ -125,7 +110,7 @@ export class PermissionManager {
         granted.motion = false;
       }
 
-      const success = granted.location && granted.locationBackground && granted.motion;
+      const success = granted.location && granted.motion;
 
       if (success) {
         console.log('[PermissionManager] All permissions granted');
@@ -141,7 +126,7 @@ export class PermissionManager {
       console.error('[PermissionManager] Request failed:', error);
       return {
         success: false,
-        granted: { location: false, locationBackground: false, motion: false }
+        granted: { location: false, motion: false }
       };
     }
   }
@@ -169,7 +154,6 @@ export class PermissionManager {
     const missing: string[] = [];
 
     if (!result.location) missing.push(t("위치 (사용 중)"));
-    if (!result.locationBackground) missing.push(t("위치 (항상)"));
     if (!result.motion) missing.push(t("동작 및 피트니스"));
 
     return missing.length > 0
