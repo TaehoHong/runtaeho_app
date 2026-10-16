@@ -4,6 +4,7 @@ import { getGpsCorrectionStrategy } from '~/features/running/services/gps/GpsCor
 
 jest.mock('expo-location', () => ({
   __esModule: true,
+  ActivityType: { Fitness: 'fitness' },
   Accuracy: {
     BestForNavigation: 'bestForNavigation',
     High: 'high',
@@ -39,7 +40,7 @@ describe('GpsCorrectionStrategy', () => {
     });
   });
 
-  it('uses Android background collection options without changing iOS defaults', () => {
+  it('requests continuous fitness updates on iOS and 1-second updates on Android', () => {
     const androidOptions = getGpsCorrectionStrategy({
       platform: 'android',
       source: 'background',
@@ -53,19 +54,20 @@ describe('GpsCorrectionStrategy', () => {
       expect.objectContaining({
         accuracy: Location.Accuracy.BestForNavigation,
         timeInterval: 1000,
-        distanceInterval: 5,
+        distanceInterval: 0,
         deferredUpdatesInterval: 1000,
-        deferredUpdatesDistance: 5,
+        deferredUpdatesDistance: 0,
         mayShowUserSettingsDialog: true,
       })
     );
     expect(iosOptions).toEqual(
       expect.objectContaining({
-        accuracy: Location.Accuracy.High,
-        timeInterval: 2000,
-        distanceInterval: 5,
-        deferredUpdatesInterval: 2000,
-        deferredUpdatesDistance: 5,
+        accuracy: Location.Accuracy.BestForNavigation,
+        activityType: Location.ActivityType.Fitness,
+        pausesUpdatesAutomatically: false,
+        distanceInterval: 0,
+        deferredUpdatesInterval: 1000,
+        deferredUpdatesDistance: 0,
       })
     );
   });

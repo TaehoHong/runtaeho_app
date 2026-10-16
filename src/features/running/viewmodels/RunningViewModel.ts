@@ -44,6 +44,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     statsRef,
     paceSnapshotsRef,
     updateStats,
+    resetInstantPace,
     resetStats,
     setElapsedTime,
     setStats,
@@ -83,7 +84,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     locations,
     trackingData,
     useBackgroundMode,
-    latestPaceSignal,
+    paceStateRef,
     startGpsTracking,
     stopGpsTracking,
     pauseGpsTracking,
@@ -143,6 +144,10 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
   activeElapsedRef.current = getActiveElapsedMs;
   autoPauseHandlerRef.current = applyAutoPause;
 
+  useEffect(() => {
+    resetInstantPace();
+  }, [runningState, resetInstantPace]);
+
   // ============================================
   // 5. Unity Character Control Hook
   // ============================================
@@ -156,7 +161,6 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     distance,
     sensorHeartRate,
     sensorCadence,
-    latestPaceSignal: latestPaceSignal ?? undefined,
   });
 
   useEffect(() => {
@@ -164,9 +168,8 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
       distance,
       sensorHeartRate,
       sensorCadence,
-      latestPaceSignal: latestPaceSignal ?? undefined,
     };
-  }, [distance, sensorHeartRate, sensorCadence, latestPaceSignal]);
+  }, [distance, sensorHeartRate, sensorCadence]);
 
   // ============================================
   // Timer Effect - 실시간 시간/통계 업데이트
@@ -192,8 +195,6 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
       const {
         distance: currentDistance,
         sensorHeartRate: currentHeartRate,
-
-        latestPaceSignal: currentPaceSignal,
       } = liveStatsInputsRef.current;
 
       setElapsedTime(actualElapsed);
@@ -202,7 +203,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
         actualElapsed,
         currentHeartRate,
         pedometerService.getCadenceSnapshot().cadence,
-        currentPaceSignal
+        paceStateRef.current
       );
 
       scheduleNextTick(now);
@@ -215,7 +216,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
         clearTimeout(timeout);
       }
     };
-  }, [runningState, startTime, pausedDuration, updateStats, setElapsedTime, readActiveElapsedMs]);
+  }, [runningState, startTime, pausedDuration, updateStats, setElapsedTime, readActiveElapsedMs, paceStateRef]);
 
   // ============================================
   // Combined Reset

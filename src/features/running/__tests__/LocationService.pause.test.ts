@@ -18,6 +18,32 @@ const point = (latitude: number, timestamp: number): LocationObject => ({
 
 afterEach(() => locationService.stopTracking());
 
+it('does not accumulate stationary drift when native speed is valid zero', async () => {
+  await locationService.startTracking();
+  const emit = (latitude: number, timestamp: number) => {
+    const position = point(latitude, timestamp);
+    mockLocationCallback({ ...position, coords: { ...position.coords, speed: 0, ...{ hasSpeed: true, speedAccuracy: 0.1 } } });
+  };
+  emit(37, 1000);
+  emit(37.000036, 2000);
+  emit(37, 3000);
+  emit(37.000036, 4000);
+  expect(locationService.totalDistanceMeters).toBe(0);
+  expect(locationService.getLatestPaceSignal()?.speedMps).toBe(0);
+});
+
+it('ignores an unavailable native speed instead of treating its zero as a stop', async () => {
+  await locationService.startTracking();
+  const emit = (latitude: number, timestamp: number) => {
+    const position = point(latitude, timestamp);
+    mockLocationCallback({ ...position, coords: { ...position.coords, speed: 0, ...{ hasSpeed: false } } });
+  };
+  emit(37, 1000);
+  emit(37.000036, 2000);
+  expect(locationService.totalDistanceMeters).toBeCloseTo(4, 1);
+  expect(locationService.getLatestPaceSignal()?.speedMps).toBeUndefined();
+});
+
 it('preserves accumulated distance but excludes the pause-to-resume jump', async () => {
   await locationService.startTracking();
   mockLocationCallback(point(37, 1000));

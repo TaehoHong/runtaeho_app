@@ -1,12 +1,11 @@
 import type { PaceData, PaceSignal, PaceSnapshot } from '../../viewmodels/hooks/types';
+import { getReliableGpsSpeed } from './GpsFilter';
 
 export interface PaceFusionConfig {
-  highQualityAccuracyMeters: number;
-  freshSignalSeconds: number;
-  gpsWeightHigh: number;
-  gpsWeightLow: number;
-  emaAlpha: number;
-  maxPaceChangePerSecond: number;
+  signalExpirySeconds: number;
+  smoothingSeconds: number;
+  responsiveSmoothingSeconds: number;
+  speedChangeThresholdMps: number;
   stationarySpeedMps: number;
   stationaryEnterSeconds: number;
   movingExitSpeedMps: number;
@@ -17,7 +16,11 @@ export interface PaceFusionState {
   emaSpeedMps: number | null;
   lastPaceSecondsPerKm: number | null;
   lastTimestampMs: number | null;
+  lastUsableTimestampMs: number | null;
+  changeDirection: number;
+  changeStreak: number;
   stationaryAccumulatedSeconds: number;
+  lastStationaryTimestampMs?: number | null;
   movingStreak: number;
   isStationary: boolean;
 }
@@ -35,13 +38,16 @@ export interface PaceFusionResult {
   isStationary: boolean;
 }
 
+export interface PaceAccumulatorState {
+  fusionState: PaceFusionState;
+  distanceSnapshots: PaceSnapshot[];
+}
+
 export const DEFAULT_PACE_FUSION_CONFIG: PaceFusionConfig = {
-  highQualityAccuracyMeters: 15,
-  freshSignalSeconds: 2,
-  gpsWeightHigh: 0.65,
-  gpsWeightLow: 0.25,
-  emaAlpha: 0.35,
-  maxPaceChangePerSecond: 25,
+  signalExpirySeconds: 5,
+  smoothingSeconds: 2,
+  responsiveSmoothingSeconds: 1,
+  speedChangeThresholdMps: 0.3,
   stationarySpeedMps: 0.8,
   stationaryEnterSeconds: 3,
   movingExitSpeedMps: 1.2,
@@ -52,78 +58,47 @@ export const createInitialPaceFusionState = (): PaceFusionState => ({
   emaSpeedMps: null,
   lastPaceSecondsPerKm: null,
   lastTimestampMs: null,
+  lastUsableTimestampMs: null,
+  changeDirection: 0,
+  changeStreak: 0,
   stationaryAccumulatedSeconds: 0,
+  lastStationaryTimestampMs: null,
   movingStreak: 0,
   isStationary: false,
 });
 
-const toPaceData = (secondsPerKm: number): PaceData => {
-  if (!Number.isFinite(secondsPerKm) || secondsPerKm <= 0) {
-    return { minutes: 0, seconds: 0, totalSeconds: 0 };
-  }
+// GPS normally arrives every second; longer gaps do not prove continuous motion or rest.
+const MAX_CONTINUOUS_SIGNAL_GAP_SECONDS = 2;
 
-  const totalSeconds = Math.max(1, Math.round(secondsPerKm));
+const resultFromState = (nextState: PaceFusionState): PaceFusionResult => {
+  const totalSeconds = nextState.lastPaceSecondsPerKm === null
+    ? 0 : Math.max(1, Math.round(nextState.lastPaceSecondsPerKm));
   return {
-    minutes: Math.floor(totalSeconds / 60),
-    seconds: totalSeconds % 60,
-    totalSeconds,
+    pace: { minutes: Math.floor(totalSeconds / 60), seconds: totalSeconds % 60, totalSeconds },
+    fusedSpeedMps: nextState.emaSpeedMps ?? 0,
+    nextState,
+    isStationary: nextState.isStationary,
   };
-};
-
-const clamp = (value: number, min: number, max: number): number => {
-  return Math.min(Math.max(value, min), max);
 };
 
 export const calculateDistanceWindowSpeed = (
   snapshots: PaceSnapshot[],
   nowMs: number,
-  windowMs: number = 10000
+  windowMs: number = 5000
 ): number | null => {
-  const cutoff = nowMs - windowMs;
-  const windowSnapshots = snapshots.filter((snapshot) => snapshot.timestamp >= cutoff);
-
-  if (windowSnapshots.length < 2) {
-    return null;
-  }
-
+  const windowSnapshots = snapshots.filter((snapshot) =>
+    Number.isFinite(snapshot.distance) && snapshot.timestamp >= nowMs - windowMs &&
+    snapshot.timestamp <= nowMs
+  );
   const oldest = windowSnapshots[0];
   const newest = windowSnapshots[windowSnapshots.length - 1];
+  if (!oldest || !newest) return null;
 
-  if (!oldest || !newest) {
-    return null;
-  }
-
-  const distanceDelta = newest.distance - oldest.distance;
   const elapsedSec = (newest.timestamp - oldest.timestamp) / 1000;
-
-  if (elapsedSec <= 0 || distanceDelta <= 0) {
-    return null;
-  }
-
+  const distanceDelta = newest.distance - oldest.distance;
+  // A single 1-second coordinate delta is too noisy to be a pace fallback.
+  if (elapsedSec < 3 || distanceDelta < 0) return null;
   return distanceDelta / elapsedSec;
-};
-
-const computeGpsWeight = (
-  paceSignal: PaceSignal | undefined,
-  nowMs: number,
-  config: PaceFusionConfig
-): number => {
-  if (!paceSignal || typeof paceSignal.speedMps !== 'number') {
-    return 0;
-  }
-
-  const freshnessSec = Math.max(0, (nowMs - paceSignal.timestampMs) / 1000);
-  const isFresh = freshnessSec <= config.freshSignalSeconds;
-  const isHighQuality =
-    typeof paceSignal.accuracyMeters === 'number'
-      ? paceSignal.accuracyMeters <= config.highQualityAccuracyMeters
-      : false;
-
-  if (isFresh && isHighQuality) {
-    return config.gpsWeightHigh;
-  }
-
-  return config.gpsWeightLow;
 };
 
 export const fuseInstantPace = (
@@ -131,112 +106,127 @@ export const fuseInstantPace = (
   previousState: PaceFusionState,
   config: PaceFusionConfig = DEFAULT_PACE_FUSION_CONFIG
 ): PaceFusionResult => {
-  const deltaSecRaw =
-    previousState.lastTimestampMs !== null
-      ? (input.nowMs - previousState.lastTimestampMs) / 1000
-      : 1;
+  const signal = input.paceSignal;
+  const expiryMs = config.signalExpirySeconds * 1000;
+  const expired = previousState.lastUsableTimestampMs !== null &&
+    input.nowMs - previousState.lastUsableTimestampMs >= expiryMs;
+  const state = expired ? {
+    ...createInitialPaceFusionState(),
+    lastTimestampMs: previousState.lastTimestampMs,
+  } : previousState;
 
-  const deltaSec = Number.isFinite(deltaSecRaw) && deltaSecRaw > 0 ? deltaSecRaw : 1;
-
-  const gpsSpeedMps =
-    input.paceSignal && typeof input.paceSignal.speedMps === 'number' && input.paceSignal.speedMps > 0
-      ? input.paceSignal.speedMps
-      : null;
-
-  const distanceSpeedMps =
-    typeof input.distanceWindowSpeedMps === 'number' && input.distanceWindowSpeedMps > 0
-      ? input.distanceWindowSpeedMps
-      : null;
-
-  const gpsWeight = computeGpsWeight(input.paceSignal, input.nowMs, config);
-
-  let baseSpeedMps = 0;
-  if (gpsSpeedMps !== null && distanceSpeedMps !== null) {
-    baseSpeedMps = gpsWeight * gpsSpeedMps + (1 - gpsWeight) * distanceSpeedMps;
-  } else if (gpsSpeedMps !== null) {
-    baseSpeedMps = gpsSpeedMps;
-  } else if (distanceSpeedMps !== null) {
-    baseSpeedMps = distanceSpeedMps;
+  // UI ticks may repeat a sample, but only a new GPS measurement changes the filter.
+  if (!signal || !Number.isFinite(signal.timestampMs) || signal.timestampMs > input.nowMs ||
+      input.nowMs - signal.timestampMs >= expiryMs ||
+      (state.lastTimestampMs !== null && signal.timestampMs <= state.lastTimestampMs)) {
+    return resultFromState(state);
   }
 
-  const emaSpeedMps =
-    previousState.emaSpeedMps === null
-      ? baseSpeedMps
-      : config.emaAlpha * baseSpeedMps + (1 - config.emaAlpha) * previousState.emaSpeedMps;
-
-  let stationaryAccumulatedSeconds = previousState.stationaryAccumulatedSeconds;
-  let movingStreak = previousState.movingStreak;
-  let isStationary = previousState.isStationary;
-
-  const paceSignalDistanceDelta = input.paceSignal?.distanceDeltaMeters;
-  const hasStrongStationarySignal =
-    gpsSpeedMps !== null &&
-    gpsSpeedMps < config.stationarySpeedMps &&
-    (typeof paceSignalDistanceDelta === 'number' ? paceSignalDistanceDelta <= 0.5 : true);
-
-  const hasStrongMovingSignal =
-    gpsSpeedMps !== null &&
-    gpsSpeedMps > config.movingExitSpeedMps &&
-    (typeof paceSignalDistanceDelta === 'number' ? paceSignalDistanceDelta > 0.5 : true);
-
-  if (hasStrongStationarySignal) {
-    stationaryAccumulatedSeconds += deltaSec;
-    movingStreak = 0;
-  } else if (emaSpeedMps < config.stationarySpeedMps) {
-    stationaryAccumulatedSeconds += deltaSec;
-    movingStreak = 0;
-  } else if (hasStrongMovingSignal || emaSpeedMps > config.movingExitSpeedMps) {
-    movingStreak += 1;
-    if (movingStreak >= config.movingExitCount) {
-      stationaryAccumulatedSeconds = 0;
-    }
-  } else {
-    movingStreak = 0;
+  const distanceSpeed = signal.distanceObservationValid === false ? null : input.distanceWindowSpeedMps;
+  const speedMps = getReliableGpsSpeed(signal) ??
+    (distanceSpeed !== null && Number.isFinite(distanceSpeed) && distanceSpeed >= 0
+      ? distanceSpeed : null);
+  if (speedMps === null) {
+    return resultFromState({
+      ...state,
+      lastTimestampMs: signal.timestampMs,
+      stationaryAccumulatedSeconds: 0,
+      lastStationaryTimestampMs: null,
+      movingStreak: 0,
+      changeDirection: 0,
+      changeStreak: 0,
+    });
   }
 
-  if (stationaryAccumulatedSeconds >= config.stationaryEnterSeconds) {
-    isStationary = true;
-  }
-  if (movingStreak >= config.movingExitCount) {
+  const deltaSec = state.lastUsableTimestampMs === null ? 0 :
+    (signal.timestampMs - state.lastUsableTimestampMs) / 1000;
+  const hasUnavailableObservation = state.lastUsableTimestampMs !== null &&
+    signal.lastPaceUnavailableTimestampMs !== undefined &&
+    signal.lastPaceUnavailableTimestampMs > state.lastUsableTimestampMs &&
+    signal.lastPaceUnavailableTimestampMs <= signal.timestampMs;
+  const isContinuous = state.lastUsableTimestampMs !== null &&
+    state.lastTimestampMs === state.lastUsableTimestampMs &&
+    !hasUnavailableObservation &&
+    deltaSec > 0 && deltaSec <= MAX_CONTINUOUS_SIGNAL_GAP_SECONDS;
+  const change = speedMps - (state.emaSpeedMps ?? speedMps);
+  const changeDirection = Math.abs(change) >= config.speedChangeThresholdMps ? Math.sign(change) : 0;
+  const changeStreak = changeDirection === 0 ? 0 :
+    isContinuous && changeDirection === state.changeDirection ? state.changeStreak + 1 : 1;
+  const tau = changeStreak >= 2 ? config.responsiveSmoothingSeconds : config.smoothingSeconds;
+  const alpha = 1 - Math.exp(-deltaSec / tau);
+  let emaSpeedMps = state.emaSpeedMps === null ? speedMps :
+    state.emaSpeedMps + alpha * (speedMps - state.emaSpeedMps);
+
+  const stationary = speedMps < config.stationarySpeedMps &&
+    (signal.distanceDeltaMeters === undefined || signal.distanceDeltaMeters <= 0.5);
+  const lastStationaryTimestampMs = state.lastStationaryTimestampMs ?? null;
+  const stationaryAccumulatedSeconds = stationary && isContinuous &&
+    lastStationaryTimestampMs === state.lastUsableTimestampMs
+    ? state.stationaryAccumulatedSeconds + deltaSec : 0;
+  const movingStreak = speedMps > config.movingExitSpeedMps
+    ? (isContinuous ? state.movingStreak : 0) + 1 : 0;
+  let isStationary = state.isStationary || stationaryAccumulatedSeconds >= config.stationaryEnterSeconds;
+  if (isStationary && movingStreak >= config.movingExitCount) {
     isStationary = false;
+    emaSpeedMps = speedMps;
   }
 
-  let paceSecondsPerKm: number | null = null;
-  if (!isStationary && emaSpeedMps > 0) {
-    paceSecondsPerKm = 1000 / emaSpeedMps;
-
-    if (previousState.lastPaceSecondsPerKm !== null) {
-      const maxDelta = config.maxPaceChangePerSecond * deltaSec;
-      paceSecondsPerKm = clamp(
-        paceSecondsPerKm,
-        previousState.lastPaceSecondsPerKm - maxDelta,
-        previousState.lastPaceSecondsPerKm + maxDelta
-      );
-    }
-  }
-
-  const nextState: PaceFusionState = {
+  return resultFromState({
     emaSpeedMps,
-    lastPaceSecondsPerKm: paceSecondsPerKm,
-    lastTimestampMs: input.nowMs,
+    lastPaceSecondsPerKm: !isStationary && emaSpeedMps > 0 ? 1000 / emaSpeedMps : null,
+    lastTimestampMs: signal.timestampMs,
+    lastUsableTimestampMs: signal.timestampMs,
+    changeDirection,
+    changeStreak,
     stationaryAccumulatedSeconds,
+    lastStationaryTimestampMs: stationary ? signal.timestampMs : null,
     movingStreak,
     isStationary,
-  };
+  });
+};
 
-  if (paceSecondsPerKm === null) {
-    return {
-      pace: { minutes: 0, seconds: 0, totalSeconds: 0 },
-      fusedSpeedMps: emaSpeedMps,
-      nextState,
-      isStationary,
-    };
+export const createInitialPaceAccumulatorState = (
+  seed?: PaceAccumulatorState
+): PaceAccumulatorState => ({
+  fusionState: seed ? { ...seed.fusionState } : createInitialPaceFusionState(),
+  distanceSnapshots: seed ? seed.distanceSnapshots.map((snapshot) => ({ ...snapshot })) : [],
+});
+
+export const consumePaceSignal = (
+  state: PaceAccumulatorState,
+  signal: PaceSignal
+): PaceAccumulatorState => {
+  if (!Number.isFinite(signal.timestampMs) ||
+      (state.fusionState.lastTimestampMs !== null &&
+        signal.timestampMs <= state.fusionState.lastTimestampMs)) {
+    return state;
   }
 
-  return {
-    pace: toPaceData(paceSecondsPerKm),
-    fusedSpeedMps: emaSpeedMps,
-    nextState,
-    isStationary,
-  };
+  const windowMs = DEFAULT_PACE_FUSION_CONFIG.signalExpirySeconds * 1000;
+  const distanceSnapshots = state.distanceSnapshots.filter(
+    (snapshot) => snapshot.timestamp >= signal.timestampMs - windowMs
+  );
+  if (signal.distanceObservationValid !== false && signal.distanceMeters !== undefined &&
+      Number.isFinite(signal.distanceMeters)) {
+    distanceSnapshots.push({ timestamp: signal.timestampMs, distance: signal.distanceMeters });
+  }
+
+  // Each accepted sample advances fusion in measurement time, including delayed batches.
+  const fused = fuseInstantPace({
+    paceSignal: signal,
+    distanceWindowSpeedMps: calculateDistanceWindowSpeed(
+      distanceSnapshots, signal.timestampMs, windowMs
+    ),
+    nowMs: signal.timestampMs,
+  }, state.fusionState);
+
+  return { fusionState: fused.nextState, distanceSnapshots };
+};
+
+export const readPaceAccumulator = (
+  state: PaceAccumulatorState,
+  nowMs: number
+): PaceData => {
+  // Display expiry must not erase producer history before a delayed batch is consumed.
+  return fuseInstantPace({ distanceWindowSpeedMps: null, nowMs }, state.fusionState).pace;
 };

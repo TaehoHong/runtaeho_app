@@ -1,7 +1,8 @@
 import type { AppStateStatus } from 'react-native';
 import { RunningState } from '~/stores/app/appStore';
 import type { Location } from '../models';
-import type { GpsFilterState } from './gps/GpsFilter';
+import type { GpsFilterState, GpsPaceSignal } from './gps/GpsFilter';
+import { createInitialPaceAccumulatorState, type PaceAccumulatorState } from './gps/PaceFusion';
 import {
   backgroundTaskService,
   type BackgroundLocationData,
@@ -15,24 +16,20 @@ import {
 
 export type TrackingSource = 'idle' | 'foreground' | 'background';
 
-export interface TrackingPaceSignal {
-  timestampMs: number;
-  speedMps?: number;
-  accuracyMeters?: number;
-  distanceDeltaMeters?: number;
-}
+export type TrackingPaceSignal = GpsPaceSignal;
 
 export interface TrackingSnapshot {
   distance: number;
   locations: Location[];
   trackingData: LocationTrackingData | null;
   latestPaceSignal: TrackingPaceSignal | null;
+  paceState: PaceAccumulatorState;
   source: TrackingSource;
 }
 
 export interface AppStateTransitionResult {
   autoPaused: boolean;
-  reason: 'background_tracking_unavailable';
+  reason: 'background_tracking_unavailable' | 'foreground_tracking_unavailable';
 }
 
 type SnapshotListener = (snapshot: TrackingSnapshot) => void;
@@ -50,6 +47,7 @@ const EMPTY_SNAPSHOT: TrackingSnapshot = {
   locations: [],
   trackingData: null,
   latestPaceSignal: null,
+  paceState: createInitialPaceAccumulatorState(),
   source: 'idle',
 };
 
@@ -58,14 +56,7 @@ const toTrackingPaceSignal = (
 ): TrackingPaceSignal | null => {
   if (!signal) return null;
 
-  return {
-    timestampMs: signal.timestampMs,
-    ...(signal.speedMps !== undefined && { speedMps: signal.speedMps }),
-    ...(signal.accuracyMeters !== undefined && { accuracyMeters: signal.accuracyMeters }),
-    ...(signal.distanceDeltaMeters !== undefined && {
-      distanceDeltaMeters: signal.distanceDeltaMeters,
-    }),
-  };
+  return { ...signal };
 };
 
 const toBackgroundLocation = (location: Location): BackgroundLocationData => ({
@@ -106,6 +97,8 @@ export class RunningTrackingCoordinator {
   private static operations: Promise<unknown> = Promise.resolve();
   private generation = 0;
   private executingGeneration = 0;
+  private paceResetPending = false;
+  private resumedAt: number | undefined;
 
   private enqueue<T>(operation: () => Promise<T>): Promise<T> {
     const result = RunningTrackingCoordinator.operations.then(operation);
@@ -167,10 +160,16 @@ export class RunningTrackingCoordinator {
     });
 
     this.unsubscribeForegroundPaceSignal = locationService.subscribeToPaceSignal((paceSignal) => {
-      if (this.source !== 'foreground') return;
+      if (this.source !== 'foreground' || this.paceResetPending) return;
 
       this.setSnapshot({
-        latestPaceSignal: toTrackingPaceSignal(paceSignal),
+        latestPaceSignal: {
+          ...paceSignal,
+          ...(paceSignal.distanceMeters !== undefined && {
+            distanceMeters: this.foregroundDistanceBase + paceSignal.distanceMeters,
+          }),
+        },
+        paceState: locationService.getPaceState(),
       });
     });
   }
@@ -201,6 +200,7 @@ export class RunningTrackingCoordinator {
       latestPaceSignal: this.snapshot.latestPaceSignal
         ? { ...this.snapshot.latestPaceSignal }
         : null,
+      paceState: createInitialPaceAccumulatorState(this.snapshot.paceState),
       source: this.snapshot.source,
     };
   }
@@ -210,6 +210,8 @@ export class RunningTrackingCoordinator {
   }
 
   startSession(recordId: number): Promise<void> {
+    this.paceResetPending = true;
+    this.setSnapshot({ latestPaceSignal: null, paceState: createInitialPaceAccumulatorState() });
     const generation = ++this.generation;
     this.transitionInFlight = true;
     return this.enqueue(async () => {
@@ -224,6 +226,8 @@ export class RunningTrackingCoordinator {
     this.currentRecordId = recordId;
     this.runningState = RunningState.Running;
     this.source = 'idle';
+    this.paceResetPending = false;
+    this.resumedAt = undefined;
     this.foregroundDistanceBase = 0;
     this.foregroundLocationsBase = [];
     this.foregroundLiveLocations = [];
@@ -288,15 +292,15 @@ export class RunningTrackingCoordinator {
 
   private async stopSessionInternal(): Promise<{ distance: number; locations: Location[] }> {
     try {
+      locationService.stopTracking();
       const hasRegisteredBackgroundTask = await backgroundTaskService.isTaskRegistered();
 
       if (this.source === 'background') {
         if (hasRegisteredBackgroundTask) {
           await backgroundTaskService.stopBackgroundTracking();
         }
-        this.setSnapshot((await this.readBackgroundState()).snapshot, false);
+        this.setSnapshot((await this.takeBackgroundState()).snapshot, false);
       } else {
-        locationService.stopTracking();
         if (hasRegisteredBackgroundTask) {
           await backgroundTaskService.stopBackgroundTracking();
         }
@@ -311,6 +315,8 @@ export class RunningTrackingCoordinator {
       this.source = 'idle';
       this.setSnapshot({
         source: 'idle',
+        latestPaceSignal: null,
+        paceState: createInitialPaceAccumulatorState(),
         trackingData: this.snapshot.trackingData
           ? {
               ...this.snapshot.trackingData,
@@ -323,6 +329,8 @@ export class RunningTrackingCoordinator {
 
   pauseSession(): void {
     this.runningState = RunningState.Paused;
+    this.paceResetPending = true;
+    this.setSnapshot({ latestPaceSignal: null, paceState: createInitialPaceAccumulatorState() });
     const generation = this.generation;
     void this.enqueue(async () => {
       if (generation !== this.generation) return;
@@ -331,19 +339,46 @@ export class RunningTrackingCoordinator {
     }).catch((error) => console.error('[RunningTrackingCoordinator] Failed to pause:', error));
   }
 
-  resumeSession(): void {
+  resumeSession(): Promise<AppStateTransitionResult | null> {
+    const resumedAt = Date.now();
+    this.resumedAt = resumedAt;
     this.runningState = RunningState.Running;
+    this.paceResetPending = true;
+    this.setSnapshot({ latestPaceSignal: null, paceState: createInitialPaceAccumulatorState() });
     const generation = this.generation;
-    void this.enqueue(async () => {
-      if (generation !== this.generation || this.currentRecordId === null) return;
-      if (this.source === 'foreground') locationService.resumeTracking();
-      else if (this.source === 'background') await backgroundTaskService.activateBackgroundSession();
-      else if (this.appState === 'active') await this.startForegroundSource();
-      else await this.startBackgroundSource();
-    }).catch((error) => console.error('[RunningTrackingCoordinator] Failed to resume:', error));
+    return this.enqueue(async () => {
+      if (generation !== this.generation || this.currentRecordId === null) return null;
+      this.executingGeneration = generation;
+      const resumesForeground = this.source === 'foreground' ||
+        (this.source === 'idle' && this.appState === 'active');
+      try {
+        if (this.source === 'foreground') locationService.resumeTracking(resumedAt);
+        else if (this.source === 'background') await backgroundTaskService.activateBackgroundSession();
+        else if (this.appState === 'active') await this.startForegroundSource();
+        else await this.startBackgroundSource();
+      } catch (error) {
+        this.assertCurrentOperation();
+        if (resumesForeground) {
+          return this.autoPauseAfterTrackingFailure(error, 'foreground_tracking_unavailable');
+        }
+        throw error;
+      }
+      if (generation !== this.generation || this.runningState !== RunningState.Running) return null;
+      this.paceResetPending = false;
+      this.setSnapshot({
+        paceState: this.source === 'foreground'
+          ? locationService.getPaceState() : createInitialPaceAccumulatorState(),
+      });
+      return null;
+    }).catch((error) => {
+      if (generation !== this.generation) return null;
+      throw error;
+    });
   }
 
   resetSession(): Promise<void> {
+    this.paceResetPending = true;
+    this.setSnapshot({ latestPaceSignal: null, paceState: createInitialPaceAccumulatorState() });
     const generation = ++this.generation;
     this.runningState = RunningState.Stopped;
     return this.enqueue(async () => {
@@ -381,8 +416,8 @@ export class RunningTrackingCoordinator {
       let target: AppStateStatus;
       do {
         target = this.appState;
-        if (target === 'background') result = await this.handleBackgroundEntry();
-        else if (target === 'active') await this.handleActiveEntry();
+        if (target === 'background') result = (await this.handleBackgroundEntry()) ?? result;
+        else if (target === 'active') result = (await this.handleActiveEntry()) ?? result;
       } while (generation === this.generation && target !== this.appState);
       return generation === this.generation ? result : null;
     });
@@ -405,7 +440,7 @@ export class RunningTrackingCoordinator {
         return null;
       } catch (error) {
         this.assertCurrentOperation();
-        return this.autoPauseAfterBackgroundFailure(error);
+        return this.autoPauseAfterTrackingFailure(error, 'background_tracking_unavailable');
       }
     }
 
@@ -426,21 +461,25 @@ export class RunningTrackingCoordinator {
     return null;
   }
 
-  private async handleActiveEntry(): Promise<void> {
+  private async handleActiveEntry(): Promise<AppStateTransitionResult | null> {
     if (this.source !== 'background') {
-      return;
+      return null;
     }
 
-    const backgroundState = await this.readBackgroundState();
+    const backgroundState = await this.takeBackgroundState();
     this.assertCurrentOperation();
     this.setSnapshot(backgroundState.snapshot, false);
 
     if (this.runningState === RunningState.Running) {
-      await this.startForegroundSource(backgroundState.filterState);
-      return;
+      try {
+        await this.startForegroundSource(backgroundState.filterState);
+        return null;
+      } catch (error) {
+        this.assertCurrentOperation();
+        return this.autoPauseAfterTrackingFailure(error, 'foreground_tracking_unavailable');
+      }
     }
 
-    await backgroundTaskService.deactivateBackgroundSession();
     this.source = 'idle';
     this.setSnapshot({
       source: 'idle',
@@ -451,6 +490,7 @@ export class RunningTrackingCoordinator {
           }
         : this.snapshot.trackingData,
     });
+    return null;
   }
 
   private async startForegroundSource(filterState?: GpsFilterState): Promise<void> {
@@ -462,18 +502,46 @@ export class RunningTrackingCoordinator {
     this.foregroundLocationsBase = [...this.snapshot.locations];
     this.foregroundLiveLocations = [];
 
-    if (this.source === 'background') {
-      await backgroundTaskService.deactivateBackgroundSession();
+    this.assertCurrentOperation();
+    try {
+      await locationService.startTracking({
+        ...(filterState !== undefined && { filterState }),
+        paceState: this.snapshot.paceState,
+        distanceOffsetMeters: this.foregroundDistanceBase,
+        ...(this.resumedAt !== undefined && { resumedAt: this.resumedAt }),
+      });
+      this.assertCurrentOperation();
+    } catch (error) {
+      locationService.stopTracking();
+      throw error;
     }
-
-    this.assertCurrentOperation();
-    await locationService.startTracking({
-      ...(filterState !== undefined && { filterState }),
-    });
-    this.assertCurrentOperation();
     this.source = 'foreground';
+    // The native watcher can deliver samples before its registration promise resolves.
+    this.foregroundLiveLocations = locationService.allLocations;
+    const trackingData = locationService.getCurrentTrackingData();
+    const totalDistance = this.foregroundDistanceBase + trackingData.totalDistance;
+    const locations = this.getForegroundCombinedLocations();
+    const currentLocation = locations[locations.length - 1] ?? trackingData.currentLocation;
+    const latestPaceSignal = locationService.getLatestPaceSignal();
     this.setSnapshot({
       source: 'foreground',
+      distance: totalDistance,
+      locations,
+      trackingData: {
+        ...trackingData,
+        totalDistance,
+        currentLocation,
+        accuracy: currentLocation?.accuracy ?? trackingData.accuracy,
+      },
+      paceState: locationService.getPaceState(),
+      latestPaceSignal: latestPaceSignal
+        ? {
+            ...latestPaceSignal,
+            ...(latestPaceSignal.distanceMeters !== undefined && {
+              distanceMeters: this.foregroundDistanceBase + latestPaceSignal.distanceMeters,
+            }),
+          }
+        : this.snapshot.latestPaceSignal,
     });
   }
 
@@ -498,6 +566,8 @@ export class RunningTrackingCoordinator {
       latestPaceSignal: this.snapshot.latestPaceSignal
         ? { ...this.snapshot.latestPaceSignal }
         : null,
+      paceState: this.source === 'foreground'
+        ? locationService.getPaceState() : this.snapshot.paceState,
       ...(filterState !== undefined && { filterState }),
     };
 
@@ -528,27 +598,35 @@ export class RunningTrackingCoordinator {
     this.currentRecordId = null;
     this.runningState = RunningState.Stopped;
     this.source = 'idle';
+    this.paceResetPending = false;
+    this.resumedAt = undefined;
     this.foregroundDistanceBase = 0;
     this.foregroundLocationsBase = [];
     this.foregroundLiveLocations = [];
     this.setSnapshot(EMPTY_SNAPSHOT);
   }
 
-  private async autoPauseAfterBackgroundFailure(error: unknown): Promise<AppStateTransitionResult> {
+  private async autoPauseAfterTrackingFailure(
+    error: unknown,
+    reason: AppStateTransitionResult['reason']
+  ): Promise<AppStateTransitionResult> {
     console.warn(
-      '[RunningTrackingCoordinator] Auto-pausing session because background tracking is unavailable:',
+      '[RunningTrackingCoordinator] Auto-pausing session because tracking is unavailable:',
+      reason,
       error
     );
 
     locationService.stopTracking();
+    this.source = 'idle';
     try {
       await this.cleanupBackground();
     } catch (cleanupError) {
       console.error('[RunningTrackingCoordinator] Failed to clean up paused session:', cleanupError);
     }
 
+    this.assertCurrentOperation();
     this.runningState = RunningState.Paused;
-    this.source = 'idle';
+    this.paceResetPending = true;
     this.setSnapshot({
       source: 'idle',
       trackingData: this.snapshot.trackingData
@@ -562,15 +640,19 @@ export class RunningTrackingCoordinator {
 
     return {
       autoPaused: true,
-      reason: 'background_tracking_unavailable',
+      reason,
     };
   }
 
-  private async readBackgroundState(): Promise<BackgroundResumeState> {
-    const totalDistance = await backgroundTaskService.getTotalDistance();
-    const storedLocations = await backgroundTaskService.getBackgroundLocations();
-    const latestPaceSignal = toTrackingPaceSignal(await backgroundTaskService.getLatestPaceSignal());
-    const filterState = await backgroundTaskService.getGpsFilterState();
+  private async takeBackgroundState(): Promise<BackgroundResumeState> {
+    const {
+      totalDistance,
+      locations: storedLocations,
+      latestPaceSignal: storedPaceSignal,
+      filterState,
+      paceState,
+    } = await backgroundTaskService.takeBackgroundTrackingState();
+    const latestPaceSignal = toTrackingPaceSignal(storedPaceSignal);
     const locations = storedLocations.map(fromBackgroundLocation);
     const currentLocation = locations[locations.length - 1] ?? null;
     const currentSpeed = latestPaceSignal?.speedMps
@@ -585,6 +667,7 @@ export class RunningTrackingCoordinator {
         distance: totalDistance,
         locations,
         latestPaceSignal,
+        paceState,
         trackingData: {
           currentLocation,
           totalDistance,
@@ -625,6 +708,7 @@ export class RunningTrackingCoordinator {
         'latestPaceSignal' in nextSnapshot
           ? nextSnapshot.latestPaceSignal ?? null
           : this.snapshot.latestPaceSignal,
+      paceState: nextSnapshot.paceState ?? this.snapshot.paceState,
       source:
         'source' in nextSnapshot && nextSnapshot.source !== undefined
           ? nextSnapshot.source
@@ -635,7 +719,11 @@ export class RunningTrackingCoordinator {
       distance: merged.distance,
       locations: [...merged.locations],
       trackingData: cloneTrackingData(merged.trackingData),
-      latestPaceSignal: merged.latestPaceSignal ? { ...merged.latestPaceSignal } : null,
+      latestPaceSignal: !this.paceResetPending && merged.latestPaceSignal
+        ? { ...merged.latestPaceSignal } : null,
+      paceState: createInitialPaceAccumulatorState(
+        this.paceResetPending ? undefined : merged.paceState
+      ),
       source: merged.source,
     };
 

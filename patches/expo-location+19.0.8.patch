@@ -1,0 +1,86 @@
+diff --git a/node_modules/expo-location/ios/LocationModule.swift b/node_modules/expo-location/ios/LocationModule.swift
+--- a/node_modules/expo-location/ios/LocationModule.swift
++++ b/node_modules/expo-location/ios/LocationModule.swift
+@@ -63,13 +63,12 @@
+       Task {
+         do {
+           for try await locations in try streamer.streamLocations() {
+-            guard let location = locations.last else {
+-              continue
++            for location in locations {
++              sendEvent(EVENT_LOCATION_CHANGED, [
++                "watchId": watchId,
++                "location": exportLocation(location)
++              ])
+             }
+-            sendEvent(EVENT_LOCATION_CHANGED, [
+-              "watchId": watchId,
+-              "location": exportLocation(location)
+-            ])
+           }
+         } catch let exception as Exception {
+           sendEvent(EVENT_LOCATION_ERROR, ["watchId": watchId, "reason": exception.reason])
+diff --git a/node_modules/expo-location/ios/LocationUtils.swift b/node_modules/expo-location/ios/LocationUtils.swift
+--- a/node_modules/expo-location/ios/LocationUtils.swift
++++ b/node_modules/expo-location/ios/LocationUtils.swift
+@@ -28,7 +28,9 @@
+       "accuracy": location.horizontalAccuracy,
+       "altitudeAccuracy": location.verticalAccuracy,
+       "heading": location.course,
+-      "speed": location.speed
++      "speed": location.speed,
++      "hasSpeed": location.speed >= 0,
++      "speedAccuracy": location.speedAccuracy
+     ],
+     "timestamp": location.timestamp.timeIntervalSince1970 * 1000
+   ]
+diff --git a/node_modules/expo-location/ios/EXLocation.m b/node_modules/expo-location/ios/EXLocation.m
+--- a/node_modules/expo-location/ios/EXLocation.m
++++ b/node_modules/expo-location/ios/EXLocation.m
+@@ -17,6 +17,8 @@
+         @"altitudeAccuracy": @(location.verticalAccuracy),
+         @"heading": @(location.course),
+         @"speed": @(location.speed),
++        @"hasSpeed": @(location.speed >= 0),
++        @"speedAccuracy": @(location.speedAccuracy),
+         },
+     @"timestamp": @([location.timestamp timeIntervalSince1970] * 1000),
+     };
+diff --git a/node_modules/expo-location/android/src/main/java/expo/modules/location/records/LocationResults.kt b/node_modules/expo-location/android/src/main/java/expo/modules/location/records/LocationResults.kt
+--- a/node_modules/expo-location/android/src/main/java/expo/modules/location/records/LocationResults.kt
++++ b/node_modules/expo-location/android/src/main/java/expo/modules/location/records/LocationResults.kt
+@@ -110,7 +110,9 @@
+   @Field var accuracy: Double? = null,
+   @Field var altitudeAccuracy: Double? = null,
+   @Field var heading: Double? = null,
+-  @Field var speed: Double? = null
++  @Field var speed: Double? = null,
++  @Field var hasSpeed: Boolean? = null,
++  @Field var speedAccuracy: Double? = null
+ ) : Record, Serializable {
+   constructor(location: Location) : this(
+     latitude = location.latitude,
+@@ -123,7 +125,13 @@
+       null
+     },
+     heading = location.bearing.toDouble(),
+-    speed = location.speed.toDouble()
++    speed = location.speed.toDouble(),
++    hasSpeed = location.hasSpeed(),
++    speedAccuracy = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && location.hasSpeedAccuracy()) {
++      location.speedAccuracyMetersPerSecond.toDouble()
++    } else {
++      null
++    }
+   )
+ 
+   internal fun <BundleType : BaseBundle> toBundle(bundleTypeClass: Class<BundleType>): BundleType {
+@@ -141,6 +149,8 @@
+       altitudeAccuracy?.let { putDouble("altitudeAccuracy", it) }
+       heading?.let { putDouble("heading", it) }
+       speed?.let { putDouble("speed", it) }
++      hasSpeed?.let { putBoolean("hasSpeed", it) }
++      speedAccuracy?.let { putDouble("speedAccuracy", it) }
+     }
+     return bundle
+   }

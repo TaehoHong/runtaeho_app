@@ -12,9 +12,16 @@ import {
   createInitialGpsFilterState,
   reduceGpsSample,
   type GpsFilterState,
-  type GpsSample,
+  type GpsPaceSignal,
+  createGpsSample,
+  createGpsPaceSignal,
 } from './gps/GpsFilter';
 import { getGpsCorrectionStrategy } from './gps/GpsCorrectionStrategy';
+import {
+  consumePaceSignal,
+  createInitialPaceAccumulatorState,
+  type PaceAccumulatorState,
+} from './gps/PaceFusion';
 
 /**
  * 위치 추적 설정
@@ -40,15 +47,13 @@ export interface LocationTrackingData {
   isTracking: boolean;
 }
 
-export interface LocationPaceSignal {
-  timestampMs: number;
-  speedMps?: number;
-  accuracyMeters?: number;
-  distanceDeltaMeters?: number;
-}
+export type LocationPaceSignal = GpsPaceSignal;
 
 export interface LocationTrackingSeed {
   filterState?: GpsFilterState;
+  paceState?: PaceAccumulatorState;
+  distanceOffsetMeters?: number;
+  resumedAt?: number;
 }
 
 /**
@@ -62,7 +67,7 @@ export class LocationService {
   private config: LocationConfig = {
     accuracy: ExpoLocation.Accuracy.BestForNavigation,
     timeInterval: 1000, // 1초
-    distanceInterval: 5, // 5m
+    distanceInterval: 0, // 정지 신호와 짧은 이동도 수신
     maximumAcceptableAccuracy: 25.0, // 25m
     maximumReasonableSpeed: 36.0, // 36km/h
     minimumDistanceForUpdate: 3.0, // 3m
@@ -71,6 +76,7 @@ export class LocationService {
   // Tracking state
   private isTracking: boolean = false;
   private isPaused: boolean = false;
+  private resumedAt: number | null = null;
   private watchSubscription: ExpoLocation.LocationSubscription | null = null;
 
   // Location data
@@ -80,6 +86,8 @@ export class LocationService {
   private totalDistance: number = 0;
   private speedReadings: number[] = [];
   private latestPaceSignal: LocationPaceSignal | null = null;
+  private paceState = createInitialPaceAccumulatorState();
+  private distanceOffsetMeters = 0;
 
   // Validation
   private consecutiveInvalidReadings: number = 0;
@@ -136,14 +144,19 @@ export class LocationService {
     const locationOptions = {
       ...strategy.getLocationOptions(),
       accuracy: this.config.accuracy,
-      timeInterval: this.config.timeInterval,
+      ...(Platform.OS === 'android' && { timeInterval: this.config.timeInterval }),
       distanceInterval: this.config.distanceInterval,
     };
 
-    this.watchSubscription = await ExpoLocation.watchPositionAsync(
-      locationOptions,
-      (position) => this.updateLocation(position)
-    );
+    try {
+      this.watchSubscription = await ExpoLocation.watchPositionAsync(
+        locationOptions,
+        (position) => this.updateLocation(position)
+      );
+    } catch (error) {
+      this.stopTracking();
+      throw error;
+    }
 
     console.log('[LocationService] Tracking started');
     this.notifyTrackingDataUpdate();
@@ -156,6 +169,8 @@ export class LocationService {
     if (!this.isTracking) return;
 
     this.isPaused = true;
+    this.latestPaceSignal = null;
+    this.paceState = createInitialPaceAccumulatorState();
     console.log('[LocationService] Tracking paused');
     this.notifyTrackingDataUpdate();
   }
@@ -163,11 +178,13 @@ export class LocationService {
   /**
    * 추적 재개
    */
-  resumeTracking(): void {
+  resumeTracking(resumedAt = Date.now()): void {
     if (!this.isTracking || !this.isPaused) return;
 
+    this.resumedAt = resumedAt;
     this.gpsFilterState = createInitialGpsFilterState();
     this.latestPaceSignal = null;
+    this.paceState = createInitialPaceAccumulatorState();
     this.isPaused = false;
     console.log('[LocationService] Tracking resumed');
     this.notifyTrackingDataUpdate();
@@ -184,6 +201,7 @@ export class LocationService {
 
     this.isTracking = false;
     this.isPaused = false;
+    this.resumedAt = null;
 
     console.log('[LocationService] Tracking stopped');
     this.notifyTrackingDataUpdate();
@@ -194,15 +212,10 @@ export class LocationService {
    */
   private updateLocation(position: ExpoLocation.LocationObject): void {
     if (!this.isTracking || this.isPaused) return;
+    if (this.resumedAt !== null && position.timestamp < this.resumedAt) return;
 
     const location = createLocationFromPosition(position);
-    const currentSample: GpsSample = {
-      latitude: location.latitude,
-      longitude: location.longitude,
-      timestampMs: location.timestamp.getTime(),
-      ...(location.speed > 0 && { speedMps: location.speed }),
-      ...(location.accuracy !== undefined && { accuracyMeters: location.accuracy }),
-    };
+    const currentSample = createGpsSample(position);
 
     const { result: filterResult, nextState } = reduceGpsSample(
       this.gpsFilterState,
@@ -221,15 +234,18 @@ export class LocationService {
     this.gpsFilterState = nextState;
 
     if (filterResult.acceptedForPace) {
-      this.latestPaceSignal = {
-        timestampMs: currentSample.timestampMs,
-        speedMps: filterResult.speedMps,
-        distanceDeltaMeters: filterResult.acceptedForDistance ? filterResult.distanceMeters : 0,
-        ...(currentSample.accuracyMeters !== undefined && {
-          accuracyMeters: currentSample.accuracyMeters,
-        }),
-      };
+      this.latestPaceSignal = createGpsPaceSignal(
+        currentSample,
+        filterResult,
+        this.totalDistance + (filterResult.acceptedForDistance ? filterResult.distanceMeters : 0)
+      );
       if (this.latestPaceSignal) {
+        this.paceState = consumePaceSignal(this.paceState, {
+          ...this.latestPaceSignal,
+          ...(this.latestPaceSignal.distanceMeters !== undefined && {
+            distanceMeters: this.distanceOffsetMeters + this.latestPaceSignal.distanceMeters,
+          }),
+        });
         this.paceSignalCallbacks.forEach((callback) => callback(this.latestPaceSignal!));
       }
     }
@@ -277,12 +293,15 @@ export class LocationService {
    */
   private resetTrackingState(seed: LocationTrackingSeed = {}): void {
     this.locations = [];
+    this.resumedAt = seed.resumedAt ?? null;
     this.gpsFilterState = createInitialGpsFilterState(seed.filterState);
     this.lastValidLocation = null;
     this.totalDistance = 0;
     this.speedReadings = [];
     this.consecutiveInvalidReadings = 0;
     this.latestPaceSignal = null;
+    this.paceState = createInitialPaceAccumulatorState(seed.paceState);
+    this.distanceOffsetMeters = seed.distanceOffsetMeters ?? 0;
   }
 
   /**
@@ -300,11 +319,7 @@ export class LocationService {
    */
   getCurrentTrackingData(): LocationTrackingData {
     const currentLocation = this.locations[this.locations.length - 1] || null;
-    const currentSpeed = this.latestPaceSignal?.speedMps
-      ? this.latestPaceSignal.speedMps * 3.6
-      : currentLocation?.speed
-        ? currentLocation.speed * 3.6
-        : 0;
+    const currentSpeed = (this.latestPaceSignal?.speedMps ?? currentLocation?.speed ?? 0) * 3.6;
     const averageSpeed = this.calculateAverageSpeed();
     const accuracy = currentLocation?.accuracy || 0;
 
@@ -381,6 +396,10 @@ export class LocationService {
 
   getLatestPaceSignal(): LocationPaceSignal | null {
     return this.latestPaceSignal;
+  }
+
+  getPaceState(): PaceAccumulatorState {
+    return createInitialPaceAccumulatorState(this.paceState);
   }
 
   /**

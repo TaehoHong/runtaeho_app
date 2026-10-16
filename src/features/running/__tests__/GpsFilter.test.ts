@@ -2,6 +2,7 @@ import {
   DEFAULT_GPS_FILTER_CONFIG,
   createInitialGpsFilterState,
   evaluateGpsSample,
+  createGpsSample,
   reduceGpsSample,
   type GpsSample,
 } from '~/features/running/services/gps/GpsFilter';
@@ -9,6 +10,90 @@ import {
 const metersToLatitude = (meters: number): number => meters / 111_111;
 
 describe('GpsFilter', () => {
+  const sampleAt = (meters: number, seconds: number, speedMps = 2): GpsSample => ({
+    latitude: 37.5 + (meters / 6371000) * (180 / Math.PI),
+    longitude: 127,
+    timestampMs: 1_740_000_000_000 + seconds * 1000,
+    speedMps,
+    accuracyMeters: 5,
+  });
+
+  it('retains short movements until the distance anchor has moved enough', () => {
+    const samples = [sampleAt(0, 0), sampleAt(2, 1), sampleAt(4, 2), sampleAt(6, 3), sampleAt(8, 4)];
+    const replay = samples.reduce((acc, sample) => {
+      const next = reduceGpsSample(acc.state, sample);
+      return {
+        state: next.nextState,
+        distance: acc.distance + (next.result.acceptedForDistance ? next.result.distanceMeters : 0),
+      };
+    }, { state: createInitialGpsFilterState(), distance: 0 });
+
+    expect(replay.distance).toBeCloseTo(8, 2);
+  });
+
+  it.each([
+    { latitude: 91 },
+    { longitude: -181 },
+    { accuracyMeters: -1 },
+    { accuracyMeters: Number.NaN },
+  ])('rejects invalid coordinate metadata %p', (override) => {
+    expect(evaluateGpsSample(null, { ...sampleAt(0, 0), ...override }).acceptedForPath).toBe(false);
+  });
+
+  it('rejects samples older than a short movement that has not yet been counted', () => {
+    const first = reduceGpsSample(createInitialGpsFilterState(), sampleAt(0, 0));
+    const short = reduceGpsSample(first.nextState, sampleAt(2, 2));
+    const late = reduceGpsSample(short.nextState, sampleAt(6, 1));
+    expect(late.result.reason).toBe('INVALID_TIMESTAMP');
+    expect(late.nextState).toEqual(short.nextState);
+  });
+
+  it('keeps the sensor speed independent of coordinate noise', () => {
+    const result = evaluateGpsSample(sampleAt(0, 0, 3), sampleAt(5, 1, 3));
+    expect(result.speedMps).toBe(3);
+  });
+
+  it('rejects a future timestamp without poisoning the next valid measurement', () => {
+    const first = reduceGpsSample(createInitialGpsFilterState(), sampleAt(0, 0));
+    const future = reduceGpsSample(first.nextState, sampleAt(100, 100), DEFAULT_GPS_FILTER_CONFIG,
+      sampleAt(0, 1).timestampMs);
+    expect(future.result.reason).toBe('INVALID_TIMESTAMP');
+    expect(future.nextState).toEqual(first.nextState);
+    expect(reduceGpsSample(future.nextState, sampleAt(4, 2)).result.acceptedForDistance).toBe(true);
+  });
+
+  it('does not publish an impossible sensor speed on the first fix', () => {
+    expect(evaluateGpsSample(null, sampleAt(0, 0, 30)).acceptedForPace).toBe(false);
+  });
+
+  it('discards an isolated jump and measures from the retained distance anchor', () => {
+    const first = reduceGpsSample(createInitialGpsFilterState(), sampleAt(0, 0));
+    const jump = reduceGpsSample(first.nextState, sampleAt(8, 1, 1.5));
+    expect(jump.result.reason).toBe('JUMP_QUARANTINED');
+    const recovered = reduceGpsSample(jump.nextState, sampleAt(4, 2));
+    expect(recovered.result.distanceMeters).toBeCloseTo(4, 2);
+  });
+
+  it('does not count a relocated fix when the next sample confirms a stationary sensor', () => {
+    const first = reduceGpsSample(createInitialGpsFilterState(), sampleAt(0, 0, 0));
+    const jump = reduceGpsSample(first.nextState, sampleAt(8, 1, 0));
+    const confirmed = reduceGpsSample(jump.nextState, sampleAt(8, 2, 0));
+    expect(confirmed.result.acceptedForDistance).toBe(false);
+    expect(confirmed.result.speedMps).toBe(0);
+  });
+
+  it.each([
+    { speed: 0, hasSpeed: true, expected: 0 },
+    { speed: 0, hasSpeed: false, expected: undefined },
+    { speed: 0, expected: undefined },
+    { speed: 3, expected: 3 },
+  ])('normalizes native speed availability and legacy native builds: %p', ({ expected, ...speed }) => {
+    expect(createGpsSample({
+      timestamp: 1000,
+      coords: { latitude: 37, longitude: 127, accuracy: 5, ...speed },
+    }).speedMps).toBe(expected);
+  });
+
   it('does not accumulate distance or path for stationary drift-like samples', () => {
     let previous: GpsSample | null = {
       latitude: 37.5,

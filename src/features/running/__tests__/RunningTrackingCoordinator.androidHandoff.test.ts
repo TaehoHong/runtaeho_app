@@ -294,8 +294,6 @@ describe('RunningTrackingCoordinator Android background handoff', () => {
     mockTakeBackgroundTrackingState.mockResolvedValue({
       totalDistance: 120, locations: [storedLocation], latestPaceSignal: null, filterState,
     });
-    mockGetTotalDistance.mockResolvedValue(120);
-    mockGetBackgroundLocations.mockResolvedValue([storedLocation]);
     await coordinator.handleAppStateChange('active');
 
     expect(coordinator.getSnapshot()).toEqual(expect.objectContaining({

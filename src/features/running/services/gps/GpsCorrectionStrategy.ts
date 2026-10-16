@@ -14,61 +14,35 @@ export interface GpsCorrectionStrategyParams {
   source: GpsTrackingSource;
 }
 
-const DEFAULT_FOREGROUND_LOCATION_OPTIONS: Location.LocationTaskOptions = {
-  accuracy: Location.Accuracy.BestForNavigation,
-  timeInterval: 1000,
-  distanceInterval: 5,
-};
-
-const DEFAULT_BACKGROUND_LOCATION_OPTIONS: Location.LocationTaskOptions = {
-  accuracy: Location.Accuracy.High,
-  timeInterval: 2000,
-  distanceInterval: 5,
-  deferredUpdatesInterval: 2000,
-  deferredUpdatesDistance: 5,
-  showsBackgroundLocationIndicator: true,
-};
-
-const ANDROID_BACKGROUND_FILTER_CONFIG: GpsFilterConfig = {
-  ...DEFAULT_GPS_FILTER_CONFIG,
-  maxAccuracyMeters: 50,
-  maxDeltaSeconds: 60,
-};
-
-const ANDROID_BACKGROUND_LOCATION_OPTIONS: Location.LocationTaskOptions = {
-  ...DEFAULT_BACKGROUND_LOCATION_OPTIONS,
-  accuracy: Location.Accuracy.BestForNavigation,
-  timeInterval: 1000,
-  mayShowUserSettingsDialog: true,
-  deferredUpdatesInterval: 1000,
-};
-
-const cloneFilterConfig = (config: GpsFilterConfig): GpsFilterConfig => ({ ...config });
-
-const cloneLocationOptions = (
-  options: Location.LocationTaskOptions
-): Location.LocationTaskOptions => ({ ...options });
-
-const createStrategy = (
-  filterConfig: GpsFilterConfig,
-  locationOptions: Location.LocationTaskOptions
-): GpsCorrectionStrategy => ({
-  getFilterConfig: () => cloneFilterConfig(filterConfig),
-  getLocationOptions: () => cloneLocationOptions(locationOptions),
-});
-
 export const getGpsCorrectionStrategy = ({
   platform,
   source,
 }: GpsCorrectionStrategyParams): GpsCorrectionStrategy => {
-  if (platform === 'android' && source === 'background') {
-    return createStrategy(ANDROID_BACKGROUND_FILTER_CONFIG, ANDROID_BACKGROUND_LOCATION_OPTIONS);
-  }
+  const isBackground = source === 'background';
+  const filterConfig: GpsFilterConfig = {
+    ...DEFAULT_GPS_FILTER_CONFIG,
+    ...(platform === 'android' && isBackground && {
+      maxAccuracyMeters: 50,
+      maxDeltaSeconds: 60,
+    }),
+  };
+  const locationOptions: Location.LocationTaskOptions = {
+    accuracy: Location.Accuracy.BestForNavigation,
+    distanceInterval: 0,
+    ...(platform === 'android' && { timeInterval: 1000, mayShowUserSettingsDialog: true }),
+    ...(isBackground && {
+      deferredUpdatesInterval: 1000,
+      deferredUpdatesDistance: 0,
+      showsBackgroundLocationIndicator: true,
+    }),
+    ...(platform === 'ios' && isBackground && {
+      activityType: Location.ActivityType.Fitness,
+      pausesUpdatesAutomatically: false,
+    }),
+  };
 
-  const locationOptions =
-    source === 'background'
-      ? DEFAULT_BACKGROUND_LOCATION_OPTIONS
-      : DEFAULT_FOREGROUND_LOCATION_OPTIONS;
-
-  return createStrategy(DEFAULT_GPS_FILTER_CONFIG, locationOptions);
+  return {
+    getFilterConfig: () => ({ ...filterConfig }),
+    getLocationOptions: () => ({ ...locationOptions }),
+  };
 };

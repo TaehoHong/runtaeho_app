@@ -26,6 +26,7 @@ jest.mock('expo-task-manager', () => ({
 
 jest.mock('expo-location', () => ({
   __esModule: true,
+  ActivityType: { Fitness: 'fitness' },
   Accuracy: {
     BestForNavigation: 'bestForNavigation',
     High: 'high',
@@ -108,9 +109,9 @@ describe('BackgroundTaskService permissions', () => {
       expect.objectContaining({
         accuracy: Location.Accuracy.BestForNavigation,
         timeInterval: 1000,
-        distanceInterval: 5,
+        distanceInterval: 0,
         deferredUpdatesInterval: 1000,
-        deferredUpdatesDistance: 5,
+        deferredUpdatesDistance: 0,
         mayShowUserSettingsDialog: true,
         foregroundService: expect.objectContaining({
           notificationTitle: 'RunTaeho 러닝 추적 중',
@@ -131,7 +132,7 @@ describe('BackgroundTaskService permissions', () => {
       BACKGROUND_LOCATION_TASK,
       expect.objectContaining(platform === 'android'
         ? { foregroundService: expect.objectContaining({ notificationTitle: 'RunTaeho 러닝 추적 중' }) }
-        : { showsBackgroundLocationIndicator: true })
+        : { activityType: Location.ActivityType.Fitness, pausesUpdatesAutomatically: false, showsBackgroundLocationIndicator: true })
     );
     expect(locationMock.getBackgroundPermissionsAsync).not.toHaveBeenCalled();
     expect(locationMock.requestBackgroundPermissionsAsync).not.toHaveBeenCalled();
@@ -152,6 +153,27 @@ describe('BackgroundTaskService permissions', () => {
     expect(locationMock.requestForegroundPermissionsAsync).not.toHaveBeenCalled();
     expect(locationMock.requestBackgroundPermissionsAsync).not.toHaveBeenCalled();
     expect(locationMock.startLocationUpdatesAsync).not.toHaveBeenCalled();
+  });
+
+  it('sorts batched measurements, ignores duplicates and keeps sensor pace separate from distance', async () => {
+    asyncStorageMock.getItem.mockImplementation(async (key) => key === '@running_session'
+      ? JSON.stringify({ runningRecordId: 201, startTime: 1000, shouldProcessLocations: true,
+        totalDistance: 100, locationCount: 0 })
+      : key === '@background_locations' ? '[]' : null);
+    const positions = [0, 1, 2, 3, 4].map((seconds) => ({
+      timestamp: 1000 + seconds * 1000,
+      coords: { latitude: 37 + metersToLatitude(seconds * 2), longitude: 127,
+        accuracy: 5, speed: 3, hasSpeed: true, speedAccuracy: 0.1, altitude: 0 },
+    }));
+    await processBackgroundLocationTask({ data: { locations: [
+      positions[4], positions[1], positions[0], positions[2], positions[1], positions[3],
+    ] } });
+    const writes = asyncStorageMock.multiSet.mock.calls[0]?.[0];
+    expect(Number(writes?.find(([key]) => key === '@total_distance')?.[1])).toBeCloseTo(108, 1);
+    const rawSignal = writes?.find(([key]) => key === '@latest_pace_signal')?.[1];
+    expect(JSON.parse(rawSignal ?? '{}')).toEqual(expect.objectContaining({
+      timestampMs: 5000, speedMps: 3, speedAccuracyMps: 0.1, distanceMeters: expect.any(Number),
+    }));
   });
 
   it('BGTASK-GPS-001 uses Android background correction without logging coordinates', async () => {

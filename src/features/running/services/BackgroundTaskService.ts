@@ -16,9 +16,16 @@ import {
   type GpsFilterResult,
   type GpsFilterState,
   type GpsRejectReason,
-  type GpsSample,
+  type GpsPaceSignal,
+  createGpsSample,
+  createGpsPaceSignal,
 } from './gps/GpsFilter';
 import { getGpsCorrectionStrategy } from './gps/GpsCorrectionStrategy';
+import {
+  consumePaceSignal,
+  createInitialPaceAccumulatorState,
+  type PaceAccumulatorState,
+} from './gps/PaceFusion';
 import { RED } from '~/shared/styles';
 
 /**
@@ -35,6 +42,7 @@ const STORAGE_KEYS = {
   TOTAL_DISTANCE: '@total_distance',
   LATEST_PACE_SIGNAL: '@latest_pace_signal',
   GPS_FILTER_STATE: '@gps_filter_state',
+  PACE_STATE: '@pace_state',
 } as const;
 
 /**
@@ -42,6 +50,7 @@ const STORAGE_KEYS = {
  */
 interface BackgroundRunningSession {
   runningRecordId: number;
+  // Earliest timestamp belonging to the current background processing interval.
   startTime: number;
   shouldProcessLocations: boolean;
   totalDistance: number;
@@ -60,18 +69,22 @@ export interface BackgroundLocationData {
   accuracy: number;
 }
 
-export interface BackgroundPaceSignal {
-  timestampMs: number;
-  speedMps?: number;
-  accuracyMeters?: number;
-  distanceDeltaMeters?: number;
-}
+export type BackgroundPaceSignal = GpsPaceSignal;
 
 export interface BackgroundTrackingSeed {
   totalDistance?: number;
   locations?: BackgroundLocationData[];
   latestPaceSignal?: BackgroundPaceSignal | null;
   filterState?: GpsFilterState;
+  paceState?: PaceAccumulatorState;
+}
+
+export interface BackgroundTrackingState {
+  totalDistance: number;
+  locations: BackgroundLocationData[];
+  latestPaceSignal: BackgroundPaceSignal | null;
+  filterState: GpsFilterState;
+  paceState: PaceAccumulatorState;
 }
 
 export interface BackgroundTrackingOptions {
@@ -80,6 +93,16 @@ export interface BackgroundTrackingOptions {
 
 const BACKGROUND_SESSION_NOT_INITIALIZED_MESSAGE =
   'Background tracking session is not initialized';
+
+// Share one boundary between TaskManager callbacks and foreground handoffs.
+// Native task start/stop must stay outside it: they may wait for a callback.
+let backgroundStateOperations: Promise<unknown> = Promise.resolve();
+
+const enqueueBackgroundStateOperation = <T>(operation: () => Promise<T>): Promise<T> => {
+  const result = backgroundStateOperations.then(operation);
+  backgroundStateOperations = result.catch(() => undefined);
+  return result;
+};
 
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value);
@@ -189,7 +212,7 @@ export const processBackgroundLocationTask = async ({
 }: {
   data?: unknown;
   error?: unknown;
-}): Promise<void> => {
+}): Promise<void> => enqueueBackgroundStateOperation(async () => {
   if (error) {
     console.error('[BackgroundTask] Error:', error);
     return;
@@ -225,6 +248,10 @@ export const processBackgroundLocationTask = async ({
       let gpsFilterState: GpsFilterState = filterStateData
         ? createInitialGpsFilterState(JSON.parse(filterStateData))
         : createInitialGpsFilterState();
+      const paceStateData = await AsyncStorage.getItem(STORAGE_KEYS.PACE_STATE);
+      let paceState = createInitialPaceAccumulatorState(
+        paceStateData ? JSON.parse(paceStateData) : undefined
+      );
 
       // 새로운 위치들 처리
       let totalDistanceAdded = 0;
@@ -238,16 +265,10 @@ export const processBackgroundLocationTask = async ({
       const filterSummary =
         Platform.OS === 'android' ? createBackgroundGpsFilterSummary() : null;
 
-      for (const location of locations) {
-        const currentSample: GpsSample = {
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-          timestampMs: location.timestamp,
-          ...(location.coords.speed !== null && { speedMps: location.coords.speed }),
-          ...(location.coords.accuracy !== null && {
-            accuracyMeters: location.coords.accuracy,
-          }),
-        };
+      for (const location of [...locations].sort((a, b) => a.timestamp - b.timestamp)) {
+        // A registered native task may deliver a batch from before a new session or resume.
+        if (location.timestamp < session.startTime) continue;
+        const currentSample = createGpsSample(location);
 
         const newLocation: BackgroundLocationData = {
           latitude: currentSample.latitude,
@@ -277,16 +298,10 @@ export const processBackgroundLocationTask = async ({
         }
 
         if (filterResult.acceptedForPace) {
-          latestPaceSignal = {
-            timestampMs: currentSample.timestampMs,
-            speedMps: filterResult.speedMps,
-            distanceDeltaMeters: filterResult.acceptedForDistance
-              ? filterResult.distanceMeters
-              : 0,
-            ...(currentSample.accuracyMeters !== undefined && {
-              accuracyMeters: currentSample.accuracyMeters,
-            }),
-          };
+          latestPaceSignal = createGpsPaceSignal(
+            currentSample, filterResult, session.totalDistance + totalDistanceAdded
+          );
+          paceState = consumePaceSignal(paceState, latestPaceSignal);
         }
 
       }
@@ -304,6 +319,7 @@ export const processBackgroundLocationTask = async ({
         [STORAGE_KEYS.RUNNING_SESSION, JSON.stringify(updatedSession)],
         [STORAGE_KEYS.TOTAL_DISTANCE, updatedSession.totalDistance.toString()],
         [STORAGE_KEYS.GPS_FILTER_STATE, JSON.stringify(gpsFilterState)],
+        [STORAGE_KEYS.PACE_STATE, JSON.stringify(paceState)],
       ];
 
       if (latestPaceSignal) {
@@ -319,7 +335,7 @@ export const processBackgroundLocationTask = async ({
       console.error('[BackgroundTask] Error processing locations:', err);
     }
   }
-};
+});
 
 TaskManager.defineTask(BACKGROUND_LOCATION_TASK, processBackgroundLocationTask);
 
@@ -351,7 +367,7 @@ export class BackgroundTaskService {
       locationCount: seed.locations?.length ?? 0,
     };
 
-    await AsyncStorage.multiSet([
+    await enqueueBackgroundStateOperation(() => AsyncStorage.multiSet([
       [STORAGE_KEYS.RUNNING_SESSION, JSON.stringify(session)],
       [STORAGE_KEYS.BACKGROUND_LOCATIONS, JSON.stringify(seed.locations ?? [])],
       [STORAGE_KEYS.TOTAL_DISTANCE, String(seed.totalDistance ?? 0)],
@@ -360,7 +376,8 @@ export class BackgroundTaskService {
         JSON.stringify(createInitialGpsFilterState(seed.filterState)),
       ],
       [STORAGE_KEYS.LATEST_PACE_SIGNAL, JSON.stringify(seed.latestPaceSignal ?? null)],
-    ]);
+      [STORAGE_KEYS.PACE_STATE, JSON.stringify(createInitialPaceAccumulatorState(seed.paceState))],
+    ]));
   }
 
   /**
@@ -432,19 +449,20 @@ export class BackgroundTaskService {
    */
   async stopBackgroundTracking(): Promise<void> {
     try {
+      await enqueueBackgroundStateOperation(async () => {
+        const sessionData = await AsyncStorage.getItem(STORAGE_KEYS.RUNNING_SESSION);
+        if (sessionData) {
+          const session = parseBackgroundRunningSession(sessionData);
+          await AsyncStorage.setItem(
+            STORAGE_KEYS.RUNNING_SESSION,
+            JSON.stringify({ ...session, shouldProcessLocations: false })
+          );
+        }
+      });
+
       const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_LOCATION_TASK);
       if (isRegistered) {
         await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
-      }
-
-      // 세션 비활성화
-      const sessionData = await AsyncStorage.getItem(STORAGE_KEYS.RUNNING_SESSION);
-      if (sessionData) {
-        const session = parseBackgroundRunningSession(sessionData);
-        await AsyncStorage.setItem(
-          STORAGE_KEYS.RUNNING_SESSION,
-          JSON.stringify({ ...session, shouldProcessLocations: false })
-        );
       }
 
       console.log('[BackgroundTask] Stopped background tracking');
@@ -458,23 +476,27 @@ export class BackgroundTaskService {
    * 백그라운드 추적 일시정지 (세션 비활성화)
    */
   async deactivateBackgroundSession(): Promise<void> {
-    try {
-      const sessionData = await AsyncStorage.getItem(STORAGE_KEYS.RUNNING_SESSION);
-      if (!sessionData) return;
+    return enqueueBackgroundStateOperation(async () => {
+      try {
+        const sessionData = await AsyncStorage.getItem(STORAGE_KEYS.RUNNING_SESSION);
+        if (!sessionData) return;
 
-      const session = parseBackgroundRunningSession(sessionData);
-      await AsyncStorage.multiSet([
-        [
-          STORAGE_KEYS.RUNNING_SESSION,
-          JSON.stringify({ ...session, shouldProcessLocations: false }),
-        ],
-        [STORAGE_KEYS.GPS_FILTER_STATE, JSON.stringify(createInitialGpsFilterState())],
-      ]);
-      console.log('[BackgroundTask] Deactivated background session');
-    } catch (error) {
-      console.error('[BackgroundTask] Failed to deactivate background session:', error);
-      throw error;
-    }
+        const session = parseBackgroundRunningSession(sessionData);
+        await AsyncStorage.multiSet([
+          [
+            STORAGE_KEYS.RUNNING_SESSION,
+            JSON.stringify({ ...session, shouldProcessLocations: false }),
+          ],
+          [STORAGE_KEYS.GPS_FILTER_STATE, JSON.stringify(createInitialGpsFilterState())],
+          [STORAGE_KEYS.LATEST_PACE_SIGNAL, JSON.stringify(null)],
+          [STORAGE_KEYS.PACE_STATE, JSON.stringify(createInitialPaceAccumulatorState())],
+        ]);
+        console.log('[BackgroundTask] Deactivated background session');
+      } catch (error) {
+        console.error('[BackgroundTask] Failed to deactivate background session:', error);
+        throw error;
+      }
+    });
   }
 
   /**
@@ -483,31 +505,81 @@ export class BackgroundTaskService {
   async activateBackgroundSession(
     { resetFilterState = true }: { resetFilterState?: boolean } = {}
   ): Promise<void> {
-    try {
-      const sessionData = await AsyncStorage.getItem(STORAGE_KEYS.RUNNING_SESSION);
-      if (!sessionData) {
-        throw new Error(BACKGROUND_SESSION_NOT_INITIALIZED_MESSAGE);
+    const startTime = Date.now();
+    return enqueueBackgroundStateOperation(async () => {
+      try {
+        const sessionData = await AsyncStorage.getItem(STORAGE_KEYS.RUNNING_SESSION);
+        if (!sessionData) {
+          throw new Error(BACKGROUND_SESSION_NOT_INITIALIZED_MESSAGE);
+        }
+
+        const session = parseBackgroundRunningSession(sessionData);
+        const updates: [string, string][] = [
+          [
+            STORAGE_KEYS.RUNNING_SESSION,
+            JSON.stringify({
+              ...session,
+              ...(resetFilterState && { startTime }),
+              shouldProcessLocations: true,
+            }),
+          ],
+        ];
+        if (resetFilterState) {
+          updates.push(
+            [STORAGE_KEYS.GPS_FILTER_STATE, JSON.stringify(createInitialGpsFilterState())],
+            [STORAGE_KEYS.LATEST_PACE_SIGNAL, JSON.stringify(null)],
+            [STORAGE_KEYS.PACE_STATE, JSON.stringify(createInitialPaceAccumulatorState())]
+          );
+        }
+        await AsyncStorage.multiSet(updates);
+        console.log('[BackgroundTask] Activated background session');
+      } catch (error) {
+        console.error('[BackgroundTask] Failed to activate background session:', error);
+        throw error;
+      }
+    });
+  }
+
+  /** Drain pending writes, close background processing, and preserve its final filter. */
+  async takeBackgroundTrackingState(): Promise<BackgroundTrackingState> {
+    return enqueueBackgroundStateOperation(async () => {
+      const entries = await AsyncStorage.multiGet([
+        STORAGE_KEYS.RUNNING_SESSION,
+        STORAGE_KEYS.TOTAL_DISTANCE,
+        STORAGE_KEYS.BACKGROUND_LOCATIONS,
+        STORAGE_KEYS.LATEST_PACE_SIGNAL,
+        STORAGE_KEYS.GPS_FILTER_STATE,
+        STORAGE_KEYS.PACE_STATE,
+      ]);
+      const values = new Map(entries);
+      const sessionData = values.get(STORAGE_KEYS.RUNNING_SESSION);
+      const distanceData = values.get(STORAGE_KEYS.TOTAL_DISTANCE);
+      const locationsData = values.get(STORAGE_KEYS.BACKGROUND_LOCATIONS);
+      const paceData = values.get(STORAGE_KEYS.LATEST_PACE_SIGNAL);
+      const filterData = values.get(STORAGE_KEYS.GPS_FILTER_STATE);
+      const paceStateData = values.get(STORAGE_KEYS.PACE_STATE);
+      const state: BackgroundTrackingState = {
+        totalDistance: distanceData ? parseFloat(distanceData) : 0,
+        locations: locationsData ? JSON.parse(locationsData) : [],
+        latestPaceSignal: paceData ? JSON.parse(paceData) : null,
+        filterState: filterData
+          ? createInitialGpsFilterState(JSON.parse(filterData))
+          : createInitialGpsFilterState(),
+        paceState: createInitialPaceAccumulatorState(
+          paceStateData ? JSON.parse(paceStateData) : undefined
+        ),
+      };
+
+      if (sessionData) {
+        const session = parseBackgroundRunningSession(sessionData);
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.RUNNING_SESSION,
+          JSON.stringify({ ...session, shouldProcessLocations: false })
+        );
       }
 
-      const session = parseBackgroundRunningSession(sessionData);
-      const updates: [string, string][] = [
-        [
-          STORAGE_KEYS.RUNNING_SESSION,
-          JSON.stringify({ ...session, shouldProcessLocations: true }),
-        ],
-      ];
-      if (resetFilterState) {
-        updates.push([
-          STORAGE_KEYS.GPS_FILTER_STATE,
-          JSON.stringify(createInitialGpsFilterState()),
-        ]);
-      }
-      await AsyncStorage.multiSet(updates);
-      console.log('[BackgroundTask] Activated background session');
-    } catch (error) {
-      console.error('[BackgroundTask] Failed to activate background session:', error);
-      throw error;
-    }
+      return state;
+    });
   }
 
   /**
@@ -579,13 +651,14 @@ export class BackgroundTaskService {
    */
   async clearBackgroundData(): Promise<void> {
     try {
-      await AsyncStorage.multiRemove([
+      await enqueueBackgroundStateOperation(() => AsyncStorage.multiRemove([
         STORAGE_KEYS.RUNNING_SESSION,
         STORAGE_KEYS.BACKGROUND_LOCATIONS,
         STORAGE_KEYS.TOTAL_DISTANCE,
         STORAGE_KEYS.LATEST_PACE_SIGNAL,
         STORAGE_KEYS.GPS_FILTER_STATE,
-      ]);
+        STORAGE_KEYS.PACE_STATE,
+      ]));
       console.log('[BackgroundTask] Cleared background data');
     } catch (error) {
       console.error('[BackgroundTask] Failed to clear data:', error);

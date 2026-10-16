@@ -43,6 +43,7 @@ export const useGpsTracking = ({
   }
 
   const [snapshot, setSnapshot] = useState(() => coordinatorRef.current!.getSnapshot());
+  const paceStateRef = useRef(snapshot.paceState);
 
   useEffect(() => {
     segmentStartTimeSourceRef.current = segmentStartTimeRef;
@@ -54,20 +55,29 @@ export const useGpsTracking = ({
   useEffect(() => {
     const coordinator = coordinatorRef.current!;
     return coordinator.subscribe((nextSnapshot) => {
+      paceStateRef.current = nextSnapshot.paceState;
       const previousSource = previousSourceRef.current;
       const sourceChanged = previousSource !== nextSnapshot.source;
 
       const appendSegmentProgress = (distanceDelta: number, newLocations: Location[]) => {
+        if (distanceDelta < 0) {
+          return;
+        }
+
         if (newLocations.length > 0) {
           currentSegmentLocationsRef.current.push(...newLocations);
         }
 
-        if (distanceDelta <= 0) {
+        if (distanceDelta === 0 && newLocations.length === 0) {
           return;
         }
 
         currentSegmentDistanceRef.current += distanceDelta;
         onDistanceUpdateRef.current(distanceDelta, newLocations);
+
+        if (distanceDelta === 0) {
+          return;
+        }
 
         const currentSegmentStartTime = segmentStartTimeSourceRef.current.current;
         if (
@@ -86,13 +96,17 @@ export const useGpsTracking = ({
 
       if (sourceChanged) {
         if (
-          previousSource === 'background' &&
-          nextSnapshot.source === 'foreground' &&
-          runningStateRef.current === RunningState.Running
+          runningStateRef.current === RunningState.Running ||
+          runningStateRef.current === RunningState.Paused
         ) {
-          const handoffDistanceDelta = nextSnapshot.distance - previousDistanceRef.current;
-          const handoffLocations = nextSnapshot.locations.slice(lastProcessedLocationCountRef.current);
-          appendSegmentProgress(handoffDistanceDelta, handoffLocations);
+          if (
+            previousSource === 'background' ||
+            (previousSource === 'idle' && nextSnapshot.source === 'foreground')
+          ) {
+            const handoffDistanceDelta = nextSnapshot.distance - previousDistanceRef.current;
+            const handoffLocations = nextSnapshot.locations.slice(lastProcessedLocationCountRef.current);
+            appendSegmentProgress(handoffDistanceDelta, handoffLocations);
+          }
         } else {
           currentSegmentDistanceRef.current = 0;
           currentSegmentLocationsRef.current = [];
@@ -149,11 +163,19 @@ export const useGpsTracking = ({
   }, []);
 
   const startGpsTracking = useCallback(async (recordId: number) => {
+    previousDistanceRef.current = 0;
+    lastProcessedLocationCountRef.current = 0;
+    currentSegmentDistanceRef.current = 0;
+    currentSegmentLocationsRef.current = [];
+    previousSourceRef.current = 'idle';
     await coordinatorRef.current!.startSession(recordId);
     console.log('[useGpsTracking] Tracking session started');
   }, []);
 
   const stopGpsTracking = useCallback(async () => {
+    runningStateRef.current = RunningState.Stopped;
+    currentSegmentDistanceRef.current = 0;
+    currentSegmentLocationsRef.current = [];
     const result = await coordinatorRef.current!.stopSession();
     console.log('[useGpsTracking] Tracking session stopped');
     return result;
@@ -165,11 +187,16 @@ export const useGpsTracking = ({
   }, []);
 
   const resumeGpsTracking = useCallback(() => {
-    coordinatorRef.current?.resumeSession();
-    console.log('[useGpsTracking] Tracking session resumed');
+    void coordinatorRef.current?.resumeSession().then((result) => {
+      if (result?.autoPaused) {
+        onAutoPauseRef.current?.();
+      }
+    }).catch((error) => console.error('[useGpsTracking] Tracking session resume failed:', error));
+    console.log('[useGpsTracking] Tracking session resume requested');
   }, []);
 
   const resetGpsTracking = useCallback(() => {
+    runningStateRef.current = RunningState.Stopped;
     coordinatorRef.current?.resetSession();
     previousDistanceRef.current = 0;
     lastProcessedLocationCountRef.current = 0;
@@ -185,6 +212,7 @@ export const useGpsTracking = ({
     trackingData: snapshot.trackingData,
     useBackgroundMode: snapshot.source === 'background',
     latestPaceSignal: snapshot.latestPaceSignal,
+    paceStateRef,
     startGpsTracking,
     stopGpsTracking,
     pauseGpsTracking,

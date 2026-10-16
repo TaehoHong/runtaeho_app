@@ -16,19 +16,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
   RunningStats,
   PaceData,
-  PaceSignal,
   PaceSnapshot,
   UseRunningStatsReturn,
 } from './types';
 import { DEFAULT_RUNNING_STATS } from './types';
 import {
-  calculateDistanceWindowSpeed,
-  createInitialPaceFusionState,
-  fuseInstantPace,
+  createInitialPaceAccumulatorState,
+  readPaceAccumulator,
+  type PaceAccumulatorState,
 } from '../../services/gps/PaceFusion';
 import { RunningStatusFormat } from '~/shared/utils/formatters';
-
-const INSTANT_PACE_WINDOW_MS = 10000; // 10초 윈도우
 
 export const useRunningStats = (): UseRunningStatsReturn => {
   // State
@@ -38,7 +35,6 @@ export const useRunningStats = (): UseRunningStatsReturn => {
   // Refs
   const statsRef = useRef<RunningStats>(stats);
   const paceSnapshotsRef = useRef<PaceSnapshot[]>([]);
-  const paceFusionStateRef = useRef(createInitialPaceFusionState());
 
   // Sync statsRef with state
   useEffect(() => {
@@ -46,42 +42,11 @@ export const useRunningStats = (): UseRunningStatsReturn => {
   }, [stats]);
 
   /**
-   * 순간 페이스 계산 (최근 10초 기준)
-   * 현재 거리와 10초 전 거리의 차이로 계산
+   * GPS 서비스가 계산한 페이스를 읽고, UI tick에서는 신호 만료만 확인한다.
    */
   const calculateInstantPace = useCallback(
-    (currentDistance: number, paceSignal?: PaceSignal): PaceData => {
-      const now = Date.now();
-
-      // 새 스냅샷 추가
-      paceSnapshotsRef.current.push({
-        timestamp: now,
-        distance: currentDistance,
-      });
-
-      // 10초 이전 데이터 제거
-      const cutoffTime = now - INSTANT_PACE_WINDOW_MS;
-      paceSnapshotsRef.current = paceSnapshotsRef.current.filter(
-        (snapshot) => snapshot.timestamp >= cutoffTime
-      );
-
-      const distanceWindowSpeedMps = calculateDistanceWindowSpeed(
-        paceSnapshotsRef.current,
-        now,
-        INSTANT_PACE_WINDOW_MS
-      );
-
-      const fused = fuseInstantPace(
-        {
-          distanceWindowSpeedMps,
-          nowMs: now,
-          ...(paceSignal !== undefined && { paceSignal }),
-        },
-        paceFusionStateRef.current
-      );
-
-      paceFusionStateRef.current = fused.nextState;
-      return fused.pace;
+    (paceState?: PaceAccumulatorState): PaceData => {
+      return readPaceAccumulator(paceState ?? createInitialPaceAccumulatorState(), Date.now());
     },
     []
   );
@@ -143,7 +108,7 @@ export const useRunningStats = (): UseRunningStatsReturn => {
       elapsedSeconds: number,
       heartRate?: number,
       cadence?: number,
-      paceSignal?: PaceSignal
+      paceState?: PaceAccumulatorState
     ) => {
       if (elapsedSeconds === 0) return;
 
@@ -153,8 +118,8 @@ export const useRunningStats = (): UseRunningStatsReturn => {
       const paceMinutes = Math.floor(paceSeconds / 60);
       const paceSecondsRemainder = paceSeconds % 60;
 
-      // 순간 페이스 계산 (최근 10초 기준)
-      const instantPace = calculateInstantPace(distanceMeters, paceSignal);
+      // 센서 속도 우선, 최근 거리 측정은 보조 입력으로 사용한다.
+      const instantPace = calculateInstantPace(paceState);
 
       // 속도 계산 (km/h)
       const speedKmh = distanceMeters > 0 ? (distanceMeters / elapsedSeconds) * 3.6 : 0;
@@ -181,11 +146,15 @@ export const useRunningStats = (): UseRunningStatsReturn => {
   /**
    * 통계 초기화
    */
+  const resetInstantPace = useCallback(() => {
+    paceSnapshotsRef.current = [];
+    setStats((previous) => ({ ...previous, instantPace: DEFAULT_RUNNING_STATS.instantPace }));
+  }, []);
+
   const resetStats = useCallback(() => {
     setStats(DEFAULT_RUNNING_STATS);
     setElapsedTime(0);
     paceSnapshotsRef.current = [];
-    paceFusionStateRef.current = createInitialPaceFusionState();
     console.log('[useRunningStats] Stats reset');
   }, []);
 
@@ -216,6 +185,7 @@ export const useRunningStats = (): UseRunningStatsReturn => {
 
     // Actions
     updateStats,
+    resetInstantPace,
     resetStats,
     setElapsedTime,
     setStats,

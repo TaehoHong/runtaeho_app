@@ -12,6 +12,8 @@ import type {
   RunningRecordItem,
 } from '../../models';
 import type { LocationTrackingData } from '../../services/LocationService';
+import type { GpsPaceSignal } from '../../services/gps/GpsFilter';
+import type { PaceAccumulatorState } from '../../services/gps/PaceFusion';
 import type { RunningState } from '~/stores/app/appStore';
 
 /**
@@ -32,7 +34,7 @@ export interface RunningStats {
   bpm: number | undefined; // Heart rate (beats per minute) - 센서 데이터 없으면 undefined
   cadence: number | undefined; // 케이던스 (steps/min) - 센서 데이터 없으면 undefined
   pace: PaceData; // 전체 평균 페이스 (러닝 시작~현재)
-  instantPace: PaceData; // 순간 페이스 (최근 10초 기준)
+  instantPace: PaceData; // 순간 페이스 (센서 속도 우선, 최근 3~5초 거리 보조)
   speed: number; // km/h
   calories: number | undefined; // 칼로리 - 센서 데이터 없으면 undefined
 }
@@ -48,12 +50,7 @@ export interface PaceSnapshot {
 /**
  * 실시간 페이스 계산용 GPS 신호
  */
-export interface PaceSignal {
-  timestampMs: number;
-  speedMps?: number;
-  accuracyMeters?: number;
-  distanceDeltaMeters?: number;
-}
+export type PaceSignal = GpsPaceSignal;
 
 /**
  * 기본 RunningStats 초기값
@@ -125,8 +122,9 @@ export interface UseRunningStatsReturn {
     elapsedSeconds: number,
     heartRate?: number,
     cadence?: number,
-    paceSignal?: PaceSignal
+    paceState?: PaceAccumulatorState
   ) => void;
+  resetInstantPace: () => void;
   resetStats: () => void;
   setElapsedTime: React.Dispatch<React.SetStateAction<number>>;
   setStats: React.Dispatch<React.SetStateAction<RunningStats>>;
@@ -159,6 +157,9 @@ export interface UseGpsTrackingReturn {
   trackingData: LocationTrackingData | null;
   useBackgroundMode: boolean;
   latestPaceSignal: PaceSignal | null;
+
+  // Refs (updated before React publishes the tracking snapshot)
+  paceStateRef: MutableRefObject<PaceAccumulatorState>;
 
   // Actions
   startGpsTracking: (recordId: number) => Promise<void>;
