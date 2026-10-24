@@ -20,9 +20,10 @@ import { PRIMARY, GREY } from '~/shared/styles';
 
 interface LeagueResultViewProps {
   result: LeagueResult;
+  participantId?: string | undefined;
 }
 
-export const LeagueResultView = ({ result }: LeagueResultViewProps) => {
+export const LeagueResultView = ({ result, participantId }: LeagueResultViewProps) => {
   useAppLanguage();
   const router = useRouter();
 
@@ -38,8 +39,8 @@ export const LeagueResultView = ({ result }: LeagueResultViewProps) => {
   const handleConfirm = () => {
     router.push({
       pathname: '/league/result-detail' as const,
-      params: { resultData: JSON.stringify(result) },
-    } as any);
+      params: { resultData: JSON.stringify(result), ...(participantId ? { participantId } : {}) },
+    });
   };
 
   return (

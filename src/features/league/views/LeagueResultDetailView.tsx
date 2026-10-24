@@ -14,12 +14,13 @@ import { RunningStatusFormat } from '~/shared/utils/formatters';
 
 interface LeagueResultDetailViewProps {
   result: LeagueResult;
+  participantId?: number | undefined;
 }
 
-export const LeagueResultDetailView = ({ result }: LeagueResultDetailViewProps) => {
+export const LeagueResultDetailView = ({ result, participantId }: LeagueResultDetailViewProps) => {
   useAppLanguage();
   // 결과 확인 완료 API (캐시 무효화 포함)
-  const confirmMutation = useConfirmResult();
+  const confirmMutation = useConfirmResult(participantId);
 
   // 확인 버튼 클릭
   const handleConfirm = () => {

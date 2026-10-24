@@ -14,7 +14,7 @@ import { LeagueResultView } from '~/features/league/views';
 import { parseLeagueResult } from '~/features/league/models/parseLeagueResult';
 
 export default function LeagueResultScreen() {
-  const params = useLocalSearchParams<{ resultData?: string }>();
+  const params = useLocalSearchParams<{ resultData?: string; participantId?: string }>();
   const navigation = useNavigation();
 
   // 뒤로가기 블록 (스와이프 제스처 차단)
@@ -42,5 +42,5 @@ export default function LeagueResultScreen() {
 
   console.log('🏆 [LEAGUE_RESULT] 리그 결과 화면 렌더링', result.resultStatus);
 
-  return <LeagueResultView result={result} />;
+  return <LeagueResultView result={result} participantId={params.participantId} />;
 }

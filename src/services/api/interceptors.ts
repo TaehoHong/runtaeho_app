@@ -18,12 +18,7 @@ export const httpResponseLogging = (client: AxiosInstance) => {
           : 0;
 
         console.log(`📥 [RESPONSE] ${timestamp} (${duration}ms)`);
-        console.log(`   ${response.config.method?.toUpperCase()} ${response.config.url}`);
-        console.log(`   Status: ${response.status} ${response.statusText}`);
-
-        if (response.data) {
-          console.log('   Data:', response.data);
-        }
+        console.log(`   ${response.config.method?.toUpperCase()} Status: ${response.status}`);
       }
 
       return response;
@@ -33,16 +28,8 @@ export const httpResponseLogging = (client: AxiosInstance) => {
       if (API_CONFIG.LOGGING.ENABLED && API_CONFIG.LOGGING.LOG_ERROR) {
         const timestamp = new Date().toISOString();
         console.log(`❌ [ERROR] ${timestamp}`);
-        console.log(`   ${error.config?.method?.toUpperCase()} ${error.config?.baseURL}${error.config?.url}`);
+        console.log(`   ${error.config?.method?.toUpperCase()}`);
         console.log(`   Status: ${error.response?.status || 'Network Error'}`);
-
-        if (error.response?.data) {
-          console.log('   Error Data:', error.response.data);
-        }
-
-        if (error.message) {
-          console.log('   Message:', error.message);
-        }
       }
 
       // Sentry에 API 에러 리포팅 (특정 에러는 제외)
@@ -53,13 +40,11 @@ export const httpResponseLogging = (client: AxiosInstance) => {
         // !error.message?.includes('timeout'); // 타임아웃 제외
 
       if (shouldReportToSentry) {
-        reportError(error, {
+        // AxiosError에는 요청 헤더/본문이 포함된다. 원본은 호출자에게만 전달한다.
+        reportError(new Error('API request failed'), {
           type: 'api-error',
           method: error.config?.method,
-          url: error.config?.url,
           status: error.response?.status,
-          statusText: error.response?.statusText,
-          data: error.response?.data,
         });
       }
 
@@ -78,26 +63,16 @@ export const httpRequestLogging = (client: AxiosInstance) => {
     // 요청 로깅 (개발 환경에서만)
     if (API_CONFIG.LOGGING.ENABLED && API_CONFIG.LOGGING.LOG_REQUEST) {
       const timestamp = new Date().toISOString();
-      console.log(`   ${config.method?.toUpperCase()} ${config.url}`);
+      console.log(`   ${config.method?.toUpperCase()}`);
       console.log(`🚀 [REQUEST] ${timestamp}`);
-      if (config.headers && Object.keys(config.headers).length > 0) {
-        console.log('   Headers:', config.headers);
-      }
-      if (config.params && Object.keys(config.params).length > 0) {
-        console.log('   Params:', config.params);
-      }
-      if (config.data) {
-        console.log('   Body:', config.data);
-      }
     }
 
     // Sentry Breadcrumb 추가
     addBreadcrumb(
-      `API Request: ${config.method?.toUpperCase()} ${config.url}`,
+      `API Request: ${config.method?.toUpperCase()}`,
       'http',
       {
         method: config.method,
-        url: config.url,
       }
     );
 

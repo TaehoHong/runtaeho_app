@@ -6,7 +6,6 @@
 // Android 에뮬레이터: `adb reverse tcp:8080 tcp:8080` 실행 필요
 const getApiBaseUrl = (): string => {
   const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
-  console.log(`baseUrl: ${baseUrl}`);
 
   if (!baseUrl) {
     console.log('⚠️ EXPO_PUBLIC_API_BASE_URL not set, using localhost');
@@ -18,7 +17,7 @@ const getApiBaseUrl = (): string => {
 
 const isLoggingEnabled = (): boolean => {
   const enableLogging = process.env.EXPO_PUBLIC_ENABLE_LOGGING;
-  return enableLogging === 'true' || __DEV__;
+  return __DEV__ && enableLogging !== 'false';
 };
 
 export const API_CONFIG = {

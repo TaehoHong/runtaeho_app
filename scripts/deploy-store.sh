@@ -24,9 +24,10 @@ SUBMIT=1
 ALLOW_DIRTY=0
 RUN_PODS=0
 PREFLIGHT_ONLY=0
+RESUME=0
+SUBMIT_REVIEW=0
 
 OUT_DIR="$ROOT/build/release"
-SUBMIT_PROFILE="production"
 
 STEP="시작"
 die() { echo "오류: $*" >&2; exit 1; }
@@ -46,6 +47,8 @@ usage() {
   --pods                빌드 전 pod install 실행
   --allow-dirty         커밋되지 않은 변경이 있어도 진행
   --preflight-only      사전 조건만 확인하고 종료 (버전/빌드 변경 없음)
+  --resume              실패한 빌드 재시도 (소스 동일 여부 확인, 버전 증가 없음)
+  --submit-review       iOS 업로드 후 해당 버전/빌드를 심사에 제출 (승인 후 수동 출시)
 
 사전 준비는 docs/deployment.md 참고.
 EOF
@@ -61,6 +64,8 @@ while [[ $# -gt 0 ]]; do
     --pods) RUN_PODS=1; shift ;;
     --allow-dirty) ALLOW_DIRTY=1; shift ;;
     --preflight-only) PREFLIGHT_ONLY=1; shift ;;
+    --resume) RESUME=1; BUMP_BUILD=0; SYNC_RUNTIME=0; shift ;;
+    --submit-review) SUBMIT_REVIEW=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) usage; die "알 수 없는 인자: $1" ;;
   esac
@@ -73,6 +78,13 @@ esac
 
 want_ios() { [[ "$PLATFORM" == "all" || "$PLATFORM" == "ios" ]]; }
 want_android() { [[ "$PLATFORM" == "all" || "$PLATFORM" == "android" ]]; }
+
+[[ $RESUME -eq 0 || -z "$NEW_VERSION" ]] || die "--resume과 --version은 함께 사용할 수 없다."
+if [[ $SUBMIT_REVIEW -eq 1 ]]; then
+  want_ios && [[ $SUBMIT -eq 1 ]] || die "--submit-review는 iOS 업로드와 함께 사용한다."
+  command -v fastlane >/dev/null || die "설치된 fastlane이 필요하다."
+  [[ -n "${ASC_API_KEY_PATH:-}" && -f "$ASC_API_KEY_PATH" ]] || die "ASC_API_KEY_PATH에 외부 API key JSON 경로를 지정한다."
+fi
 
 # gradle 프로퍼티가 ~/.gradle/gradle.properties 또는 ORG_GRADLE_PROJECT_* 로 있는지 확인
 has_gradle_property() {
@@ -89,12 +101,18 @@ step "프리플라이트"
 BRANCH_NAME="$(git rev-parse --abbrev-ref HEAD)"
 [[ "$BRANCH_NAME" == "main" ]] || info "경고: 현재 브랜치가 $BRANCH_NAME 이다 (스토어 배포는 보통 main)"
 
-if [[ $ALLOW_DIRTY -eq 0 ]] && [[ -n "$(git status --porcelain)" ]]; then
+if [[ $RESUME -eq 1 ]]; then
+  node scripts/release-state.cjs check "$PLATFORM"
+elif [[ $ALLOW_DIRTY -eq 0 ]] && [[ -n "$(git status --porcelain)" ]]; then
   git status --short
   die "커밋되지 않은 변경이 있다. 어떤 커밋이 스토어에 올라갔는지 추적할 수 없다."
 fi
 
-npx eas whoami >/dev/null 2>&1 || die "EAS에 로그인되어 있지 않다. 'npx eas login' 후 다시 실행한다."
+# 빌드와 OTA에서 앱 모드를 명시한다. 백엔드 주소는 현재 공유 서버를 유지한다.
+export NODE_ENV=production EXPO_PUBLIC_ENV=production
+export EXPO_PUBLIC_ENABLE_DEBUG=false EXPO_PUBLIC_ENABLE_LOGGING=false
+node scripts/check-env.cjs local
+[[ -n "${SENTRY_AUTH_TOKEN:-}" ]] || die "SENTRY_AUTH_TOKEN을 셸 환경변수로 주입한다 (저장소에 저장하지 않음)."
 
 if want_ios; then
   command -v xcodebuild >/dev/null 2>&1 || die "xcodebuild를 찾을 수 없다."
@@ -106,6 +124,7 @@ if want_ios; then
   [[ -d "$UNITY_IOS_PROJECT" ]] || die "Unity iOS 프로젝트가 없다: $UNITY_IOS_PROJECT
 Unity에서 iOS로 다시 export해야 한다. UnityFramework는 저장소에 없고 이 경로에서만 빌드된다."
   info "Unity iOS 프로젝트  $UNITY_IOS_PROJECT"
+  node scripts/check-unity.cjs ios "$(dirname "$UNITY_IOS_PROJECT")"
 fi
 
 if want_android; then
@@ -115,6 +134,7 @@ if want_android; then
   [[ -d "$UNITY_ANDROID_LIB" ]] || die "Unity Android 라이브러리가 없다: $UNITY_ANDROID_LIB
 Unity에서 Android로 다시 export해야 한다."
   info "Unity Android 라이브러리  $UNITY_ANDROID_LIB"
+  node scripts/check-unity.cjs android "$(dirname "$UNITY_ANDROID_LIB")"
 
   for key in RUNTAEHO_UPLOAD_STORE_FILE RUNTAEHO_UPLOAD_STORE_PASSWORD \
              RUNTAEHO_UPLOAD_KEY_ALIAS RUNTAEHO_UPLOAD_KEY_PASSWORD; do
@@ -123,6 +143,10 @@ Unity에서 Android로 다시 export해야 한다."
 이 설정 없이 빌드하면 debug 키로 서명되어 Play가 거부한다."
   done
   info "업로드 키 서명 프로퍼티  확인됨"
+fi
+
+if [[ $SUBMIT -eq 1 ]]; then
+  npx eas whoami >/dev/null 2>&1 || die "EAS 로그인 또는 네트워크를 확인한다."
 fi
 
 if [[ $PREFLIGHT_ONLY -eq 1 ]]; then
@@ -150,7 +174,9 @@ else
 fi
 
 echo ""
-node scripts/version.js status || true
+node scripts/version.js status
+# 버전 변경 후의 상태를 기록하여 실패 시 같은 소스로만 재시도한다.
+node scripts/release-state.cjs save "$PLATFORM"
 
 VERSION="$(node -p "require('./package.json').version")"
 IOS_BUILD="$(sed -n 's/.*CURRENT_PROJECT_VERSION = \([^;]*\);.*/\1/p' \
@@ -211,9 +237,7 @@ if want_android; then
   [[ -f "$BUILT_AAB" ]] || die "AAB를 찾지 못했다: $BUILT_AAB"
 
   # debug 키로 서명된 산출물이 스토어로 나가는 사고를 막는다.
-  if jarsigner -verify -verbose:summary -certs "$BUILT_AAB" 2>/dev/null | grep -q "CN=Android Debug"; then
-    die "AAB가 debug 키로 서명됐다. 업로드 키 설정을 확인해야 한다."
-  fi
+  bash scripts/verify-aab.sh "$BUILT_AAB"
 
   AAB_PATH="$OUT_DIR/android/app-$VERSION-$ANDROID_CODE.aab"
   cp "$BUILT_AAB" "$AAB_PATH"
@@ -225,14 +249,16 @@ fi
 if [[ $SUBMIT -eq 1 ]]; then
   if [[ -n "$IPA_PATH" ]]; then
     step "App Store Connect 업로드"
-    npx eas submit --platform ios --path "$IPA_PATH" \
-      --profile "$SUBMIT_PROFILE" --non-interactive
+    bash scripts/submit-store.sh --platform ios --path "$IPA_PATH"
   fi
 
   if [[ -n "$AAB_PATH" ]]; then
     step "Google Play 업로드"
-    npx eas submit --platform android --path "$AAB_PATH" \
-      --profile "$SUBMIT_PROFILE" --non-interactive
+    bash scripts/submit-store.sh --platform android --path "$AAB_PATH"
+  fi
+  if [[ -n "$IPA_PATH" && $SUBMIT_REVIEW -eq 1 ]]; then
+    step "iOS 심사 제출"
+    bash scripts/submit-review.sh "$VERSION" "$IOS_BUILD"
   fi
 fi
 
@@ -250,17 +276,14 @@ echo ""
 
 if [[ $SUBMIT -eq 1 ]]; then
   echo "남은 수동 단계:"
-  if [[ -n "$IPA_PATH" ]]; then
+  if [[ -n "$IPA_PATH" && $SUBMIT_REVIEW -eq 0 ]]; then
     cat <<'EOF'
   - iOS: 처리(10~15분) 후 TestFlight에 올라온다. 실제 출시는 App Store Connect에서
-    버전을 만들고 심사 제출해야 한다. eas submit은 업로드까지만 한다.
+    npm run submit:review:ios -- <version> <build> 로 심사에 제출한다.
 EOF
   fi
   if [[ -n "$AAB_PATH" ]]; then
-    cat <<'EOF'
-  - Android: eas.json 설정대로 internal 트랙에 draft로 올라간다. Play Console에서
-    검토 후 트랙/롤아웃을 진행한다.
-EOF
+    node -e 'const s=require("./eas.json").submit.production.android; console.log(`  - Android: ${s.track} / ${s.releaseStatus}. 실제 공개 시점은 Play 심사 및 게시 설정에 따른다.`)'
   fi
 fi
 

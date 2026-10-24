@@ -9,6 +9,7 @@ import { useTermsStore } from '~/features/terms/stores/termsStore';
 import { useLeagueCheckStore } from '~/stores/league/leagueCheckStore';
 import { clearUserContext } from '~/config/sentry';
 import { tokenStorage } from '~/utils/storage';
+import { detachPushRegistration } from '~/features/notifications/services/pushRegistration';
 
 let logoutBarrier: Promise<void> | null = null;
 let cleanupFailed = false;
@@ -33,6 +34,7 @@ export const resetAllAppData = (
   clearAllRequested = reason === 'manual';
   retryCleanup = () => resetAllAppData(queryClient, clearAllRequested ? 'manual' : 'auth-expired');
   // Revoke old asynchronous work before any external operation can yield.
+  const pushCleanup = detachPushRegistration();
   useAuthStore.getState().logout();
   queryClient.clear();
   useAppStore.getState().resetAppState();
@@ -44,6 +46,7 @@ export const resetAllAppData = (
   const tokenCleanup = tokenStorage.clearTokens();
   const operation = (async () => {
     const results = await Promise.allSettled([
+      pushCleanup,
       tokenCleanup,
       (async () => {
         try { await GoogleSignin.signOut(); }

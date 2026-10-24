@@ -84,11 +84,11 @@ Google Play Console에서 만든 서비스 계정 JSON을 등록한다. `eas.jso
 단계적 출시로 바꾸려면 `releaseStatus`를 `"inProgress"`로 두고 `rollout`에 비율을 준다.
 내부 테스트만 하려면 `track: "internal"`, `releaseStatus: "draft"`로 되돌린다.
 
-### 2.5 Sentry (선택)
+### 2.5 Sentry 빌드 인증
 
-`ios/sentry.properties`, `android/sentry.properties`에 auth token이 커밋되어 있다. 로컬
-빌드는 이걸로 동작하지만, 토큰이 저장소에 노출된 상태이므로 폐기 후 환경변수
-(`SENTRY_AUTH_TOKEN`)로 옮기는 편이 낫다.
+`ios/sentry.properties`, `android/sentry.properties`에는 토큰을 두지 않는다. 빌드 전에
+`SENTRY_AUTH_TOKEN`을 셸 환경변수로 주입한다. 과거 Git에 들어간 토큰은 별도로 폐기하고
+교체해야 한다. 파일에서 제거해도 Git 이력이나 원격 서비스의 토큰이 폐기되지는 않는다.
 
 ## 3. 앱푸시 (OTA)
 
@@ -100,10 +100,15 @@ npm run deploy:ota -- -m "iOS만" -p ios
 
 절차는 이렇게 돈다.
 
-1. 런타임 정합 확인 — 설치된 빌드의 런타임과 퍼블리시 런타임이 다르면 중단한다
-2. 커밋되지 않은 변경 확인 (`eas.json`의 `cli.requireCommit: true`)
-3. EAS 로그인 확인
-4. `eas update --branch <브랜치> --environment <환경> --platform all`
+1. 선택한 플랫폼의 로컬 네이티브 런타임과 OTA 런타임 정합 확인
+2. 커밋되지 않은 변경 확인
+3. `eas env:exec`로 원격 환경변수를 읽고 필수 설정 검증 (로컬 `.env`/셸 값으로 누락을 보충하지 않음)
+4. `eas update --branch <브랜치> --environment <환경> --platform <플랫폼>`
+
+`update:prod`, `update:staging`, `release:ota`도 이 경로를 사용한다. OTA 명령은 앱 버전을
+자동 변경하지 않는다. `--dry-run`은 네트워크 없이 로컬 검사와 실행 계획만 표시한다.
+런타임 검사는 로컬 소스 기준이므로 실제 설치된 스토어 바이너리의 값도 확인해야 한다.
+네이티브/Unity 코드를 변경한 경우, 값이 같다는 이유만으로 OTA로 배포하지 않는다.
 
 브랜치는 `production` → 환경 `production`, `staging` → 환경 `preview`로 매핑된다.
 
@@ -122,8 +127,8 @@ npm run deploy:store -- --platform android --no-submit
 
 절차는 이렇게 돈다.
 
-1. 프리플라이트 — 브랜치/커밋 상태, EAS 로그인, **Unity 산출물 경로 존재**, Android 서명 설정
-2. 버전 반영 — `--version` 적용, `runtimeVersion` 동기화, 빌드번호/versionCode 증가
+1. 프리플라이트 — 소스 상태, 필수 환경변수, Sentry 인증, **Unity export 소스 해시**, Android 서명 설정. 업로드할 때만 EAS 로그인 확인
+2. 버전 반영 — `--version` 적용, `runtimeVersion` 동기화, 빌드번호/versionCode 증가, 재시도용 소스 상태 기록
 3. iOS — `xcodebuild archive` (Unity 프로젝트 포함) → `-exportArchive`로 IPA
 4. Android — `./gradlew :app:bundleRelease` → AAB 서명자 검사
 5. 업로드 — `eas submit --path`로 각각 제출
@@ -131,12 +136,59 @@ npm run deploy:store -- --platform android --no-submit
 
 업로드 후 남는 수동 단계:
 
-- **iOS**: 처리(10~15분) 후 TestFlight에 뜬다. 실제 출시는 App Store Connect에서 버전을
-  만들고 심사 제출해야 한다. `eas submit`은 업로드까지만 한다.
-- **Android**: internal 트랙 draft로 올라간다. Play Console에서 트랙/롤아웃을 진행한다.
+- **iOS**: `eas submit`은 업로드까지만 한다. `--submit-review`를 붙이면 업로드 뒤
+  정확한 버전/빌드를 fastlane으로 심사 제출한다. 승인 후 출시는 수동이다.
+- **Android**: 현재 `eas.json`은 `production/completed`이다. 실제 공개 시점은 Play 심사와
+  관리형 게시 설정에 따른다. 스크립트는 실제 설정을 읽어 표시한다.
 
-Unity 쪽을 고쳤다면 스크립트를 돌리기 전에 Unity에서 iOS/Android로 다시 export해야 한다.
-스크립트는 경로 존재만 확인하지 Unity를 대신 빌드하지 않는다.
+### Unity export 검증
+
+Unity Editor는 `ProjectVersion.txt`에 지정된 **6000.0.60f1**을 사용한다. 기존 수동 export
+절차와 필요한 네이티브 보정을 유지한다. `expo prebuild --clean`과 EAS Build는 사용하지 않는다.
+
+`Assets/Editor/VersionSync/VersionSyncEditor.cs`가 앱 버전을 읽고, export 전후의
+`Assets`, `Packages`, `ProjectSettings` SHA-256을 비교한다. 정상 export 후 출력 폴더에
+`.runtaeho-export.json`을 기록한다. export 시작 때 이전 기록을 지워 실패한 결과를 재사용하지 않는다.
+배포는 이 기록과 현재 입력을 비교한다. `.DS_Store`만 제외한다.
+
+**기존 export에는 기록이 없으므로 첫 배포 전에 iOS와 Android를 다시 export해야 한다.**
+Android는 Gradle 프로젝트 export를 사용한다. 기록을 수동으로 만들거나 복사하지 않는다.
+이 검증은 소스/export의 대응 확인이며, export 후 수동으로 수정한 네이티브 파일의 정합성이나
+실기기 동작까지 보장하지 않는다. Unity 프로젝트는 앱 Git 저장소 밖에 있으므로 함께 보관해야 한다.
+
+### 실패 후 재시도
+
+```bash
+# 빌드 중 실패: 최초 실행과 같은 플랫폼, 버전 증가 없이 재시도
+npm run deploy:store -- --platform ios --resume
+
+# 업로드 실패: 성공한 산출물만 다시 전송 (빌드/버전 변경 없음)
+npm run submit:ios -- --path /absolute/path/app.ipa
+npm run submit:android -- --path /absolute/path/app.aab
+
+# 업로드는 성공했고 심사 제출만 다시 해야 할 때
+npm run submit:review:ios -- 1.9.0 2
+```
+
+`--resume`은 `build/release/pending.json`에 기록한 소스·커밋·플랫폼이 같을 때만 허용한다.
+소스를 수정하거나 커밋했다면 새 배포로 준비한다. 이미 업로드된 빌드는 재업로드하지 말고
+필요한 플랫폼의 업로드/심사 명령만 실행한다.
+
+### iOS 심사 자동화 사전 설정
+
+이미 설치된 fastlane을 사용한다. `ASC_API_KEY_PATH`에는 저장소 외부의 fastlane 형식
+App Store Connect API key JSON 경로를 지정한다 (`key_id`, `issuer_id`, `key`).
+기존 EAS 제출 자격증명과 별도로 fastlane에서 읽을 수 있어야 한다.
+
+```bash
+npm run deploy:store -- --version 1.9.0 --submit-review
+```
+
+기본적으로 기존 스토어 설명·스크린샷·개인정보/수출 규정 답변을 사용한다.
+새 버전의 변경사항은 `ASC_METADATA_PATH`로 fastlane 메타데이터 폴더를 지정해 전달할 수 있다
+(예: `ko/release_notes.txt`). 설명·규정 답변을 임의로 만들어 넣지 않는다.
+필수 메타데이터나 계약, 권한이 빠졌거나 빌드 처리가 끝나지 않았으면 실패한다.
+해결 후 `submit:review:ios`만 재실행한다. 심사 승인 자체는 자동화할 수 없다.
 
 ## 5. 버전 규칙
 
@@ -162,8 +214,8 @@ npm run version:bump-build -- android  # 한쪽만 (all | ios | android)
 
 ## 6. 현재 알려진 문제
 
-- **Android 런타임 불일치**: Play에 올라간 AAB(versionName `1.8.0`, versionCode `68`)에는
-  `EXPO_RUNTIME_VERSION=1.7.0`이 박혀 있다. `package.json`과 iOS는 `1.8.0`이라 지금
+- **Android 런타임 불일치**: 현재 로컬 AndroidManifest에는
+  `EXPO_RUNTIME_VERSION=1.7.0`이 설정되어 있다. 실제 스토어 최신 바이너리는 별도 확인한다. `package.json`과 iOS는 `1.8.0`이라 지금
   퍼블리시하면 Android는 업데이트를 받지 못한다.
 
   같은 `1.8.0`으로 다시 올려서 해소할 수 있다. Play는 versionName 중복을 허용하고
@@ -177,11 +229,13 @@ npm run version:bump-build -- android  # 한쪽만 (all | ios | android)
   재배포 없이 급히 Android로만 OTA를 보내야 한다면 `config.runtimeVersion`을 `1.7.0`으로
   되돌려 `-p android`로 퍼블리시하고, 다시 `1.8.0`으로 올려 `-p ios`로 퍼블리시한다.
   런타임이 갈려 있는 동안은 한 번의 퍼블리시로 양쪽을 덮을 수 없다.
+  이 절차는 각 플랫폼의 JS/네이티브 호환성을 확인하고 해당 런타임 변경을 커밋한 후 진행한다.
 - **iOS 빌드번호**: `CURRENT_PROJECT_VERSION`이 1이다. App Store Connect에 같은 버전
   트레인으로 이미 올라간 빌드번호보다 커야 하므로, 첫 실행 전에 ASC에서 마지막 빌드번호를
   확인하고 필요하면 `node scripts/version.js bump-build`를 여러 번 돌리거나 pbxproj를 직접 맞춘다.
-- **`build:prod:*`, `submit:*` npm 스크립트**: EAS Build 전제라 이 저장소에서는 동작하지 않는다.
-  스토어 배포는 `deploy:store`를 쓴다.
+- **명령 별칭**: `build:prod:*`는 로컬 스토어 빌드(`--no-submit`), `build:dev:*`는 로컬
+  개발 실행이다. `submit:ios/android`는 `--path`가 필수다. 산출물을 지정하지 않던
+  `submit:all` 별칭은 제거했다. 플랫폼별로 정확한 산출물을 지정한다.
 - **`aps-environment`**: `ios/app/app.entitlements`가 `development`다. 푸시 알림을 실제로
   쓰기 시작하면 배포 빌드에서 확인이 필요하다.
 
@@ -195,3 +249,32 @@ npm run version:bump-build -- android  # 한쪽만 (all | ios | android)
 | `The sandbox is not in sync with the Podfile.lock` | `npm run deploy:store -- --pods` |
 | OTA를 퍼블리시했는데 반영이 안 됨 | `npm run version:status`로 런타임 정합 확인 |
 | `eas submit`이 자격증명을 물어봄 | 2.3 / 2.4를 먼저 등록한다 |
+
+## 환경과 검증
+
+백엔드는 현재 개발/운영이 공유 서버를 사용한다. 지금 서버를 분리할 필요는 없다.
+스토어 빌드는 `.env.production`과 셸 환경, OTA는 EAS 환경을 읽으므로 아래 필수 공개 값을
+양쪽에 맞춘다. 파일/원격 설정을 자동 수정하지는 않는다.
+
+- `EXPO_PUBLIC_API_BASE_URL`
+- `EXPO_PUBLIC_S3_BUCKET_URL`
+- `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`
+- `EXPO_PUBLIC_GOOGLE_SERVER_CLIENT_ID`
+
+앱 모드는 스토어/production OTA가 `production`, staging OTA가 `development`로 지정된다.
+API/S3는 배포 가능한 HTTPS 주소여야 한다. 현재 비어 있는 EAS preview 환경은 값을
+등록하기 전까지 staging OTA가 중단된다.
+Release 앱의 API 요청/응답 콘솔 로깅은 환경변수와 무관하게 비활성화한다. 개발 중에도
+요청 헤더·본문·쿼리·URL 식별자·응답 본문은 기록하지 않는다. API 오류는 상태와 메서드만
+Sentry에 전달하고, 원본 오류는 호출자에게 유지한다.
+
+```bash
+npm run test:deploy
+npm run test:unit -- --runTestsByPath src/services/api/__tests__/config.test.ts src/services/api/__tests__/interceptors.test.ts
+npm run deploy:ota -- -p ios -m "검증" --dry-run
+npm run deploy:store -- --preflight-only --no-submit
+```
+
+배포 테스트는 임시 저장소에서 버전 불변성, 재시도 제한, Unity 입력 변경, 환경 누락,
+서명 실패, 심사 대상 지정, 셸 인용을 검증한다. EAS/스토어 제출은 대역으로 대체하므로
+실제 계정 권한, 심사 메타데이터, Unity export 후 앱 빌드/실기기 검증은 별도로 필요하다.

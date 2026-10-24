@@ -61,17 +61,13 @@ esac
 
 # 1. 런타임 정합 — 이 게이트가 없으면 업데이트가 조용히 유실된다.
 info "런타임 버전 확인"
-node scripts/version.js check-ota || die "런타임이 어긋난 상태로는 퍼블리시하지 않는다."
+node scripts/version.js check-ota "$PLATFORM" || die "런타임이 어긋난 상태로는 퍼블리시하지 않는다."
 
 # 2. 작업 트리 상태. eas.json의 cli.requireCommit이 true라 EAS도 커밋을 요구한다.
 if [[ $ALLOW_DIRTY -eq 0 ]] && [[ -n "$(git status --porcelain)" ]]; then
   git status --short
   die "커밋되지 않은 변경이 있다. 커밋 후 다시 실행하거나 --allow-dirty를 준다."
 fi
-
-# 3. EAS 로그인
-npx eas whoami >/dev/null 2>&1 || die "EAS에 로그인되어 있지 않다. 'npx eas login' 후 다시 실행한다."
-
 RUNTIME="$(node -p "require('./package.json').config.runtimeVersion")"
 VERSION="$(node -p "require('./package.json').version")"
 
@@ -91,11 +87,12 @@ CMD=(npx eas update
   --non-interactive)
 
 if [[ $DRY_RUN -eq 1 ]]; then
+  info "실행 시 EAS $ENVIRONMENT 환경을 먼저 읽어 필수 변수를 검증한다."
   info "dry-run: ${CMD[*]}"
   exit 0
 fi
 
-"${CMD[@]}"
+node scripts/publish-ota.cjs "$BRANCH" "$ENVIRONMENT" "$PLATFORM" "$MESSAGE"
 
 echo ""
 info "퍼블리시 완료. 앱을 완전히 종료 후 재실행하면 적용된다."

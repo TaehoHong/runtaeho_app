@@ -66,7 +66,6 @@ export const CustomerServiceView: React.FC = () => {
       iconBackgroundColor: '#E8F5E9',
       title: t("공지사항"),
       description: t("최신 소식을 확인하세요"),
-      showNewBadge: true,
       onPress: () => {
         router.push('/user/notice');
       },

@@ -1,6 +1,8 @@
 #!/usr/bin/env node
+/* global __dirname */
 
 const { spawnSync } = require('node:child_process');
+const path = require('node:path');
 
 const [, , branch, environment, ...messageParts] = process.argv;
 const message = messageParts.join(' ').trim();
@@ -12,27 +14,13 @@ if (!branch || !environment || !message) {
   process.exit(1);
 }
 
-for (const platform of ['ios', 'android']) {
-  console.log(`Publishing ${platform} OTA update to ${branch}...`);
-
-  const result = spawnSync(
-    'npx',
-    [
-      'eas',
-      'update',
-      '--branch',
-      branch,
-      '--environment',
-      environment,
-      '--platform',
-      platform,
-      '--message',
-      message,
-    ],
-    { stdio: 'inherit' }
-  );
-
-  if (result.status !== 0) {
-    process.exit(result.status ?? 1);
-  }
+if ({ production: 'production', staging: 'preview' }[branch] !== environment) {
+  console.error('지원하지 않는 OTA 브랜치/환경 조합');
+  process.exit(1);
 }
+
+const result = spawnSync('bash', [
+  path.join(__dirname, '../scripts/deploy-ota.sh'), '-b', branch, '-m', message,
+], { stdio: 'inherit' });
+if (result.error) console.error(result.error.message);
+process.exit(result.status ?? 1);

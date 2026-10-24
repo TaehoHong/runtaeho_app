@@ -11,6 +11,7 @@ import { userService } from '../services/userService';
 import { useLanguageSettings } from '../hooks/useLanguageSettings';
 import { useUserStore } from '~/stores/user/userStore';
 import type { LanguagePreference } from '~/i18n/language';
+import { useAds } from '~/features/ads/AdsProvider';
 
 /**
  * 설정 화면
@@ -20,6 +21,8 @@ export const SettingsView: React.FC = () => {
   useAppLanguage();
   const router = useRouter();
   const { logout } = useAuth();
+  const { privacyRequired, showPrivacyOptions } = useAds();
+  const [isOpeningPrivacy, setIsOpeningPrivacy] = useState(false);
   const [showLogoutAlert, setShowLogoutAlert] = useState(false);
   const [showWithdrawAlert, setShowWithdrawAlert] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -118,6 +121,18 @@ export const SettingsView: React.FC = () => {
     router.back();
   };
 
+  const handleAdPrivacy = async () => {
+    if (isOpeningPrivacy) return;
+    setIsOpeningPrivacy(true);
+    try {
+      await showPrivacyOptions();
+    } catch {
+      Alert.alert(t('광고 개인정보 설정'), t('설정을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.'));
+    } finally {
+      setIsOpeningPrivacy(false);
+    }
+  };
+
   return (
     <TopScreenSafeAreaView style={styles.container} testID="settings-screen">
       {/* 헤더 */}
@@ -132,6 +147,11 @@ export const SettingsView: React.FC = () => {
       {/* 설정 메뉴 */}
       <View style={styles.content}>
         <View style={styles.section}>
+          <TouchableOpacity style={[styles.menuItem, styles.menuItemBorder]} accessibilityRole="button"
+            onPress={() => router.push('/user/notification-settings')}>
+            <Text style={styles.menuItemText}>{t('알림 설정')}</Text>
+            <Ionicons name="chevron-forward" size={20} color={GREY[300]} />
+          </TouchableOpacity>
           <TouchableOpacity
             style={[styles.menuItem, styles.menuItemBorder]}
             onPress={() => setShowLanguagePicker(true)}
@@ -158,6 +178,17 @@ export const SettingsView: React.FC = () => {
             <Text style={styles.menuItemText}>{t("권한 설정")}</Text>
             <Ionicons name="chevron-forward" size={20} color={GREY[300]} />
           </TouchableOpacity>
+
+          {privacyRequired && <TouchableOpacity
+            style={[styles.menuItem, styles.menuItemBorder]}
+            onPress={handleAdPrivacy}
+            disabled={isOpeningPrivacy}
+            accessibilityRole="button"
+            testID="settings-ad-privacy"
+          >
+            <Text style={styles.menuItemText}>{t('광고 개인정보 설정')}</Text>
+            <Ionicons name="chevron-forward" size={20} color={GREY[300]} />
+          </TouchableOpacity>}
 
           <TouchableOpacity
             style={[styles.menuItem, styles.menuItemBorder]}

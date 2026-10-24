@@ -1,4 +1,5 @@
 import { t, useAppLanguage } from '~/i18n';
+import { AdBanner } from '~/features/ads/AdBanner';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -44,7 +45,9 @@ export const MyInfoView: React.FC = () => {
         />
         
         {/* 메뉴 설정 카드 */}
+        <MenuItem title={t('알림함')} onPress={() => router.push('/user/notifications')} testID="myinfo-notifications" />
         <MenuSettingsCard />
+        <AdBanner visible={!showPointModal && !showShoesModal} />
       </ScrollView>
 
       {/* 모달들 - iOS fullScreenCover 대응 */}

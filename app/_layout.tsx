@@ -1,4 +1,6 @@
 import { Stack } from 'expo-router/stack';
+import { AdsProvider } from '~/features/ads/AdsProvider';
+import { NotificationProvider } from '~/features/notifications/NotificationProvider';
 import { LanguageProvider } from '~/i18n/LanguageProvider';
 import { StyleSheet, View } from 'react-native';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -39,6 +41,8 @@ function RootLayout() {
           checkOnForeground={true}
         >
           <AuthProvider>
+            <NotificationProvider />
+            <AdsProvider>
             <AppStateProvider>
               <UpdateProvider
                 checkOnLaunch={false}
@@ -114,6 +118,7 @@ function RootLayout() {
                 </View>
               </UpdateProvider>
             </AppStateProvider>
+            </AdsProvider>
           </AuthProvider>
         </ForceUpdateProvider>
         </LanguageProvider>

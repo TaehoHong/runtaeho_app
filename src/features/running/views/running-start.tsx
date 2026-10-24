@@ -1,4 +1,5 @@
 import { getSessionSnapshot, isSessionCurrent } from '~/features/auth/stores/authStore';
+import { AdBanner } from '~/features/ads/AdBanner';
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useUserStore, useAppStore, RunningState } from '~/stores';
@@ -51,6 +52,7 @@ export const RunningStartView: React.FC = () => {
 
   return (
     <View style={styles.container}>
+      <AdBanner visible={!isStarting && !showPermissionModal} />
       <StartButton
         disabled={isStarting}
         onPress={handleStartRunning}

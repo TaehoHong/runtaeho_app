@@ -27,6 +27,12 @@ export const queryClient = new QueryClient({
  * - queryClient.invalidateQueries({ queryKey: queryKeys.user.all })
  */
 export const queryKeys = {
+  notifications: {
+    all: ['notifications'] as const,
+    inbox: (userId: number | undefined, language: string, type?: 'NOTICE') => ['notifications', 'inbox', userId, language, type] as const,
+    detail: (userId: number | undefined, id: number, language: string) => ['notifications', 'detail', userId, id, language] as const,
+    configuration: (userId: number | undefined) => ['notifications', 'configuration', userId] as const,
+  },
   // Auth 관련 Query Keys
   auth: {
     all: ['auth'] as const,

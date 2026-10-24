@@ -235,19 +235,22 @@ function status() {
 }
 
 /**
- * OTA 게이트. 설치된 네이티브 빌드가 바라보는 런타임과 퍼블리시될 런타임이
- * 같은지 확인한다. 어긋난 채로 퍼블리시하면 업데이트가 조용히 유실된다.
+ * OTA 게이트. 선택한 플랫폼의 로컬 네이티브 설정과 퍼블리시 런타임을 비교한다.
+ * 실제 설치된 스토어 바이너리의 런타임/네이티브 호환성은 별도로 확인해야 한다.
  */
-function checkOta() {
+function checkOta(target = 'all') {
+  if (!['all', 'ios', 'android'].includes(target)) {
+    throw new Error(`지원하지 않는 플랫폼: ${target}`);
+  }
   const s = readState();
   const problems = [];
 
-  if (s.pkgRuntime !== s.iosRuntime) {
+  if (target !== 'android' && s.pkgRuntime !== s.iosRuntime) {
     problems.push(
       `iOS: Expo.plist=${s.iosRuntime} ≠ package.json runtimeVersion=${s.pkgRuntime}`
     );
   }
-  if (s.pkgRuntime !== s.androidRuntime) {
+  if (target !== 'ios' && s.pkgRuntime !== s.androidRuntime) {
     problems.push(
       `Android: AndroidManifest=${s.androidRuntime} ≠ package.json runtimeVersion=${s.pkgRuntime}`
     );
@@ -287,7 +290,7 @@ function main() {
       bumpBuild(arg);
       return 0;
     case 'check-ota':
-      return checkOta();
+      return checkOta(arg);
     default:
       console.error('사용법: node scripts/version.js <status|set|sync-runtime|bump-build|check-ota>');
       return 1;

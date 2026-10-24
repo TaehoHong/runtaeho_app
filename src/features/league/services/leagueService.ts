@@ -11,6 +11,13 @@ import type { CurrentLeague, LeagueResult } from '../models';
  * League API Service
  */
 export const leagueService = {
+  getResult: async (participantId: number): Promise<LeagueResult> => {
+    const { data } = await apiClient.get<LeagueResult>(`/league/results/${participantId}`);
+    return data;
+  },
+  confirmResultById: async (participantId: number): Promise<void> => {
+    await apiClient.post(`/league/results/${participantId}/confirm`);
+  },
   /**
    * 현재 리그 정보 조회
    * GET /api/v1/league/current

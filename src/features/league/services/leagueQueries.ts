@@ -49,14 +49,15 @@ export const useJoinLeague = () => {
 /**
  * 리그 결과 확인 완료 뮤테이션 훅
  */
-export const useConfirmResult = () => {
+export const useConfirmResult = (participantId?: number) => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: () => leagueService.confirmResult(),
+    mutationFn: () => participantId === undefined ? leagueService.confirmResult() : leagueService.confirmResultById(participantId),
     onSuccess: () => {
       // 캐시를 즉시 null로 설정 (Race Condition 방지)
-      queryClient.setQueryData(queryKeys.league.result, null);
+      if (participantId === undefined) queryClient.setQueryData(queryKeys.league.result, null);
+      else queryClient.invalidateQueries({ queryKey: queryKeys.league.result });
       // 현재 리그 정보 리프레시
       queryClient.invalidateQueries({ queryKey: queryKeys.league.current });
     },
