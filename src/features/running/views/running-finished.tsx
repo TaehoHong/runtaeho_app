@@ -87,7 +87,9 @@ export const RunningFinishedView: React.FC = () => {
       distanceMeters,
       durationSec,
       heartRate,
-      earnedPoints: Math.floor(distanceMeters / 100),
+      earnedPoints: currentRecord?.acceptanceStatus === 'DUPLICATE' || currentRecord?.acceptanceStatus === 'PERSONAL_ONLY'
+        ? 0
+        : Math.floor(distanceMeters / 100),
       pace: buildPaceText(distanceMeters, durationSec),
       startTimestamp,
     };
@@ -180,7 +182,7 @@ export const RunningFinishedView: React.FC = () => {
       console.log(`👟 [RunningFinishedView] 선택된 신발 ID: ${selectedShoeId}로 업데이트 중...`);
 
       const newShoeId = selectedShoeId ?? mainShoe?.id ?? currentRecord.shoeId;
-      if (newShoeId != null) {
+      if (newShoeId != null && currentRecord.acceptanceStatus !== 'DUPLICATE') {
         await offlineStorageService.addPendingShoePatch(currentRecord.id, newShoeId, session);
       }
       if (!isSessionCurrent(session)) return;
@@ -190,24 +192,26 @@ export const RunningFinishedView: React.FC = () => {
 
       const previousLeague = useAppStore.getState().leagueBeforeRunningEnd;
       setPreviousLeagueRank(null);
-      void (async () => {
-        let league = await leagueService.getCurrentLeague();
-        if (!isSessionCurrent(session)) return;
-        if (!league) {
-          await leagueService.joinLeague();
+      if (currentRecord.acceptanceStatus !== 'DUPLICATE' && currentRecord.acceptanceStatus !== 'PERSONAL_ONLY') {
+        void (async () => {
+          let league = await leagueService.getCurrentLeague();
           if (!isSessionCurrent(session)) return;
-          league = await leagueService.getCurrentLeague();
-          if (!isSessionCurrent(session)) return;
-        }
-        if (league && previousLeague?.sessionId === league.sessionId) {
-          setPreviousLeagueRank(previousLeague.rank);
-        }
-        const participant = league?.participants.find(item => item.isMe);
-        if (participant) await leagueService.updateParticipantDistance(participant.id, finalSummary.distanceMeters);
-        if (isSessionCurrent(session)) {
-          await queryClient.invalidateQueries({ queryKey: queryKeys.league.current });
-        }
-      })().catch(() => console.warn('[RunningFinishedView] League update unavailable'));
+          if (!league) {
+            await leagueService.joinLeague();
+            if (!isSessionCurrent(session)) return;
+            league = await leagueService.getCurrentLeague();
+            if (!isSessionCurrent(session)) return;
+          }
+          if (league && previousLeague?.sessionId === league.sessionId) {
+            setPreviousLeagueRank(previousLeague.rank);
+          }
+          const participant = league?.participants.find(item => item.isMe);
+          if (participant) await leagueService.updateParticipantDistance(participant.id, finalSummary.distanceMeters);
+          if (isSessionCurrent(session)) {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.league.current });
+          }
+        })().catch(() => console.warn('[RunningFinishedView] League update unavailable'));
+      }
 
       // 완료 화면에서 기다리는 동안 종료 전 순위가 소비되지 않도록, 이동 직전에 전달한다.
       useAppStore.getState().setLeagueBeforeRunningEnd(null);

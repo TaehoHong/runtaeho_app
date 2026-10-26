@@ -2,6 +2,7 @@ import { queryClient, queryKeys } from '~/services/queryClient';
 import { getSessionSnapshot, isSessionCurrent, type SessionSnapshot } from '~/features/auth/stores/authStore';
 import { SessionSupersededError } from '~/utils/storage/errors';
 import { runningService } from './runningService';
+import { getRunningRejectionCode, isRunningRejectionCode, type RunningRejectionCode } from './runningRejection';
 /**
  * Offline Storage Service
  * 네트워크 오프라인 시 러닝 데이터 로컬 저장 및 재시도 관리
@@ -199,6 +200,24 @@ export class OfflineStorageService {
     });
   }
 
+  private async rejectPendingUpload(uploadId: string, code: RunningRejectionCode, session: SessionSnapshot): Promise<void> {
+    await this.write(session, async () => {
+      const pending = await this.readQueue<PendingUpload>(STORAGE_KEYS.PENDING_UPLOADS);
+      const upload = pending.find(item => item.id === uploadId && item.ownerUserId === session.userId);
+      if (!upload) return;
+      const failed = await this.readQueue<PendingUpload>(STORAGE_KEYS.FAILED_UPLOADS);
+      const segments = await this.readQueue<PendingSegmentUpload>(STORAGE_KEYS.PENDING_SEGMENT_UPLOADS);
+      this.assertSession(session);
+      await AsyncStorage.multiSet([
+        [STORAGE_KEYS.FAILED_UPLOADS, JSON.stringify([...failed, { ...upload, lastError: code }])],
+        [STORAGE_KEYS.PENDING_UPLOADS, JSON.stringify(pending.filter(item => item.id !== uploadId || item.ownerUserId !== session.userId))],
+        [STORAGE_KEYS.PENDING_SEGMENT_UPLOADS, JSON.stringify(segments.filter(item =>
+          item.runningRecordId !== upload.runningRecordId || item.ownerUserId !== session.userId))],
+      ]);
+      this.assertSession(session);
+    });
+  }
+
   /**
    * 실패한 업로드 목록 조회
    */
@@ -221,6 +240,7 @@ export class OfflineStorageService {
     const failed = await this.getFailedUploads();
     const upload = failed.find(item => item.id === uploadId);
     if (!upload || !await this.claim(STORAGE_KEYS.FAILED_UPLOADS, upload, session)) return;
+    if (isRunningRejectionCode(upload.lastError)) return;
     await this.write(session, async () => {
       const currentFailed = await this.getFailedUploads();
       const current = currentFailed.find(item => item.id === uploadId && item.ownerUserId === session.userId);
@@ -256,10 +276,14 @@ export class OfflineStorageService {
         this.assertSession(session);
         await this.removePendingUpload(upload.id, session);
         success++;
-      } catch {
+      } catch (error) {
         this.assertSession(session);
         // Ownership rejection never changes an unclaimed legacy entry.
-        if (upload.ownerUserId === session.userId) await this.incrementRetryCount(upload.id, 'Upload failed', session);
+        if (upload.ownerUserId === session.userId) {
+          const rejectionCode = getRunningRejectionCode(error);
+          if (rejectionCode) await this.rejectPendingUpload(upload.id, rejectionCode, session);
+          else await this.incrementRetryCount(upload.id, 'Upload failed', session);
+        }
         failed++;
       }
     }
@@ -389,8 +413,11 @@ export class OfflineStorageService {
         this.assertSession(session);
         await this.removePendingSegmentUpload(upload.id, session);
         success++;
-      } catch {
+      } catch (error) {
         this.assertSession(session);
+        if (upload.ownerUserId === session.userId && getRunningRejectionCode(error)) {
+          await this.removePendingSegmentUpload(upload.id, session);
+        }
         failed++;
       }
     }

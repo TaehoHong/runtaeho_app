@@ -27,6 +27,10 @@ export const queryClient = new QueryClient({
  * - queryClient.invalidateQueries({ queryKey: queryKeys.user.all })
  */
 export const queryKeys = {
+  activityConnections: {
+    all: ['activityConnections'] as const,
+    connection: (providerId: string, userId: number | null, generation: number) => ['activityConnections', providerId, 'connection', userId, generation] as const,
+  },
   notifications: {
     all: ['notifications'] as const,
     inbox: (userId: number | undefined, language: string, type?: 'NOTICE') => ['notifications', 'inbox', userId, language, type] as const,

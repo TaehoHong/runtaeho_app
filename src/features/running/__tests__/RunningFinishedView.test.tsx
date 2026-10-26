@@ -188,6 +188,23 @@ describe('RunningFinishedView', () => {
     });
   });
 
+  it.each(['DUPLICATE', 'PERSONAL_ONLY'])('shows no new earned points for %s and does not update league distance', async (acceptanceStatus) => {
+    const running = mockUseRunning();
+    mockUseRunning.mockReturnValue({ ...running, currentRecord: { ...running.currentRecord, acceptanceStatus } });
+    useUserStore.setState({ totalPoint: 350 });
+    renderWithProviders(<RunningFinishedView />);
+
+    expect(mockPointInfoBar).toHaveBeenCalledWith(expect.objectContaining({ earnedPoints: 0, totalPoints: 350 }));
+    fireEvent.press(screen.getByTestId('running-finished-share-button'));
+    await waitFor(() => { expect(mockSetShareData).toHaveBeenCalledWith(expect.objectContaining({ earnedPoints: 0 })); });
+    fireEvent.press(screen.getByText('확인'));
+    await waitFor(() => { expect(mockRouterReplace).toHaveBeenCalledWith('/(tabs)/league'); });
+
+    expect(mockUpdateParticipantDistance).not.toHaveBeenCalled();
+    expect(mockJoinLeague).not.toHaveBeenCalled();
+    expect(useUserStore.getState().totalPoint).toBe(350);
+  });
+
   it('keeps the rank captured before completion when confirming an already updated league', async () => {
     useAppStore.getState().setLeagueBeforeRunningEnd({ sessionId: 1, rank: 8 });
     mockGetCurrentLeague.mockResolvedValue({ sessionId: 1, participants: [{ id: 11, rank: 3, isMe: true }] });

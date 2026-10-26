@@ -9,11 +9,18 @@
 /* Begin PBXBuildFile section */
 		01FD88580BBBCB18C0AA1748 /* libPods-app.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 8D73E90F4DB8D4839B04E9AB /* libPods-app.a */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
+		19F5669D86E80AB19C627935 /* WatchAppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69C3B43C95867964A3C92DC7 /* WatchAppDelegate.swift */; };
+		3BDB30733501BA1013E02344 /* RNWatchSyncBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = 7C133E9841783C0F6D47371F /* RNWatchSyncBridge.m */; };
+		3C5E3C226AC99DA0D0C71423 /* RNWatchSyncBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD4479BD40E3D6D71A10F133 /* RNWatchSyncBridge.swift */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		ADCD3A47B76623C95774D5E0 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 3EB4D8CB6799DC98CE183608 /* PrivacyInfo.xcprivacy */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
+		CB8162CB65B206F3E47A474E /* RunCheckpoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72FFA6EFB2161868B49C1706 /* RunCheckpoint.swift */; };
+		CC0E1DF4CCF9881E7D15CA72 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E16291CB6D438AD3F01C1CE8 /* Foundation.framework */; };
+		D2BF0927BF99C31EC8E85D85 /* RunRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AC1F8E3FD42C1AD3A6378D5 /* RunRecorder.swift */; };
 		D3ECE5C27DC205CBAEEC4ABE /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA6CB44E8987100DFE3237E6 /* ExpoModulesProvider.swift */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
+		F501576356EDD7E58D982537 /* RunTaehoWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 3B328A67E2B15A12D192ECFF /* RunTaehoWatch.app */; };
 		F70CE70A2E8A6F280043B98B /* UnityFramework.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = F70CE7082E8A6F280043B98B /* UnityFramework.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		F730CDD52E925BF4002CDFCA /* RNUnityBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = F730CDCE2E925BF4002CDFCA /* RNUnityBridge.m */; };
 		F730CDD62E925BF4002CDFCA /* Unity.swift in Sources */ = {isa = PBXBuildFile; fileRef = F730CDD02E925BF4002CDFCA /* Unity.swift */; };
@@ -21,6 +28,7 @@
 		F730CDD92E925BF4002CDFCA /* UnityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F730CDD22E925BF4002CDFCA /* UnityView.swift */; };
 		F730CDDA2E925BF4002CDFCA /* UnityViewManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F730CDD42E925BF4002CDFCA /* UnityViewManager.swift */; };
 		F730CDDB2E925BF4002CDFCA /* UnityViewManager.m in Sources */ = {isa = PBXBuildFile; fileRef = F730CDD32E925BF4002CDFCA /* UnityViewManager.m */; };
+		F73B6BE850963907B241A3DC /* RunTaehoWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C6177519164F2BF49EA71EE /* RunTaehoWatchApp.swift */; };
 		F76332C72F29A2D100E4B48E /* UnityNativeBridge.mm in Sources */ = {isa = PBXBuildFile; fileRef = F77F8FC12ED3E49E0077E3A1 /* UnityNativeBridge.mm */; };
 		F7BE22F62F21245100B213D3 /* UnityViewContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7BE22F52F21245100B213D3 /* UnityViewContainer.swift */; };
 		F810CA110000000000000001 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = F810CA110000000000000002 /* InfoPlist.strings */; };
@@ -28,7 +36,28 @@
 		F81200022F3A100100000001 /* RNHealthImportBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F81200042F3A100100000001 /* RNHealthImportBridge.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		D9641BF1741B825C785DA569 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7E03865F5C89E350E1D36FDD;
+			remoteInfo = RunTaehoWatch;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXCopyFilesBuildPhase section */
+		B769F865DB270CD5C7B9CA14 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				F501576356EDD7E58D982537 /* RunTaehoWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F70CE70B2E8A6F280043B98B /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -46,11 +75,19 @@
 		13B07F961A680F5B00A75B9A /* RunTaeho.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RunTaeho.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = app/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = app/Info.plist; sourceTree = "<group>"; };
+		3B328A67E2B15A12D192ECFF /* RunTaehoWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RunTaehoWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3C6177519164F2BF49EA71EE /* RunTaehoWatchApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RunTaehoWatchApp.swift; sourceTree = "<group>"; };
 		3EB4D8CB6799DC98CE183608 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = app/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		4AC1F8E3FD42C1AD3A6378D5 /* RunRecorder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RunRecorder.swift; sourceTree = "<group>"; };
+		69C3B43C95867964A3C92DC7 /* WatchAppDelegate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchAppDelegate.swift; sourceTree = "<group>"; };
+		72FFA6EFB2161868B49C1706 /* RunCheckpoint.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RunCheckpoint.swift; sourceTree = "<group>"; };
 		7A121A98D3B360255915DCBF /* Pods-app.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-app.debug.xcconfig"; path = "Target Support Files/Pods-app/Pods-app.debug.xcconfig"; sourceTree = "<group>"; };
+		7C133E9841783C0F6D47371F /* RNWatchSyncBridge.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = RNWatchSyncBridge.m; sourceTree = "<group>"; };
 		8D73E90F4DB8D4839B04E9AB /* libPods-app.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-app.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = app/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
+		DD4479BD40E3D6D71A10F133 /* RNWatchSyncBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RNWatchSyncBridge.swift; sourceTree = "<group>"; };
+		E16291CB6D438AD3F01C1CE8 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS11.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		EA6CB44E8987100DFE3237E6 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-app/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = app/AppDelegate.swift; sourceTree = "<group>"; };
@@ -79,6 +116,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				01FD88580BBBCB18C0AA1748 /* libPods-app.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		475FEC3BC606922B7B809AE0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CC0E1DF4CCF9881E7D15CA72 /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -118,6 +163,14 @@
 			name = app;
 			sourceTree = "<group>";
 		};
+		2614A8209EFB1278EAEB4B3D /* watchOS */ = {
+			isa = PBXGroup;
+			children = (
+				E16291CB6D438AD3F01C1CE8 /* Foundation.framework */,
+			);
+			name = watchOS;
+			sourceTree = "<group>";
+		};
 		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -126,8 +179,21 @@
 				F73BCBDE2E8402E70087982B /* UnityFramework.framework */,
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
 				8D73E90F4DB8D4839B04E9AB /* libPods-app.a */,
+				2614A8209EFB1278EAEB4B3D /* watchOS */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		4C9AF43AC6BF85211A5F7626 /* RunTaehoWatch */ = {
+			isa = PBXGroup;
+			children = (
+				4AC1F8E3FD42C1AD3A6378D5 /* RunRecorder.swift */,
+				3C6177519164F2BF49EA71EE /* RunTaehoWatchApp.swift */,
+				72FFA6EFB2161868B49C1706 /* RunCheckpoint.swift */,
+				69C3B43C95867964A3C92DC7 /* WatchAppDelegate.swift */,
+			);
+			name = RunTaehoWatch;
+			path = RunTaehoWatch;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -146,6 +212,8 @@
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
 				E54004E61C3B5C00C3BF10B5 /* Pods */,
 				11A16A66EDEE32626256B61C /* ExpoModulesProviders */,
+				B7B45CF3E639AC3D189BA181 /* WatchSync */,
+				4C9AF43AC6BF85211A5F7626 /* RunTaehoWatch */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -156,8 +224,19 @@
 			isa = PBXGroup;
 			children = (
 				13B07F961A680F5B00A75B9A /* RunTaeho.app */,
+				3B328A67E2B15A12D192ECFF /* RunTaehoWatch.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		B7B45CF3E639AC3D189BA181 /* WatchSync */ = {
+			isa = PBXGroup;
+			children = (
+				DD4479BD40E3D6D71A10F133 /* RNWatchSyncBridge.swift */,
+				7C133E9841783C0F6D47371F /* RNWatchSyncBridge.m */,
+			);
+			name = WatchSync;
+			path = WatchSync;
 			sourceTree = "<group>";
 		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
@@ -204,14 +283,33 @@
 				F70CE70B2E8A6F280043B98B /* Embed Frameworks */,
 				B7518CC071EF45C8B36BE467 /* Upload Debug Symbols to Sentry */,
 				17DCDF355B275B8C965200BA /* [CP-User] [RNGoogleMobileAds] Configuration */,
+				B769F865DB270CD5C7B9CA14 /* Embed Watch Content */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9D82AB18E6DA2FB3FD0892EE /* PBXTargetDependency */,
+			);
+			name = app;
+			productName = app;
+			productReference = 13B07F961A680F5B00A75B9A /* RunTaeho.app */;
+			productType = "com.apple.product-type.application";
+		};
+		7E03865F5C89E350E1D36FDD /* RunTaehoWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A3ACA141E3E3264821E9A727 /* Build configuration list for PBXNativeTarget "RunTaehoWatch" */;
+			buildPhases = (
+				1EC069D24002C5B4C431366B /* Sources */,
+				475FEC3BC606922B7B809AE0 /* Frameworks */,
+				828B632C7DCC8C699C6231EC /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
-			name = app;
-			productName = app;
-			productReference = 13B07F961A680F5B00A75B9A /* RunTaeho.app */;
+			name = RunTaehoWatch;
+			productName = RunTaehoWatch;
+			productReference = 3B328A67E2B15A12D192ECFF /* RunTaehoWatch.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -243,6 +341,7 @@
 			projectRoot = "";
 			targets = (
 				13B07F861A680F5B00A75B9A /* app */,
+				7E03865F5C89E350E1D36FDD /* RunTaehoWatch */,
 			);
 		};
 /* End PBXProject section */
@@ -257,6 +356,13 @@
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
 				ADCD3A47B76623C95774D5E0 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		828B632C7DCC8C699C6231EC /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -466,10 +572,32 @@
 				F76332C72F29A2D100E4B48E /* UnityNativeBridge.mm in Sources */,
 				F730CDDB2E925BF4002CDFCA /* UnityViewManager.m in Sources */,
 				D3ECE5C27DC205CBAEEC4ABE /* ExpoModulesProvider.swift in Sources */,
+				3C5E3C226AC99DA0D0C71423 /* RNWatchSyncBridge.swift in Sources */,
+				3BDB30733501BA1013E02344 /* RNWatchSyncBridge.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1EC069D24002C5B4C431366B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D2BF0927BF99C31EC8E85D85 /* RunRecorder.swift in Sources */,
+				F73B6BE850963907B241A3DC /* RunTaehoWatchApp.swift in Sources */,
+				CB8162CB65B206F3E47A474E /* RunCheckpoint.swift in Sources */,
+				19F5669D86E80AB19C627935 /* WatchAppDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		9D82AB18E6DA2FB3FD0892EE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = RunTaehoWatch;
+			target = 7E03865F5C89E350E1D36FDD /* RunTaehoWatch */;
+			targetProxy = D9641BF1741B825C785DA569 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
 		F810CA110000000000000002 /* InfoPlist.strings */ = {
@@ -484,6 +612,33 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		0C13A627BDE2E55346B44CDD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = "";
+				CODE_SIGN_ENTITLEMENTS = RunTaehoWatch/RunTaehoWatch.entitlements;
+				DEVELOPMENT_TEAM = 3F893P33SC;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RunTaehoWatch/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "달려라 태호군";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "러닝 중 심박과 운동 정보를 표시합니다.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "러닝 운동과 경로를 건강 앱에 저장합니다.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "야외 러닝 거리와 경로를 기록합니다.";
+				INFOPLIST_KEY_WKApplication = YES;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.runtaeho.runtaeho;
+				PRODUCT_BUNDLE_IDENTIFIER = com.runtaeho.runtaeho.watchkitapp;
+				PRODUCT_NAME = RunTaehoWatch;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				VALIDATE_PRODUCT = YES;
+				WATCHOS_DEPLOYMENT_TARGET = 9.0;
+			};
+			name = Release;
+		};
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 7A121A98D3B360255915DCBF /* Pods-app.debug.xcconfig */;
@@ -571,6 +726,32 @@
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
+		};
+		80ADB97A4E7C4AB8D38D11F2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = "";
+				CODE_SIGN_ENTITLEMENTS = RunTaehoWatch/RunTaehoWatch.entitlements;
+				DEVELOPMENT_TEAM = 3F893P33SC;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RunTaehoWatch/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "달려라 태호군";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "러닝 중 심박과 운동 정보를 표시합니다.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "러닝 운동과 경로를 건강 앱에 저장합니다.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "야외 러닝 거리와 경로를 기록합니다.";
+				INFOPLIST_KEY_WKApplication = YES;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.runtaeho.runtaeho;
+				PRODUCT_BUNDLE_IDENTIFIER = com.runtaeho.runtaeho.watchkitapp;
+				PRODUCT_NAME = RunTaehoWatch;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 9.0;
+			};
+			name = Debug;
 		};
 		83CBBA201A601CBA00E9B192 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -707,6 +888,15 @@
 			buildConfigurations = (
 				83CBBA201A601CBA00E9B192 /* Debug */,
 				83CBBA211A601CBA00E9B192 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A3ACA141E3E3264821E9A727 /* Build configuration list for PBXNativeTarget "RunTaehoWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0C13A627BDE2E55346B44CDD /* Release */,
+				80ADB97A4E7C4AB8D38D11F2 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

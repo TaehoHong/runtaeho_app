@@ -53,3 +53,5 @@ dependencyResolutionManagement {
         google()
     }
 }
+
+include ':wear'

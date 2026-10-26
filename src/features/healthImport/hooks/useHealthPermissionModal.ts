@@ -1,5 +1,8 @@
 import { getSessionSnapshot, isSessionCurrent } from '~/features/auth/stores/authStore';
 import { SessionSupersededError } from '~/utils/storage/errors';
+import { Alert } from 'react-native';
+import { t } from '~/i18n';
+import { getRunningRejectionCode, getRunningRejectionMessage } from '~/features/running/services/runningRejection';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useState } from 'react';
 import { healthImportBridge } from '../native/HealthImportBridge';
@@ -49,8 +52,11 @@ export const useHealthPermissionModal = () => {
         await healthImportService.setHealthImportEnabled(true, snapshot);
         await healthImportService.sync(snapshot);
       } catch (error) {
+        if (!isSessionCurrent(snapshot) || error instanceof SessionSupersededError) return;
+        const rejectionMessage = getRunningRejectionMessage(error);
+        if (rejectionMessage) Alert.alert(t("저장 실패"), rejectionMessage);
         console.warn('[HealthImport] permission request failed', {
-          errorCode: error instanceof SessionSupersededError ? 'session_superseded' : 'health_permission_failed',
+          errorCode: getRunningRejectionCode(error) ?? 'health_permission_failed',
         });
       } finally {
         await markSeen();

@@ -82,3 +82,81 @@ it('stops replay without deleting data when the session changes during upload', 
   await expect(offlineStorageService.retryAllPendingUploads(upload)).rejects.toThrow('Session superseded');
   expect(await offlineStorageService.getPendingCount()).toBe(1);
 });
+
+it('quarantines a permanent rejection once and removes only the rejected owner segments', async () => {
+  await offlineStorageService.addPendingUpload(10, createRunningRecord(10));
+  await offlineStorageService.addPendingSegmentUpload(10, []);
+  mockSession = { userId: 2, generation: 2 };
+  await offlineStorageService.addPendingUpload(10, createRunningRecord(10));
+  await offlineStorageService.addPendingSegmentUpload(10, []);
+  mockSession = { userId: 1, generation: 3 };
+  const upload = jest.fn().mockRejectedValue({
+    isAxiosError: true, response: { status: 400, data: { extra: { code: 'RUNNING_INVALID_METRICS' } } },
+  });
+
+  expect(await offlineStorageService.retryAllPendingUploads(upload)).toEqual({ success: 0, failed: 1 });
+  const failed = await offlineStorageService.getFailedUploads();
+  expect(failed).toHaveLength(1);
+  expect(failed[0]).toMatchObject({ ownerUserId: 1, runningRecordId: 10, lastError: 'RUNNING_INVALID_METRICS' });
+  expect(await offlineStorageService.getPendingUploads()).toMatchObject([{ ownerUserId: 2, runningRecordId: 10 }]);
+  expect(await offlineStorageService.getPendingSegmentUploads()).toMatchObject([{ ownerUserId: 2, runningRecordId: 10 }]);
+
+  await offlineStorageService.retryFailedUpload(failed[0]!.id);
+  await offlineStorageService.retryAllPendingUploads(upload);
+  expect(upload).toHaveBeenCalledTimes(1);
+  expect(await offlineStorageService.getFailedUploads()).toHaveLength(1);
+});
+
+it('preserves another owner pending upload even when its local queue ID collides with the rejected entry', async () => {
+  await AsyncStorage.setItem('@pending_running_uploads', JSON.stringify([
+    { id: 'same-local-id', ownerUserId: 1, runningRecordId: 10, data: createRunningRecord(10), retryCount: 0 },
+    { id: 'same-local-id', ownerUserId: 2, runningRecordId: 20, data: createRunningRecord(20), retryCount: 0 },
+  ]));
+
+  await offlineStorageService.retryAllPendingUploads(jest.fn().mockRejectedValue({
+    isAxiosError: true, response: { status: 400, data: { extra: { code: 'RUNNING_INVALID_METRICS' } } },
+  }));
+
+  expect(await offlineStorageService.getPendingUploads()).toMatchObject([{ ownerUserId: 2, runningRecordId: 20 }]);
+  expect(await offlineStorageService.getFailedUploads()).toMatchObject([{ ownerUserId: 1, runningRecordId: 10 }]);
+});
+
+it.each([
+  new Error('network unavailable'),
+  { isAxiosError: true, response: { status: 503, data: { extra: { code: 'RUNNING_INVALID_METRICS' } } } },
+  { isAxiosError: true, response: { status: 400, data: { extra: { code: 'UNRECOGNIZED_ERROR' } } } },
+])('keeps a non-definitive failure queued with its segments', async (error) => {
+  await offlineStorageService.addPendingUpload(10, createRunningRecord(10));
+  await offlineStorageService.addPendingSegmentUpload(10, []);
+
+  await offlineStorageService.retryAllPendingUploads(jest.fn().mockRejectedValue(error));
+
+  expect(await offlineStorageService.getPendingUploads()).toMatchObject([{ ownerUserId: 1, retryCount: 1 }]);
+  expect(await offlineStorageService.getPendingSegmentUploads()).toHaveLength(1);
+  expect(await offlineStorageService.getFailedUploads()).toHaveLength(0);
+});
+
+it('retains rejected data when the account changes during the failed upload', async () => {
+  await offlineStorageService.addPendingUpload(10, createRunningRecord(10));
+  const upload = jest.fn(async () => {
+    mockSession = { userId: 2, generation: 2 };
+    throw { isAxiosError: true, response: { status: 400, data: { extra: { code: 'RUNNING_INVALID_METRICS' } } } };
+  });
+
+  await expect(offlineStorageService.retryAllPendingUploads(upload)).rejects.toThrow('Session superseded');
+
+  expect(await offlineStorageService.getPendingUploads()).toMatchObject([{ ownerUserId: 1 }]);
+  expect(await offlineStorageService.getFailedUploads()).toHaveLength(0);
+});
+
+it('removes only a permanently rejected segment upload and leaves network failures queued', async () => {
+  await offlineStorageService.addPendingSegmentUpload(10, []);
+  await offlineStorageService.addPendingSegmentUpload(11, []);
+  const upload = jest.fn().mockRejectedValueOnce({
+    isAxiosError: true, response: { status: 400, data: { extra: { code: 'RUNNING_INVALID_GPS' } } },
+  }).mockRejectedValueOnce(new Error('network unavailable'));
+
+  expect(await offlineStorageService.retryAllPendingSegmentUploads(upload)).toEqual({ success: 0, failed: 2 });
+
+  expect(await offlineStorageService.getPendingSegmentUploads()).toMatchObject([{ runningRecordId: 11 }]);
+});

@@ -1,3 +1,4 @@
+import { getRunningRejectionMessage } from '../services/runningRejection';
 import { SessionSupersededError } from '~/utils/storage/errors';
 import { t, useAppLanguage } from '~/i18n';
 import React from 'react';
@@ -41,7 +42,7 @@ export const RunningActiveView: React.FC = () => {
     } catch (error) {
       if (error instanceof SessionSupersededError) return;
       console.error('❌ [RunningActiveView] 러닝 기록 저장 실패');
-      Alert.alert(t("저장 실패"), t("러닝 기록을 저장하지 못했어요. 앱을 닫지 말고 종료 버튼을 눌러 다시 시도해주세요."));
+      Alert.alert(t("저장 실패"), getRunningRejectionMessage(error) ?? t("러닝 기록을 저장하지 못했어요. 앱을 닫지 말고 종료 버튼을 눌러 다시 시도해주세요."));
     }
   };
 

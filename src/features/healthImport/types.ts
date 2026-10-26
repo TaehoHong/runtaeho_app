@@ -10,10 +10,12 @@ export interface HealthGpsPoint {
 }
 
 export type HealthRouteStatus = 'available' | 'notAvailable' | 'permissionRequired' | 'readFailed';
+export type HealthRecordingMethod = 'RECORDED' | 'MANUAL' | 'UNKNOWN';
 
 export interface HealthRunningWorkout {
   sourceRecordId: string;
   sourceBundleId?: string | null;
+  recordingMethod?: HealthRecordingMethod;
   startTimestamp: number;
   endTimestamp: number;
   distance: number;
@@ -33,6 +35,8 @@ export interface UpdateHealthImportConfigurationRequest {
 
 export interface HealthImportBatchRecord {
   externalId: string;
+  sourceBundleId?: string | null;
+  recordingMethod?: HealthRecordingMethod;
   distance: number;
   durationSec: number;
   cadence: number;
@@ -64,6 +68,7 @@ export interface HealthImportBatchResponse {
   createdCount: number;
   updatedCount: number;
   duplicateCount: number;
+  personalOnlyCount?: number;
   awardedPoint: number;
   leagueDistanceChanged: boolean;
 }
@@ -71,5 +76,6 @@ export interface HealthImportBatchResponse {
 export interface HealthImportSyncResult {
   importedCount: number;
   duplicateCount: number;
+  personalOnlyCount: number;
   awardedPoint: number;
 }

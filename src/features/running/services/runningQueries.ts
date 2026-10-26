@@ -50,6 +50,13 @@ export const useEndRunning = () => {
         console.log(`💰 [useEndRunning] 포인트 동기화: ${endRecord.point}`);
       }
       queryClient.invalidateQueries({ queryKey: queryKeys.running.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.statistics.all });
+      queryClient.invalidateQueries({ queryKey: ['runningRecords'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.league.current });
+      if (endRecord.acceptanceStatus === undefined || endRecord.acceptanceStatus === 'ACCEPTED') {
+        queryClient.invalidateQueries({ queryKey: queryKeys.point.all });
+        queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
+      }
     },
   });
   return {

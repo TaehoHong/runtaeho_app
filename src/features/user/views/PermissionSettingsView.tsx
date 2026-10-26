@@ -1,3 +1,5 @@
+import { getRunningRejectionMessage } from '~/features/running/services/runningRejection';
+import { SessionSupersededError } from '~/utils/storage/errors';
 import { t, useAppLanguage } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -109,8 +111,10 @@ export const PermissionSettingsView: React.FC = () => {
       }
 
       await healthImportService.sync();
-    } catch {
-      Alert.alert(t("Health 권한 설정 실패"), t("기기 Health 설정에서 권한을 직접 변경해주세요."));
+    } catch (error) {
+      if (error instanceof SessionSupersededError) return;
+      const rejectionMessage = getRunningRejectionMessage(error);
+      Alert.alert(t(rejectionMessage ? "저장 실패" : "Health 권한 설정 실패"), rejectionMessage ?? t("기기 Health 설정에서 권한을 직접 변경해주세요."));
     } finally {
       void refreshPermissions();
     }

@@ -3,6 +3,7 @@
  * Swift EndRunningRecord.swift에서 마이그레이션
  */
 export interface EndRunningRecord {
+  acceptanceStatus?: 'ACCEPTED' | 'PERSONAL_ONLY' | 'DUPLICATE';
   id: number;
   shoeId?: number;
   distance: number;

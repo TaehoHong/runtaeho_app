@@ -1,4 +1,5 @@
 import CoreLocation
+import CoreFoundation
 import HealthKit
 import React
 
@@ -126,7 +127,11 @@ class RNHealthImportBridge: NSObject {
                 return
             }
 
-            let workouts = (samples as? [HKWorkout]) ?? []
+            // Only our watch source or our explicit metadata marker. Preserve all external workouts.
+            let workouts = ((samples as? [HKWorkout]) ?? []).filter {
+                $0.sourceRevision.source.bundleIdentifier != "com.runtaeho.runtaeho.watchkitapp" &&
+                $0.metadata?["com.runtaeho.watchSessionId"] == nil
+            }
             self.logHealthImport("HKSampleQuery workout response", [
                 "rawSampleCount": samples?.count ?? 0,
                 "workoutCount": workouts.count
@@ -218,13 +223,31 @@ class RNHealthImportBridge: NSObject {
                 completion(.failure(error))
                 return
             }
+            let startTimestamp = workout.startDate.timeIntervalSince1970
+            let endTimestamp = workout.endDate.timeIntervalSince1970
+            let distance = workout.totalDistance?.doubleValue(for: HKUnit.meter()) ?? 0
+            guard startTimestamp.isFinite, endTimestamp.isFinite, workout.duration.isFinite, distance.isFinite else {
+                completion(.failure(NSError(domain: "HealthImport", code: 1, userInfo: [
+                    NSLocalizedDescriptionKey: "Invalid workout metrics"
+                ])))
+                return
+            }
+            // Missing metadata does not establish that a workout was recorded by a device.
+            let recordingMethod: String
+            if let wasUserEntered = workout.metadata?[HKMetadataKeyWasUserEntered] as? NSNumber,
+               CFGetTypeID(wasUserEntered) == CFBooleanGetTypeID() {
+                recordingMethod = wasUserEntered.boolValue ? "MANUAL" : "RECORDED"
+            } else {
+                recordingMethod = "UNKNOWN"
+            }
             var record: [String: Any] = [
                 "sourceRecordId": "apple-health:\(workout.uuid.uuidString)",
                 "sourceBundleId": workout.sourceRevision.source.bundleIdentifier,
-                "startTimestamp": Int(workout.startDate.timeIntervalSince1970),
-                "endTimestamp": Int(workout.endDate.timeIntervalSince1970),
-                "durationSec": Int(workout.duration.rounded()),
-                "distance": Int((workout.totalDistance?.doubleValue(for: HKUnit.meter()) ?? 0).rounded()),
+                "recordingMethod": recordingMethod,
+                "startTimestamp": floor(startTimestamp),
+                "endTimestamp": floor(endTimestamp),
+                "durationSec": floor(workout.duration),
+                "distance": distance,
                 "calorie": Int((workout.totalEnergyBurned?.doubleValue(for: HKUnit.kilocalorie()) ?? 0).rounded()),
                 "cadence": 0,
                 "gpsPoints": completedRoute.points,

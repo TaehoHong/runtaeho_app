@@ -1,3 +1,4 @@
+import { useWatchSync } from '~/features/watchSync/useWatchSync';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from '../features/auth/hooks/useAuth';
@@ -25,6 +26,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const { verifyAndRefreshToken, refreshUserData } = useAuth();
   const { syncOfflineData } = useOfflineSync();
   const [isNavigationReady, setIsNavigationReady] = useState(false);
+  useWatchSync(isNavigationReady);
 
   // OTA 자동 업데이트 완료 여부 확인
   const isAutoUpdateCompleted = useUpdateStore((state) => state.isAutoUpdateCompleted);

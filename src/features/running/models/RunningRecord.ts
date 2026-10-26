@@ -1,4 +1,5 @@
 import type { Shoe } from '~/features/shoes/models';
+import type { EndRunningRecord } from './EndRunningRecord';
 
 import { RunningStatusFormat } from '~/shared/utils/formatters';
 
@@ -14,6 +15,7 @@ export interface RunningRecord {
   durationSec: number; // TimeInterval (seconds)
   startTimestamp: number; // Unix timestamp
   endTimestamp?: number; // 실제 러닝 종료 시각 (Unix timestamp, 초)
+  acceptanceStatus?: EndRunningRecord['acceptanceStatus'];
 }
 
 /**

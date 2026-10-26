@@ -12,6 +12,7 @@ import androidx.health.connect.client.records.ExerciseRouteResult
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.StepsCadenceRecord
+import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
@@ -249,10 +250,16 @@ class RNHealthImportBridgeModule(
 
         putString("sourceRecordId", "health-connect:$sourcePackageName:${session.metadata.id}")
         putString("sourceBundleId", sourcePackageName)
+        putString("recordingMethod", when (session.metadata.recordingMethod) {
+            Metadata.RECORDING_METHOD_MANUAL_ENTRY -> "MANUAL"
+            Metadata.RECORDING_METHOD_ACTIVELY_RECORDED,
+            Metadata.RECORDING_METHOD_AUTOMATICALLY_RECORDED -> "RECORDED"
+            else -> "UNKNOWN"
+        })
         putDouble("startTimestamp", session.startTime.epochSecond.toDouble())
         putDouble("endTimestamp", session.endTime.epochSecond.toDouble())
-        putInt("distance", distance.roundToInt())
-        putInt("durationSec", (session.endTime.epochSecond - session.startTime.epochSecond).toInt().coerceAtLeast(0))
+        putDouble("distance", distance)
+        putDouble("durationSec", (session.endTime.epochSecond - session.startTime.epochSecond).toDouble())
         putInt("calorie", calorie.roundToInt())
         putInt("cadence", cadence.roundToInt())
         putInt("heartRate", heartRate.roundToInt())

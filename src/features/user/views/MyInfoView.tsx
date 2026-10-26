@@ -187,6 +187,7 @@ const MenuSettingsCard: React.FC<MenuSettingsCardProps> = ({ items }) => {
 
   const defaultMenuItems: MenuItemProps[] = [
     { title: t("연결 계정 관리"), onPress: () => router.push('/user/account-connection') },
+    { title: t("운동 기록 연동"), onPress: () => router.push('/user/activity-connection'), testID: 'myinfo-menu-activity-connection' },
     { title: t("약관 및 정책"), onPress: () => router.push('/user/terms-list') },
     { title: t("설정"), onPress: () => router.push('/user/settings'), testID: 'myinfo-menu-settings' },
   ];

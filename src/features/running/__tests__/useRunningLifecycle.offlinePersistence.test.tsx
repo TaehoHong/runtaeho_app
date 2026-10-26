@@ -155,6 +155,43 @@ describe('useRunningLifecycle offline persistence', () => {
     expect(mockSaveItems).not.toHaveBeenCalled();
   });
 
+  it.each([
+    'RUNNING_FUTURE_END_TIME', 'RUNNING_EXCESSIVE_AVERAGE_SPEED', 'RUNNING_INVALID_METRICS', 'RUNNING_INVALID_GPS',
+  ])('keeps %s unsaved without queuing an impossible retry', async (code) => {
+    const rejection = { isAxiosError: true, response: { status: 400, data: { extra: { code } } } };
+    mockEndRunning.mockRejectedValue(rejection);
+    const props = createProps();
+    const { result } = renderHook(() => useRunningLifecycle(props));
+    await startTestRun(result.current.startRunning);
+
+    await act(async () => { await expect(result.current.endRunning()).rejects.toBe(rejection); });
+
+    expect(useAppStore.getState().runningState).toBe(RunningState.Paused);
+    expect(useAppStore.getState().leagueBeforeRunningEnd).toBeNull();
+    expect(result.current.currentRecord).toMatchObject({ id: 404, distance: 80, durationSec: 120 });
+    expect(props.segmentItemsRef.current).toEqual([segment]);
+    expect(await offlineStorageService.getPendingCount()).toBe(0);
+    expect(await offlineStorageService.getPendingSegmentCount()).toBe(0);
+    expect(mockSaveItems).not.toHaveBeenCalled();
+  });
+
+  it('completes a duplicate without uploading segments or preserving a reward animation', async () => {
+    mockGetCurrentLeague.mockResolvedValue({ sessionId: 1, myRank: 8 });
+    mockEndRunning.mockResolvedValue({ id: 404, point: 35, acceptanceStatus: 'DUPLICATE' });
+    const { result } = renderHook(() => useRunningLifecycle(createProps()));
+    await startTestRun(result.current.startRunning);
+
+    await act(async () => {
+      expect(await result.current.endRunning()).toMatchObject({ point: 35, acceptanceStatus: 'DUPLICATE' });
+    });
+
+    expect(result.current.currentRecord?.acceptanceStatus).toBe('DUPLICATE');
+    expect(useAppStore.getState().runningState).toBe(RunningState.Finished);
+    expect(useAppStore.getState().leagueBeforeRunningEnd).toBeNull();
+    expect(mockSaveItems).not.toHaveBeenCalled();
+    expect(await offlineStorageService.getPendingCount()).toBe(0);
+  });
+
   it('waits for GPS segments to persist before completing', async () => {
     let releaseWrite: () => void = () => undefined;
     const writeGate = new Promise<void>((resolve) => { releaseWrite = resolve; });

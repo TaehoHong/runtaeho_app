@@ -79,7 +79,7 @@ describe('healthImportService.sync', () => {
 
     const result = await healthImportService.sync();
 
-    expect(result).toEqual({ importedCount: 0, duplicateCount: 0, awardedPoint: 0 });
+    expect(result).toEqual({ importedCount: 0, duplicateCount: 0, personalOnlyCount: 0, awardedPoint: 0 });
     expect(mockHealthImportBridge.readRunningWorkouts).not.toHaveBeenCalled();
     expect(mockApiClient.post).not.toHaveBeenCalled();
   });
@@ -92,7 +92,7 @@ describe('healthImportService.sync', () => {
         startTimestamp: 1200,
         endTimestamp: 1800,
         distance: 3200,
-        durationSec: 1500,
+        durationSec: 600,
         calorie: 180,
         cadence: 170,
         heartRate: 145,
@@ -123,7 +123,7 @@ describe('healthImportService.sync', () => {
           expect.objectContaining({
             externalId: 'health-connect:source:run-1',
             distance: 3200,
-            durationSec: 1500,
+            durationSec: 600,
             items: [
               expect.objectContaining({
                 gpsPoints: [
@@ -139,7 +139,7 @@ describe('healthImportService.sync', () => {
       },
       { sessionSnapshot: { generation: 1 } }
     );
-    expect(result).toEqual({ importedCount: 1, duplicateCount: 0, awardedPoint: 3 });
+    expect(result).toEqual({ importedCount: 1, duplicateCount: 0, personalOnlyCount: 0, awardedPoint: 3 });
   });
 
   it('imports route-permission-required workouts without GPS and finalizes the initial cursor', async () => {
@@ -169,7 +169,7 @@ describe('healthImportService.sync', () => {
         startTimestamp: 1800,
         endTimestamp: 1900,
         distance: 1000,
-        durationSec: 600,
+        durationSec: 100,
         routeStatus: 'permissionRequired',
         gpsPoints: [],
       },
@@ -178,7 +178,7 @@ describe('healthImportService.sync', () => {
         startTimestamp: 1100,
         endTimestamp: 1200,
         distance: 800,
-        durationSec: 500,
+        durationSec: 100,
         routeStatus: 'available',
         gpsPoints: [
           {
@@ -215,7 +215,7 @@ describe('healthImportService.sync', () => {
           expect.objectContaining({
             externalId: 'health-connect:source:blocked',
             distance: 1000,
-            durationSec: 600,
+            durationSec: 100,
             items: [],
           }),
         ],
@@ -223,7 +223,7 @@ describe('healthImportService.sync', () => {
       { sessionSnapshot: { generation: 1 } }
     );
     expect(mockApiClient.post).toHaveBeenCalledWith('/running/import-batch', { records: [] }, { sessionSnapshot: { generation: 1 } });
-    expect(result).toEqual({ importedCount: 2, duplicateCount: 0, awardedPoint: 3 });
+    expect(result).toEqual({ importedCount: 2, duplicateCount: 0, personalOnlyCount: 0, awardedPoint: 3 });
   });
 
   it('rejects a superseded account after a deferred native read without upload or invalidation', async () => {
@@ -321,6 +321,73 @@ describe('healthImportService.sync', () => {
     expect(firstRequest.records).toHaveLength(50);
     expect(secondRequest.records).toHaveLength(1);
     expect(firstRequest.records[0]!.items[0]!.gpsPoints).toEqual(gpsPoints);
+  });
+
+  it.each([
+    { recordingMethod: 'RECORDED', expectedMethod: 'RECORDED' },
+    { recordingMethod: 'MANUAL', expectedMethod: 'MANUAL' },
+    { recordingMethod: 'UNKNOWN', expectedMethod: 'UNKNOWN' },
+    { recordingMethod: undefined, expectedMethod: 'UNKNOWN' },
+  ] as const)(
+    'forwards Health recording method $recordingMethod and the writer source without inferring device identity', async ({ recordingMethod, expectedMethod }) => {
+      mockHealthImportBridge.readRunningWorkouts.mockResolvedValue([{
+        sourceRecordId: 'test:run', sourceBundleId: 'test.health.writer', recordingMethod,
+        startTimestamp: 1100, endTimestamp: 1200, distance: 800, durationSec: 100,
+      }]);
+
+      await healthImportService.sync();
+
+      expect(mockApiClient.post.mock.calls[0]![1]).toEqual({ records: [expect.objectContaining({
+        externalId: 'test:run', sourceBundleId: 'test.health.writer', recordingMethod: expectedMethod,
+      })] });
+    }
+  );
+
+  it.each([
+    { distance: -0.1 }, { distance: Number.NaN }, { durationSec: -1 }, { durationSec: Number.POSITIVE_INFINITY },
+    { startTimestamp: -1 }, { endTimestamp: Number.NaN }, { startTimestamp: 1201 }, { durationSec: 101 },
+  ])('rejects invalid required Health fields %p before upload or initial cursor finalization', async (invalidFields) => {
+    mockApiClient.get.mockResolvedValue({ data: { ...enabledConfiguration, healthImportLastSyncedTimestamp: null } });
+    mockHealthImportBridge.readRunningWorkouts.mockResolvedValue([{
+      sourceRecordId: 'test:invalid', startTimestamp: 1100, endTimestamp: 1200,
+      distance: 800, durationSec: 100, ...invalidFields,
+    }]);
+
+    await expect(healthImportService.sync()).rejects.toMatchObject({ code: 'RUNNING_INVALID_METRICS' });
+
+    expect(mockApiClient.post).not.toHaveBeenCalled();
+    expect(queryClient.invalidateQueries).not.toHaveBeenCalled();
+  });
+
+  it('floors Health timestamps and duration to seconds without rounding duration beyond the period', async () => {
+    mockHealthImportBridge.readRunningWorkouts.mockResolvedValue([{
+      sourceRecordId: 'test:fractional', startTimestamp: 1100.1, endTimestamp: 1200.9,
+      distance: 800, durationSec: 100.7,
+    }]);
+
+    await healthImportService.sync();
+
+    expect(mockApiClient.post.mock.calls[0]![1]).toEqual({ records: [expect.objectContaining({
+      startTimestamp: 1100, endTimestamp: 1200, durationSec: 100,
+    })] });
+  });
+
+  it('reports personal history imports without awarding points or refreshing reward queries', async () => {
+    mockApiClient.post.mockResolvedValue({ data: {
+      createdCount: 1, updatedCount: 0, duplicateCount: 0, personalOnlyCount: 1,
+      awardedPoint: 0, leagueDistanceChanged: false,
+    } });
+    mockHealthImportBridge.readRunningWorkouts.mockResolvedValue([{
+      sourceRecordId: 'test:manual', recordingMethod: 'MANUAL', startTimestamp: 1100, endTimestamp: 1200,
+      distance: 800, durationSec: 100,
+    }]);
+
+    expect(await healthImportService.sync()).toEqual({
+      importedCount: 1, duplicateCount: 0, personalOnlyCount: 1, awardedPoint: 0,
+    });
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['running'] });
+    expect(queryClient.invalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['point'] });
+    expect(queryClient.invalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['league'] });
   });
 
 });

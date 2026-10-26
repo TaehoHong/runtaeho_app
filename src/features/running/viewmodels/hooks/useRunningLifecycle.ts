@@ -16,6 +16,7 @@ import { toSegmentPayload } from '../../services/segmentPayload';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getSessionSnapshot, isSessionCurrent, useAuthStore, type SessionSnapshot } from '~/features/auth/stores/authStore';
 import { SessionSupersededError } from '~/utils/storage/errors';
+import { getRunningRejectionCode } from '../../services/runningRejection';
 import { RunningClock } from '../../models/RunningClock';
 import type { RunningRecord, EndRunningRecord } from '../../models';
 import { updateRunningRecord } from '../../models';
@@ -308,12 +309,16 @@ export const useRunningLifecycle = ({
       try {
         const endRecord = await endRunningMutation(finalRecord, session);
         checkCurrent();
+        setCurrentRecord({ ...finalRecord, acceptanceStatus: endRecord.acceptanceStatus });
+        if (endRecord.acceptanceStatus === 'DUPLICATE' || endRecord.acceptanceStatus === 'PERSONAL_ONLY') {
+          setLeagueBeforeRunningEnd(null);
+        }
         setRunningState(RunningState.Finished);
         console.log('[useRunningLifecycle] Running completed, data sent to server');
 
         // 5. 세그먼트 비동기 업로드
         const segmentsToUpload = segmentItemsRef.current;
-        if (segmentsToUpload.length > 0) {
+        if (segmentsToUpload.length > 0 && endRecord.acceptanceStatus !== 'DUPLICATE') {
           const itemsForServer = segmentsToUpload.map(toSegmentPayload);
 
           // 비동기로 전송 (UI 블로킹 방지)
@@ -329,6 +334,10 @@ export const useRunningLifecycle = ({
             })
             .catch(async (error) => {
               if (!isSessionCurrent(session)) return;
+              if (getRunningRejectionCode(error)) {
+                console.warn('[useRunningLifecycle] Segment upload rejected by validation');
+                return;
+              }
               console.warn(
                 '[useRunningLifecycle] Segment upload failed, saving offline:',
                 error
@@ -361,6 +370,10 @@ export const useRunningLifecycle = ({
         return endRecord;
       } catch (apiError: unknown) {
         checkCurrent();
+        if (getRunningRejectionCode(apiError)) {
+          setLeagueBeforeRunningEnd(null);
+          throw apiError;
+        }
         // 네트워크 에러 시 오프라인 저장
         const errorMessage =
           apiError instanceof Error ? apiError.message : 'Unknown error';
@@ -384,7 +397,9 @@ export const useRunningLifecycle = ({
       }
     } catch (error) {
       checkCurrent();
-      console.error('[useRunningLifecycle] Failed to end running:', error);
+      console.error('[useRunningLifecycle] Failed to end running', {
+        code: getRunningRejectionCode(error) ?? 'running_end_failed',
+      });
 
       // 저장 실패 시 추적을 멈추되 최종 기록과 GPS는 재시도를 위해 유지한다.
       pauseGpsTracking();

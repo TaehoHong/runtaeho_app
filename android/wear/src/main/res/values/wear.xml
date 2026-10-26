@@ -1,0 +1,4 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Google Play services reads this conventional resource by name. -->
+    <string-array name="android_wear_capabilities" translatable="false" tools:ignore="UnusedResources"><item>runtaeho_watch_sync_v1</item></string-array>
+</resources>

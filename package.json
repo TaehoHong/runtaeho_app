@@ -1,6 +1,6 @@
 {
   "name": "app",
-  "main": "expo-router/entry",
+  "main": "index.js",
   "version": "1.8.0",
   "config": {
     "runtimeVersion": "1.8.0"

@@ -5,6 +5,7 @@ import { queryClient, queryKeys } from '~/services/queryClient';
 import { apiClient } from '~/services/api/client';
 import { API_ENDPOINTS } from '~/services/api/config';
 import { userConfigurationService } from '~/features/user/services/userConfigurationService';
+import { getRunningRejectionCode, RunningValidationError } from '~/features/running/services/runningRejection';
 import { healthImportBridge } from '../native/HealthImportBridge';
 import type {
   HealthImportBatchRecord,
@@ -38,7 +39,7 @@ const assertCurrentSession = (snapshot: SessionSnapshot) => {
 
 const getErrorCode = (error: unknown): string => {
   if (error instanceof SessionSupersededError) return 'session_superseded';
-  return 'health_import_failed';
+  return getRunningRejectionCode(error) ?? 'health_import_failed';
 };
 
 const normalizeNumber = (value: number | null | undefined): number => {
@@ -92,33 +93,47 @@ const summarizeBatchRecords = (records: HealthImportBatchRecord[]) => ({
 
 const sortWorkoutsForCursor = (workouts: HealthRunningWorkout[]): HealthRunningWorkout[] =>
   [...workouts].sort((left, right) => {
-    const endDiff = normalizeNumber(left.endTimestamp) - normalizeNumber(right.endTimestamp);
+    const endDiff = left.endTimestamp - right.endTimestamp;
     if (endDiff !== 0) return endDiff;
-    return normalizeNumber(left.startTimestamp) - normalizeNumber(right.startTimestamp);
+    return left.startTimestamp - right.startTimestamp;
   });
 
 const toBatchRecord = (workout: HealthRunningWorkout): HealthImportBatchRecord => {
   const gpsPoints = getGpsPoints(workout);
+  const requiredValues = [workout.distance, workout.durationSec, workout.startTimestamp, workout.endTimestamp];
+  if (requiredValues.some((value) => typeof value !== 'number' || !Number.isFinite(value) || value < 0) ||
+      workout.endTimestamp < workout.startTimestamp ||
+      workout.durationSec > workout.endTimestamp - workout.startTimestamp ||
+      (workout.distance > 0 && workout.durationSec <= 0)) {
+    throw new RunningValidationError('RUNNING_INVALID_METRICS');
+  }
+  const distance = Math.round(workout.distance);
+  const durationSec = Math.floor(workout.durationSec);
+  const startTimestamp = Math.floor(workout.startTimestamp);
+  const endTimestamp = Math.floor(workout.endTimestamp);
+  if (distance > 0 && durationSec === 0) throw new RunningValidationError('RUNNING_INVALID_METRICS');
 
   return {
     externalId: workout.sourceRecordId,
-    distance: normalizeNumber(workout.distance),
-    durationSec: normalizeNumber(workout.durationSec),
+    sourceBundleId: workout.sourceBundleId,
+    recordingMethod: workout.recordingMethod ?? 'UNKNOWN',
+    distance,
+    durationSec,
     cadence: normalizeCadence(workout.cadence),
     heartRate: normalizeNumber(workout.heartRate),
     calorie: normalizeNumber(workout.calorie),
-    startTimestamp: normalizeNumber(workout.startTimestamp),
-    endTimestamp: normalizeNumber(workout.endTimestamp),
+    startTimestamp,
+    endTimestamp,
     items: gpsPoints.length > 0 ? [{
-      distance: normalizeNumber(workout.distance),
-      durationSec: normalizeNumber(workout.durationSec),
+      distance,
+      durationSec,
       cadence: normalizeCadence(workout.cadence),
       heartRate: normalizeNumber(workout.heartRate),
       minHeartRate: normalizeNumber(workout.heartRate),
       maxHeartRate: normalizeNumber(workout.heartRate),
       orderIndex: 0,
-      startTimestamp: normalizeNumber(workout.startTimestamp),
-      endTimestamp: normalizeNumber(workout.endTimestamp),
+      startTimestamp,
+      endTimestamp,
       gpsPoints,
     }] : [],
   };
@@ -154,7 +169,7 @@ const finalizeSync = async (snapshot: SessionSnapshot): Promise<HealthImportSync
   logHealthImport('finalize sync cursor');
   const response = await healthImportService.importBatch({ records: [] }, snapshot);
   await invalidateAfterImport(response, snapshot);
-  return { importedCount: 0, duplicateCount: 0, awardedPoint: 0 };
+  return { importedCount: 0, duplicateCount: 0, personalOnlyCount: 0, awardedPoint: 0 };
 };
 
 const importWorkouts = async (
@@ -163,10 +178,11 @@ const importWorkouts = async (
 ): Promise<HealthImportSyncResult> => {
   let importedCount = 0;
   let duplicateCount = 0;
+  let personalOnlyCount = 0;
   let awardedPoint = 0;
 
   if (workouts.length === 0) {
-    return { importedCount: 0, duplicateCount: 0, awardedPoint: 0 };
+    return { importedCount: 0, duplicateCount: 0, personalOnlyCount: 0, awardedPoint: 0 };
   }
 
   for (let index = 0; index < workouts.length; index += BATCH_SIZE) {
@@ -188,11 +204,12 @@ const importWorkouts = async (
     });
     importedCount += response.createdCount + response.updatedCount;
     duplicateCount += response.duplicateCount;
+    personalOnlyCount += response.personalOnlyCount ?? 0;
     awardedPoint += response.awardedPoint;
     await invalidateAfterImport(response, snapshot);
   }
 
-  return { importedCount, duplicateCount, awardedPoint };
+  return { importedCount, duplicateCount, personalOnlyCount, awardedPoint };
 };
 
 export const healthImportService = {
@@ -231,7 +248,7 @@ export const healthImportService = {
     });
     if (!configuration.healthImportEnabled) {
       logHealthImport('sync skipped: disabled');
-      return { importedCount: 0, duplicateCount: 0, awardedPoint: 0 };
+      return { importedCount: 0, duplicateCount: 0, personalOnlyCount: 0, awardedPoint: 0 };
     }
 
     const available = await healthImportBridge.isAvailable();
@@ -239,7 +256,7 @@ export const healthImportService = {
     logHealthImport('native availability checked', { available });
     if (!available) {
       logHealthImport('sync skipped: health unavailable');
-      return { importedCount: 0, duplicateCount: 0, awardedPoint: 0 };
+      return { importedCount: 0, duplicateCount: 0, personalOnlyCount: 0, awardedPoint: 0 };
     }
 
     const permission = Platform.OS === 'android'
@@ -249,7 +266,7 @@ export const healthImportService = {
     logHealthImport('permission checked', { permission });
     if (permission !== 'granted') {
       logHealthImport('sync skipped: permission not granted', { permission });
-      return { importedCount: 0, duplicateCount: 0, awardedPoint: 0 };
+      return { importedCount: 0, duplicateCount: 0, personalOnlyCount: 0, awardedPoint: 0 };
     }
 
     const nowTimestamp = Math.floor(Date.now() / 1000);
@@ -280,7 +297,7 @@ export const healthImportService = {
     }
 
     if (importableWorkouts.length === 0) {
-      return { importedCount: 0, duplicateCount: 0, awardedPoint: 0 };
+      return { importedCount: 0, duplicateCount: 0, personalOnlyCount: 0, awardedPoint: 0 };
     }
 
     return importWorkouts(importableWorkouts, snapshot);

@@ -82,6 +82,24 @@ describe('running end recovery', () => {
     expect(screen.getByText('종료')).toBeTruthy();
   });
 
+  it.each([
+    { name: 'running', View: RunningActiveView },
+    { name: 'paused', View: RunningPausedView },
+  ])('shows a safe validation reason in the $name view instead of advising retry', async ({ View }) => {
+    mockEndRunning.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 400, data: { message: 'untrusted server diagnostic', extra: { code: 'RUNNING_EXCESSIVE_AVERAGE_SPEED' } } },
+    });
+    renderWithProviders(<View />);
+
+    fireEvent.press(screen.getByText('종료'));
+
+    await waitFor(() => {
+      expect(Alert.alert).toHaveBeenCalledWith('저장 실패', '평균 속도가 러닝 기록 허용 범위를 초과해 저장할 수 없어요.');
+    });
+    expect(JSON.stringify(jest.mocked(Alert.alert).mock.calls)).not.toContain('untrusted server diagnostic');
+  });
+
   it('still offers resume for an ordinary paused run', () => {
     mockCurrentRecord = {};
     renderWithProviders(<RunningPausedView />);

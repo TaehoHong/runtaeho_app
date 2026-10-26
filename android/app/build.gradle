@@ -187,6 +187,7 @@ dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
     implementation("androidx.health.connect:connect-client:1.1.0")
+    implementation("com.google.android.gms:play-services-wearable:20.0.1")
     implementation project(':unityLibrary')
     implementation fileTree(dir: new File(project(':unityLibrary').getProjectDir(), 'libs'), include: ['*.jar'])
 
@@ -214,3 +215,5 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+android.sourceSets.main.java.srcDir("../watchsync/src/main/java")
