@@ -129,8 +129,7 @@ class RNHealthImportBridge: NSObject {
 
             // Only our watch source or our explicit metadata marker. Preserve all external workouts.
             let workouts = ((samples as? [HKWorkout]) ?? []).filter {
-                $0.sourceRevision.source.bundleIdentifier != "com.runtaeho.runtaeho.watchkitapp" &&
-                $0.metadata?["com.runtaeho.watchSessionId"] == nil
+                self.isExternalWorkout($0)
             }
             self.logHealthImport("HKSampleQuery workout response", [
                 "rawSampleCount": samples?.count ?? 0,
@@ -176,6 +175,131 @@ class RNHealthImportBridge: NSObject {
         }
 
         healthStore.execute(query)
+    }
+
+    @objc(readRunningWorkoutChanges:resolver:rejecter:)
+    func readRunningWorkoutChanges(
+        _ params: NSDictionary,
+        resolver resolve: @escaping RCTPromiseResolveBlock,
+        rejecter reject: @escaping RCTPromiseRejectBlock
+    ) {
+        guard HKHealthStore.isHealthDataAvailable() else {
+            reject("health_unavailable", "Health data is unavailable.", nil)
+            return
+        }
+
+        let limit = (params["limit"] as? NSNumber)?.intValue ?? 1000
+        guard (1...5000).contains(limit) else {
+            reject("health_invalid_limit", "Health change page limit must be between 1 and 5000.", nil)
+            return
+        }
+
+        var anchor: HKQueryAnchor?
+        if let cursorValue = params["cursor"], !(cursorValue is NSNull) {
+            do {
+                guard let cursor = cursorValue as? String,
+                      let data = Data(base64Encoded: cursor),
+                      let decoded = try NSKeyedUnarchiver.unarchivedObject(ofClass: HKQueryAnchor.self, from: data) else {
+                    resolve(self.changePage(workouts: [], deletedRecordIds: [], nextCursor: nil, hasMore: false, resetRequired: true))
+                    return
+                }
+                anchor = decoded
+            } catch {
+                resolve(self.changePage(workouts: [], deletedRecordIds: [], nextCursor: nil, hasMore: false, resetRequired: true))
+                return
+            }
+        }
+
+        let query = HKAnchoredObjectQuery(
+            type: HKObjectType.workoutType(),
+            predicate: HKQuery.predicateForWorkouts(with: .running),
+            anchor: anchor,
+            limit: limit
+        ) { _, samples, deletedObjects, nextAnchor, error in
+            if let error = error {
+                let healthError = error as NSError
+                if anchor != nil,
+                   healthError.domain == HKErrorDomain,
+                   healthError.code == HKError.Code.errorInvalidArgument.rawValue {
+                    resolve(self.changePage(workouts: [], deletedRecordIds: [], nextCursor: nil, hasMore: false, resetRequired: true))
+                    return
+                }
+                reject("health_read_failed", "Health workout changes could not be read.", error)
+                return
+            }
+            guard let nextAnchor = nextAnchor else {
+                reject("health_read_failed", "Health workout changes did not return an anchor.", nil)
+                return
+            }
+            let nextCursor: String
+            do {
+                nextCursor = try NSKeyedArchiver.archivedData(withRootObject: nextAnchor, requiringSecureCoding: true).base64EncodedString()
+            } catch {
+                reject("health_read_failed", "Health workout anchor could not be encoded.", error)
+                return
+            }
+
+            let workouts = ((samples as? [HKWorkout]) ?? []).filter {
+                self.isExternalWorkout($0)
+            }
+            let deletedRecordIds = (deletedObjects ?? []).map { $0.uuid.uuidString }
+            let hasMore = (samples?.count ?? 0) + (deletedObjects?.count ?? 0) >= limit
+            let group = DispatchGroup()
+            let lock = NSLock()
+            var records: [[String: Any]] = []
+            var readError: Error?
+
+            for (index, workout) in workouts.enumerated() {
+                group.enter()
+                self.buildRecord(for: workout, index: index) { result in
+                    lock.lock()
+                    switch result {
+                    case .success(let record):
+                        if (record["routeStatus"] as? String) == "readFailed" {
+                            if readError == nil {
+                                readError = NSError(domain: "HealthImport", code: 2, userInfo: [
+                                    NSLocalizedDescriptionKey: "Health workout route could not be read."
+                                ])
+                            }
+                        } else {
+                            records.append(record)
+                        }
+                    case .failure(let error): if readError == nil { readError = error }
+                    }
+                    lock.unlock()
+                    group.leave()
+                }
+            }
+
+            group.notify(queue: .main) {
+                lock.lock()
+                let error = readError
+                let completedRecords = records
+                lock.unlock()
+                if let error = error {
+                    reject("health_read_failed", "Health workout metrics could not be read.", error)
+                    return
+                }
+                resolve(self.changePage(workouts: completedRecords, deletedRecordIds: deletedRecordIds, nextCursor: nextCursor, hasMore: hasMore, resetRequired: false))
+            }
+        }
+        healthStore.execute(query)
+    }
+
+    private func changePage(workouts: [[String: Any]], deletedRecordIds: [String], nextCursor: String?, hasMore: Bool, resetRequired: Bool) -> [String: Any] {
+        return [
+            "workouts": workouts,
+            "deletedRecordIds": deletedRecordIds,
+            "nextCursor": nextCursor.map { $0 as Any } ?? NSNull(),
+            "hasMore": hasMore,
+            "resetRequired": resetRequired
+        ]
+    }
+
+    private func isExternalWorkout(_ workout: HKWorkout) -> Bool {
+        return workout.sourceRevision.source.bundleIdentifier != "com.runtaeho.runtaeho.watchkitapp" &&
+            workout.sourceRevision.source.bundleIdentifier != "com.runtaeho.runtaeho.dev.watchkitapp" &&
+            workout.metadata?["com.runtaeho.watchSessionId"] == nil
     }
 
     @objc(openHealthSettings:rejecter:)

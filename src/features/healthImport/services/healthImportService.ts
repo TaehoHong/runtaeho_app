@@ -7,6 +7,7 @@ import { API_ENDPOINTS } from '~/services/api/config';
 import { userConfigurationService } from '~/features/user/services/userConfigurationService';
 import { getRunningRejectionCode, RunningValidationError } from '~/features/running/services/runningRejection';
 import { healthImportBridge } from '../native/HealthImportBridge';
+import { healthSyncCursorStore } from './healthSyncCursorStore';
 import type {
   HealthImportBatchRecord,
   HealthImportBatchRequest,
@@ -15,10 +16,12 @@ import type {
   HealthImportSyncResult,
   HealthRouteStatus,
   HealthRunningWorkout,
+  HealthRunningWorkoutChanges,
   UpdateHealthImportConfigurationRequest,
 } from '../types';
 
 const BATCH_SIZE = 50;
+const CHANGE_PAGE_SIZE = 50;
 const ROUTE_STATUSES: HealthRouteStatus[] = ['available', 'notAvailable', 'permissionRequired', 'readFailed'];
 
 const logHealthImport = (message: string, data?: Record<string, unknown>) => {
@@ -32,6 +35,32 @@ const logHealthImport = (message: string, data?: Record<string, unknown>) => {
 };
 
 type SessionSnapshot = ReturnType<typeof getSessionSnapshot>;
+
+// The queue includes cursor storage, so an old session's delayed write finishes
+// before a newer session for the same account can read or commit its cursor.
+let syncTail: Promise<void> = Promise.resolve();
+
+export class HealthImportPartialSyncError extends Error {
+  constructor(readonly originalError: unknown, readonly partialResult: HealthImportSyncResult) {
+    super('Health sync did not finish');
+    this.name = 'HealthImportPartialSyncError';
+  }
+}
+
+const emptySyncResult = (): HealthImportSyncResult => ({
+  importedCount: 0, duplicateCount: 0, personalOnlyCount: 0, awardedPoint: 0,
+});
+
+const addSyncResult = (total: HealthImportSyncResult, result: HealthImportSyncResult) => {
+  total.importedCount += result.importedCount;
+  total.duplicateCount += result.duplicateCount;
+  total.personalOnlyCount += result.personalOnlyCount;
+  total.awardedPoint += result.awardedPoint;
+  if (result.rejectedCount) {
+    total.rejectedCount = (total.rejectedCount ?? 0) + result.rejectedCount;
+    total.rejectionCodes = [...new Set([...(total.rejectionCodes ?? []), ...(result.rejectionCodes ?? [])])];
+  }
+};
 
 const assertCurrentSession = (snapshot: SessionSnapshot) => {
   if (!isSessionCurrent(snapshot)) throw new SessionSupersededError();
@@ -172,44 +201,145 @@ const finalizeSync = async (snapshot: SessionSnapshot): Promise<HealthImportSync
   return { importedCount: 0, duplicateCount: 0, personalOnlyCount: 0, awardedPoint: 0 };
 };
 
+const isNonNegativeSafeInteger = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+
+const validateImportAcknowledgment = (response: HealthImportBatchResponse, recordCount: number) => {
+  if (!response || response.processed !== true ||
+      !isNonNegativeSafeInteger(response.createdCount) ||
+      !isNonNegativeSafeInteger(response.updatedCount) ||
+      !isNonNegativeSafeInteger(response.duplicateCount) ||
+      response.createdCount + response.updatedCount + response.duplicateCount !== recordCount ||
+      !isNonNegativeSafeInteger(response.awardedPoint) ||
+      (response.personalOnlyCount !== undefined &&
+        (!isNonNegativeSafeInteger(response.personalOnlyCount) || response.personalOnlyCount > recordCount)) ||
+      (response.leagueDistanceChanged !== undefined && typeof response.leagueDistanceChanged !== 'boolean')) {
+    throw Object.assign(new Error('Health import acknowledgment is invalid'), { code: 'health_import_failed' });
+  }
+};
+
 const importWorkouts = async (
   workouts: HealthRunningWorkout[],
-  snapshot: SessionSnapshot
+  snapshot: SessionSnapshot,
+  isolatePermanentRejections = false,
+  result = emptySyncResult()
 ): Promise<HealthImportSyncResult> => {
-  let importedCount = 0;
-  let duplicateCount = 0;
-  let personalOnlyCount = 0;
-  let awardedPoint = 0;
-
-  if (workouts.length === 0) {
-    return { importedCount: 0, duplicateCount: 0, personalOnlyCount: 0, awardedPoint: 0 };
-  }
-
-  for (let index = 0; index < workouts.length; index += BATCH_SIZE) {
+  const upload = async (records: HealthImportBatchRecord[]): Promise<void> => {
     assertCurrentSession(snapshot);
-    const records = workouts.slice(index, index + BATCH_SIZE).map(toBatchRecord);
-    if (records.length === 0) continue;
-
     logHealthImport('import batch request', summarizeBatchRecords(records));
-    const response = await healthImportService.importBatch({ records }, snapshot).catch((error: unknown) => {
+    let response: HealthImportBatchResponse;
+    try {
+      response = await healthImportService.importBatch({ records }, snapshot);
+    } catch (error: unknown) {
+      assertCurrentSession(snapshot);
       logHealthImport('import batch failed', { errorCode: getErrorCode(error) });
-      throw error;
-    });
+      const code = getRunningRejectionCode(error);
+      // Only the existing recognized HTTP 400 validation contract is terminal.
+      // A size-50 batch takes at most 99 requests to isolate every rejected record.
+      if (!isolatePermanentRejections || !code || error instanceof RunningValidationError) throw error;
+      if (records.length === 1) {
+        addSyncResult(result, { ...emptySyncResult(), rejectedCount: 1, rejectionCodes: [code] });
+        return;
+      }
+      const middle = Math.floor(records.length / 2);
+      await upload(records.slice(0, middle));
+      await upload(records.slice(middle));
+      return;
+    }
     assertCurrentSession(snapshot);
+    if (isolatePermanentRejections) validateImportAcknowledgment(response, records.length);
     logHealthImport('import batch response', {
       createdCount: response.createdCount,
       updatedCount: response.updatedCount,
       duplicateCount: response.duplicateCount,
       leagueDistanceChanged: response.leagueDistanceChanged,
     });
-    importedCount += response.createdCount + response.updatedCount;
-    duplicateCount += response.duplicateCount;
-    personalOnlyCount += response.personalOnlyCount ?? 0;
-    awardedPoint += response.awardedPoint;
+    addSyncResult(result, {
+      importedCount: response.createdCount + response.updatedCount,
+      duplicateCount: response.duplicateCount,
+      personalOnlyCount: response.personalOnlyCount ?? 0,
+      awardedPoint: response.awardedPoint,
+    });
     await invalidateAfterImport(response, snapshot);
+  };
+
+  for (let index = 0; index < workouts.length; index += BATCH_SIZE) {
+    assertCurrentSession(snapshot);
+    const records: HealthImportBatchRecord[] = [];
+    for (const workout of workouts.slice(index, index + BATCH_SIZE)) {
+      try {
+        records.push(toBatchRecord(workout));
+      } catch (error: unknown) {
+        if (!isolatePermanentRejections || !(error instanceof RunningValidationError)) throw error;
+        addSyncResult(result, { ...emptySyncResult(), rejectedCount: 1, rejectionCodes: [error.code] });
+      }
+    }
+    if (records.length > 0) await upload(records);
   }
 
-  return { importedCount, duplicateCount, personalOnlyCount, awardedPoint };
+  return result;
+};
+
+const invalidChangePage = () => Object.assign(new Error('Health change page is invalid'), { code: 'health_read_failed' });
+
+const isWorkoutShape = (value: unknown): value is HealthRunningWorkout => {
+  if (!value || typeof value !== 'object') return false;
+  const workout = value as Record<string, unknown>;
+  return typeof workout.sourceRecordId === 'string' && workout.sourceRecordId.length > 0 &&
+    ['startTimestamp', 'endTimestamp', 'distance', 'durationSec'].every((field) => typeof workout[field] === 'number') &&
+    (workout.sourceBundleId == null || typeof workout.sourceBundleId === 'string') &&
+    (workout.recordingMethod == null || (typeof workout.recordingMethod === 'string' &&
+      ['RECORDED', 'MANUAL', 'UNKNOWN'].includes(workout.recordingMethod))) &&
+    (workout.routeStatus == null || ROUTE_STATUSES.includes(workout.routeStatus as HealthRouteStatus)) &&
+    (workout.gpsPoints == null || (Array.isArray(workout.gpsPoints) && workout.gpsPoints.every((point: unknown) => {
+      if (!point || typeof point !== 'object') return false;
+      const gps = point as Record<string, unknown>;
+      return ['latitude', 'longitude', 'timestampMs', 'speed', 'altitude'].every((field) => typeof gps[field] === 'number');
+    })));
+};
+
+const validateChangePage = (value: unknown): HealthRunningWorkoutChanges => {
+  if (!value || typeof value !== 'object') throw invalidChangePage();
+  const page = value as Record<string, unknown>;
+  if (!Array.isArray(page.workouts) || !page.workouts.every(isWorkoutShape) ||
+      !Array.isArray(page.deletedRecordIds) || !page.deletedRecordIds.every((id: unknown) => typeof id === 'string') ||
+      typeof page.hasMore !== 'boolean' || typeof page.resetRequired !== 'boolean' ||
+      !(page.nextCursor === null || (typeof page.nextCursor === 'string' && page.nextCursor.length > 0)) ||
+      (!page.resetRequired && page.nextCursor === null)) throw invalidChangePage();
+  return page as unknown as HealthRunningWorkoutChanges;
+};
+
+const syncChanges = async (snapshot: SessionSnapshot): Promise<HealthImportSyncResult> => {
+  const readChanges = healthImportBridge.readRunningWorkoutChanges;
+  if (!readChanges) throw invalidChangePage();
+  let cursor = await healthSyncCursorStore.read(snapshot);
+  let resetAttempted = false;
+  const result = emptySyncResult();
+  try {
+    while (true) {
+      assertCurrentSession(snapshot);
+      const page = validateChangePage(await readChanges({ cursor, limit: CHANGE_PAGE_SIZE }));
+      assertCurrentSession(snapshot);
+      if (page.resetRequired) {
+        if (resetAttempted) throw invalidChangePage();
+        resetAttempted = true;
+        // Keep the stored cursor until the fresh snapshot has uploaded successfully.
+        cursor = null;
+        continue;
+      }
+      if (page.hasMore && page.nextCursor === cursor) throw invalidChangePage();
+      if (page.workouts.some((workout) => workout.routeStatus === 'readFailed')) throw invalidChangePage();
+      await importWorkouts(page.workouts, snapshot, true, result);
+      assertCurrentSession(snapshot);
+      // Deletions are consumed without deleting existing history or rewards.
+      await healthSyncCursorStore.write(page.nextCursor!, snapshot);
+      cursor = page.nextCursor;
+      if (!page.hasMore) return result;
+    }
+  } catch (error: unknown) {
+    if (result.rejectedCount) throw new HealthImportPartialSyncError(error, result);
+    throw error;
+  }
 };
 
 export const healthImportService = {
@@ -234,72 +364,89 @@ export const healthImportService = {
     assertCurrentSession(snapshot);
     const { data } = await apiClient.post<HealthImportBatchResponse>(API_ENDPOINTS.RUNNING.IMPORT_BATCH, request, { sessionSnapshot: snapshot });
     assertCurrentSession(snapshot);
+    if (data?.processed === false) {
+      throw Object.assign(new Error('Health import is disabled'), { code: 'health_import_disabled' });
+    }
     return data;
   },
 
-  sync: async (snapshot = getSessionSnapshot()): Promise<HealthImportSyncResult> => {
-    assertCurrentSession(snapshot);
-    const configuration = await healthImportService.getConfiguration(snapshot);
-    assertCurrentSession(snapshot);
-    logHealthImport('sync start', {
-      platform: Platform.OS,
-      enabled: configuration.healthImportEnabled,
-      hasLastSyncedTimestamp: configuration.healthImportLastSyncedTimestamp != null,
-    });
-    if (!configuration.healthImportEnabled) {
-      logHealthImport('sync skipped: disabled');
-      return { importedCount: 0, duplicateCount: 0, personalOnlyCount: 0, awardedPoint: 0 };
-    }
-
-    const available = await healthImportBridge.isAvailable();
-    assertCurrentSession(snapshot);
-    logHealthImport('native availability checked', { available });
-    if (!available) {
-      logHealthImport('sync skipped: health unavailable');
-      return { importedCount: 0, duplicateCount: 0, personalOnlyCount: 0, awardedPoint: 0 };
-    }
-
-    const permission = Platform.OS === 'android'
-      ? await healthImportBridge.getPermissionStatus()
-      : 'granted';
-    assertCurrentSession(snapshot);
-    logHealthImport('permission checked', { permission });
-    if (permission !== 'granted') {
-      logHealthImport('sync skipped: permission not granted', { permission });
-      return { importedCount: 0, duplicateCount: 0, personalOnlyCount: 0, awardedPoint: 0 };
-    }
-
-    const nowTimestamp = Math.floor(Date.now() / 1000);
-    const startTimestamp = configuration.healthImportLastSyncedTimestamp ?? 0;
-    const workouts = await healthImportBridge.readRunningWorkouts({
-      startTimestamp,
-      endTimestamp: nowTimestamp,
-    }).catch((error: unknown) => {
-      logHealthImport('native workouts read failed', { errorCode: getErrorCode(error) });
-      throw error;
-    });
-    assertCurrentSession(snapshot);
-    if (workouts.some((workout) => workout.routeStatus === 'readFailed')) {
-      throw Object.assign(new Error('Health workout read failed'), { code: 'health_read_failed' });
-    }
-    logHealthImport('native workouts read', summarizeWorkouts(workouts));
-    const importableWorkouts = sortWorkoutsForCursor(workouts);
-    logHealthImport('importable workouts selected', {
-      importableCount: importableWorkouts.length,
-      workoutsWithoutGps: importableWorkouts.filter((workout) => getGpsPoints(workout).length === 0).length,
-    });
-
-    if (configuration.healthImportLastSyncedTimestamp == null) {
-      const result = await importWorkouts(importableWorkouts, snapshot);
-      assertCurrentSession(snapshot);
-      await finalizeSync(snapshot);
-      return result;
-    }
-
-    if (importableWorkouts.length === 0) {
-      return { importedCount: 0, duplicateCount: 0, personalOnlyCount: 0, awardedPoint: 0 };
-    }
-
-    return importWorkouts(importableWorkouts, snapshot);
+  sync: (snapshot = getSessionSnapshot()): Promise<HealthImportSyncResult> => {
+    const sync = syncTail.then(() => syncHealthWorkouts(snapshot));
+    syncTail = sync.then(() => undefined, () => undefined);
+    return sync;
   },
+};
+
+const syncHealthWorkouts = async (snapshot: SessionSnapshot): Promise<HealthImportSyncResult> => {
+  assertCurrentSession(snapshot);
+  const configuration = await healthImportService.getConfiguration(snapshot);
+  assertCurrentSession(snapshot);
+  logHealthImport('sync start', {
+    platform: Platform.OS,
+    enabled: configuration.healthImportEnabled,
+    hasLastSyncedTimestamp: configuration.healthImportLastSyncedTimestamp != null,
+  });
+  if (!configuration.healthImportEnabled) {
+    logHealthImport('sync skipped: disabled');
+    return { importedCount: 0, duplicateCount: 0, personalOnlyCount: 0, awardedPoint: 0 };
+  }
+
+  const available = await healthImportBridge.isAvailable();
+  assertCurrentSession(snapshot);
+  logHealthImport('native availability checked', { available });
+  if (!available) {
+    logHealthImport('sync skipped: health unavailable');
+    return { importedCount: 0, duplicateCount: 0, personalOnlyCount: 0, awardedPoint: 0 };
+  }
+
+  const permission = Platform.OS === 'android'
+    ? await healthImportBridge.getPermissionStatus()
+    : 'granted';
+  assertCurrentSession(snapshot);
+  logHealthImport('permission checked', { permission });
+  if (permission !== 'granted') {
+    logHealthImport('sync skipped: permission not granted', { permission });
+    return { importedCount: 0, duplicateCount: 0, personalOnlyCount: 0, awardedPoint: 0 };
+  }
+
+  if (Object.prototype.hasOwnProperty.call(configuration, 'healthImportRewardCutoffTimestamp') &&
+      healthImportBridge.readRunningWorkoutChanges) {
+    if (snapshot.userId == null || configuration.userId !== snapshot.userId) throw new SessionSupersededError();
+    return syncChanges(snapshot);
+  }
+
+  // Old server/native builds retain timestamp reads; delayed historical writes
+  // cannot be discovered reliably until both incremental contracts are present.
+  const nowTimestamp = Math.floor(Date.now() / 1000);
+  const startTimestamp = configuration.healthImportLastSyncedTimestamp ?? 0;
+  const workouts = await healthImportBridge.readRunningWorkouts({
+    startTimestamp,
+    endTimestamp: nowTimestamp,
+  }).catch((error: unknown) => {
+    logHealthImport('native workouts read failed', { errorCode: getErrorCode(error) });
+    throw error;
+  });
+  assertCurrentSession(snapshot);
+  if (workouts.some((workout) => workout.routeStatus === 'readFailed')) {
+    throw Object.assign(new Error('Health workout read failed'), { code: 'health_read_failed' });
+  }
+  logHealthImport('native workouts read', summarizeWorkouts(workouts));
+  const importableWorkouts = sortWorkoutsForCursor(workouts);
+  logHealthImport('importable workouts selected', {
+    importableCount: importableWorkouts.length,
+    workoutsWithoutGps: importableWorkouts.filter((workout) => getGpsPoints(workout).length === 0).length,
+  });
+
+  if (configuration.healthImportLastSyncedTimestamp == null) {
+    const result = await importWorkouts(importableWorkouts, snapshot);
+    assertCurrentSession(snapshot);
+    await finalizeSync(snapshot);
+    return result;
+  }
+
+  if (importableWorkouts.length === 0) {
+    return { importedCount: 0, duplicateCount: 0, personalOnlyCount: 0, awardedPoint: 0 };
+  }
+
+  return importWorkouts(importableWorkouts, snapshot);
 };

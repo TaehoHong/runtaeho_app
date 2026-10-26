@@ -6,7 +6,8 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, AppState, Platform, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 import { healthImportBridge } from '~/features/healthImport/native/HealthImportBridge';
-import { healthImportService } from '~/features/healthImport/services/healthImportService';
+import { healthImportService, HealthImportPartialSyncError } from '~/features/healthImport/services/healthImportService';
+import { showHealthImportRejections } from '~/features/healthImport/services/showHealthImportRejections';
 import type { HealthPermissionStatus } from '~/features/healthImport/types';
 import { permissionManager } from '~/services/PermissionManager';
 import { TopScreenSafeAreaView } from '~/shared/components';
@@ -110,10 +111,16 @@ export const PermissionSettingsView: React.FC = () => {
         );
       }
 
-      await healthImportService.sync();
+      const result = await healthImportService.sync();
+      showHealthImportRejections(result);
     } catch (error) {
       if (error instanceof SessionSupersededError) return;
-      const rejectionMessage = getRunningRejectionMessage(error);
+      if (error instanceof HealthImportPartialSyncError) {
+        if (error.originalError instanceof SessionSupersededError) return;
+        showHealthImportRejections(error);
+      }
+      const syncError = error instanceof HealthImportPartialSyncError ? error.originalError : error;
+      const rejectionMessage = getRunningRejectionMessage(syncError);
       Alert.alert(t(rejectionMessage ? "저장 실패" : "Health 권한 설정 실패"), rejectionMessage ?? t("기기 Health 설정에서 권한을 직접 변경해주세요."));
     } finally {
       void refreshPermissions();

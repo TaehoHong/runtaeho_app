@@ -6,7 +6,8 @@ import { getRunningRejectionCode, getRunningRejectionMessage } from '~/features/
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useState } from 'react';
 import { healthImportBridge } from '../native/HealthImportBridge';
-import { healthImportService } from '../services/healthImportService';
+import { healthImportService, HealthImportPartialSyncError } from '../services/healthImportService';
+import { showHealthImportRejections } from '../services/showHealthImportRejections';
 
 const HEALTH_PERMISSION_NOTICE_SEEN_KEY = '@health_permission_modal_completed';
 
@@ -50,13 +51,16 @@ export const useHealthPermissionModal = () => {
         });
         if (!isSessionCurrent(snapshot)) throw new SessionSupersededError();
         await healthImportService.setHealthImportEnabled(true, snapshot);
-        await healthImportService.sync(snapshot);
+        const result = await healthImportService.sync(snapshot);
+        if (isSessionCurrent(snapshot)) showHealthImportRejections(result);
       } catch (error) {
         if (!isSessionCurrent(snapshot) || error instanceof SessionSupersededError) return;
-        const rejectionMessage = getRunningRejectionMessage(error);
+        if (error instanceof HealthImportPartialSyncError) showHealthImportRejections(error);
+        const syncError = error instanceof HealthImportPartialSyncError ? error.originalError : error;
+        const rejectionMessage = getRunningRejectionMessage(syncError);
         if (rejectionMessage) Alert.alert(t("저장 실패"), rejectionMessage);
         console.warn('[HealthImport] permission request failed', {
-          errorCode: getRunningRejectionCode(error) ?? 'health_permission_failed',
+          errorCode: getRunningRejectionCode(syncError) ?? 'health_permission_failed',
         });
       } finally {
         await markSeen();

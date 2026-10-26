@@ -1,3 +1,5 @@
+import type { RunningRejectionCode } from '~/features/running/services/runningRejection';
+
 export type HealthPermissionStatus = 'unavailable' | 'notDetermined' | 'granted' | 'denied' | 'partial';
 
 export interface HealthGpsPoint {
@@ -25,6 +27,14 @@ export interface HealthRunningWorkout {
   heartRate?: number | null;
   gpsPoints?: HealthGpsPoint[];
   routeStatus?: HealthRouteStatus;
+}
+
+export interface HealthRunningWorkoutChanges {
+  workouts: HealthRunningWorkout[];
+  deletedRecordIds: string[];
+  nextCursor: string | null;
+  hasMore: boolean;
+  resetRequired: boolean;
 }
 
 export type { UserConfiguration as HealthImportConfiguration } from '~/features/user/models/UserConfiguration';
@@ -65,6 +75,7 @@ export interface HealthImportBatchRequest {
 }
 
 export interface HealthImportBatchResponse {
+  processed?: boolean;
   createdCount: number;
   updatedCount: number;
   duplicateCount: number;
@@ -78,4 +89,6 @@ export interface HealthImportSyncResult {
   duplicateCount: number;
   personalOnlyCount: number;
   awardedPoint: number;
+  rejectedCount?: number;
+  rejectionCodes?: RunningRejectionCode[];
 }

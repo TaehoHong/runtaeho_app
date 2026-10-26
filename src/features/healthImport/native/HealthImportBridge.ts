@@ -1,5 +1,5 @@
 import { NativeModules, Platform } from 'react-native';
-import type { HealthPermissionStatus, HealthRunningWorkout } from '../types';
+import type { HealthPermissionStatus, HealthRunningWorkout, HealthRunningWorkoutChanges } from '../types';
 
 interface HealthImportBridge {
   isAvailable(): Promise<boolean>;
@@ -10,6 +10,10 @@ interface HealthImportBridge {
     endTimestamp: number;
     limit?: number;
   }): Promise<HealthRunningWorkout[]>;
+  readRunningWorkoutChanges?(params: {
+    cursor?: string | null;
+    limit?: number;
+  }): Promise<HealthRunningWorkoutChanges>;
   openHealthSettings(): Promise<void>;
 }
 
@@ -35,6 +39,11 @@ export const healthImportBridge: HealthImportBridge = {
     if (!nativeBridge || Platform.OS === 'web') return [];
     return nativeBridge.readRunningWorkouts(params);
   },
+
+  ...(nativeBridge?.readRunningWorkoutChanges && Platform.OS !== 'web' ? {
+    readRunningWorkoutChanges: (params: { cursor?: string | null; limit?: number }) =>
+      nativeBridge.readRunningWorkoutChanges!(params),
+  } : {}),
 
   openHealthSettings: async () => {
     if (!nativeBridge || Platform.OS === 'web') return;

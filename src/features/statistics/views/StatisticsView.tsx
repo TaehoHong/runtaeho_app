@@ -24,7 +24,10 @@ import { StatisticsSummaryCard } from './components/StatisticsSummaryCard';
 import { StatisticsErrorBoundary } from './components/StatisticsErrorBoundary';
 import { PRIMARY, GREY } from '~/shared/styles';
 import { getMainTabBarScrollContentPaddingBottom } from '~/shared/utils/safeAreaPolicy';
-import { healthImportService } from '~/features/healthImport/services/healthImportService';
+import { healthImportService, HealthImportPartialSyncError } from '~/features/healthImport/services/healthImportService';
+import { showHealthImportRejections } from '~/features/healthImport/services/showHealthImportRejections';
+import { SessionSupersededError } from '~/utils/storage/errors';
+import { getRunningRejectionCode } from '~/features/running/services/runningRejection';
 
 export const StatisticsView = () => {
   useAppLanguage();
@@ -62,9 +65,18 @@ export const StatisticsView = () => {
 
   const refreshWithHealthImport = useCallback(async () => {
     try {
-      await healthImportService.sync();
+      const result = await healthImportService.sync();
+      showHealthImportRejections(result);
     } catch (error) {
-      console.warn('⚠️ [STATISTICS_VIEW] Health 기록 동기화 실패', error);
+      if (error instanceof SessionSupersededError) return;
+      if (error instanceof HealthImportPartialSyncError) {
+        if (error.originalError instanceof SessionSupersededError) return;
+        showHealthImportRejections(error);
+      }
+      const syncError = error instanceof HealthImportPartialSyncError ? error.originalError : error;
+      console.warn('⚠️ [STATISTICS_VIEW] Health 기록 동기화 실패', {
+        errorCode: getRunningRejectionCode(syncError) ?? 'health_import_failed',
+      });
     } finally {
       await handleRefresh();
     }

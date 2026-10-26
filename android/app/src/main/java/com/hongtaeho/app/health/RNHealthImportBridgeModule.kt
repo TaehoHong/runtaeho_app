@@ -4,6 +4,8 @@ import android.content.Intent
 import android.os.Build
 import android.util.Log
 import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.changes.DeletionChange
+import androidx.health.connect.client.changes.UpsertionChange
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.permission.HealthPermission.Companion.PERMISSION_READ_HEALTH_DATA_HISTORY
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
@@ -14,6 +16,7 @@ import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.StepsCadenceRecord
 import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.request.AggregateRequest
+import androidx.health.connect.client.request.ChangesTokenRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import com.facebook.react.bridge.Arguments
@@ -161,49 +164,7 @@ class RNHealthImportBridgeModule(
                 val granted = client.permissionController.getGrantedPermissions()
                 val effectiveStart = effectiveReadStart(start, granted)
                 val end = Instant.ofEpochSecond(maxOf(endSeconds, effectiveStart.epochSecond))
-                val records = Arguments.createArray()
-                var pageToken: String? = null
-                var pageIndex = 0
-
-                logHealthImport(
-                    "ReadRecordsRequest request",
-                    mapOf(
-                        "recordType" to "ExerciseSessionRecord",
-                        "historyPermissionGranted" to granted.contains(PERMISSION_READ_HEALTH_DATA_HISTORY),
-                        "ascendingOrder" to true,
-                        "pageSize" to pageSize
-                    )
-                )
-
-                do {
-                    val response = client.readRecords(
-                        ReadRecordsRequest(
-                            recordType = ExerciseSessionRecord::class,
-                            timeRangeFilter = TimeRangeFilter.between(effectiveStart, end),
-                            ascendingOrder = true,
-                            pageSize = pageSize,
-                            pageToken = pageToken
-                        )
-                    )
-                    val runningSessions = response.records.filter {
-                        it.exerciseType == ExerciseSessionRecord.EXERCISE_TYPE_RUNNING
-                    }
-                    logHealthImport(
-                        "ReadRecordsResponse response",
-                        mapOf(
-                            "pageIndex" to pageIndex,
-                            "recordCount" to response.records.size,
-                            "runningRecordCount" to runningSessions.size,
-                            "hasNextPage" to !response.pageToken.isNullOrBlank()
-                        )
-                    )
-
-                    for ((sessionIndex, session) in runningSessions.withIndex()) {
-                        records.pushMap(mapSession(client, session, pageIndex, sessionIndex))
-                    }
-                    pageToken = response.pageToken
-                    pageIndex += 1
-                } while (!pageToken.isNullOrBlank())
+                val records = readRunningWorkoutRecords(client, effectiveStart, end, pageSize)
 
                 logHealthImport("readRunningWorkouts response", mapOf("recordCount" to records.size()))
                 promise.resolve(records)
@@ -212,6 +173,138 @@ class RNHealthImportBridgeModule(
                 promise.reject("health_read_failed", error.message, error)
             }
         }
+    }
+
+    @ReactMethod
+    fun readRunningWorkoutChanges(params: ReadableMap, promise: Promise) {
+        if (!isHealthConnectAvailable()) {
+            promise.reject("health_unavailable", "Health Connect is unavailable.")
+            return
+        }
+
+        scope.launch {
+            try {
+                val client = HealthConnectClient.getOrCreate(reactContext)
+                val pageSize = params.intOrDefault("limit", 1000)
+                require(pageSize in 1..5000) { "Health change page limit must be between 1 and 5000." }
+                val cursor = if (params.hasKey("cursor") && !params.isNull("cursor")) params.getString("cursor") else null
+                if (cursor != null && cursor.isBlank()) {
+                    promise.resolve(changePage(Arguments.createArray(), Arguments.createArray(), null, false, true))
+                    return@launch
+                }
+
+                if (cursor == null) {
+                    // Reserve a token before reading so changes during the snapshot are replayed.
+                    val nextCursor = client.getChangesToken(
+                        ChangesTokenRequest(recordTypes = setOf(ExerciseSessionRecord::class))
+                    )
+                    check(nextCursor.isNotBlank()) { "Health Connect did not return a changes token." }
+                    val granted = client.permissionController.getGrantedPermissions()
+                    val start = effectiveReadStart(Instant.EPOCH, granted)
+                    val records = readRunningWorkoutRecords(
+                        client, start, Instant.now(), pageSize,
+                        excludeOwnApp = true, requireRouteReadSuccess = true
+                    )
+                    promise.resolve(changePage(records, Arguments.createArray(), nextCursor, true, false))
+                    return@launch
+                }
+
+                val response = client.getChanges(cursor)
+                if (response.changesTokenExpired) {
+                    promise.resolve(changePage(Arguments.createArray(), Arguments.createArray(), null, false, true))
+                    return@launch
+                }
+                check(response.nextChangesToken.isNotBlank()) { "Health Connect did not return a changes token." }
+                val records = Arguments.createArray()
+                val deletedRecordIds = Arguments.createArray()
+                for ((index, change) in response.changes.withIndex()) {
+                    when (change) {
+                        is UpsertionChange -> {
+                            val session = change.record as? ExerciseSessionRecord ?: continue
+                            if (session.exerciseType == ExerciseSessionRecord.EXERCISE_TYPE_RUNNING &&
+                                session.metadata.dataOrigin.packageName != reactContext.packageName) {
+                                records.pushMap(mapSession(client, session, 0, index, requireRouteReadSuccess = true))
+                            }
+                        }
+                        // Health Connect exposes no source package for deletions. Keep its raw ID.
+                        is DeletionChange -> deletedRecordIds.pushString(change.recordId)
+                    }
+                }
+                promise.resolve(changePage(records, deletedRecordIds, response.nextChangesToken, response.hasMore, false))
+            } catch (error: Exception) {
+                logHealthImport("readRunningWorkoutChanges failed", errorLog(error))
+                promise.reject("health_read_failed", "Health workout changes could not be read.", error)
+            }
+        }
+    }
+
+    private fun changePage(
+        workouts: WritableArray,
+        deletedRecordIds: WritableArray,
+        nextCursor: String?,
+        hasMore: Boolean,
+        resetRequired: Boolean
+    ) = Arguments.createMap().apply {
+        putArray("workouts", workouts)
+        putArray("deletedRecordIds", deletedRecordIds)
+        putString("nextCursor", nextCursor)
+        putBoolean("hasMore", hasMore)
+        putBoolean("resetRequired", resetRequired)
+    }
+
+    private suspend fun readRunningWorkoutRecords(
+        client: HealthConnectClient,
+        effectiveStart: Instant,
+        end: Instant,
+        pageSize: Int,
+        excludeOwnApp: Boolean = false,
+        requireRouteReadSuccess: Boolean = false
+    ): WritableArray {
+        val records = Arguments.createArray()
+        var pageToken: String? = null
+        var pageIndex = 0
+
+        logHealthImport(
+            "ReadRecordsRequest request",
+            mapOf(
+                "recordType" to "ExerciseSessionRecord",
+                "ascendingOrder" to true,
+                "pageSize" to pageSize
+            )
+        )
+
+        do {
+            val response = client.readRecords(
+                ReadRecordsRequest(
+                    recordType = ExerciseSessionRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(effectiveStart, end),
+                    ascendingOrder = true,
+                    pageSize = pageSize,
+                    pageToken = pageToken
+                )
+            )
+            val runningSessions = response.records.filter {
+                it.exerciseType == ExerciseSessionRecord.EXERCISE_TYPE_RUNNING &&
+                    (!excludeOwnApp || it.metadata.dataOrigin.packageName != reactContext.packageName)
+            }
+            logHealthImport(
+                "ReadRecordsResponse response",
+                mapOf(
+                    "pageIndex" to pageIndex,
+                    "recordCount" to response.records.size,
+                    "runningRecordCount" to runningSessions.size,
+                    "hasNextPage" to !response.pageToken.isNullOrBlank()
+                )
+            )
+
+            for ((sessionIndex, session) in runningSessions.withIndex()) {
+                records.pushMap(mapSession(client, session, pageIndex, sessionIndex, requireRouteReadSuccess))
+            }
+            pageToken = response.pageToken
+            pageIndex += 1
+        } while (!pageToken.isNullOrBlank())
+
+        return records
     }
 
     @ReactMethod
@@ -231,7 +324,8 @@ class RNHealthImportBridgeModule(
         client: HealthConnectClient,
         session: ExerciseSessionRecord,
         pageIndex: Int,
-        sessionIndex: Int
+        sessionIndex: Int,
+        requireRouteReadSuccess: Boolean = false
     ) = Arguments.createMap().apply {
         logHealthImport(
             "ExerciseSessionRecord response item",
@@ -246,6 +340,7 @@ class RNHealthImportBridgeModule(
         val heartRate = readHeartRate(client, session.startTime, session.endTime)
         val cadence = readCadence(client, session.startTime, session.endTime)
         val gpsPoints = readExerciseRoute(client, session, pageIndex, sessionIndex)
+        check(!requireRouteReadSuccess || gpsPoints.status != "readFailed") { "Health workout route could not be read." }
         val sourcePackageName = session.metadata.dataOrigin.packageName
 
         putString("sourceRecordId", "health-connect:$sourcePackageName:${session.metadata.id}")
