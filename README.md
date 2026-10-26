@@ -1,5 +1,27 @@
 # RunTaeho App
 
+## 프로젝트 구성
+
+휴대폰 앱과 워치 앱은 각각의 네이티브 프로젝트에서 빌드합니다.
+
+| 프로젝트 | 진입점 | 개발 안내 |
+| --- | --- | --- |
+| iPhone | `ios/app.xcworkspace` | 아래 개발·배포 절차 |
+| Android 휴대폰 | `android/` | 아래 개발·배포 절차 |
+| Apple Watch | `watchos/RunTaehoWatch.xcodeproj` | [watchOS](watchos/README.md) |
+| Wear OS | `wearos/` | [Wear OS](wearos/README.md) |
+
+워치 프로젝트는 Expo·React Native·Unity 없이 빌드할 수 있습니다. iPhone 앱은
+독립 watchOS 프로젝트의 결과물을 포함하며, Android 휴대폰과 Wear OS는
+`shared/watchsync-android/`의 전송·저장 코드를 함께 사용합니다.
+기록 동기화 계약과 검증 절차는 [워치 연동 안내](src/features/watchSync/README.md)를 참조합니다.
+
+워치도 휴대폰과 같은 `local / development / production` 프로필을 사용합니다.
+로컬·개발은 `.dev` 앱 ID와 개발 서명키를 공유하고, 운영은 기존 앱 ID를 사용합니다.
+watchOS는 `WatchLocal / WatchDevelopment / WatchProduction` 스킴으로,
+Wear OS는 `local / development / production` Gradle flavor로 빌드합니다.
+구체적인 명령은 각 개발 안내에 있습니다.
+
 ## 개발
 
 ```bash

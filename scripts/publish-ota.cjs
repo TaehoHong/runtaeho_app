@@ -12,7 +12,7 @@ for (const key of Object.keys(env)) {
 }
 const appMode = branch === 'production' ? 'production' : 'development';
 const command = `export EXPO_PUBLIC_ENV="\${EXPO_PUBLIC_ENV:-${appMode}}"; node scripts/check-env.cjs remote ${appMode} && ` +
-  ['npx', 'eas', 'update', '--branch', branch, '--environment', environment,
+  ['node', 'scripts/app-profile.cjs', 'run', appMode, 'npx', 'eas', 'update', '--branch', branch, '--environment', environment,
     '--platform', platform, '--message', message, '--non-interactive'].map(quote).join(' ');
 const result = spawnSync('npx', ['eas', 'env:exec', environment, command, '--non-interactive'], { env, stdio: 'inherit' });
 if (result.error) console.error(result.error.message);

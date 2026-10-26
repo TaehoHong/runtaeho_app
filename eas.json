@@ -8,7 +8,7 @@
     "base": {
       "node": "20.18.0"
     },
-    "development": {
+    "local": {
       "extends": "base",
       "developmentClient": true,
       "distribution": "internal",
@@ -16,9 +16,17 @@
       "environment": "development",
       "env": {
         "EXPO_PUBLIC_ENV": "local"
+      },
+      "ios": {
+        "simulator": true,
+        "scheme": "Local",
+        "buildConfiguration": "Debug"
+      },
+      "android": {
+        "gradleCommand": ":app:assembleLocalDebug"
       }
     },
-    "preview": {
+    "development": {
       "extends": "base",
       "distribution": "internal",
       "channel": "staging",
@@ -26,6 +34,15 @@
       "environment": "preview",
       "env": {
         "EXPO_PUBLIC_ENV": "development"
+      },
+      "ios": {
+        "distribution": "store",
+        "scheme": "Development",
+        "buildConfiguration": "Development"
+      },
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleDevelopmentRelease"
       }
     },
     "production": {
@@ -35,6 +52,13 @@
       "environment": "production",
       "env": {
         "EXPO_PUBLIC_ENV": "production"
+      },
+      "ios": {
+        "scheme": "app",
+        "buildConfiguration": "Release"
+      },
+      "android": {
+        "gradleCommand": ":app:bundleProductionRelease"
       }
     }
   },

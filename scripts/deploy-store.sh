@@ -17,6 +17,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 PLATFORM="all"
+PROFILE="production"
 NEW_VERSION=""
 BUMP_BUILD=1
 SYNC_RUNTIME=1
@@ -39,6 +40,7 @@ usage() {
   cat <<'EOF'
 사용법: bash scripts/deploy-store.sh [옵션]
 
+  --profile <name>      development | production (기본: production, 개발은 빌드만)
   --platform <name>     all | ios | android      (기본: all)
   --version <x.y.z>     앱 버전을 이 값으로 올린다 (생략하면 현재 버전 유지)
   --no-bump             빌드번호/versionCode 증가를 건너뛴다
@@ -56,6 +58,7 @@ EOF
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --profile) PROFILE="${2:-}"; shift 2 ;;
     --platform) PLATFORM="${2:-}"; shift 2 ;;
     --version) NEW_VERSION="${2:-}"; shift 2 ;;
     --no-bump) BUMP_BUILD=0; shift ;;
@@ -75,6 +78,15 @@ case "$PLATFORM" in
   all|ios|android) ;;
   *) die "지원하지 않는 플랫폼: $PLATFORM (all | ios | android)" ;;
 esac
+
+case "$PROFILE" in
+  production) ;;
+  development) SUBMIT=0; OUT_DIR="$ROOT/build/development" ;;
+  *) die "지원하지 않는 배포 프로파일: $PROFILE (development | production)" ;;
+esac
+[[ "$PROFILE" == production || $SUBMIT_REVIEW -eq 0 ]] || die "개발 앱은 운영 심사에 제출하지 않는다."
+IOS_CONFIGURATION="$(node scripts/app-profile.cjs get "$PROFILE" iosConfiguration)"
+IOS_SCHEME="$(node scripts/app-profile.cjs get "$PROFILE" iosScheme)"
 
 want_ios() { [[ "$PLATFORM" == "all" || "$PLATFORM" == "ios" ]]; }
 want_android() { [[ "$PLATFORM" == "all" || "$PLATFORM" == "android" ]]; }
@@ -102,16 +114,16 @@ BRANCH_NAME="$(git rev-parse --abbrev-ref HEAD)"
 [[ "$BRANCH_NAME" == "main" ]] || info "경고: 현재 브랜치가 $BRANCH_NAME 이다 (스토어 배포는 보통 main)"
 
 if [[ $RESUME -eq 1 ]]; then
-  node scripts/release-state.cjs check "$PLATFORM"
+  node scripts/release-state.cjs check "$PLATFORM" "$PROFILE"
 elif [[ $ALLOW_DIRTY -eq 0 ]] && [[ -n "$(git status --porcelain)" ]]; then
   git status --short
   die "커밋되지 않은 변경이 있다. 어떤 커밋이 스토어에 올라갔는지 추적할 수 없다."
 fi
 
 # 빌드와 OTA에서 앱 모드를 명시한다. 백엔드 주소는 현재 공유 서버를 유지한다.
-export NODE_ENV=production EXPO_PUBLIC_ENV=production
-export EXPO_PUBLIC_ENABLE_DEBUG=false EXPO_PUBLIC_ENABLE_LOGGING=false
-node scripts/check-env.cjs local
+PROFILE_EXPORTS="$(node scripts/app-profile.cjs shell "$PROFILE")"
+eval "$PROFILE_EXPORTS"
+node scripts/check-env.cjs remote "$PROFILE"
 [[ -n "${SENTRY_AUTH_TOKEN:-}" ]] || die "SENTRY_AUTH_TOKEN을 셸 환경변수로 주입한다 (저장소에 저장하지 않음)."
 
 if want_ios; then
@@ -136,6 +148,9 @@ Unity에서 Android로 다시 export해야 한다."
   info "Unity Android 라이브러리  $UNITY_ANDROID_LIB"
   node scripts/check-unity.cjs android "$(dirname "$UNITY_ANDROID_LIB")"
 
+  if [[ "$PROFILE" == development ]]; then
+    [[ -f "$ROOT/credentials/android-development.properties" ]] || die "npm run signing:dev:android로 개발 서명키를 먼저 준비한다."
+  else
   for key in RUNTAEHO_UPLOAD_STORE_FILE RUNTAEHO_UPLOAD_STORE_PASSWORD \
              RUNTAEHO_UPLOAD_KEY_ALIAS RUNTAEHO_UPLOAD_KEY_PASSWORD; do
     has_gradle_property "$key" || die "업로드 키 서명 설정이 없다: $key
@@ -143,6 +158,7 @@ Unity에서 Android로 다시 export해야 한다."
 이 설정 없이 빌드하면 debug 키로 서명되어 Play가 거부한다."
   done
   info "업로드 키 서명 프로퍼티  확인됨"
+  fi
 fi
 
 if [[ $SUBMIT -eq 1 ]]; then
@@ -176,7 +192,7 @@ fi
 echo ""
 node scripts/version.js status
 # 버전 변경 후의 상태를 기록하여 실패 시 같은 소스로만 재시도한다.
-node scripts/release-state.cjs save "$PLATFORM"
+node scripts/release-state.cjs save "$PLATFORM" "$PROFILE"
 
 VERSION="$(node -p "require('./package.json').version")"
 IOS_BUILD="$(sed -n 's/.*CURRENT_PROJECT_VERSION = \([^;]*\);.*/\1/p' \
@@ -186,7 +202,7 @@ ANDROID_CODE="$(sed -n 's/.*versionCode \([0-9]*\).*/\1/p' android/app/build.gra
 mkdir -p "$OUT_DIR/ios" "$OUT_DIR/android"
 
 # 네이티브 빌드의 JS 번들은 .env.production을 읽는다 (Release 구성은 NODE_ENV=production).
-export EXPO_PUBLIC_ENV=production
+export EXPO_PUBLIC_ENV="$PROFILE"
 
 # ---------------------------------------------------------------- iOS
 
@@ -206,8 +222,8 @@ if want_ios; then
   info "아카이브 (Unity 프로젝트가 워크스페이스에 포함되어 함께 빌드된다)"
   xcodebuild \
     -workspace ios/app.xcworkspace \
-    -scheme app \
-    -configuration Release \
+    -scheme "$IOS_SCHEME" \
+    -configuration "$IOS_CONFIGURATION" \
     -destination 'generic/platform=iOS' \
     -archivePath "$ARCHIVE_PATH" \
     -allowProvisioningUpdates \
@@ -227,21 +243,23 @@ fi
 
 # ---------------------------------------------------------------- Android
 
-AAB_PATH=""
+ANDROID_PATH=""
 if want_android; then
   step "Android 빌드 ($VERSION versionCode $ANDROID_CODE)"
 
-  (cd android && ./gradlew :app:bundleRelease)
-
-  BUILT_AAB="$ROOT/android/app/build/outputs/bundle/release/app-release.aab"
-  [[ -f "$BUILT_AAB" ]] || die "AAB를 찾지 못했다: $BUILT_AAB"
-
-  # debug 키로 서명된 산출물이 스토어로 나가는 사고를 막는다.
-  bash scripts/verify-aab.sh "$BUILT_AAB"
-
-  AAB_PATH="$OUT_DIR/android/app-$VERSION-$ANDROID_CODE.aab"
-  cp "$BUILT_AAB" "$AAB_PATH"
-  info "AAB  $AAB_PATH"
+  if [[ "$PROFILE" == development ]]; then
+    (cd android && ./gradlew :app:assembleDevelopmentRelease)
+    BUILT_ANDROID="$ROOT/android/app/build/outputs/apk/development/release/app-development-release.apk"
+    ANDROID_PATH="$OUT_DIR/android/app-$VERSION-$ANDROID_CODE.apk"
+  else
+    (cd android && ./gradlew :app:bundleProductionRelease)
+    BUILT_ANDROID="$ROOT/android/app/build/outputs/bundle/productionRelease/app-production-release.aab"
+    ANDROID_PATH="$OUT_DIR/android/app-$VERSION-$ANDROID_CODE.aab"
+    bash scripts/verify-aab.sh "$BUILT_ANDROID"
+  fi
+  [[ -f "$BUILT_ANDROID" ]] || die "Android 산출물을 찾지 못했다: $BUILT_ANDROID"
+  cp "$BUILT_ANDROID" "$ANDROID_PATH"
+  info "Android  $ANDROID_PATH"
 fi
 
 # ---------------------------------------------------------------- 제출
@@ -252,9 +270,9 @@ if [[ $SUBMIT -eq 1 ]]; then
     bash scripts/submit-store.sh --platform ios --path "$IPA_PATH"
   fi
 
-  if [[ -n "$AAB_PATH" ]]; then
+  if [[ -n "$ANDROID_PATH" ]]; then
     step "Google Play 업로드"
-    bash scripts/submit-store.sh --platform android --path "$AAB_PATH"
+    bash scripts/submit-store.sh --platform android --path "$ANDROID_PATH"
   fi
   if [[ -n "$IPA_PATH" && $SUBMIT_REVIEW -eq 1 ]]; then
     step "iOS 심사 제출"
@@ -269,8 +287,8 @@ echo "버전        $VERSION"
 if [[ -n "$IPA_PATH" ]]; then
   echo "iOS         build $IOS_BUILD  →  $IPA_PATH"
 fi
-if [[ -n "$AAB_PATH" ]]; then
-  echo "Android     versionCode $ANDROID_CODE  →  $AAB_PATH"
+if [[ -n "$ANDROID_PATH" ]]; then
+  echo "Android     versionCode $ANDROID_CODE  →  $ANDROID_PATH"
 fi
 echo ""
 
@@ -282,7 +300,7 @@ if [[ $SUBMIT -eq 1 ]]; then
     npm run submit:review:ios -- <version> <build> 로 심사에 제출한다.
 EOF
   fi
-  if [[ -n "$AAB_PATH" ]]; then
+  if [[ -n "$ANDROID_PATH" ]]; then
     node -e 'const s=require("./eas.json").submit.production.android; console.log(`  - Android: ${s.track} / ${s.releaseStatus}. 실제 공개 시점은 Play 심사 및 게시 설정에 따른다.`)'
   fi
 fi

@@ -22,7 +22,9 @@ function fingerprint(root) {
 if (require.main === module) {
   try {
     const root = path.join(__dirname, '..');
-    const statePath = path.join(root, 'build/release/pending.json');
+    const profile = process.argv[4] || 'production';
+    if (!['production', 'development'].includes(profile)) throw new Error('재시도 프로파일이 잘못됐다.');
+    const statePath = path.join(root, 'build', profile === 'production' ? 'release' : 'development', 'pending.json');
     const current = fingerprint(root);
     const platform = process.argv[3];
     if (!['all', 'ios', 'android'].includes(platform)) throw new Error('재시도 플랫폼이 필요하다.');

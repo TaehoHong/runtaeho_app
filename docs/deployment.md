@@ -1,5 +1,76 @@
 # 배포 가이드
 
+## 앱 프로파일
+
+실행 프로파일은 세 개지만 앱 식별자와 Google OAuth는 **로컬·개발 공용 / 운영** 두 묶음이다.
+
+| 프로파일 | 대상 | 앱 ID | 빌드 | OTA 채널 |
+|---|---|---|---|---|
+| `local` | iOS 시뮬레이터·Android 에뮬레이터 | `com.runtaeho.runtaeho.dev` | Debug + Metro | 사용 안 함 |
+| `development` | 테스터 | `com.runtaeho.runtaeho.dev` | Release, 독립 실행 | `staging` |
+| `production` | 운영 사용자 | `com.runtaeho.runtaeho` | Release, 독립 실행 | `production` |
+
+`Release`는 최적화된 빌드 방식이며 운영 서버를 의미하지 않는다.
+프로파일의 공개 식별자는 `scripts/app-profiles.json`이 관리한다. Android flavor가 이 파일을
+읽고, iOS의 `Local / Development / Production` Scheme은 각각 `Debug / Development / Release`
+Configuration을 사용한다. 기존 `app` Scheme도 운영 Release용으로 유지한다.
+iOS Bundle ID·Google Client ID·URL scheme은 대응하는 Xcode Build Settings와 함께 맞춘다.
+
+```bash
+npm run signing:dev:android   # 최초 1회, 이후 실행 시 기존 키 재사용·SHA-1 확인
+npm start                    # local Metro, 별도 터미널에서 유지
+npm run ios                  # iOS 시뮬레이터를 켜고 실행
+npm run android              # Android 에뮬레이터를 켜고 실행
+npm run build:dev:ios         # 개발 IPA 빌드만
+npm run build:dev:android     # 개발 APK 빌드만
+```
+
+로컬과 개발 Android는 같은 전용 개발 서명키를 사용한다. 키와 비밀번호는 Git에서 제외된
+`credentials/android-development.jks`, `credentials/android-development.properties`에만 둔다.
+두 파일은 함께 안전하게 백업하며, 기존 키를 임의로 새로 만들지 않는다. 운영 업로드 키와는 별개다.
+다른 개발 컴퓨터에서는 두 파일을 복원해 같은 키를 사용한다. 컴퓨터마다 새 키를 생성하지 않는다.
+`cd android && ./gradlew :app:verifyDevelopmentSigning`으로 실제 로컬·테스터 variant의 키가
+같은지 검사할 수 있으며, 두 variant의 빌드 전에도 자동 검사한다.
+Google Cloud의 개발 Android OAuth에는 이 키의 SHA-1 하나를 등록한다. iOS도 `.dev`용
+클라이언트 하나를 로컬·개발이 공유하며 Backend용 Web Client ID는 기존 값을 유지한다.
+
+`scripts/app-profile.cjs`는 로컬·개발에서 기존 `.env.development`, 운영에서 `.env.production`을
+읽는다. 개발 Release의 `NODE_ENV=production`과 서버 환경 선택을 구분한다. 현재 두 파일의
+API 주소는 같은 공유 서버이며 서버 분리 시 개발 주소만 바꾼다. 스크립트는 환경 파일을 수정하지 않는다.
+OTA의 EAS 원격 변수 환경은 기존대로 `staging → preview`, `production → production`을 사용한다.
+
+개발 산출물은 `build/development/`에 저장되며 운영 제출 스크립트로 업로드하지 않는다.
+개발 빌드도 기본적으로 커밋 상태를 확인한다. 작업 중인 변경을 포함하려면
+`npm run build:dev:android -- --allow-dirty`처럼 명시한다.
+Android APK는 Firebase App Distribution, iOS IPA는 `.dev` 앱 등록 후 Xcode Organizer의
+App Store Connect 업로드와 TestFlight로 배포한다. Apple Developer에 `.dev` App ID와 필요한
+권한을 등록하고 App Store Connect 개발 앱을 먼저 만들어야 한다. 포함된 Watch 앱도 개발에서는
+`com.runtaeho.runtaeho.dev.watchkitapp`, 운영에서는 기존 `.watchkitapp`을 사용한다.
+Apple 로그인은 공유 백엔드의
+개발 client ID 처리도 별도로 확인한다. iOS Configuration 추가 후 `cd ios && pod install`이 필요하다.
+
+### 워치 앱 프로파일
+
+워치도 휴대폰의 공개 프로필과 같은 앱 ID·표시 이름을 사용한다.
+
+| 프로필 | watchOS 스킴 / 구성 | Wear OS 빌드 예시 |
+|---|---|---|
+| `local` | `WatchLocal` / Debug | `:app:assembleLocalDebug` |
+| `development` | `WatchDevelopment` / Development | `:app:assembleDevelopmentRelease` |
+| `production` | `WatchProduction` / Release | `:app:bundleProductionRelease` |
+
+Wear OS의 `local`·`development`는 휴대폰과 동일한 개발 서명 설정 파일을 읽는다.
+운영에서는 휴대폰과 같은 서명 설정을 사용하며, Play 배포 시에는 설치된 양쪽 앱의
+앱 서명 인증서가 일치해야 한다. 업로드 인증서만으로 설치 인증서의 일치를 판단하지 않는다.
+개발 앱과 운영 앱은 앱 ID가 달라 기록·설정 저장공간이 분리된다.
+`local`과 `development`는 같은 개발 앱을 교체 설치하므로 저장공간도 공유한다.
+
+워치는 서버 URL이나 로그인 토큰을 별도로 보관하지 않고 같은 환경의 휴대폰으로
+기록을 전달한다. 현재 휴대폰의 개발·운영 API가 같은 공유 서버를 사용하므로,
+앱 프로필 분리는 서버 데이터 분리를 의미하지 않는다.
+독립 빌드와 실제 산출물 검증은 [watchOS](../watchos/README.md),
+[Wear OS](../wearos/README.md) 안내를 참조한다.
+
 ## 0. 왜 로컬 빌드인가
 
 원격 빌드(EAS Build)는 이 저장소에서 동작하지 않는다. Unity 산출물이 저장소에 없고
@@ -193,10 +264,12 @@ npm run deploy:store -- --version 1.9.0 --submit-review
 ## 5. 버전 규칙
 
 `expo prebuild`를 쓰지 않으므로 `app.config.js`의 version/bundleId는 네이티브에 반영되지
-않는다. 실제 값은 다섯 곳에 흩어져 있고 `scripts/version.js`가 이걸 한 번에 다룬다.
+않는다. `scripts/version.js`가 휴대폰의 네이티브 설정과
+`watchos/RunTaehoWatch.xcodeproj`의 버전을 함께 다룬다. iPhone 앱에 포함되는
+Apple Watch 앱의 표시 버전과 빌드번호는 iPhone과 일치시킨다.
 
 ```bash
-npm run version:status                 # 다섯 곳 값과 정합 여부
+npm run version:status                 # 휴대폰·Apple Watch 버전과 런타임 정합 여부
 npm run version:sync-runtime           # runtimeVersion을 현재 앱 버전에 맞춤
 npm run version:bump-build             # iOS 빌드번호 / Android versionCode 증가
 npm run version:bump-build -- android  # 한쪽만 (all | ios | android)
@@ -212,18 +285,23 @@ npm run version:bump-build -- android  # 한쪽만 (all | ios | android)
 `runtimeVersion`을 OTA 직전에 올리면 이미 설치된 앱은 업데이트를 못 받는다. 그래서
 `deploy-ota.sh`가 이 값을 먼저 검사한다.
 
+Wear OS는 `wearos/`에서 별도로 빌드하며, `wearos/app/build.gradle`의
+`versionCode`와 `versionName`을 관리한다. 휴대폰 Android 배포 명령은 Wear OS
+산출물을 업로드하지 않는다. 서명키와 단독 빌드 절차는
+[Wear OS 안내](../wearos/README.md), Apple Watch 개발 빌드는
+[watchOS 안내](../watchos/README.md)를 참조한다.
+
 ## 6. 현재 알려진 문제
 
-- **Android 런타임 불일치**: 현재 로컬 AndroidManifest에는
-  `EXPO_RUNTIME_VERSION=1.7.0`이 설정되어 있다. 실제 스토어 최신 바이너리는 별도 확인한다. `package.json`과 iOS는 `1.8.0`이라 지금
-  퍼블리시하면 Android는 업데이트를 받지 못한다.
+- **기존 설치 앱의 Android 런타임**: 새 빌드용 AndroidManifest는 `1.8.0`으로 맞췄다.
+  기존 스토어 설치 바이너리의 런타임은 별도 확인한다. `1.7.0` 바이너리는 `1.8.0` OTA를 받지 못한다.
 
   같은 `1.8.0`으로 다시 올려서 해소할 수 있다. Play는 versionName 중복을 허용하고
   versionCode만 이전보다 크면 된다.
 
   ```bash
   npm run deploy:store -- --platform android
-  # sync-runtime(매니페스트 1.7.0 → 1.8.0) → versionCode 68 → 69 → 빌드 → 업로드
+  # sync-runtime → versionCode 증가 → 새 네이티브 빌드 → 업로드
   ```
 
   재배포 없이 급히 Android로만 OTA를 보내야 한다면 `config.runtimeVersion`을 `1.7.0`으로
@@ -233,8 +311,8 @@ npm run version:bump-build -- android  # 한쪽만 (all | ios | android)
 - **iOS 빌드번호**: `CURRENT_PROJECT_VERSION`이 1이다. App Store Connect에 같은 버전
   트레인으로 이미 올라간 빌드번호보다 커야 하므로, 첫 실행 전에 ASC에서 마지막 빌드번호를
   확인하고 필요하면 `node scripts/version.js bump-build`를 여러 번 돌리거나 pbxproj를 직접 맞춘다.
-- **명령 별칭**: `build:prod:*`는 로컬 스토어 빌드(`--no-submit`), `build:dev:*`는 로컬
-  개발 실행이다. `submit:ios/android`는 `--path`가 필수다. 산출물을 지정하지 않던
+- **명령 별칭**: `build:prod:*`는 운영 스토어 빌드(`--no-submit`), `build:dev:*`는 테스터용
+  Release 빌드다. 로컬 실행은 `ios`, `android`, `build:local:*`을 사용한다. `submit:ios/android`는 `--path`가 필수다. 산출물을 지정하지 않던
   `submit:all` 별칭은 제거했다. 플랫폼별로 정확한 산출물을 지정한다.
 - **`aps-environment`**: `ios/app/app.entitlements`가 `development`다. 푸시 알림을 실제로
   쓰기 시작하면 배포 빌드에서 확인이 필요하다.
@@ -253,7 +331,7 @@ npm run version:bump-build -- android  # 한쪽만 (all | ios | android)
 ## 환경과 검증
 
 백엔드는 현재 개발/운영이 공유 서버를 사용한다. 지금 서버를 분리할 필요는 없다.
-스토어 빌드는 `.env.production`과 셸 환경, OTA는 EAS 환경을 읽으므로 아래 필수 공개 값을
+운영 빌드는 `.env.production`, 개발 빌드는 `.env.development`와 셸 환경, OTA는 EAS 환경을 읽으므로 아래 필수 공개 값을
 양쪽에 맞춘다. 파일/원격 설정을 자동 수정하지는 않는다.
 
 - `EXPO_PUBLIC_API_BASE_URL`

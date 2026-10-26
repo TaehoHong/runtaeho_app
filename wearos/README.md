@@ -1,4 +1,22 @@
-# Wear OS recording
+# Wear OS standalone Android project
+
+Open this `wearos/` directory directly in Android Studio. It is an independent
+Gradle root containing only `:app`; building it does not configure Expo, React
+Native, the phone Gradle project or Unity, and does not require Node/npm or
+`node_modules`. It remains part of the existing mobile Git repository.
+The public `../scripts/app-profiles.json` is the single profile owner shared with
+the phone; include that file alongside `wearos/` and `shared/` in a standalone
+checkout. It is parsed directly by Gradle without running the Node profile script.
+
+Requirements: Java 17, Android SDK 36, and the matching signing keystore described
+below. Set `ANDROID_HOME`/`ANDROID_SDK_ROOT` or an ignored `local.properties` SDK path.
+Versions are preserved from the resolved original project: Gradle 8.14.3, Android
+Gradle Plugin 8.13.2, Kotlin Gradle plugin 2.1.20; compile/target SDK 36, min SDK 30.
+
+The app sources/tests live in `app/`. Both this app and the Android phone consume
+one shared source owner at `../shared/watchsync-android/src/main/java`; it contains
+the unchanged record validation, atomic private store and Data Layer transport.
+There is no duplicate transport or extra library module.
 
 Native Android Views + Health Services ExerciseClient, Wear OS 3 / API 30 minimum.
 The standalone watch requires initial owner linkage from the logged-in paired
@@ -33,22 +51,60 @@ own uploads. OS background restrictions, locked credential storage, force-stop,
 and absent pairing can delay upload until eligible execution/reconnection.
 No direct watch Wi-Fi or watch HTTP/JWT client is used.
 
-The wear applicationId matches the phone. Signing configurations reuse the phone
-module; install both with matching debug certificates, and verify Play App Signing
-identity for distribution. The watch module contains no Unity framework.
+## Signing identity
+
+Profile IDs and app names come directly from `../scripts/app-profiles.json`:
+
+| Flavor | Phone/Wear identity | Signing configuration |
+| --- | --- | --- |
+| `local` | Shared local/development applicationId | Existing development key |
+| `development` | Shared local/development applicationId | Same existing development key |
+| `production` | Shared production applicationId | Existing upload-key properties, or existing local debug fallback |
+
+Each flavor supports `Debug` and `Release`. Local and development builds replace
+each other because they deliberately share an ID and signing certificate;
+production has a separate ID. VersionCode 68 and versionName 1.8.0 are unchanged.
+Data Layer requires the exact same ID and signing certificate as the corresponding
+phone environment. This project never evaluates or reads the phone Gradle build.
+
+Both `localDebug` and `developmentRelease` consume the phone's existing ignored
+`../credentials/android-development.properties`. Its `storeFile` is resolved
+relative to that properties file, matching the phone. No development key is copied,
+generated or replaced. Supply the existing properties file and matching key through
+the established credential setup before building; missing keys fail explicitly.
+
+Production keeps the existing `RUNTAEHO_UPLOAD_STORE_FILE`,
+`RUNTAEHO_UPLOAD_STORE_PASSWORD`, `RUNTAEHO_UPLOAD_KEY_ALIAS`, and
+`RUNTAEHO_UPLOAD_KEY_PASSWORD` Gradle properties. Supply them through user Gradle
+properties or `ORG_GRADLE_PROJECT_*` environment variables, never project files.
+Absolute store paths are recommended for a separate checkout; relative upload-key
+paths retain the original `android/app` base. As in the phone, when upload-key
+properties are absent, production uses the existing `../android/app/debug.keystore`
+for local validation. `RUNTAEHO_DEBUG_STORE_FILE` can reference that exact matching
+key by absolute path. Missing keys fail explicitly without generating an identity.
+Verify actual Play App Signing certificates on both installed apps for distribution;
+an upload certificate alone does not establish the installed Play signing identity.
+The watch project contains no Unity framework or phone build dependency.
 
 ## Verification
 
-From `android/`:
+From this `wearos/` directory:
 
 ```
-./gradlew :wear:assembleDebug :app:compileDebugKotlin :wear:lintDebug :app:lintDebug
+./gradlew projects
+./gradlew :app:assembleLocalDebug :app:lintLocalDebug
+./gradlew :app:assembleDevelopmentRelease :app:lintDevelopmentRelease
+./gradlew :app:assembleProductionDebug :app:lintProductionDebug
+# Compile production release without pretending to validate distribution signing:
+./gradlew :app:compileProductionReleaseKotlin
 ```
 
-`wear/run-host-regressions.sh ANDROID_JAR KOTLIN_STDLIB_JAR ORG_JSON_JAR` runs real
+`./run-host-regressions.sh ANDROID_JAR KOTLIN_STDLIB_JAR ORG_JSON_JAR` runs real
 production repository/rules and active-time assertions using the explicit host
 filesystem adapter (`Files.move(ATOMIC_MOVE, REPLACE_EXISTING)`) on the host after Kotlin
-compilation. Supply existing local runtime jars; org.json is an external host test
+compilation (`localDebug` by default, matching `:app:compileLocalDebugKotlin`).
+Set `WATCH_TEST_VARIANT=developmentRelease` or another compiled variant when needed.
+Supply existing local runtime jars; org.json is an external host test
 runtime only, with no test or production dependency declaration. It checks restart,
 interrupted/failed writes, owner switches, duplicates, stale/unknown acknowledgement,
 no-measurement recovery, measured zero, and pause timing. It does not emulate Health

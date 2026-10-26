@@ -1,13 +1,15 @@
 #!/usr/bin/env node
+/* global __dirname */
 /**
  * 버전 단일 진입점.
  *
  * 이 프로젝트는 CNG(expo prebuild)를 쓰지 않고 ios/, android/ 네이티브 디렉터리를
  * 직접 관리하므로 app.config.js의 version 값이 네이티브에 반영되지 않는다.
- * 따라서 아래 5개 파일을 항상 함께 맞춰야 한다.
+ * 따라서 아래 6개 파일을 항상 함께 맞춰야 한다.
  *
  *   package.json                              version, config.runtimeVersion
  *   ios/app.xcodeproj/project.pbxproj         MARKETING_VERSION, CURRENT_PROJECT_VERSION
+ *   watchos/RunTaehoWatch.xcodeproj/project.pbxproj  companion version/build
  *   ios/app/Supporting/Expo.plist             EXUpdatesRuntimeVersion
  *   android/app/build.gradle                  versionName, versionCode
  *   android/app/src/main/AndroidManifest.xml  expo.modules.updates.EXPO_RUNTIME_VERSION
@@ -31,10 +33,13 @@ const ROOT = path.resolve(__dirname, '..');
 const FILES = {
   pkg: path.join(ROOT, 'package.json'),
   pbxproj: path.join(ROOT, 'ios/app.xcodeproj/project.pbxproj'),
+  watchPbxproj: path.join(ROOT, 'watchos/RunTaehoWatch.xcodeproj/project.pbxproj'),
   expoPlist: path.join(ROOT, 'ios/app/Supporting/Expo.plist'),
   gradle: path.join(ROOT, 'android/app/build.gradle'),
   manifest: path.join(ROOT, 'android/app/src/main/AndroidManifest.xml'),
 };
+
+const IOS_PROJECTS = ['pbxproj', 'watchPbxproj'];
 
 const SEMVER = /^\d+\.\d+\.\d+$/;
 
@@ -58,7 +63,7 @@ function replaceAll(source, pattern, replacer, label) {
 
 function readState() {
   const pkg = JSON.parse(read('pkg'));
-  const pbxproj = read('pbxproj');
+  const pbxproj = IOS_PROJECTS.map(read).join('\n');
   const gradle = read('gradle');
 
   const marketing = [...pbxproj.matchAll(/MARKETING_VERSION = ([^;]+);/g)].map((m) => m[1].trim());
@@ -95,15 +100,17 @@ function setVersion(version) {
   pkg.version = version;
   write('pkg', `${JSON.stringify(pkg, null, 2)}\n`);
 
-  write(
-    'pbxproj',
-    replaceAll(
-      read('pbxproj'),
-      /MARKETING_VERSION = [^;]+;/g,
-      () => `MARKETING_VERSION = ${version};`,
-      'pbxproj MARKETING_VERSION'
-    )
-  );
+  for (const project of IOS_PROJECTS) {
+    write(
+      project,
+      replaceAll(
+        read(project),
+        /MARKETING_VERSION = [^;]+;/g,
+        () => `MARKETING_VERSION = ${version};`,
+        `${project} MARKETING_VERSION`
+      )
+    );
+  }
 
   write(
     'gradle',
@@ -168,15 +175,17 @@ function bumpBuild(target) {
 
   if (scope === 'all' || scope === 'ios') {
     const nextIos = Math.max(...state.iosBuild.map((v) => parseInt(v, 10) || 0)) + 1;
-    write(
-      'pbxproj',
-      replaceAll(
-        read('pbxproj'),
-        /CURRENT_PROJECT_VERSION = [^;]+;/g,
-        () => `CURRENT_PROJECT_VERSION = ${nextIos};`,
-        'pbxproj CURRENT_PROJECT_VERSION'
-      )
-    );
+    for (const project of IOS_PROJECTS) {
+      write(
+        project,
+        replaceAll(
+          read(project),
+          /CURRENT_PROJECT_VERSION = [^;]+;/g,
+          () => `CURRENT_PROJECT_VERSION = ${nextIos};`,
+          `${project} CURRENT_PROJECT_VERSION`
+        )
+      );
+    }
     messages.push(`iOS ${state.iosBuild.join(',')} → ${nextIos}`);
   }
 

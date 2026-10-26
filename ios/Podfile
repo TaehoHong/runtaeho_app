@@ -1,4 +1,4 @@
-project 'app.xcodeproj'
+project 'app.xcodeproj', 'Debug' => :debug, 'Development' => :release, 'Release' => :release
 
 require File.join(File.dirname(`node --print "require.resolve('expo/package.json')"`), "scripts/autolinking")
 require File.join(File.dirname(`node --print "require.resolve('react-native/package.json')"`), "scripts/react_native_pods")
@@ -50,5 +50,17 @@ target 'app' do
       :mac_catalyst_enabled => false,
       :ccache_enabled => podfile_properties['apple.ccacheEnabled'] == 'true',
     )
+  end
+end
+
+# Expo recreates this phase during pod install; keep direct Xcode builds on the selected profile.
+post_integrate do |installer|
+  installer.aggregate_targets.map(&:user_project).uniq.each do |project|
+    target = project.targets.find { |item| item.name == 'app' }
+    phase = target&.shell_script_build_phases&.find { |item| item.name == '[Expo] Configure project' }
+    raise 'Expo configure phase is missing for app profile setup' unless phase
+    profile_source = "source \"$PROJECT_DIR/../scripts/xcode-profile.sh\"\n"
+    phase.shell_script = profile_source + phase.shell_script unless phase.shell_script.include?(profile_source)
+    project.save
   end
 end

@@ -38,27 +38,27 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>app</string>
-				<string>com.runtaeho.runtaeho</string>
+				<string>$(RUNTAEHO_URL_SCHEME)</string>
+				<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 			</array>
 		</dict>
 		<dict>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>exp+app</string>
+				<string>$(RUNTAEHO_DEV_CLIENT_SCHEME)</string>
 			</array>
 		</dict>
 		<dict>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.googleusercontent.apps.322350985432-ilfhl51v50rtvgn0hho7tiui5e8km5en</string>
+				<string>$(RUNTAEHO_GOOGLE_URL_SCHEME)</string>
 			</array>
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>GIDClientID</key>
-	<string>322350985432-ilfhl51v50rtvgn0hho7tiui5e8km5en.apps.googleusercontent.com</string>
+	<string>$(RUNTAEHO_GOOGLE_IOS_CLIENT_ID)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSApplicationCategoryType</key>

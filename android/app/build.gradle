@@ -4,6 +4,13 @@ apply plugin: "com.facebook.react"
 
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
+def appProfiles = new groovy.json.JsonSlurper().parse(new File(projectRoot, 'scripts/app-profiles.json'))
+def profileScript = new File(projectRoot, 'scripts/app-profile.cjs').absolutePath
+def developmentSigning = new Properties()
+def developmentSigningFile = new File(projectRoot, 'credentials/android-development.properties')
+if (developmentSigningFile.exists()) {
+    developmentSigningFile.withInputStream { developmentSigning.load(it) }
+}
 
 /**
  * This is the configuration block to customize your React Native Android app.
@@ -34,6 +41,7 @@ react {
     //   skip the bundling of the JS bundle and the assets. By default is just 'debug'.
     //   If you add flavors like lite, prod, etc. you'll have to list your debuggableVariants.
     // debuggableVariants = ["liteDebug", "prodDebug"]
+    debuggableVariants = ["localDebug", "developmentDebug", "productionDebug"]
 
     /* Bundling */
     //   A list containing the node command and its flags. Default is just 'node'.
@@ -134,16 +142,48 @@ android {
                 keyPassword RUNTAEHO_UPLOAD_KEY_PASSWORD
             }
         }
+        development {
+            if (developmentSigningFile.exists()) {
+                storeFile new File(developmentSigningFile.parentFile, developmentSigning.getProperty('storeFile'))
+                storePassword developmentSigning.getProperty('storePassword')
+                keyAlias developmentSigning.getProperty('keyAlias')
+                keyPassword developmentSigning.getProperty('keyPassword')
+            }
+        }
+    }
+    flavorDimensions "environment"
+    productFlavors {
+        local {
+            dimension "environment"
+            signingConfig signingConfigs.development
+        }
+        development {
+            dimension "environment"
+            signingConfig signingConfigs.development
+        }
+        production {
+            dimension "environment"
+            signingConfig project.hasProperty('RUNTAEHO_UPLOAD_STORE_FILE') ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+    productFlavors.all { flavor ->
+        def profile = appProfiles[flavor.name]
+        applicationId profile.applicationId
+        manifestPlaceholders += [
+            RUNTAEHO_APP_NAME: profile.name,
+            RUNTAEHO_URL_SCHEME: profile.scheme,
+            RUNTAEHO_DEV_CLIENT_SCHEME: flavor.name == 'production' ? 'exp+app' : 'exp+runtaeho-dev',
+            RUNTAEHO_OTA_CHANNEL: profile.channel,
+            RUNTAEHO_UPDATES_ENABLED: flavor.name == 'local' ? 'false' : 'true'
+        ]
     }
     buildTypes {
         debug {
-            signingConfig signingConfigs.debug
+            // 로컬 Debug와 테스터 Release 모두 동일한 개발 인증서를 사용한다.
+            signingConfig null
         }
         release {
-            // 업로드 키가 주입된 경우에만 릴리스 서명을 쓴다. 없으면 debug 키로
-            // 떨어지므로 로컬 확인용 release 빌드는 그대로 되지만 스토어에는 못 올린다.
-            // scripts/deploy-store.sh가 배포 경로에서 이 조건을 강제한다.
-            signingConfig project.hasProperty('RUNTAEHO_UPLOAD_STORE_FILE') ? signingConfigs.release : signingConfigs.debug
+            // Release 서명은 flavor가 선택한다. 개발 키와 운영 업로드 키를 섞지 않는다.
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
             shrinkResources enableShrinkResources.toBoolean()
             minifyEnabled enableMinifyInReleaseBuilds
@@ -160,6 +200,44 @@ android {
     }
     androidResources {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
+    }
+}
+
+tasks.register('verifyDevelopmentSigning') {
+    doLast {
+        def local = android.applicationVariants.find { it.name == 'localDebug' }.signingConfig
+        def tester = android.applicationVariants.find { it.name == 'developmentRelease' }.signingConfig
+        if (!local?.storeFile?.exists() || !tester?.storeFile?.exists()) {
+            throw new GradleException('개발 서명키가 없다. npm run signing:dev:android를 먼저 실행한다.')
+        }
+        if (local.storeFile.canonicalPath != tester.storeFile.canonicalPath || local.keyAlias != tester.keyAlias) {
+            throw new GradleException('로컬과 테스터 앱은 같은 개발 서명키를 사용해야 한다.')
+        }
+    }
+}
+tasks.matching { it.name in ['preLocalDebugBuild', 'preDevelopmentReleaseBuild'] }.configureEach {
+    dependsOn('verifyDevelopmentSigning')
+}
+
+// Expo Constants는 모든 flavor가 하나의 생성 task를 공유한다. 한 번에 한 환경만 빌드한다.
+gradle.taskGraph.whenReady { graph ->
+    def selected = appProfiles.keySet().findAll { profileName ->
+        graph.allTasks.any {
+            it.project == project && !it.name.startsWith('pre') && it.name =~ /(?i)${profileName}(Debug|Release)/
+        }
+    }
+    if (selected.size() > 1) throw new GradleException('앱 프로파일은 한 번에 하나씩 빌드한다.')
+    if (selected.size() == 1) {
+        def profileName = selected.first()
+        if (profileName != 'production' && !developmentSigningFile.exists() &&
+            graph.allTasks.any { it.name.startsWith('validateSigning') }) {
+            throw new GradleException('개발 서명키가 없다. npm run signing:dev:android를 먼저 실행한다.')
+        }
+        graph.allTasks.findAll { it.project == project && it instanceof com.facebook.react.tasks.BundleHermesCTask }.each { task ->
+            task.nodeExecutableAndArgs.set(["node", profileScript, "run", profileName, "node"])
+        }
+        def configTask = rootProject.findProject(':expo-constants')?.tasks?.findByName('createExpoConfig')
+        if (configTask) configTask.commandLine(["node", profileScript, "run", profileName] + configTask.commandLine)
     }
 }
 
@@ -216,4 +294,4 @@ dependencies {
     }
 }
 
-android.sourceSets.main.java.srcDir("../watchsync/src/main/java")
+android.sourceSets.main.java.srcDir("../../shared/watchsync-android/src/main/java")

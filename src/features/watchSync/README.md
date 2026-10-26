@@ -74,14 +74,14 @@ Implementation evidence, relative to `runtaeho_app/`:
   replay, session boundaries and lifecycle integration.
 - `ios/WatchSync/RNWatchSyncBridge.swift`: native iOS inbox, atomic files and
   WatchConnectivity acknowledgement retry; activated from `ios/app/AppDelegate.swift`.
-- `ios/RunTaehoWatch/RunRecorder.swift`, `RunCheckpoint.swift`,
+- `watchos/RunTaehoWatch/RunRecorder.swift`, `RunCheckpoint.swift`,
   `WatchAppDelegate.swift`: HealthKit/GPS recording, recovery and background tasks.
 - `android/app/src/main/java/com/hongtaeho/app/watch/PhoneWatchDataService.kt`,
   `RNWatchSyncBridgeModule.kt`, `WatchSyncTaskService.kt`: native Android receipt,
-  bridge and Headless JS wake. `android/watchsync/.../WatchStore.kt` and
+  bridge and Headless JS wake. `shared/watchsync-android/.../WatchStore.kt` and
   `WatchTransport.kt` own atomic storage and Data Layer transport; full package
   directory is `src/main/java/com/runtaeho/watchsync/`.
-- `android/wear/src/main/java/com/runtaeho/wear/RunService.kt` and
+- `wearos/app/src/main/java/com/runtaeho/wear/RunService.kt` and
   `WatchDataService.kt`: Wear recording and transport lifecycle.
 - Backend sibling `../running/src/main/kotlin/com/example/running/domain/running/`:
   `controller/CompletedRunningController.kt`, `controller/dto/CompletedRunningRequest.kt`
@@ -109,13 +109,13 @@ it privately as `.unmeasured`; invalid wall-clock/duration/GPS timelines remain
 `.invalidtimeline`. Both release the active slot, show an explanatory message and
 stay outside transfer enumeration. Original times and metrics are not fabricated
 or rewritten. Wear retains equivalent private unmeasured/clock-error records;
-see `android/wear/README.md`. Our HealthKit watch source/metadata is excluded by
+see `wearos/README.md`. Our HealthKit watch source/metadata is excluded by
 `src/features/healthImport/bridge/iOS/RNHealthImportBridge.swift` to prevent import
 of the same run through the external-workout path.
 
 ## Watch display preferences
 
-`ios/RunTaehoWatch/WatchDisplaySettings.swift` owns local KPH/MPH display
+`watchos/RunTaehoWatch/WatchDisplaySettings.swift` owns local KPH/MPH display
 preferences and four independent metric slots. Each slot keeps 1–3 distinct
 favorites, cycles in enum order, and preserves its active metric when possible.
 Changing units or slots does not change recorded meters, active seconds or
@@ -128,25 +128,47 @@ The settings preview is illustrative and does not write running data.
 
 ## Verification
 
+The watch applications have separate build roots: `watchos/RunTaehoWatch.xcodeproj`
+and `wearos/`. Neither standalone build configures Expo, React Native, CocoaPods
+or Unity. The iPhone project references the watch project and embeds its product;
+its release version command keeps the companion and watch versions aligned.
+Android phone and Wear OS compile the same source owner in
+`shared/watchsync-android/src/main/java/`. Their application ID and signing
+certificate must match for Data Layer communication; see `wearos/README.md` for
+the existing key configuration and independent Gradle commands.
+
+Both watch projects follow the phone's `scripts/app-profiles.json` contract.
+Local and development share `com.runtaeho.runtaeho.dev` on the phone/Wear and
+`com.runtaeho.runtaeho.dev.watchkitapp` on Apple Watch; production retains the
+original IDs. The watchOS schemes `WatchLocal`, `WatchDevelopment` and
+`WatchProduction` select Debug, Development and Release respectively. Wear uses
+the corresponding Gradle flavors, and local/development reuse the phone's existing
+development signing configuration. App-private outboxes, owner linkage and display
+preferences are separate between development and production; local and development
+intentionally share storage. HealthKit is shared across apps, so own watch source
+IDs and session metadata remain excluded from external workout import.
+Watches still have no backend URL or token: the receiving phone owns the server
+environment. Distinct app IDs do not separate server data when phone profiles use
+the same API server.
+
 From `runtaeho_app/`:
 
 ```sh
 npm run test:unit -- --runTestsByPath src/features/watchSync/__tests__/watchSyncService.test.ts src/features/watchSync/__tests__/background.test.ts src/features/running/__tests__/useOfflineSync.test.tsx src/features/running/__tests__/OfflineStorageService.ownership.test.ts src/features/running/__tests__/runningService.test.ts
 npx eslint src/features/watchSync src/providers/AuthProvider.tsx index.js
-swiftc -module-cache-path /tmp/watch-checkpoint-modules ios/RunTaehoWatch/RunCheckpoint.swift ios/RunTaehoWatchTests/RunCheckpointTests.swift -o /tmp/watch-checkpoint-tests
+swiftc -module-cache-path /tmp/watch-checkpoint-modules watchos/RunTaehoWatch/RunCheckpoint.swift watchos/Tests/RunCheckpointTests.swift -o /tmp/watch-checkpoint-tests
 /tmp/watch-checkpoint-tests
-swiftc -module-cache-path /tmp/watch-display-modules ios/RunTaehoWatch/WatchDisplaySettings.swift ios/RunTaehoWatch/RunCheckpoint.swift ios/RunTaehoWatchTests/WatchDisplaySettingsTests.swift -o /tmp/watch-display-tests
+swiftc -module-cache-path /tmp/watch-display-modules watchos/RunTaehoWatch/WatchDisplaySettings.swift watchos/RunTaehoWatch/RunCheckpoint.swift watchos/Tests/WatchDisplaySettingsTests.swift -o /tmp/watch-display-tests
 /tmp/watch-display-tests
-xcodebuild -project ios/app.xcodeproj -scheme RunTaehoWatch -sdk watchsimulator -configuration Debug -derivedDataPath /tmp/watch-derived CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project watchos/RunTaehoWatch.xcodeproj -scheme RunTaehoWatch -sdk watchsimulator -configuration Debug -derivedDataPath /tmp/watch-derived CODE_SIGNING_ALLOWED=NO build
 ```
 
 Use direct Xcode builds for iOS, including the companion workspace when the
-required iOS platform is installed. During this implementation the dedicated
-watch simulator build and scoped phone-bridge Swift/Objective-C typechecks against
-the installed iPhone SDK passed. A full companion iPhone build was not verified:
-the workspace attempt reported unavailable iOS 26.5 destinations, and an SDK-only
-fallback reported no destinations for scheme `app`. Neither scoped check proves
-the entire iPhone app compiles. Never use `expo prebuild --clean` or EAS Build:
+required iOS platform is installed. The standalone watch build and host tests
+validate the watch project; they do not prove that the full companion iPhone app
+compiles or archives. Validate the external watch dependency and embedded product
+through `ios/app.xcworkspace` for a paired release. Never use
+`expo prebuild --clean` or EAS Build:
 the phone has custom native code and Unity integration. Host tests and compilation
 do not establish physical runtime success. Validate paired-device recording,
 permissions, screen-off long runs, sensor/GPS loss, restart recovery, account

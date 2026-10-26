@@ -1,6 +1,8 @@
 // Environment-specific configuration
-// .env.local (로컬 개발), .env.dev (개발 서버), .env.prod (운영)
+// 앱 프로파일은 app-profiles.json, 서버 값은 app-profile.cjs에서 선택한다.
 const ENV = process.env.EXPO_PUBLIC_ENV || 'local';
+const { getProfile } = require('./scripts/app-profile.cjs');
+const profile = getProfile(ENV);
 
 // Version configuration from local package.json
 const packageJson = require('./package.json');
@@ -12,29 +14,28 @@ const googleMapsAndroidApiKey =
 
 export default {
   expo: {
-    name: ENV === 'production' ? 'RunTaeho' : `RunTaeho (${ENV})`,
+    name: profile.name,
     slug: "runtaeho",
     version: appVersion,
     orientation: "portrait",
     icon: "./assets/images/icon.png",
-    scheme: "runtaeho",
+    scheme: profile.scheme,
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
     assetBundlePatterns: ["**/*"],
     // EAS Update 설정
     updates: {
-      enabled: true,
+      enabled: ENV !== 'local',
       checkAutomatically: "ON_LOAD",
       fallbackToCacheTimeout: 0,
       url: "https://u.expo.dev/daaffe2d-52cf-427d-ad87-2b05cde55f58",
+      requestHeaders: { 'expo-channel-name': profile.channel },
     },
     runtimeVersion: runtimeVersion,
     ios: {
       icon: "./assets/images/icon.png",
       supportsTablet: true,
-      bundleIdentifier: ENV === 'production'
-        ? "com.runtaeho.runtaeho"
-        : `com.runtaeho.runtaeho.${ENV}`,
+      bundleIdentifier: profile.applicationId,
       usesAppleSignIn: true,
       appleTeamId: "3F893P33SC",
       infoPlist: {
@@ -42,7 +43,7 @@ export default {
         NSLocationWhenInUseUsageDescription: "RunTaeho는 러닝 중 실시간으로 GPS 경로를 추적하고, 이동 거리와 페이스를 계산합니다.",
         NSMotionUsageDescription: "걸음 수 측정 및 러닝 페이스 분석을 위해 동작 및 피트니스 데이터를 사용합니다.",
         UIBackgroundModes: ["location"],
-        GIDClientID: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID
+        GIDClientID: profile.iosClientId
       }
     },
     android: {
@@ -53,9 +54,7 @@ export default {
       predictiveBackGestureEnabled: false,
       // 개발 환경에서 HTTP (localhost) 요청 허용
       usesCleartextTraffic: ENV !== 'production',
-      package: ENV === 'production'
-        ? "com.runtaeho.runtaeho"
-        : `com.runtaeho.runtaeho`,
+      package: profile.applicationId,
       permissions: [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
@@ -115,9 +114,7 @@ export default {
       [
         "@react-native-google-signin/google-signin",
         {
-          iosUrlScheme: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?
-            `com.googleusercontent.apps.${process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID.split('-')[0]}-${process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID.split('-')[1]}` :
-            "com.googleusercontent.apps.322350985432-ilfhl51v50rtvgn0hho7tiui5e8km5en"
+          iosUrlScheme: profile.iosClientId.split('.').reverse().join('.')
         }
       ],
       [
@@ -143,9 +140,9 @@ export default {
       // 앱에서 접근 가능한 환경변수
       env: ENV,
       apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL,
-      googleIosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+      googleIosClientId: profile.iosClientId,
       googleServerClientId: process.env.EXPO_PUBLIC_GOOGLE_SERVER_CLIENT_ID,
-      googleAndroidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+      googleAndroidClientId: profile.androidClientId,
       enableDebug: process.env.EXPO_PUBLIC_ENABLE_DEBUG === 'true',
       enableLogging: process.env.EXPO_PUBLIC_ENABLE_LOGGING === 'true',
       eas: {

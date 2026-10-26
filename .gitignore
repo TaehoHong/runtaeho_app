@@ -72,6 +72,7 @@ app-example
 prepare-native-build.sh
 
 /android/app/release
+/android/app/src/main/assets/modules.json
 .gstack/
 
 # 로컬 스토어 빌드 산출물 (scripts/deploy-store.sh)

@@ -10,12 +10,12 @@ function fixture(t) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'runtaeho-deploy-'));
   const root = path.join(directory, 'runtaeho_app');
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-  for (const dir of ['scripts', 'tools', 'bin', 'ios/app/Supporting', 'ios/app.xcodeproj', 'android/app/src/main']) {
+  for (const dir of ['scripts', 'tools', 'bin', 'ios/app/Supporting', 'ios/app.xcodeproj', 'watchos/RunTaehoWatch.xcodeproj', 'android/app/src/main']) {
     fs.mkdirSync(path.join(root, dir), { recursive: true });
   }
   for (const dir of ['scripts', 'tools']) {
     for (const name of fs.readdirSync(path.join(__dirname, '..', dir))) {
-      if (/\.(sh|js|cjs)$/.test(name)) fs.copyFileSync(path.join(__dirname, '..', dir, name), path.join(root, dir, name));
+      if (/\.(sh|js|cjs|json)$/.test(name)) fs.copyFileSync(path.join(__dirname, '..', dir, name), path.join(root, dir, name));
     }
   }
   fs.copyFileSync(path.join(__dirname, '../eas.json'), path.join(root, 'eas.json'));
@@ -23,6 +23,7 @@ function fixture(t) {
   fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ version: '1.8.0', config: { runtimeVersion: '1.8.0' }, scripts: pkg.scripts }));
   fs.writeFileSync(path.join(root, 'ios/app/Supporting/Expo.plist'), '<key>EXUpdatesRuntimeVersion</key><string>1.8.0</string>');
   fs.writeFileSync(path.join(root, 'ios/app.xcodeproj/project.pbxproj'), 'MARKETING_VERSION = 1.8.0;\nCURRENT_PROJECT_VERSION = 1;');
+  fs.writeFileSync(path.join(root, 'watchos/RunTaehoWatch.xcodeproj/project.pbxproj'), 'MARKETING_VERSION = 1.8.0;\nCURRENT_PROJECT_VERSION = 1;');
   fs.writeFileSync(path.join(root, 'android/app/build.gradle'), 'versionName "1.8.0"\nversionCode 68');
   fs.writeFileSync(path.join(root, 'android/app/src/main/AndroidManifest.xml'), 'expo.modules.updates.EXPO_RUNTIME_VERSION" android:value="1.7.0"');
   fs.writeFileSync(path.join(root, 'bin/npx'), '#!/bin/sh\nprintf "%s\\n" "$*" >> "$CALL_LOG"\n', { mode: 0o755 });
@@ -75,7 +76,7 @@ test('upload-only rejects a missing artifact before contacting EAS', (t) => {
   assert.equal(f.calls(), '');
 });
 
-test('release retry rejects changed source and a different target platform', (t) => {
+test('release retry rejects changed source, another platform, and another app profile', (t) => {
   const f = fixture(t);
   const git = (args) => {
     const result = spawnSync('/usr/bin/git', args, { cwd: f.root, encoding: 'utf8' });
@@ -90,8 +91,32 @@ test('release retry rejects changed source and a different target platform', (t)
   assert.equal(f.run('node', ['scripts/release-state.cjs', 'save', 'ios']).status, 0);
   assert.equal(f.run('node', ['scripts/release-state.cjs', 'check', 'ios']).status, 0);
   assert.notEqual(f.run('node', ['scripts/release-state.cjs', 'check', 'android']).status, 0);
+  assert.notEqual(f.run('node', ['scripts/release-state.cjs', 'check', 'ios', 'development']).status, 0);
   fs.appendFileSync(path.join(f.root, 'package.json'), '\n');
   assert.notEqual(f.run('node', ['scripts/release-state.cjs', 'check', 'ios']).status, 0);
+});
+
+test('development app cannot be submitted through production review automation', (t) => {
+  const f = fixture(t);
+  const before = fs.readFileSync(path.join(f.root, 'package.json'), 'utf8');
+  const result = f.run('bash', ['scripts/deploy-store.sh', '--profile', 'development', '--submit-review']);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /개발 앱은 운영 심사에 제출하지 않는다/);
+  assert.equal(fs.readFileSync(path.join(f.root, 'package.json'), 'utf8'), before);
+  assert.equal(f.calls(), '');
+});
+
+test('local Android command builds the dev variant and only installs or launches on an emulator', (t) => {
+  const f = fixture(t);
+  fs.mkdirSync(path.join(f.root, 'platform-tools'));
+  fs.writeFileSync(path.join(f.root, 'platform-tools/adb'), '#!/bin/sh\nprintf "adb %s\\n" "$*" >> "$CALL_LOG"\n', { mode: 0o755 });
+  fs.writeFileSync(path.join(f.root, 'android/gradlew'), '#!/bin/sh\nprintf "gradle %s\\n" "$*" >> "$CALL_LOG"\n', { mode: 0o755 });
+  const result = f.run('bash', ['scripts/run-local.sh', 'android'], { ANDROID_HOME: f.root, EXPO_NO_DOTENV: '1' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(f.calls(), /gradle :app:assembleLocalDebug/);
+  assert.match(f.calls(), /adb -e install -r .*app-local-debug\.apk/);
+  assert.match(f.calls(), /adb -e shell am start .*runtaeho-dev:.* com\.runtaeho\.runtaeho\.dev/);
+  assert.doesNotMatch(f.calls(), /^adb (?!-e )/m);
 });
 
 test('Unity gate detects changed and newly added inputs after export', (t) => {
@@ -233,4 +258,40 @@ done
   assert.equal(resumed.status, 0, resumed.stdout + resumed.stderr);
   assert.match(fs.readFileSync(path.join(f.root, 'ios/app.xcodeproj/project.pbxproj'), 'utf8'), /CURRENT_PROJECT_VERSION = 2;/);
   assert.equal(f.calls(), '');
+});
+
+
+test('setting release version keeps phone and independent companion watch marketing versions matched', (t) => {
+  const f = fixture(t);
+  const result = f.run('node', ['scripts/version.js', 'set', '1.9.0']);
+  assert.equal(result.status, 0, result.stderr);
+  const phone = fs.readFileSync(path.join(f.root, 'ios/app.xcodeproj/project.pbxproj'), 'utf8');
+  const watch = fs.readFileSync(path.join(f.root, 'watchos/RunTaehoWatch.xcodeproj/project.pbxproj'), 'utf8');
+  assert.match(phone, /MARKETING_VERSION = 1\.9\.0;/);
+  assert.match(watch, /MARKETING_VERSION = 1\.9\.0;/);
+  assert.match(phone, /CURRENT_PROJECT_VERSION = 1;/);
+  assert.match(watch, /CURRENT_PROJECT_VERSION = 1;/);
+});
+
+test('iOS build bump advances both projects beyond the highest existing companion build', (t) => {
+  const f = fixture(t);
+  const watchFile = path.join(f.root, 'watchos/RunTaehoWatch.xcodeproj/project.pbxproj');
+  fs.writeFileSync(watchFile, 'MARKETING_VERSION = 1.8.0;\nCURRENT_PROJECT_VERSION = 7;');
+  const result = f.run('node', ['scripts/version.js', 'bump-build', 'ios']);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(fs.readFileSync(path.join(f.root, 'ios/app.xcodeproj/project.pbxproj'), 'utf8'), /CURRENT_PROJECT_VERSION = 8;/);
+  assert.match(fs.readFileSync(watchFile, 'utf8'), /CURRENT_PROJECT_VERSION = 8;/);
+  assert.match(fs.readFileSync(watchFile, 'utf8'), /MARKETING_VERSION = 1\.8\.0;/);
+  assert.match(fs.readFileSync(path.join(f.root, 'android/app/build.gradle'), 'utf8'), /versionCode 68/);
+});
+
+test('Android-only build bump leaves independent watch project untouched', (t) => {
+  const f = fixture(t);
+  const watchFile = path.join(f.root, 'watchos/RunTaehoWatch.xcodeproj/project.pbxproj');
+  const before = fs.readFileSync(watchFile, 'utf8');
+  const result = f.run('node', ['scripts/version.js', 'bump-build', 'android']);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(fs.readFileSync(watchFile, 'utf8'), before);
+  assert.match(fs.readFileSync(path.join(f.root, 'ios/app.xcodeproj/project.pbxproj'), 'utf8'), /CURRENT_PROJECT_VERSION = 1;/);
+  assert.match(fs.readFileSync(path.join(f.root, 'android/app/build.gradle'), 'utf8'), /versionCode 69/);
 });

@@ -1,0 +1,451 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 54;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		38784905B55B236B0E33B31E /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1D79A6C3E9F7C8EBD0712048 /* Foundation.framework */; };
+		672AF5851CC9DC36DCC2E8E6 /* RunTaehoWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 404BD0A7B6B6729A27C31C98 /* RunTaehoWatchApp.swift */; };
+		7A4F5980FB74FBBE9B5746E8 /* RunRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEF708DE53D6B5BE48437258 /* RunRecorder.swift */; };
+		8D6195172B55B8B63AE9F961 /* RunCheckpoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6608E970BDA9B6233F6BC069 /* RunCheckpoint.swift */; };
+		FF668805904D66A75ABB2BE5 /* WatchAppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99DA6078746AD37C236086D9 /* WatchAppDelegate.swift */; };
+		FF918518464480138D563FDB /* WatchDisplaySettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2117CAD2BCBD0E323A0AD7AF /* WatchDisplaySettings.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		1D79A6C3E9F7C8EBD0712048 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		2117CAD2BCBD0E323A0AD7AF /* WatchDisplaySettings.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchDisplaySettings.swift; sourceTree = "<group>"; };
+		2D489EAF889AF9DBB1D3D02C /* RunTaehoWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RunTaehoWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		404BD0A7B6B6729A27C31C98 /* RunTaehoWatchApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RunTaehoWatchApp.swift; sourceTree = "<group>"; };
+		6608E970BDA9B6233F6BC069 /* RunCheckpoint.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RunCheckpoint.swift; sourceTree = "<group>"; };
+		93EF88F101451AD36EAE384E /* WatchDisplaySettingsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchDisplaySettingsTests.swift; sourceTree = "<group>"; };
+		99DA6078746AD37C236086D9 /* WatchAppDelegate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchAppDelegate.swift; sourceTree = "<group>"; };
+		9B48D80A936166060D0ECBEE /* RunTaehoWatch.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = RunTaehoWatch.entitlements; sourceTree = "<group>"; };
+		A28914C78D2A10BC46D17018 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A358854868AC8CEBB6A71233 /* RunCheckpointTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RunCheckpointTests.swift; sourceTree = "<group>"; };
+		CEF708DE53D6B5BE48437258 /* RunRecorder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RunRecorder.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		2C801593F91E016F271F0A06 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				38784905B55B236B0E33B31E /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		29324A3CEB6D3240B5CCAD21 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				4DB570C46659787544F94225 /* watchOS */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		4DB570C46659787544F94225 /* watchOS */ = {
+			isa = PBXGroup;
+			children = (
+				1D79A6C3E9F7C8EBD0712048 /* Foundation.framework */,
+			);
+			name = watchOS;
+			sourceTree = "<group>";
+		};
+		64328F02A82E2EAB1D792F47 /* RunTaehoWatch */ = {
+			isa = PBXGroup;
+			children = (
+				A28914C78D2A10BC46D17018 /* Info.plist */,
+				6608E970BDA9B6233F6BC069 /* RunCheckpoint.swift */,
+				CEF708DE53D6B5BE48437258 /* RunRecorder.swift */,
+				9B48D80A936166060D0ECBEE /* RunTaehoWatch.entitlements */,
+				404BD0A7B6B6729A27C31C98 /* RunTaehoWatchApp.swift */,
+				99DA6078746AD37C236086D9 /* WatchAppDelegate.swift */,
+				2117CAD2BCBD0E323A0AD7AF /* WatchDisplaySettings.swift */,
+			);
+			name = RunTaehoWatch;
+			path = RunTaehoWatch;
+			sourceTree = "<group>";
+		};
+		8845BF3EE2D40C3CD5CFB3F2 /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				A358854868AC8CEBB6A71233 /* RunCheckpointTests.swift */,
+				93EF88F101451AD36EAE384E /* WatchDisplaySettingsTests.swift */,
+			);
+			name = Tests;
+			path = Tests;
+			sourceTree = "<group>";
+		};
+		A97C6611FBFB840B7D3E4F60 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				2D489EAF889AF9DBB1D3D02C /* RunTaehoWatch.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		B4AA1573F88A548FD52A828C = {
+			isa = PBXGroup;
+			children = (
+				A97C6611FBFB840B7D3E4F60 /* Products */,
+				29324A3CEB6D3240B5CCAD21 /* Frameworks */,
+				64328F02A82E2EAB1D792F47 /* RunTaehoWatch */,
+				8845BF3EE2D40C3CD5CFB3F2 /* Tests */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		47F4B01FACD1350410C37492 /* RunTaehoWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 44C6D7C280C983EEF3E30118 /* Build configuration list for PBXNativeTarget "RunTaehoWatch" */;
+			buildPhases = (
+				D5FFBE988E72510A0B86FDC8 /* Sources */,
+				2C801593F91E016F271F0A06 /* Frameworks */,
+				CF34EFC4EF1FC7EED0F07571 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = RunTaehoWatch;
+			productName = RunTaehoWatch;
+			productReference = 2D489EAF889AF9DBB1D3D02C /* RunTaehoWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		16CD9BF0A815E65B3BD5D956 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+			};
+			buildConfigurationList = CE9DA4C041361D54D00797BF /* Build configuration list for PBXProject "RunTaehoWatch" */;
+			compatibilityVersion = "Xcode 12.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = B4AA1573F88A548FD52A828C;
+			minimizedProjectReferenceProxies = 0;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = A97C6611FBFB840B7D3E4F60 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				47F4B01FACD1350410C37492 /* RunTaehoWatch */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		CF34EFC4EF1FC7EED0F07571 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D5FFBE988E72510A0B86FDC8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8D6195172B55B8B63AE9F961 /* RunCheckpoint.swift in Sources */,
+				7A4F5980FB74FBBE9B5746E8 /* RunRecorder.swift in Sources */,
+				672AF5851CC9DC36DCC2E8E6 /* RunTaehoWatchApp.swift in Sources */,
+				FF668805904D66A75ABB2BE5 /* WatchAppDelegate.swift in Sources */,
+				FF918518464480138D563FDB /* WatchDisplaySettings.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		1A56A8F4646D5C192B86D861 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = "";
+				CODE_SIGN_ENTITLEMENTS = RunTaehoWatch/RunTaehoWatch.entitlements;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3F893P33SC;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RunTaehoWatch/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = RunTaeho;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "러닝 중 심박과 운동 정보를 표시합니다.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "러닝 운동과 경로를 건강 앱에 저장합니다.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "야외 러닝 거리와 경로를 기록합니다.";
+				INFOPLIST_KEY_WKApplication = YES;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.runtaeho.runtaeho;
+				MARKETING_VERSION = 1.8.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.runtaeho.runtaeho.watchkitapp;
+				PRODUCT_NAME = RunTaehoWatch;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				VALIDATE_PRODUCT = YES;
+				WATCHOS_DEPLOYMENT_TARGET = 9.0;
+			};
+			name = Release;
+		};
+		1AFCDCB6E163E0F9517EC171 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					/usr/lib/swift,
+					"$(inherited)",
+				);
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = watchos;
+				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Development;
+		};
+		2EFCC5C7924DE73997A895A4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = "";
+				CODE_SIGN_ENTITLEMENTS = RunTaehoWatch/RunTaehoWatch.entitlements;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3F893P33SC;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RunTaehoWatch/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "RunTaeho (local)";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "러닝 중 심박과 운동 정보를 표시합니다.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "러닝 운동과 경로를 건강 앱에 저장합니다.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "야외 러닝 거리와 경로를 기록합니다.";
+				INFOPLIST_KEY_WKApplication = YES;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.runtaeho.runtaeho.dev;
+				MARKETING_VERSION = 1.8.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.runtaeho.runtaeho.dev.watchkitapp;
+				PRODUCT_NAME = RunTaehoWatch;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 9.0;
+			};
+			name = Debug;
+		};
+		638AD1AFE803202DAAB802B9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					/usr/lib/swift,
+					"$(inherited)",
+				);
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = watchos;
+				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		D765AAAE1AED913E75849646 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = "";
+				CODE_SIGN_ENTITLEMENTS = RunTaehoWatch/RunTaehoWatch.entitlements;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3F893P33SC;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RunTaehoWatch/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "RunTaeho (dev)";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "러닝 중 심박과 운동 정보를 표시합니다.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "러닝 운동과 경로를 건강 앱에 저장합니다.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "야외 러닝 거리와 경로를 기록합니다.";
+				INFOPLIST_KEY_WKApplication = YES;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.runtaeho.runtaeho.dev;
+				MARKETING_VERSION = 1.8.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.runtaeho.runtaeho.dev.watchkitapp;
+				PRODUCT_NAME = RunTaehoWatch;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				VALIDATE_PRODUCT = YES;
+				WATCHOS_DEPLOYMENT_TARGET = 9.0;
+			};
+			name = Development;
+		};
+		E9821DC2CE075584F152503F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					/usr/lib/swift,
+					"$(inherited)",
+				);
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = watchos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
+				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		44C6D7C280C983EEF3E30118 /* Build configuration list for PBXNativeTarget "RunTaehoWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1A56A8F4646D5C192B86D861 /* Release */,
+				2EFCC5C7924DE73997A895A4 /* Debug */,
+				D765AAAE1AED913E75849646 /* Development */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CE9DA4C041361D54D00797BF /* Build configuration list for PBXProject "RunTaehoWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E9821DC2CE075584F152503F /* Debug */,
+				638AD1AFE803202DAAB802B9 /* Release */,
+				1AFCDCB6E163E0F9517EC171 /* Development */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 16CD9BF0A815E65B3BD5D956 /* Project object */;
+}

@@ -1,0 +1,32 @@
+{
+  "local": {
+    "applicationId": "com.runtaeho.runtaeho.dev",
+    "name": "RunTaeho (local)",
+    "channel": "development",
+    "scheme": "runtaeho-dev",
+    "iosClientId": "322350985432-8ncbik7vqu55b9k0elq2rnrf7utl42ka.apps.googleusercontent.com",
+    "iosConfiguration": "Debug",
+    "iosScheme": "Local",
+    "androidClientId": "322350985432-f8eaakdqciansfscj572kvfpj0o3sco3.apps.googleusercontent.com"
+  },
+  "development": {
+    "applicationId": "com.runtaeho.runtaeho.dev",
+    "name": "RunTaeho (dev)",
+    "channel": "staging",
+    "scheme": "runtaeho-dev",
+    "iosClientId": "322350985432-8ncbik7vqu55b9k0elq2rnrf7utl42ka.apps.googleusercontent.com",
+    "iosConfiguration": "Development",
+    "iosScheme": "Development",
+    "androidClientId": "322350985432-f8eaakdqciansfscj572kvfpj0o3sco3.apps.googleusercontent.com"
+  },
+  "production": {
+    "applicationId": "com.runtaeho.runtaeho",
+    "name": "RunTaeho",
+    "channel": "production",
+    "scheme": "app",
+    "iosClientId": "322350985432-ilfhl51v50rtvgn0hho7tiui5e8km5en.apps.googleusercontent.com",
+    "iosConfiguration": "Release",
+    "iosScheme": "app",
+    "androidClientId": "322350985432-1lob7ji8e0tpsbsunqirodjga1e8iua5.apps.googleusercontent.com"
+  }
+}
