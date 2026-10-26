@@ -81,7 +81,7 @@ public final class WatchRegressionTests {
             System.out.println("PASS: " + passed + " watch timing, ownership and durable storage assertions");
         } finally { delete(root); }
     }
-    private static WatchStore newStore(File directory) {
+    static WatchStore newStore(File directory) {
         // Platform boundary: production uses Android Os.rename (API21+).
         return new WatchStore(directory, (from, to) -> {
             try {
@@ -103,7 +103,7 @@ public final class WatchRegressionTests {
         if (!value) throw new AssertionError(behavior);
         passed++;
     }
-    private static void delete(File file) {
+    static void delete(File file) {
         File[] children = file.listFiles();
         if (children != null) for (File child : children) delete(child);
         if (!file.delete()) throw new AssertionError("Unable to clean test storage");

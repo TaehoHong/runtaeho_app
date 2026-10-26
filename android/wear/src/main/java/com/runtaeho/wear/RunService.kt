@@ -80,6 +80,7 @@ class RunService : Service(), ExerciseUpdateCallback {
                 if (has(hrPermission) && DataType.HEART_RATE_BPM in supported) types.add(DataType.HEART_RATE_BPM)
                 if (DataType.CALORIES_TOTAL in supported) types.add(DataType.CALORIES_TOTAL)
                 if (DataType.STEPS_PER_MINUTE in supported) types.add(DataType.STEPS_PER_MINUTE)
+                if (DataType.SPEED in supported) types.add(DataType.SPEED)
                 val now = System.currentTimeMillis()
                 run = JSONObject().put("schemaVersion", 1).put("sessionId", UUID.randomUUID().toString())
                     .put("ownerUserId", owner).put("source", "WEAR_OS").put("startTimestamp", now / 1000)
@@ -99,6 +100,7 @@ class RunService : Service(), ExerciseUpdateCallback {
     private fun recover() {
         if (run == null) { stopSelf(); return }
         run?.put("state", "RECOVERING")
+        run?.put("speedAvailable", false)?.put("cadenceAvailable", false)?.put("heartRateAvailable", false)
         save()
         client.setUpdateCallback(mainExecutor, this)
         future(client.getCurrentExerciseInfoAsync()) { info ->
@@ -136,6 +138,11 @@ class RunService : Service(), ExerciseUpdateCallback {
         val record = run ?: return
         try {
             val state = update.exerciseStateInfo.state
+            val previousState = record.optString("state")
+            if (state == ExerciseState.ACTIVE && previousState != "ACTIVE") {
+                record.put("speedAvailable", false).put("cadenceAvailable", false).put("heartRateAvailable", false)
+                    .put("liveSinceEpochMs", System.currentTimeMillis())
+            }
             val checkpoint = update.activeDurationCheckpoint
             if (checkpoint != null) {
                 record.put("durationMs", checkpoint.activeDuration.toMillis())
@@ -155,17 +162,22 @@ class RunService : Service(), ExerciseUpdateCallback {
             }
             update.latestMetrics.getData(DataType.DISTANCE_TOTAL)?.total?.takeIf { it.isFinite() && it >= 0 }?.let { record.put("distance", it) }
             update.latestMetrics.getData(DataType.CALORIES_TOTAL)?.total?.takeIf { it.isFinite() && it >= 0 }?.let { record.put("calorie", it.toInt()) }
+            val bootEpochMs = record.getLong("bootEpochMs")
+            update.latestMetrics.getData(DataType.SPEED).forEach { point ->
+                val epochMs = bootEpochMs + point.timeDurationFromBoot.toMillis()
+                LiveMetricSamples.capture(record, "speed", point.value, epochMs, System.currentTimeMillis())
+            }
             update.latestMetrics.getData(DataType.HEART_RATE_BPM).forEach { point ->
                 val time = point.timeDurationFromBoot.toMillis()
+                LiveMetricSamples.capture(record, "heartRate", point.value, bootEpochMs + time, System.currentTimeMillis())
                 if (time > record.getLong("lastHeartTime") && point.value.isFinite() && point.value > 0) {
-                    record.put("heartRateAvailable", true)
                     record.put("heartRateSum", record.getDouble("heartRateSum") + point.value)
                         .put("heartRateCount", record.getInt("heartRateCount") + 1).put("lastHeartTime", time)
-                        .put("heartRateLatest", point.value.toInt())
                 }
             }
             update.latestMetrics.getData(DataType.STEPS_PER_MINUTE).forEach { point ->
                 val time = point.timeDurationFromBoot.toMillis()
+                LiveMetricSamples.capture(record, "cadence", point.value.toDouble(), bootEpochMs + time, System.currentTimeMillis())
                 if (time > record.getLong("lastCadenceTime") && point.value > 0) {
                     record.put("cadenceSum", record.getDouble("cadenceSum") + point.value)
                         .put("cadenceCount", record.getInt("cadenceCount") + 1).put("lastCadenceTime", time)
@@ -256,10 +268,14 @@ class RunService : Service(), ExerciseUpdateCallback {
     }
     override fun onLapSummaryReceived(lapSummary: ExerciseLapSummary) { }
     override fun onAvailabilityChanged(dataType: DataType<*, *>, availability: Availability) {
-        if (dataType == DataType.HEART_RATE_BPM) {
-            run?.put("heartRateAvailable", availability == DataTypeAvailability.AVAILABLE)
-            save()
+        val key = when (dataType) {
+            DataType.HEART_RATE_BPM -> "heartRateAvailable"
+            DataType.SPEED -> "speedAvailable"
+            DataType.STEPS_PER_MINUTE -> "cadenceAvailable"
+            else -> return
         }
+        run?.put(key, availability == DataTypeAvailability.AVAILABLE)
+        save()
     }
     override fun onDestroy() {
         client.clearUpdateCallbackAsync(this)

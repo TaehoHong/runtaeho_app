@@ -13,6 +13,7 @@
 		3BDB30733501BA1013E02344 /* RNWatchSyncBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = 7C133E9841783C0F6D47371F /* RNWatchSyncBridge.m */; };
 		3C5E3C226AC99DA0D0C71423 /* RNWatchSyncBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD4479BD40E3D6D71A10F133 /* RNWatchSyncBridge.swift */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
+		4918CBBDD6BC6E62232702D4 /* WatchDisplaySettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75C99182ED3F884701B30E41 /* WatchDisplaySettings.swift */; };
 		ADCD3A47B76623C95774D5E0 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 3EB4D8CB6799DC98CE183608 /* PrivacyInfo.xcprivacy */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		CB8162CB65B206F3E47A474E /* RunCheckpoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72FFA6EFB2161868B49C1706 /* RunCheckpoint.swift */; };
@@ -81,6 +82,7 @@
 		4AC1F8E3FD42C1AD3A6378D5 /* RunRecorder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RunRecorder.swift; sourceTree = "<group>"; };
 		69C3B43C95867964A3C92DC7 /* WatchAppDelegate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchAppDelegate.swift; sourceTree = "<group>"; };
 		72FFA6EFB2161868B49C1706 /* RunCheckpoint.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RunCheckpoint.swift; sourceTree = "<group>"; };
+		75C99182ED3F884701B30E41 /* WatchDisplaySettings.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchDisplaySettings.swift; sourceTree = "<group>"; };
 		7A121A98D3B360255915DCBF /* Pods-app.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-app.debug.xcconfig"; path = "Target Support Files/Pods-app/Pods-app.debug.xcconfig"; sourceTree = "<group>"; };
 		7C133E9841783C0F6D47371F /* RNWatchSyncBridge.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = RNWatchSyncBridge.m; sourceTree = "<group>"; };
 		8D73E90F4DB8D4839B04E9AB /* libPods-app.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-app.a"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -191,6 +193,7 @@
 				3C6177519164F2BF49EA71EE /* RunTaehoWatchApp.swift */,
 				72FFA6EFB2161868B49C1706 /* RunCheckpoint.swift */,
 				69C3B43C95867964A3C92DC7 /* WatchAppDelegate.swift */,
+				75C99182ED3F884701B30E41 /* WatchDisplaySettings.swift */,
 			);
 			name = RunTaehoWatch;
 			path = RunTaehoWatch;
@@ -585,6 +588,7 @@
 				F73B6BE850963907B241A3DC /* RunTaehoWatchApp.swift in Sources */,
 				CB8162CB65B206F3E47A474E /* RunCheckpoint.swift in Sources */,
 				19F5669D86E80AB19C627935 /* WatchAppDelegate.swift in Sources */,
+				4918CBBDD6BC6E62232702D4 /* WatchDisplaySettings.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

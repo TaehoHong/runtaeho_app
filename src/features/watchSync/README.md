@@ -113,6 +113,19 @@ see `android/wear/README.md`. Our HealthKit watch source/metadata is excluded by
 `src/features/healthImport/bridge/iOS/RNHealthImportBridge.swift` to prevent import
 of the same run through the external-workout path.
 
+## Watch display preferences
+
+`ios/RunTaehoWatch/WatchDisplaySettings.swift` owns local KPH/MPH display
+preferences and four independent metric slots. Each slot keeps 1–3 distinct
+favorites, cycles in enum order, and preserves its active metric when possible.
+Changing units or slots does not change recorded meters, active seconds or
+uploaded aggregates. Current pace/speed use the latest GPS speed, heart rate uses
+the latest HealthKit sample, and cadence uses CoreMotion steps/second converted
+to steps/minute. Live samples expire after 30 seconds; caches clear on a new run,
+pause/resume and recovery. Paused/unavailable/nonfinite live values display `--`;
+measured zero speed/cadence remains valid, while zero speed has no current pace.
+The settings preview is illustrative and does not write running data.
+
 ## Verification
 
 From `runtaeho_app/`:
@@ -122,6 +135,8 @@ npm run test:unit -- --runTestsByPath src/features/watchSync/__tests__/watchSync
 npx eslint src/features/watchSync src/providers/AuthProvider.tsx index.js
 swiftc -module-cache-path /tmp/watch-checkpoint-modules ios/RunTaehoWatch/RunCheckpoint.swift ios/RunTaehoWatchTests/RunCheckpointTests.swift -o /tmp/watch-checkpoint-tests
 /tmp/watch-checkpoint-tests
+swiftc -module-cache-path /tmp/watch-display-modules ios/RunTaehoWatch/WatchDisplaySettings.swift ios/RunTaehoWatch/RunCheckpoint.swift ios/RunTaehoWatchTests/WatchDisplaySettingsTests.swift -o /tmp/watch-display-tests
+/tmp/watch-display-tests
 xcodebuild -project ios/app.xcodeproj -scheme RunTaehoWatch -sdk watchsimulator -configuration Debug -derivedDataPath /tmp/watch-derived CODE_SIGNING_ALLOWED=NO build
 ```
 
@@ -138,4 +153,7 @@ permissions, screen-off long runs, sensor/GPS loss, restart recovery, account
 switches, reconnect without watch Wi-Fi, phone background/lock and duplicated or
 lost transfers/acks. Confirm one server record and one completion reward per UUID.
 Long-run battery/storage behavior, signing/distribution and actual background
-execution require device validation.
+execution require device validation. Settings tests cover persistence, malformed
+preferences, independent cycling, conversion, live-value freshness and unchanged
+SI upload payloads. Simulator rendering does not verify physical sensor cadence,
+GPS/heart-rate freshness, wrist interaction or haptic feedback.

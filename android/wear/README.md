@@ -60,3 +60,31 @@ process kill/relaunch; reconnect without watch Wi-Fi; phone background and lock;
 account switch; duplicated/lost transfer and acknowledgement. Confirm a single
 server record/reward for each immutable session UUID. Host/compile/lint success is
 not evidence of physical recording or background delivery success.
+
+## Display settings and metrics
+
+The native settings screens implement the approved Figma settings/metric-picker
+reference. KPH is the default display system (km, min/km, km/h); MPH displays
+mi, min/mi, mph. Sensor capture and server upload keep meters, seconds and m/s.
+Four independently tappable slots persist one to three distinct favorite metrics
+and the currently shown metric in private `display-settings` storage. Their order
+is canonical, malformed/legacy settings recover defaults, and the last favorite
+cannot be removed. Only the native view text refreshes each second; the navigation
+and scroll view stay in place. Settings previews use explicitly local sample data.
+
+Current pace uses capability-gated Health Services SPEED samples, not average
+pace. Average pace uses active elapsed time and measured distance. Local speed,
+heart-rate and cadence caches are separate from aggregate upload sums/counts,
+are cleared on active transitions/recovery, and reject samples preceding that
+transition. Live metrics show `--` while paused, unavailable or more than thirty
+seconds old; Health Services can batch samples with the screen off. Zero measured
+speed/cadence/distance/calories remains distinct from missing values. No dependency,
+permission, server schema or completed-record field was added for these screens.
+
+The standalone host harness additionally checks slot independence, deterministic
+cycles and selection bounds, persisted settings recovery, unit math without
+canonical mutations, live-versus-average pace, rounding, missing/paused/stale/zero
+values and sensor-cache boundaries. Android Views render on actual watch sizes
+with 48dp targets and fallback scrolling. No Android emulator or paired hardware
+was available for a screenshot, haptic or physical sensor test; visual fit and
+screen-off sensor freshness remain device validation gates.

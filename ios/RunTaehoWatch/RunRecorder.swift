@@ -1,6 +1,7 @@
 import Foundation
 import HealthKit
 import CoreLocation
+import CoreMotion
 import WatchConnectivity
 
 final class RunRecorder: NSObject, ObservableObject, HKWorkoutSessionDelegate, HKLiveWorkoutBuilderDelegate, CLLocationManagerDelegate, WCSessionDelegate {
@@ -9,6 +10,13 @@ final class RunRecorder: NSObject, ObservableObject, HKWorkoutSessionDelegate, H
   @Published var errorMessage: String?
   @Published var finishing = false
   @Published var lastServerSaved = false
+  @Published private var liveSpeed: WatchLiveSample?
+  @Published private var liveHeartRate: WatchLiveSample?
+  @Published private var liveCadence: WatchLiveSample?
+  @Published private var measuredCalories: Double?
+  private let pedometer = CMPedometer()
+  private var liveGeneration = 0
+  private var liveStartedAt = Date.distantFuture
   private var starting = false
   private let health = HKHealthStore()
   private let location = CLLocationManager()
@@ -58,6 +66,8 @@ final class RunRecorder: NSObject, ObservableObject, HKWorkoutSessionDelegate, H
   func start() {
     guard record == nil, !starting, let owner, owner > 0 else { return }
     starting = true
+    clearLiveMetrics()
+    measuredCalories = nil
     errorMessage = nil
     lastServerSaved = false
     let types: Set<HKSampleType> = [HKObjectType.workoutType(), HKSeriesType.workoutRoute(), HKQuantityType(.distanceWalkingRunning), HKQuantityType(.activeEnergyBurned)]
@@ -84,6 +94,36 @@ final class RunRecorder: NSObject, ObservableObject, HKWorkoutSessionDelegate, H
       }
     }
   }
+  func metricValues(at now: Date) -> WatchMetricValues {
+    let active = record?.activeSince != nil && !finishing && workout != nil
+    return WatchMetricValues(elapsed: record?.elapsed(at: now) ?? 0,
+      distanceMeters: record?.distanceMeasured == true ? record.map { Double($0.distance) } : nil,
+      active: active, speed: liveSpeed, heartRate: liveHeartRate, cadence: liveCadence,
+      calories: measuredCalories)
+  }
+  private func clearLiveMetrics() {
+    liveGeneration += 1
+    liveSpeed = nil; liveHeartRate = nil; liveCadence = nil
+    liveStartedAt = .distantFuture
+    pedometer.stopUpdates()
+  }
+  private func startLiveMetrics(at date: Date) {
+    clearLiveMetrics()
+    liveStartedAt = date
+    guard CMPedometer.isCadenceAvailable() else { return }
+    let generation = liveGeneration
+    pedometer.startUpdates(from: date) { [weak self] data, error in
+      DispatchQueue.main.async {
+        guard let self, self.liveGeneration == generation, self.record?.activeSince != nil else { return }
+        guard error == nil, let data, let cadence = data.currentCadence?.doubleValue,
+          cadence.isFinite, cadence >= 0, data.endDate >= self.liveStartedAt else {
+          self.liveCadence = nil
+          return
+        }
+        self.liveCadence = WatchLiveSample.cadence(stepsPerSecond: cadence, timestamp: data.endDate)
+      }
+    }
+  }
   var hasLiveSession: Bool { workout != nil }
   func togglePause() {
     guard workout != nil, !finishing else { return }
@@ -93,6 +133,7 @@ final class RunRecorder: NSObject, ObservableObject, HKWorkoutSessionDelegate, H
   func finish() {
     guard !finishing, record != nil else { return }
     finishing = true
+    clearLiveMetrics()
     let endedAt = Date()
     record?.pause(at: endedAt); record?.endTimestamp = Int(endedAt.timeIntervalSince1970)
     guard persist() else { finishing = false; return }
@@ -146,6 +187,9 @@ final class RunRecorder: NSObject, ObservableObject, HKWorkoutSessionDelegate, H
       let sample = RunCheckpoint.Point(latitude: point.coordinate.latitude, longitude: point.coordinate.longitude, timestampMs: Int64(point.timestamp.timeIntervalSince1970 * 1000), speed: point.speed.isFinite ? max(0, point.speed) : 0, altitude: point.altitude, accuracy: point.horizontalAccuracy)
       guard record?.accepts(sample, nowMs: Int64(Date().timeIntervalSince1970 * 1000)) == true else { continue }
       guard (record?.gpsPoints.count ?? 0) < 100_000 else { errorMessage = "GPS 저장 한도에 도달했습니다. 기록을 종료하세요."; togglePause(); return }
+      if point.timestamp >= liveStartedAt {
+        liveSpeed = point.speed.isFinite && point.speed >= 0 ? WatchLiveSample(value: point.speed, timestamp: point.timestamp) : nil
+      }
       record?.gpsPoints.append(sample)
       accepted.append(point)
     }
@@ -157,15 +201,16 @@ final class RunRecorder: NSObject, ObservableObject, HKWorkoutSessionDelegate, H
     DispatchQueue.main.async {
       guard self.record != nil, self.workout === workoutSession else { return }
       if toState == .paused || toState == .ended {
+        self.clearLiveMetrics()
         self.record?.pause(at: date)
         if let builder = self.builder { self.record?.activeSeconds = builder.elapsedTime(at: date); self.record?.durationSec = max(0, Int(builder.elapsedTime(at: date))) }
         self.location.stopUpdatingLocation()
       }
-      if toState == .running && !self.finishing { if self.record?.activeSince == nil { self.record?.activeSince = date }; self.location.startUpdatingLocation() }
+      if toState == .running && !self.finishing { if self.record?.activeSince == nil { self.record?.activeSince = date }; self.startLiveMetrics(at: date); self.location.startUpdatingLocation() }
       self.persist()
     }
   }
-  func workoutSession(_ workoutSession: HKWorkoutSession, didFailWithError error: Error) { DispatchQueue.main.async { guard self.workout === workoutSession else { return }; self.record?.pause(at: Date()); self.location.stopUpdatingLocation(); self.persist(); self.errorMessage = "운동 측정이 중단되었습니다. 기록을 종료하세요." } }
+  func workoutSession(_ workoutSession: HKWorkoutSession, didFailWithError error: Error) { DispatchQueue.main.async { guard self.workout === workoutSession else { return }; self.clearLiveMetrics(); self.record?.pause(at: Date()); self.location.stopUpdatingLocation(); self.persist(); self.errorMessage = "운동 측정이 중단되었습니다. 기록을 종료하세요." } }
   func workoutBuilderDidCollectEvent(_ workoutBuilder: HKLiveWorkoutBuilder) {}
   func workoutBuilder(_ workoutBuilder: HKLiveWorkoutBuilder, didCollectDataOf collectedTypes: Set<HKSampleType>) {
     DispatchQueue.main.async {
@@ -175,6 +220,14 @@ final class RunRecorder: NSObject, ObservableObject, HKWorkoutSessionDelegate, H
     }
   }
   private func updateMetrics(_ builder: HKLiveWorkoutBuilder) {
+    if let stat = builder.statistics(for: HKQuantityType(.heartRate)), let latest = stat.mostRecentQuantity(),
+      let interval = stat.mostRecentQuantityDateInterval(), interval.end >= liveStartedAt {
+      liveHeartRate = WatchLiveSample(value: latest.doubleValue(for: .count().unitDivided(by: .minute())), timestamp: interval.end)
+    }
+    if let quantity = builder.statistics(for: HKQuantityType(.activeEnergyBurned))?.sumQuantity() {
+      let calories = quantity.doubleValue(for: .kilocalorie())
+      measuredCalories = calories.isFinite && calories >= 0 ? calories : nil
+    }
     if let stat = builder.statistics(for: HKQuantityType(.heartRate)) { record?.heartRate = min(255, max(0, Int(stat.averageQuantity()?.doubleValue(for: .count().unitDivided(by: .minute())) ?? 0))) }
     if let stat = builder.statistics(for: HKQuantityType(.activeEnergyBurned)) { record?.calorie = max(0, Int(stat.sumQuantity()?.doubleValue(for: .kilocalorie()) ?? 0)) }
     if let quantity = builder.statistics(for: HKQuantityType(.distanceWalkingRunning))?.sumQuantity() {
