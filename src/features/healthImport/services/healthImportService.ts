@@ -145,6 +145,7 @@ const toBatchRecord = (workout: HealthRunningWorkout): HealthImportBatchRecord =
   return {
     externalId: workout.sourceRecordId,
     sourceBundleId: workout.sourceBundleId,
+    sourceAppName: workout.sourceAppName,
     recordingMethod: workout.recordingMethod ?? 'UNKNOWN',
     distance,
     durationSec,
@@ -288,6 +289,7 @@ const isWorkoutShape = (value: unknown): value is HealthRunningWorkout => {
   return typeof workout.sourceRecordId === 'string' && workout.sourceRecordId.length > 0 &&
     ['startTimestamp', 'endTimestamp', 'distance', 'durationSec'].every((field) => typeof workout[field] === 'number') &&
     (workout.sourceBundleId == null || typeof workout.sourceBundleId === 'string') &&
+    (workout.sourceAppName == null || typeof workout.sourceAppName === 'string') &&
     (workout.recordingMethod == null || (typeof workout.recordingMethod === 'string' &&
       ['RECORDED', 'MANUAL', 'UNKNOWN'].includes(workout.recordingMethod))) &&
     (workout.routeStatus == null || ROUTE_STATUSES.includes(workout.routeStatus as HealthRouteStatus)) &&

@@ -355,6 +355,50 @@ interface RecordHeroProps {
 const RecordHero: React.FC<RecordHeroProps> = ({ record, variant }) => {
   useAppLanguage();
   const distance = RunningStatusFormat.distanceParts(record.distance);
+  let sourceLabel: string | null = null;
+  switch (record.source) {
+    case 'LIVE': sourceLabel = t("앱 기록"); break;
+    case 'HEALTH': {
+      const appName = record.sourceAppName?.trim();
+      sourceLabel = appName ? t("건강 연동 · {{appName}}", { appName }) : t("건강 연동");
+      break;
+    }
+    case 'GARMIN': sourceLabel = t("가민 직접 연동"); break;
+    case 'APPLE_WATCH': sourceLabel = t("Apple Watch"); break;
+    case 'WEAR_OS': sourceLabel = t("Wear OS"); break;
+  }
+
+  let exclusionReason: string | null = null;
+  if (record.acceptanceStatus !== 'PENDING' && record.pointAwarded !== true &&
+      (record.pointExclusionReason != null || record.pointEligible === false)) {
+    switch (record.pointExclusionReason) {
+      case 'MANUAL_ENTRY':
+        exclusionReason = t("수동 입력 기록이라 포인트·리그에 반영되지 않았어요.");
+        break;
+      case 'RECORDING_METHOD_UNKNOWN':
+        exclusionReason = t("기기 측정 여부를 확인할 수 없어 개인 기록으로 저장했어요.");
+        break;
+      case 'BEFORE_POINT_CUTOFF':
+        exclusionReason = t("포인트 지급 기준 시각 이전 기록이에요.");
+        break;
+      case 'OVERLAPPING_ACTIVITY':
+        exclusionReason = t("이미 인정된 러닝과 시간이 겹쳐 포인트·리그에 반영되지 않았어요.");
+        break;
+      default:
+        exclusionReason = t("포인트 제외 사유 정보가 없어요.");
+    }
+  }
+
+  let recordingMethodLabel: string | null = null;
+  switch (record.recordingMethod) {
+    case 'RECORDED': recordingMethodLabel = t("기기 측정"); break;
+    case 'MANUAL':
+      if (!exclusionReason || record.pointExclusionReason !== 'MANUAL_ENTRY') recordingMethodLabel = t("수동 입력");
+      break;
+    case 'UNKNOWN':
+      if (!exclusionReason || record.pointExclusionReason !== 'RECORDING_METHOD_UNKNOWN') recordingMethodLabel = t("측정 방식 확인 불가");
+      break;
+  }
 
   return (
     <View style={[styles.recordHero, variant === 'route' ? styles.recordHeroRoute : styles.recordHeroNoMap]}>
@@ -363,6 +407,9 @@ const RecordHero: React.FC<RecordHeroProps> = ({ record, variant }) => {
         <Text style={styles.distanceUnit}>{distance.unit}</Text>
       </View>
       <Text style={styles.distanceCaption}>{t("오늘의 러닝 거리")}</Text>
+      {sourceLabel ? <Text style={styles.distanceCaption}>{sourceLabel}</Text> : null}
+      {recordingMethodLabel ? <Text style={styles.splitMeta}>{recordingMethodLabel}</Text> : null}
+      {exclusionReason ? <Text style={styles.distanceCaption}>{exclusionReason}</Text> : null}
     </View>
   );
 };

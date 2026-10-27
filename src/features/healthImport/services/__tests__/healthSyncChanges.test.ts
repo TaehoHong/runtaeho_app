@@ -98,6 +98,28 @@ describe('Health change cursor synchronization', () => {
     expect(disk.get(cursorKey)).toBe('initial-anchor');
   });
 
+  it.each(['  달리기 앱 🚀  ', null])('preserves the original optional source app name %s in the import request', async (sourceAppName) => {
+    readChanges.mockResolvedValue(page({ workouts: [{ ...workout('named-source'), sourceAppName }] }));
+
+    await healthImportService.sync();
+
+    expect(api.post.mock.calls[0]![1]).toEqual({
+      records: [expect.objectContaining({ externalId: 'named-source', sourceAppName })],
+    });
+    expect(disk.get(cursorKey)).toBe('next');
+  });
+
+  it('imports an older native workout without the optional source app name', async () => {
+    readChanges.mockResolvedValue(page({ workouts: [workout('unnamed-source')] }));
+
+    await healthImportService.sync();
+
+    const request = api.post.mock.calls[0]![1] as HealthImportBatchRequest;
+    expect(request.records[0]!.externalId).toBe('unnamed-source');
+    expect(request.records[0]!.sourceAppName).toBeUndefined();
+    expect(disk.get(cursorKey)).toBe('next');
+  });
+
   it('replays the same page after the server saves but its acknowledgment is lost', async () => {
     readChanges.mockResolvedValue(page({ workouts: [workout('saved-before-timeout')] }));
     api.post.mockRejectedValueOnce(new Error('network unavailable'));
@@ -257,6 +279,7 @@ describe('Health change cursor synchronization', () => {
 
   it.each([
     { ...page(), workouts: [null] },
+    { ...page(), workouts: [{ ...workout('invalid-source-name'), sourceAppName: 42 }] },
     { ...page(), nextCursor: null },
     { ...page(), nextCursor: 'previous', hasMore: true },
     page({ workouts: [{ ...workout('unread-route'), routeStatus: 'readFailed' }] }),

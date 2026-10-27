@@ -367,6 +367,7 @@ class RNHealthImportBridge: NSObject {
             var record: [String: Any] = [
                 "sourceRecordId": "apple-health:\(workout.uuid.uuidString)",
                 "sourceBundleId": workout.sourceRevision.source.bundleIdentifier,
+                "sourceAppName": workout.sourceRevision.source.name,
                 "recordingMethod": recordingMethod,
                 "startTimestamp": floor(startTimestamp),
                 "endTimestamp": floor(endTimestamp),

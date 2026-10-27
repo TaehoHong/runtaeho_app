@@ -1,5 +1,7 @@
 import { useAppLanguage } from '~/i18n';
 import { useCallback, useEffect, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '~/services/queryClient';
 import type { ChartDataPoint, ExtendedStatisticsSummary, RunningChartDto } from '../models';
 import {
   Period,
@@ -67,6 +69,7 @@ export const useStatisticsViewModel = (
   referenceDate: Date = new Date()
 ) => {
   const language = useAppLanguage();
+  const queryClient = useQueryClient();
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   // Period에 따른 날짜 범위 계산 (현재 기간)
   const { startDateTime, endDateTime } = useMemo(() => {
@@ -224,8 +227,11 @@ export const useStatisticsViewModel = (
 
   // 새로고침 핸들러
   const handleRefresh = useCallback(async () => {
-    await refetch();
-  }, [refetch]);
+    await Promise.all([
+      refetch(),
+      queryClient.invalidateQueries({ queryKey: queryKeys.running.all }),
+    ]);
+  }, [refetch, queryClient]);
 
   // 통계 데이터 유효성 검사
   const hasValidData = useMemo(() => {

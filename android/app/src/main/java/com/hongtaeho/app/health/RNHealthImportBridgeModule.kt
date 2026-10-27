@@ -1,6 +1,7 @@
 package com.hongtaeho.app.health
 
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
 import androidx.health.connect.client.HealthConnectClient
@@ -345,6 +346,13 @@ class RNHealthImportBridgeModule(
 
         putString("sourceRecordId", "health-connect:$sourcePackageName:${session.metadata.id}")
         putString("sourceBundleId", sourcePackageName)
+        putString("sourceAppName", try {
+            val packageManager = reactContext.packageManager
+            val applicationInfo = packageManager.getApplicationInfo(sourcePackageName, 0)
+            packageManager.getApplicationLabel(applicationInfo).toString()
+        } catch (_: PackageManager.NameNotFoundException) {
+            null
+        })
         putString("recordingMethod", when (session.metadata.recordingMethod) {
             Metadata.RECORDING_METHOD_MANUAL_ENTRY -> "MANUAL"
             Metadata.RECORDING_METHOD_ACTIVELY_RECORDED,

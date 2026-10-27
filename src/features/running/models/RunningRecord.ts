@@ -15,7 +15,14 @@ export interface RunningRecord {
   durationSec: number; // TimeInterval (seconds)
   startTimestamp: number; // Unix timestamp
   endTimestamp?: number; // 실제 러닝 종료 시각 (Unix timestamp, 초)
-  acceptanceStatus?: EndRunningRecord['acceptanceStatus'];
+  source?: 'LIVE' | 'HEALTH' | 'GARMIN' | 'APPLE_WATCH' | 'WEAR_OS' | null;
+  sourceAppId?: string | null;
+  sourceAppName?: string | null;
+  recordingMethod?: 'RECORDED' | 'MANUAL' | 'UNKNOWN' | null;
+  pointExclusionReason?: 'MANUAL_ENTRY' | 'RECORDING_METHOD_UNKNOWN' | 'BEFORE_POINT_CUTOFF' | 'OVERLAPPING_ACTIVITY' | null;
+  acceptanceStatus?: EndRunningRecord['acceptanceStatus'] | 'PENDING' | null;
+  pointEligible?: boolean | null;
+  pointAwarded?: boolean | null;
 }
 
 /**

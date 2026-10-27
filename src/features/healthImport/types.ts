@@ -17,6 +17,7 @@ export type HealthRecordingMethod = 'RECORDED' | 'MANUAL' | 'UNKNOWN';
 export interface HealthRunningWorkout {
   sourceRecordId: string;
   sourceBundleId?: string | null;
+  sourceAppName?: string | null;
   recordingMethod?: HealthRecordingMethod;
   startTimestamp: number;
   endTimestamp: number;
@@ -46,6 +47,7 @@ export interface UpdateHealthImportConfigurationRequest {
 export interface HealthImportBatchRecord {
   externalId: string;
   sourceBundleId?: string | null;
+  sourceAppName?: string | null;
   recordingMethod?: HealthRecordingMethod;
   distance: number;
   durationSec: number;
