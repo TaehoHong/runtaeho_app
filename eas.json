@@ -66,10 +66,12 @@
     "production": {
       "ios": {
         "ascAppId": "6755414468",
+        "bundleIdentifier": "com.runtaeho.runtaeho",
         "appleTeamId": "3F893P33SC"
       },
       "android": {
         "track": "production",
+        "applicationId": "com.runtaeho.runtaeho",
         "releaseStatus": "completed"
       }
     }

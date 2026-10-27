@@ -61,6 +61,19 @@ post_integrate do |installer|
     raise 'Expo configure phase is missing for app profile setup' unless phase
     profile_source = "source \"$PROJECT_DIR/../scripts/xcode-profile.sh\"\n"
     phase.shell_script = profile_source + phase.shell_script unless phase.shell_script.include?(profile_source)
+    # Archive products live in TARGET_BUILD_DIR; declare the real plist dependency before modifying it.
+    ads_phase = target.shell_script_build_phases.find { |item| item.name == '[CP-User] [RNGoogleMobileAds] Configuration' }
+    raise 'Google Mobile Ads configuration phase is missing' unless ads_phase
+    ads_phase.input_paths = ads_phase.input_paths.map do |path|
+      path.sub('$(BUILT_PRODUCTS_DIR)/$(INFOPLIST_PATH)', '$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)')
+    end
+    ads_phase.shell_script = ads_phase.shell_script.gsub('${BUILT_PRODUCTS_DIR}/${INFOPLIST_PATH}', '${TARGET_BUILD_DIR}/${INFOPLIST_PATH}')
+    # The phone plist includes Watch metadata, so embed the Watch app before plist consumers.
+    watch_phase = target.copy_files_build_phases.find { |item| item.name == 'Embed Watch Content' }
+    if watch_phase && target.build_phases.index(watch_phase) > target.build_phases.index(ads_phase)
+      target.build_phases.delete(watch_phase)
+      target.build_phases.insert(target.build_phases.index(ads_phase), watch_phase)
+    end
     project.save
   end
 end

@@ -5,7 +5,7 @@
 # EAS Build(원격 빌드)를 쓸 수 없기 때문에 로컬 빌드가 유일한 경로다.
 # Unity 산출물이 저장소가 아니라 이 맥의 절대경로에 있고, ios/app.xcworkspace와
 # android/settings.gradle이 그 경로를 직접 참조한다. 그래서 빌드는 로컬에서 하고
-# 업로드만 eas submit --path 로 자동화한다.
+# 운영 업로드는 EAS Submit, 개발 업로드는 Firebase / fastlane으로 자동화한다.
 #
 #   bash scripts/deploy-store.sh --version 1.9.0
 #   bash scripts/deploy-store.sh --platform ios
@@ -27,6 +27,8 @@ RUN_PODS=0
 PREFLIGHT_ONLY=0
 RESUME=0
 SUBMIT_REVIEW=0
+LOCK_HELD=0
+LOCK_DIR="$ROOT/build/deploy.lock"
 
 OUT_DIR="$ROOT/build/release"
 
@@ -34,13 +36,24 @@ STEP="시작"
 die() { echo "오류: $*" >&2; exit 1; }
 info() { echo "▸ $*"; }
 step() { STEP="$1"; echo ""; echo "=== $1 ==="; }
-trap 'code=$?; [[ $code -ne 0 ]] && echo "" && echo "실패한 단계: $STEP" >&2; exit $code' EXIT
+finish() {
+  local code=$?
+  trap - EXIT
+  if [[ $LOCK_HELD -eq 1 ]]; then
+    rmdir "$LOCK_DIR" || { echo "배포 잠금 해제 실패: $LOCK_DIR" >&2; code=1; }
+  fi
+  if [[ $code -ne 0 ]]; then echo "실패한 단계: $STEP" >&2; fi
+  exit "$code"
+}
+trap finish EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 usage() {
   cat <<'EOF'
 사용법: bash scripts/deploy-store.sh [옵션]
 
-  --profile <name>      development | production (기본: production, 개발은 빌드만)
+  --profile <name>      development | production (기본: production)
   --platform <name>     all | ios | android      (기본: all)
   --version <x.y.z>     앱 버전을 이 값으로 올린다 (생략하면 현재 버전 유지)
   --no-bump             빌드번호/versionCode 증가를 건너뛴다
@@ -81,10 +94,11 @@ esac
 
 case "$PROFILE" in
   production) ;;
-  development) SUBMIT=0; OUT_DIR="$ROOT/build/development" ;;
+  development) OUT_DIR="$ROOT/build/development" ;;
   *) die "지원하지 않는 배포 프로파일: $PROFILE (development | production)" ;;
 esac
 [[ "$PROFILE" == production || $SUBMIT_REVIEW -eq 0 ]] || die "개발 앱은 운영 심사에 제출하지 않는다."
+source "$ROOT/scripts/deployment-config.sh"
 IOS_CONFIGURATION="$(node scripts/app-profile.cjs get "$PROFILE" iosConfiguration)"
 IOS_SCHEME="$(node scripts/app-profile.cjs get "$PROFILE" iosScheme)"
 
@@ -95,7 +109,8 @@ want_android() { [[ "$PLATFORM" == "all" || "$PLATFORM" == "android" ]]; }
 if [[ $SUBMIT_REVIEW -eq 1 ]]; then
   want_ios && [[ $SUBMIT -eq 1 ]] || die "--submit-review는 iOS 업로드와 함께 사용한다."
   command -v fastlane >/dev/null || die "설치된 fastlane이 필요하다."
-  [[ -n "${ASC_API_KEY_PATH:-}" && -f "$ASC_API_KEY_PATH" ]] || die "ASC_API_KEY_PATH에 외부 API key JSON 경로를 지정한다."
+  check_asc_api_key || exit 1
+  FASTLANE_SKIP_UPDATE_CHECK=1 FASTLANE_HIDE_CHANGELOG=1 fastlane production_preflight || die "운영 App Store Connect 앱과 API key 접근 권한을 확인한다."
 fi
 
 # gradle 프로퍼티가 ~/.gradle/gradle.properties 또는 ORG_GRADLE_PROJECT_* 로 있는지 확인
@@ -129,6 +144,9 @@ node scripts/check-env.cjs remote "$PROFILE"
 if want_ios; then
   command -v xcodebuild >/dev/null 2>&1 || die "xcodebuild를 찾을 수 없다."
   [[ -f "$ROOT/scripts/ExportOptions.plist" ]] || die "scripts/ExportOptions.plist가 없다."
+  xcodebuild -workspace ios/app.xcworkspace -scheme "$IOS_SCHEME" -configuration "$IOS_CONFIGURATION" \
+    -destination 'generic/platform=iOS' -showBuildSettings >/dev/null 2>&1 || \
+    die "Xcode의 iOS 플랫폼 설치와 선택한 스킴·구성을 확인한다 (Xcode > Settings > Components)."
 
   UNITY_IOS_PROJECT="$(sed -n 's/.*location = "absolute:\(.*\)">.*/\1/p' \
     ios/app.xcworkspace/contents.xcworkspacedata | head -1 || true)"
@@ -162,7 +180,8 @@ Unity에서 Android로 다시 export해야 한다."
 fi
 
 if [[ $SUBMIT -eq 1 ]]; then
-  npx eas whoami >/dev/null 2>&1 || die "EAS 로그인 또는 네트워크를 확인한다."
+  if want_ios; then bash scripts/submit-store.sh --profile "$PROFILE" --platform ios --preflight-only; fi
+  if want_android; then bash scripts/submit-store.sh --profile "$PROFILE" --platform android --preflight-only; fi
 fi
 
 if [[ $PREFLIGHT_ONLY -eq 1 ]]; then
@@ -170,6 +189,10 @@ if [[ $PREFLIGHT_ONLY -eq 1 ]]; then
   info "프리플라이트 통과 (버전/빌드는 건드리지 않았다)"
   exit 0
 fi
+
+mkdir -p "$ROOT/build"
+mkdir "$LOCK_DIR" 2>/dev/null || die "다른 배포가 실행 중이다. 종료된 작업이라면 build/deploy.lock을 확인한다."
+LOCK_HELD=1
 
 # ---------------------------------------------------------------- 버전
 
@@ -201,7 +224,7 @@ ANDROID_CODE="$(sed -n 's/.*versionCode \([0-9]*\).*/\1/p' android/app/build.gra
 
 mkdir -p "$OUT_DIR/ios" "$OUT_DIR/android"
 
-# 네이티브 빌드의 JS 번들은 .env.production을 읽는다 (Release 구성은 NODE_ENV=production).
+# 서버 환경은 앞에서 선택한 프로파일을 유지한다. 개발 앱도 Release 번들을 사용한다.
 export EXPO_PUBLIC_ENV="$PROFILE"
 
 # ---------------------------------------------------------------- iOS
@@ -267,12 +290,12 @@ fi
 if [[ $SUBMIT -eq 1 ]]; then
   if [[ -n "$IPA_PATH" ]]; then
     step "App Store Connect 업로드"
-    bash scripts/submit-store.sh --platform ios --path "$IPA_PATH"
+    bash scripts/submit-store.sh --profile "$PROFILE" --platform ios --path "$IPA_PATH"
   fi
 
   if [[ -n "$ANDROID_PATH" ]]; then
-    step "Google Play 업로드"
-    bash scripts/submit-store.sh --platform android --path "$ANDROID_PATH"
+    if [[ "$PROFILE" == development ]]; then step "Firebase App Distribution 업로드"; else step "Google Play 업로드"; fi
+    bash scripts/submit-store.sh --profile "$PROFILE" --platform android --path "$ANDROID_PATH"
   fi
   if [[ -n "$IPA_PATH" && $SUBMIT_REVIEW -eq 1 ]]; then
     step "iOS 심사 제출"
@@ -292,7 +315,10 @@ if [[ -n "$ANDROID_PATH" ]]; then
 fi
 echo ""
 
-if [[ $SUBMIT -eq 1 ]]; then
+if [[ $SUBMIT -eq 1 && "$PROFILE" == development ]]; then
+  [[ -z "$IPA_PATH" ]] || echo "iOS 개발 앱: TestFlight 내부 그룹 배포 완료"
+  [[ -z "$ANDROID_PATH" ]] || echo "Android 개발 앱: Firebase 테스터 그룹 배포 완료"
+elif [[ $SUBMIT -eq 1 ]]; then
   echo "남은 수동 단계:"
   if [[ -n "$IPA_PATH" && $SUBMIT_REVIEW -eq 0 ]]; then
     cat <<'EOF'

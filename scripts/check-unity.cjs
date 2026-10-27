@@ -9,7 +9,8 @@ function sourceHash(root) {
     for (const entry of fs.readdirSync(path.join(root, directory), { withFileTypes: true })) {
       const name = `${directory}/${entry.name}`;
       if (entry.isDirectory()) walk(name);
-      else if (entry.isFile() && entry.name !== '.DS_Store') files.push(name);
+      else if (entry.isFile() && entry.name !== '.DS_Store' &&
+          !/^Assets\/AddressableAssetsData\/.+\/addressables_content_state\.bin(?:\.meta)?$/.test(name)) files.push(name);
       else if (entry.isSymbolicLink()) throw new Error(`Unity 입력의 심볼릭 링크는 지원하지 않는다: ${name}`);
     }
   }
@@ -27,7 +28,10 @@ function check(root, platform, output) {
   const receiptPath = path.join(output, '.runtaeho-export.json');
   if (!fs.existsSync(receiptPath)) throw new Error(`Unity ${platform} export 기록이 없다. Unity에서 다시 export한다.`);
   const receipt = JSON.parse(fs.readFileSync(receiptPath, 'utf8'));
-  if (receipt.platform !== platform || fs.realpathSync(receipt.exportPath) !== fs.realpathSync(output) || receipt.sourceHash !== sourceHash(root)) {
+  const recordedDirectory = fs.statSync(receipt.exportPath);
+  const actualDirectory = fs.statSync(output);
+  if (receipt.platform !== platform || recordedDirectory.dev !== actualDirectory.dev ||
+      recordedDirectory.ino !== actualDirectory.ino || receipt.sourceHash !== sourceHash(root)) {
     throw new Error(`Unity ${platform} export와 현재 소스가 다르다. Unity에서 다시 export한다.`);
   }
 }

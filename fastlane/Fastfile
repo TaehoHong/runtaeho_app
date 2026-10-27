@@ -1,0 +1,34 @@
+def asc_app(bundle_id)
+  Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.from_json_file(ENV.fetch('ASC_API_KEY_PATH'))
+  app = Spaceship::ConnectAPI::App.find(bundle_id)
+  UI.user_error!("App Store Connect 앱이 없습니다: #{bundle_id}") unless app
+  app
+end
+
+desc '개발 앱과 지정한 내부 TestFlight 그룹 확인 (변경 없음)'
+lane :development_preflight do
+  bundle_id = JSON.parse(File.read(File.expand_path('../scripts/app-profiles.json', __dir__))).fetch('development').fetch('applicationId')
+  app = asc_app(bundle_id)
+  requested = ENV.fetch('TESTFLIGHT_DEV_GROUPS').split(',').map(&:strip).reject(&:empty?)
+  internal_groups = app.get_beta_groups.select(&:is_internal_group).map(&:name)
+  UI.user_error!('TESTFLIGHT_DEV_GROUPS에 기존 내부 그룹 이름을 지정하세요.') if requested.empty? || !(requested - internal_groups).empty?
+end
+
+desc '운영 앱과 App Store Connect API 접근 확인 (변경 없음)'
+lane :production_preflight do
+  asc_app('com.runtaeho.runtaeho')
+end
+
+desc '운영 앱의 지정 버전·빌드가 Apple에서 처리될 때까지 대기'
+lane :wait_production_build do |options|
+  app = asc_app('com.runtaeho.runtaeho')
+  FastlaneCore::BuildWatcher.wait_for_build_processing_to_be_complete(
+    app_id: app.id,
+    platform: 'IOS',
+    app_version: options.fetch(:version),
+    build_version: options.fetch(:build),
+    poll_interval: 30,
+    timeout_duration: 1800,
+    return_spaceship_testflight_build: false
+  )
+end

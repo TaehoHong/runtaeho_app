@@ -39,15 +39,101 @@ Google Cloud의 개발 Android OAuth에는 이 키의 SHA-1 하나를 등록한�
 API 주소는 같은 공유 서버이며 서버 분리 시 개발 주소만 바꾼다. 스크립트는 환경 파일을 수정하지 않는다.
 OTA의 EAS 원격 변수 환경은 기존대로 `staging → preview`, `production → production`을 사용한다.
 
-개발 산출물은 `build/development/`에 저장되며 운영 제출 스크립트로 업로드하지 않는다.
+개발 산출물은 `build/development/`에 저장되며 `--profile development`로 배포한다.
 개발 빌드도 기본적으로 커밋 상태를 확인한다. 작업 중인 변경을 포함하려면
 `npm run build:dev:android -- --allow-dirty`처럼 명시한다.
-Android APK는 Firebase App Distribution, iOS IPA는 `.dev` 앱 등록 후 Xcode Organizer의
-App Store Connect 업로드와 TestFlight로 배포한다. Apple Developer에 `.dev` App ID와 필요한
+Android APK는 Firebase App Distribution, iOS IPA는 fastlane을 통해 TestFlight로 배포한다.
+Apple Developer에 `.dev` App ID와 필요한
 권한을 등록하고 App Store Connect 개발 앱을 먼저 만들어야 한다. 포함된 Watch 앱도 개발에서는
 `com.runtaeho.runtaeho.dev.watchkitapp`, 운영에서는 기존 `.watchkitapp`을 사용한다.
 Apple 로그인은 공유 백엔드의
 개발 client ID 처리도 별도로 확인한다. iOS Configuration 추가 후 `cd ios && pod install`이 필요하다.
+
+### 이 Mac에서 명령 하나로 빌드·배포
+
+GitHub Actions 없이 이 Mac에서 린트·배포 회귀 테스트 → 사전 검사 → 빌드번호 증가 →
+Xcode/Gradle 빌드·서명 → 업로드를 순서대로 실행한다. 개발·운영 서버 주소는 기존 설정을 유지한다.
+
+| 대상 | 명령 | 도착 지점 |
+|---|---|---|
+| AOS 개발 | `npm run deploy:dev:android` | Firebase의 지정 테스터 그룹 |
+| iOS 개발 | `npm run deploy:dev:ios` | `.dev` 앱의 지정 TestFlight 내부 그룹 |
+| 개발 양쪽 | `npm run deploy:dev` | 위 두 경로 |
+| AOS 운영 | `npm run deploy:prod:android` | Play 운영 트랙 (기존 `production / completed`) |
+| iOS 운영 | `npm run deploy:prod:ios` | App Store Connect 업로드와 심사 제출, 승인 후 수동 출시 |
+| 운영 양쪽 | `npm run deploy:prod` | 위 두 경로 |
+
+`-- --version 1.9.0`, `-- --preflight-only`, `-- --resume` 옵션도 전달할 수 있다.
+`build:dev:*`, `build:prod:*`는 기존처럼 빌드만 수행한다. 이 명령은 현재 휴대폰 앱을 대상으로
+하며, Wear OS 독립 앱 배포는 포함하지 않는다. iOS에 포함되는 Watch 앱은 기존 Xcode 빌드가 함께 처리한다.
+
+**최초 1회 설정**
+
+1. 배포 전용 Firebase 프로젝트 `run-taeho-distribution`의 Android 앱
+   `com.runtaeho.runtaeho.dev`와 `dev-testers` 그룹을 사용한다. Google 로그인·서버의 기존
+   `run-taeho` 프로젝트와 분리한다. 테스터는 이 배포 프로젝트의 그룹에 별도로 초대한다.
+   이 용도만 사용하면 Firebase SDK나 `google-services.json`을 앱에 추가할 필요가 없다.
+2. 공식 Firebase CLI를 설치(`npm install -g firebase-tools`)하고 `firebase login`한다.
+   또는 기존 권한을 부여한 서비스 계정 JSON 경로를 `GOOGLE_APPLICATION_CREDENTIALS`로 지정한다.
+3. App Store Connect에 `.dev` 앱과 TestFlight **내부** 그룹을 만들고 테스터를 지정한다.
+   Apple Developer의 휴대폰·Watch App ID/권한과 이 Mac의 배포 인증서·프로비저닝도 준비한다.
+4. 기존 fastlane과 App Store Connect API key JSON을 사용한다. 개발 그룹 배포에는 App Manager
+   또는 Admin 권한이 필요하다. 운영 EAS Submit의 기존 Apple/Play 제출 자격증명도 먼저 등록한다.
+5. 아래 템플릿을 복사하고 값·경로를 로컬 파일에 채운다. 토큰·개인 키는 Git에 저장하지 않는다.
+
+```bash
+mkdir -p credentials
+cp scripts/deployment-config.example.sh credentials/deployment.sh
+chmod 600 credentials/deployment.sh
+```
+
+모든 배포 명령이 `credentials/deployment.sh`를 자동으로 읽는다. Firebase App ID는
+Google OAuth Client ID와 다르며, 기존 로컬·개발 공용 OAuth와 서명키는 유지한다.
+운영 업로드 키는 기존 `~/.gradle/gradle.properties` 설정을 사용한다.
+새 `deploy:*` 명령은 기존 프로파일 로더로 환경 파일을 읽으므로 기존 Sentry 토큰도 재사용한다.
+배포 프로젝트를 옮길 때는 새 대상에 같은 패키지 앱과 그룹을 등록한 뒤
+`FIREBASE_PROJECT_ID`, `FIREBASE_ANDROID_APP_ID`, 필요한 그룹 별칭을 바꾼다.
+기존 배포 이력과 테스터 그룹은 자동으로 합쳐지지 않는다.
+
+Unity는 기존 export 산출물과 현재 소스가 일치해야 한다. 이 명령은 export를 다시 만들지 않고
+검증하며, 오래된 경우 업로드 전에 중단한다. Unity export 갱신과 Xcode 플랫폼 설치는 먼저 완료한다.
+Unity receipt는 패키지가 빌드용 임시 파일을 만들기 전에 입력을 캡처하고 정리 후 검증한다.
+`Assets/AddressableAssetsData/` 아래의 `addressables_content_state.bin`과 해당 `.meta`는
+플랫폼별 생성 결과이므로 입력 해시에서 제외한다. 실제 Addressables 설정·에셋은 계속 검사한다.
+macOS의 `Android`/`android`처럼 같은 실제 export 디렉터리인 경우도 허용하며, 다른 디렉터리나
+실제 소스 변경은 거부한다. Unity Editor 코드는 `Assets/Editor/VersionSync/VersionSyncEditor.cs`에 있다.
+Unity Xcode 프로젝트에는 `Development` 구성이 없어 이 구성으로 앱을 아카이브할 때 Unity는
+`Release`로 빌드된다. 앱의 Development 설정은 해당 Release 산출물 경로도 검색해야 한다.
+링크·포함 단계는 Unity 프로젝트의 실제 제품 참조와 명시적인 타깃 의존성을 사용한다.
+폰의 Development 폴더에 있는 일반 파일로 참조하면 컴파일 또는 포함 단계가 실패한다.
+이 연결은 배포 회귀 테스트와 실제 Xcode 아카이브로 검증한다.
+광고 SDK 설정 단계는 `TARGET_BUILD_DIR/INFOPLIST_PATH`를 입력과 수정 대상으로 사용한다.
+아카이브에서는 일반 빌드 제품 폴더와 앱 설치 폴더가 다르므로 이 의존성을 선언해야 한다.
+`ios/Podfile`의 `post_integrate`가 `pod install` 후에도 해당 설정을 유지한다.
+폰의 처리된 Info.plist는 Watch 메타데이터에 의존하므로 Watch 포함 단계를 그 plist를 읽는
+광고 설정 단계보다 앞에 둔다. 반대 순서는 Xcode 아카이브 의존성 순환을 만든다.
+실제 스토어 검토·약관·개인정보·수출 규정 답변은 이 명령으로 우회하지 않는다.
+
+개발 iOS는 앱과 그룹을 사전 조회하고 기존 내부 그룹만 허용한다. 업로드 후 Apple 빌드 처리와
+그룹 배포 완료까지 기다린다. 운영 심사 제출도 지정한 버전·빌드 처리 완료를 최대 30분 기다린다.
+개발 앱을 운영 심사로 제출하는 요청과 개발 APK를 운영 AAB 경로로 보내는 요청은 거부한다.
+
+배포는 `build/deploy.lock`으로 한 번에 하나만 실행한다. 정상 종료·실패 시 잠금을 해제한다.
+강제 종료로 잠금이 남았다면 실행 중인 배포가 없는지 확인한 후 `rmdir build/deploy.lock`으로 제거한다.
+업로드 실패 시 버전을 다시 올리지 않고 산출물만 재전송할 수 있다.
+
+```bash
+npm run submit:dev:android -- --path /absolute/path/app.apk
+npm run submit:dev:ios -- --path /absolute/path/app.ipa
+```
+
+Firebase 인증·설정과 Apple 앱·그룹 접근 실패는 빌드번호 증가 전에 중단한다.
+서버의 업로드 처리 중 실패했다면 먼저 콘솔에서 접수 여부를 확인한다. 이미 접수된 동일 IPA를
+다시 업로드하지 않는다. 운영 iOS의 업로드가 끝났다면 `submit:review:ios`로 심사 제출만 재시도한다.
+
+참고: [Firebase CLI 배포](https://firebase.google.com/docs/app-distribution/android/distribute-cli),
+[TestFlight 자동화](https://docs.fastlane.tools/actions/pilot/),
+[EAS Submit](https://docs.expo.dev/deploy/submit-to-app-stores/).
 
 ### 워치 앱 프로파일
 
@@ -90,7 +176,8 @@ android/settings.gradle
 커밋할 수도 없다. 실제로 EAS Build를 시도한 4건은 전부 `no such module 'UnityFramework'`로
 실패했다.
 
-그래서 **빌드는 이 맥에서, 스토어 업로드는 `eas submit --path`로 자동화**한다.
+그래서 **빌드는 이 맥에서, 운영 스토어 업로드는 `eas submit --path`로 자동화**한다.
+개발 앱 업로드는 위의 Firebase / fastlane 경로를 사용한다.
 
 ## 1. 두 가지 배포 경로
 
@@ -258,7 +345,7 @@ npm run deploy:store -- --version 1.9.0 --submit-review
 기본적으로 기존 스토어 설명·스크린샷·개인정보/수출 규정 답변을 사용한다.
 새 버전의 변경사항은 `ASC_METADATA_PATH`로 fastlane 메타데이터 폴더를 지정해 전달할 수 있다
 (예: `ko/release_notes.txt`). 설명·규정 답변을 임의로 만들어 넣지 않는다.
-필수 메타데이터나 계약, 권한이 빠졌거나 빌드 처리가 끝나지 않았으면 실패한다.
+필수 메타데이터나 계약, 권한이 빠졌거나 빌드 처리가 30분 안에 끝나지 않으면 실패한다.
 해결 후 `submit:review:ios`만 재실행한다. 심사 승인 자체는 자동화할 수 없다.
 
 ## 5. 버전 규칙

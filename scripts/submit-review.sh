@@ -3,6 +3,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+source "$ROOT/scripts/deployment-config.sh"
 VERSION="${1:-}"
 BUILD="${2:-}"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && "$BUILD" =~ ^[0-9]+$ ]] || {
@@ -20,6 +21,8 @@ if [[ -n "${ASC_METADATA_PATH:-}" ]]; then
   METADATA_ARGS=(--metadata_path "$ASC_METADATA_PATH")
 fi
 export FASTLANE_SKIP_UPDATE_CHECK=1 FASTLANE_HIDE_CHANGELOG=1
+check_asc_api_key || exit 1
+fastlane wait_production_build "version:$VERSION" "build:$BUILD"
 fastlane deliver --api_key_path "$ASC_API_KEY_PATH" \
   --app_identifier com.runtaeho.runtaeho --app_version "$VERSION" --build_number "$BUILD" \
   --skip_binary_upload "${METADATA_ARGS[@]}" --skip_screenshots \
