@@ -185,3 +185,48 @@ it('propagates rejection index read failure before any POST or acknowledgement',
   expect(post).not.toHaveBeenCalled();
   expect(ack).not.toHaveBeenCalled();
 });
+it('rechecks account after a delayed native guard before acknowledgement', async () => {
+  let release!: (active: boolean) => void;
+  let guarded!: () => void;
+  const reachedGuard = new Promise<void>(resolve => { guarded = resolve; });
+  let uploaded = false;
+  post.mockImplementationOnce(async () => {
+    uploaded = true;
+    return { data: { sessionId: record.sessionId, runningRecordId: 99, status: 'CREATED' } };
+  });
+  const running = syncWatchRecords({ isActive: () => {
+    if (!uploaded) return Promise.resolve(true);
+    guarded();
+    return new Promise<boolean>(resolve => { release = resolve; });
+  } });
+  await reachedGuard;
+  (isSessionCurrent as jest.Mock).mockReturnValue(false);
+  release(true);
+  await running;
+  expect(ack).not.toHaveBeenCalled();
+});
+it('does not prune rejection storage when native job stopped during its read', async () => {
+  await AsyncStorage.setItem('@watch_running_rejections:7', JSON.stringify([{
+    source: 'APPLE_WATCH', sessionId: 'old-rejected', code: 'RUNNING_INVALID_METRICS',
+  }]));
+  const before = await AsyncStorage.getItem('@watch_running_rejections:7');
+  let nativeActive = true;
+  (AsyncStorage.getItem as jest.Mock).mockImplementationOnce(async () => {
+    nativeActive = false;
+    return before;
+  });
+  await expect(syncWatchRecords({ isActive: async () => nativeActive })).rejects.toThrow();
+  expect(await AsyncStorage.getItem('@watch_running_rejections:7')).toBe(before);
+  expect(post).not.toHaveBeenCalled();
+});
+it('aborting HTTP prevents acknowledgement and rejection side effects', async () => {
+  const controller = new AbortController();
+  post.mockImplementationOnce(async (_path: string, _body: unknown, options: { signal: AbortSignal }) => {
+    expect(options.signal).toBe(controller.signal);
+    controller.abort();
+    throw { isAxiosError: true, response: { status: 400, data: { extra: { code: 'RUNNING_INVALID_METRICS' } } } };
+  });
+  await expect(syncWatchRecords({ signal: controller.signal })).resolves.toBe('blocked-auth');
+  expect(ack).not.toHaveBeenCalled();
+  expect(await AsyncStorage.getItem('@watch_running_rejections:7')).toBeNull();
+});

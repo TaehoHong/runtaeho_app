@@ -10,8 +10,9 @@ export const useWatchSync = (authReady: boolean) => {
   const userId = useUserStore((state) => state.currentUser?.id);
   useEffect(() => {
     if (!watchSyncBridge || !authReady) return;
+    const reportDeferred = () => console.warn('[WatchSync] Upload deferred; native inbox retained');
     const retry = () => {
-      void runWatchSyncTask().catch(() => console.warn('[WatchSync] Upload deferred; native inbox retained'));
+      void runWatchSyncTask().then(outcome => { if (outcome === 'retry') reportDeferred(); }).catch(reportDeferred);
     };
     void watchSyncBridge.setOwnerUserId(loggedIn ? String(getSessionSnapshot().userId ?? '') || null : null)
       .then(retry).catch(() => console.warn('[WatchSync] Owner linkage deferred'));

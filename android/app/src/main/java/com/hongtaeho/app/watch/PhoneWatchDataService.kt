@@ -1,9 +1,7 @@
 package com.hongtaeho.app.watch
 
 import android.content.Context
-import android.content.Intent
 import android.util.Log
-import com.facebook.react.HeadlessJsTaskService
 import com.google.android.gms.wearable.*
 import com.runtaeho.watchsync.WatchRecords
 import com.runtaeho.watchsync.WatchStore
@@ -18,16 +16,20 @@ class PhoneWatchDataService : WearableListenerService() {
             wakePending(applicationContext)
         }
     }
-    override fun onPeerConnected(peer: Node) { retry(applicationContext) }
-    override fun onCapabilityChanged(info: CapabilityInfo) { retry(applicationContext) }
+    override fun onPeerConnected(peer: Node) { retry(applicationContext, true) }
+    override fun onCapabilityChanged(info: CapabilityInfo) { retry(applicationContext, true) }
     companion object {
-        fun retry(context: Context) {
+        fun retry(context: Context, externalWake: Boolean = false) {
             WatchTransport.executor.execute {
                 try { WatchTransport.scan(context) { receive(context, it) } }
                 catch (_: Exception) { Log.w("WatchSync", "Data Layer scan deferred") }
                 publish(context)
+                if (externalWake) WatchUploadScheduler.signalOnWorker(context)
                 wakePending(context)
             }
+        }
+        fun publishPending(context: Context) {
+            WatchTransport.executor.execute { publish(context); WatchUploadScheduler.ensureOnWorker(context) }
         }
         private fun receive(context: Context, item: DataItem) {
             if (!item.uri.path.orEmpty().startsWith(WatchTransport.ROOT + "/record/")) return
@@ -39,19 +41,14 @@ class PhoneWatchDataService : WearableListenerService() {
                 val ack = store.read("ack-$id")
                 if (ack != null && WatchRecords.sameRecord(record, ack)) return
                 // First received immutable payload wins; retry never changes ownership/data.
-                store.retainIncoming(record)
+                if (store.retainIncoming(record)) WatchUploadScheduler.signalOnWorker(context)
             } catch (_: Exception) { Log.w("WatchSync", "Watch inbox receive failed; DataItem retained") }
         }
         private fun wakePending(context: Context) {
             try {
-                if (WatchStore(context).entries("inbox-").isEmpty()) return
+                if (WatchStore(context).entries("inbox-").isEmpty()) { WatchUploadScheduler.ensureOnWorker(context); return }
                 RNWatchSyncBridgeModule.notifyPending()
-                try {
-                    context.startService(Intent(context, WatchSyncTaskService::class.java))
-                    HeadlessJsTaskService.acquireWakeLockNow(context)
-                } catch (_: IllegalStateException) {
-                    Log.w("WatchSync", "Background upload deferred until app execution is allowed")
-                }
+                WatchUploadScheduler.ensureOnWorker(context)
             } catch (_: Exception) { Log.w("WatchSync", "Watch upload wake deferred") }
         }
         private fun publish(context: Context) {

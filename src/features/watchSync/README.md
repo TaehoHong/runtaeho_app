@@ -78,7 +78,7 @@ Implementation evidence, relative to `runtaeho_app/`:
   `WatchAppDelegate.swift`: HealthKit/GPS recording, recovery and background tasks.
 - `android/app/src/main/java/com/hongtaeho/app/watch/PhoneWatchDataService.kt`,
   `RNWatchSyncBridgeModule.kt`, `WatchSyncTaskService.kt`: native Android receipt,
-  bridge and Headless JS wake. `shared/watchsync-android/.../WatchStore.kt` and
+  bridge and persisted network-constrained JobService wake. `shared/watchsync-android/.../WatchStore.kt` and
   `WatchTransport.kt` own atomic storage and Data Layer transport; full package
   directory is `src/main/java/com/runtaeho/watchsync/`.
 - `wearos/app/src/main/java/com/runtaeho/wear/RunService.kt` and
@@ -93,9 +93,37 @@ Implementation evidence, relative to `runtaeho_app/`:
 native events, foreground entry and a 60-second timer while JS executes.
 `index.js` registers `WatchSyncUpload`; `background.ts` waits for existing store
 hydration, initializes existing tokens, and checks session generation. Android
-native receipt requests Headless JS execution when the OS permits it. iOS activates
+native receipt schedules one persisted `JobScheduler` job with a network constraint,
+30-second exponential retry backoff, and a 60-second attempt deadline including
+React startup and hydration. Its real `JobService` starts the existing `ReactHost`
+and the same Headless JS relay without starting an ordinary background service.
+Pending jobs survive process loss and reboot; Android still controls execution time.
+iOS activates
 WatchConnectivity before React starts and preserves receipt even when JS cannot
 run. Its watch background task gives acknowledgement processing a bounded window.
+
+Android-only optional bridge methods `isWatchSyncJobActive(jobRunId)` and
+`finishWatchSyncJob(jobRunId, outcome)` bind completion to an anonymous run ID.
+`watchSyncJobStopped` aborts only that attempt; POST, ACK and rejection-index
+continuations recheck both native activity and the existing session. A stop cannot
+roll back an already accepted server request, so the original UUID still owns retry.
+Foreground and iOS calls do not require these optional job methods.
+
+The private scheduling ledger suppresses only a finished work revision. New inbox,
+owner/login linkage or explicit reconnect events rearm it; native initialization,
+ACK and reads do not reset backoff. New input arriving during a snapshot retains
+the next wake. If saving a wake revision fails, a scheduler-owned anonymous repair
+nonce preserves that intent and is consumed once; neither tokens nor workouts are
+stored in job extras. If storage or scheduling itself is unavailable, inbox data
+remains intact and failures are logged without payloads.
+
+Network errors, 408/429/5xx, invalid server ACKs and storage failures remain
+retryable. Final 401/403, logout, revoked tokens and stale sessions stop the current
+revision until linkage changes. A logged-in session without readable secure tokens
+is retried with OS backoff, without a second token reader or refresh implementation.
+Empty/foreign/rejected-only queues finish without spinning. Unknown 400s remain
+unindexed and retryable on a later external trigger; only the four known validation
+codes enter the rejection index.
 
 These hooks do not guarantee immediate upload. Bluetooth pairing, OS scheduling,
 background restrictions, phone force-stop/force-quit, unavailable JS, and locked
@@ -175,7 +203,14 @@ permissions, screen-off long runs, sensor/GPS loss, restart recovery, account
 switches, reconnect without watch Wi-Fi, phone background/lock and duplicated or
 lost transfers/acks. Confirm one server record and one completion reward per UUID.
 Long-run battery/storage behavior, signing/distribution and actual background
-execution require device validation. Settings tests cover persistence, malformed
+execution require device validation. Android job regression tests cover work
+revisions, concurrent incoming records, process restart, metadata write failure and
+repair-nonce idempotence through `android/app/run-watch-upload-regressions.sh`
+using the same three external host jars as the Wear harness after compiling
+`:app:compileLocalDebugKotlin`. Real reboot/network recovery, OS stops and React
+cold-start timing remain paired-device validation gates. Test cold headless upload
+with a bundled `developmentRelease` or production phone build; `localDebug`
+requires Metro and cannot establish standalone cold-start delivery. Settings tests cover persistence, malformed
 preferences, independent cycling, conversion, live-value freshness and unchanged
 SI upload payloads. Simulator rendering does not verify physical sensor cadence,
 GPS/heart-rate freshness, wrist interaction or haptic feedback.

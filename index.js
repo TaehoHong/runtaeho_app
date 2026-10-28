@@ -1,5 +1,5 @@
 import { AppRegistry } from 'react-native';
-import { runWatchSyncTask } from './src/features/watchSync/background';
+import { runScheduledWatchSyncTask } from './src/features/watchSync/background';
 
-AppRegistry.registerHeadlessTask('WatchSyncUpload', () => runWatchSyncTask);
+AppRegistry.registerHeadlessTask('WatchSyncUpload', () => runScheduledWatchSyncTask);
 require('expo-router/entry');

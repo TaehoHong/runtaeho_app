@@ -21,6 +21,7 @@ class RNWatchSyncBridgeModule(private val context: ReactApplicationContext) : Re
         require(userId == null || userId.toLongOrNull()?.let { it > 0 } == true) { "Invalid owner" }
         val owner = JSONObject().put("ownerUserId", userId ?: JSONObject.NULL)
         WatchStore(context).write("owner", owner)
+        WatchUploadScheduler.signalOnWorker(context)
         // Publish is retryable; the private owner is retained even with no paired watch.
         PhoneWatchDataService.retry(context)
         null
@@ -43,8 +44,17 @@ class RNWatchSyncBridgeModule(private val context: ReactApplicationContext) : Re
         if (record != null) {
             store.acknowledgeIncoming(ack)
         }
-        PhoneWatchDataService.retry(context)
+        PhoneWatchDataService.publishPending(context)
         null
+    }
+    @ReactMethod fun isWatchSyncJobActive(jobRunId: String, promise: Promise) {
+        promise.resolve(WatchSyncTaskService.isActive(jobRunId))
+    }
+    @ReactMethod fun finishWatchSyncJob(jobRunId: String, outcome: String, promise: Promise) {
+        if (outcome !in setOf("success", "blocked-auth", "retry")) {
+            promise.reject("WATCH_SYNC_JOB", "Invalid job result"); return
+        }
+        WatchSyncTaskService.finishRun(jobRunId, outcome) { promise.resolve(it) }
     }
     @ReactMethod fun addListener(eventName: String) { }
     @ReactMethod fun removeListeners(count: Int) { }
@@ -61,6 +71,12 @@ class RNWatchSyncBridgeModule(private val context: ReactApplicationContext) : Re
             active?.get()?.let { context ->
                 if (context.hasActiveReactInstance()) context.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
                     .emit("watchSyncPendingRecords", null)
+            }
+        }
+        fun notifyStopped(jobRunId: String) {
+            active?.get()?.let { context ->
+                if (context.hasActiveReactInstance()) context.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+                    .emit("watchSyncJobStopped", Arguments.createMap().apply { putString("jobRunId", jobRunId) })
             }
         }
         private fun jsonMap(value: JSONObject): Map<String, Any?> = value.keys().asSequence().associateWith { key ->

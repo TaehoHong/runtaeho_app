@@ -14,7 +14,15 @@ export interface CompletedRunningRequest {
   calorie: number;
   gpsPoints: { latitude: number; longitude: number; timestampMs: number; speed: number; altitude: number; accuracy: number | null }[];
 }
+export type WatchSyncOutcome = 'success' | 'blocked-auth' | 'retry';
+export interface WatchSyncAttempt {
+  signal?: AbortSignal;
+  isActive?: () => Promise<boolean>;
+}
+
 export interface WatchSyncNativeBridge extends NativeModule {
+  isWatchSyncJobActive?(jobRunId: string): Promise<boolean>;
+  finishWatchSyncJob?(jobRunId: string, outcome: WatchSyncOutcome): Promise<boolean>;
   setOwnerUserId(userId: string | null): Promise<void>;
   getPendingRecords(): Promise<CompletedRunningRequest[]>;
   acknowledgeRecord(sessionId: string, source: string, ownerUserId: string, runningRecordId: string): Promise<void>;

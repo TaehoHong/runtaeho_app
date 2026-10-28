@@ -45,9 +45,11 @@ Finalized records remain in the watch outbox until an exact source/session/owner
 server acknowledgement arrives. JSON is transferred as a durable DataItem Asset,
 so routes are not constrained by DataItem's inline 100 KB payload limit. Phone
 inbox and pending server acknowledgements survive process restarts and owner
-switches. The native phone receiver wakes `WatchSyncUpload` Headless JS when
-Android permits background service execution. Existing JS auth/session checks
-own uploads. OS background restrictions, locked credential storage, force-stop,
+switches. The native phone receiver schedules a persisted, network-constrained
+JobScheduler job. Its `WatchSyncTaskService` JobService starts the existing ReactHost
+and `WatchSyncUpload` Headless JS when Android permits the job to run. Existing JS
+auth/session checks own uploads. The [phone relay contract](../src/features/watchSync/README.md#execution-and-recovery-limits)
+owns attempt lifecycle, retry and recovery details. OS background restrictions, locked credential storage, force-stop,
 and absent pairing can delay upload until eligible execution/reconnection.
 No direct watch Wi-Fi or watch HTTP/JWT client is used.
 
