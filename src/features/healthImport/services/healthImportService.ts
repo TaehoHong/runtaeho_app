@@ -144,8 +144,8 @@ const toBatchRecord = (workout: HealthRunningWorkout): HealthImportBatchRecord =
 
   return {
     externalId: workout.sourceRecordId,
-    sourceBundleId: workout.sourceBundleId,
-    sourceAppName: workout.sourceAppName,
+    ...(workout.sourceBundleId !== undefined && { sourceBundleId: workout.sourceBundleId }),
+    ...(workout.sourceAppName !== undefined && { sourceAppName: workout.sourceAppName }),
     recordingMethod: workout.recordingMethod ?? 'UNKNOWN',
     distance,
     durationSec,

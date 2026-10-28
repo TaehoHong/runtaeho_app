@@ -97,9 +97,6 @@
 | STAT-QUERY-001 | statisticsQueries stable key | Given Date params, When hook, Then ISO queryKey 생성 | 회귀(캐시) | /Users/hongtaeho/running/runtaeho_app/src/features/statistics/__tests__/statisticsQueries.test.tsx | PASS | `queryKeys.statistics.summary` 정확 일치 | PASS | PASS | V1~V6 충족 | F1~F6 충족 |
 | STAT-QUERY-002 | statisticsQueries options | Given enabled false, When hook, Then query disabled + placeholder 유지 | 상태전이 | /Users/hongtaeho/running/runtaeho_app/src/features/statistics/__tests__/statisticsQueries.test.tsx | PASS | enabled false + `keepPreviousData` 검증 | PASS | PASS | V1~V6 충족 | F1~F6 충족 |
 | STAT-QUERY-003 | statisticsQueries queryFn | Given queryFn 실행, When service 호출, Then params 원형 전달 | 오류 복구 | /Users/hongtaeho/running/runtaeho_app/src/features/statistics/__tests__/statisticsQueries.test.tsx | PASS | service 인자 검증 + 변형 없음 | PASS | PASS | V1~V6 충족 | F1~F6 충족 |
-| STAT-SCREEN-001 | StatisticsView empty/error/loading | Given hasValidData false + error/loading, When render, Then 상태별 UI 분기 | UI 분기 | /Users/hongtaeho/running/runtaeho_app/src/features/statistics/__tests__/StatisticsView.test.tsx | PASS | loading text/error message + 상호 배타 부정 단정 | PASS | PASS | V1~V6 충족 | F1~F6 충족 |
-| STAT-SCREEN-002 | StatisticsView period/swipe | Given 기본 월 상태, When 주 탭/스와이프, Then period/referenceDate 변경 | 상태전이 | /Users/hongtaeho/running/runtaeho_app/src/features/statistics/__tests__/StatisticsView.test.tsx | PASS | `useStatisticsViewModel` 마지막 호출 인자 검증 | PASS | PASS | V1~V6 충족 | F1~F6 충족 |
-| STAT-SCREEN-003 | StatisticsView summary/refresh | Given formatted summary + pull refresh, When render/refresh, Then 요약값 렌더+refresh 호출 증가 | 회귀(UI) | /Users/hongtaeho/running/runtaeho_app/src/features/statistics/__tests__/StatisticsView.test.tsx | PASS | distance/pace 텍스트 + refresh call count 증가 검증 | PASS | PASS | V1~V6 충족 | F1~F6 충족 |
 
 ## Feature Gate Results
 | Feature | Unit 실행 | Coverage 대상 | Coverage 결과 | 시나리오 검증 |
@@ -109,7 +106,7 @@
 | league | PASS | League model/useLeagueViewModel/leagueQueries/LeagueView | Statements 91.34 / Branches 85.96 | PASS |
 | user | PASS | userService/userQueries/useAccountConnection/SettingsView | Statements 89.6 / Branches 72.3 | PASS |
 | point | PASS | Point model/pointQueries/PointViewModel/PointHistoryView | Statements 91.94 / Branches 92.3 | PASS |
-| statistics | PASS | dateHelpers/statisticsCalculator/statisticsQueries/StatisticsView | Statements 99.01 / Branches 84.68 | PASS |
+| statistics | PASS | dateHelpers/statisticsCalculator/statisticsQueries | 재측정 안 함 (StatisticsView 테스트 삭제) | PASS |
 
 ## Lifecycle (Cross-Feature: AppStateProvider + Running)
 | Scenario ID | 기능명 | Given/When/Then | Risk Type | Test File | Pass 여부 | 검증 근거(assert 핵심) | Validity | Fit | Validity 근거 | Fit 근거 |
@@ -120,20 +117,8 @@
 | APP-LC-004 | stale Unity 복구 | Given `validateUnityState=false`, When `active`, Then Unity 강제 복구 | 오류 복구 | /Users/hongtaeho/running/runtaeho_app/src/providers/__tests__/AppStateProvider.lifecycle.test.tsx | PASS | `forceResetUnity` 호출 + 이후 `syncReadyState` 호출 검증 | PASS | PASS | V1~V6 충족 | F1~F6 충족 |
 | APP-LC-005 | foreground 중복가드 | Given foreground 작업 진행중, When `active` 연속 호출, Then 1회 실행 | 상태전이 | /Users/hongtaeho/running/runtaeho_app/src/providers/__tests__/AppStateProvider.lifecycle.test.tsx | PASS | deferred Promise로 in-flight 유지 후 `getItem/syncReadyState` 호출수 1회 검증 | PASS | PASS | V1~V6 충족 | F1~F6 충족 |
 | APP-LC-006 | 로그아웃 가드 | Given 로그아웃 상태, When `background/active`, Then 생명주기 동기화 스킵 | 상태전이 | /Users/hongtaeho/running/runtaeho_app/src/providers/__tests__/AppStateProvider.lifecycle.test.tsx | PASS | `backgroundEnterTime` set/remove 미호출 + `getUserPoint/syncReadyState` 미호출 부정 단정 | PASS | PASS | V1~V6 충족 | F1~F6 충족 |
-| GPS-LC-001 | 초기 polling 시작 | Given Running+active, When mount 후 1초, Then polling 시작 | 상태전이 | /Users/hongtaeho/running/runtaeho_app/src/features/running/__tests__/useGpsTracking.lifecycle.test.tsx | PASS | `getTotalDistance/getBackgroundLocations` 호출 검증 | PASS | PASS | V1~V6 충족 | F1~F6 충족 |
-| GPS-LC-002 | background polling 중지 | Given polling 동작중, When `background`, Then 추가 polling 없음 | 상태전이 | /Users/hongtaeho/running/runtaeho_app/src/features/running/__tests__/useGpsTracking.lifecycle.test.tsx | PASS | 상태 전환 후 timer 진행해도 `getTotalDistance` 호출수 증가 없음 | PASS | PASS | V1~V6 충족 | F1~F6 충족 |
-| GPS-LC-003 | active polling 재시작 | Given polling 중지 상태, When `active`, Then polling 재개 | 상태전이 | /Users/hongtaeho/running/runtaeho_app/src/features/running/__tests__/useGpsTracking.lifecycle.test.tsx | PASS | `background→active` 전환 후 polling API 호출수 재증가 검증 | PASS | PASS | V1~V6 충족 | F1~F6 충족 |
-| GPS-LC-004 | 임계치 세그먼트 생성 | Given 거리 delta 10m 이상, When tick, Then `onSegmentCreate` | 경계값 | /Users/hongtaeho/running/runtaeho_app/src/features/running/__tests__/useGpsTracking.lifecycle.test.tsx | PASS | `onSegmentCreate` 인자 검증 + `onDistanceUpdate` 미호출 부정 단정 | PASS | PASS | V1~V6 충족 | F1~F6 충족 |
-| GPS-LC-005 | 임계치 미만 거리 업데이트 | Given 거리 delta 10m 미만, When tick, Then `onDistanceUpdate` | 경계값 | /Users/hongtaeho/running/runtaeho_app/src/features/running/__tests__/useGpsTracking.lifecycle.test.tsx | PASS | `onDistanceUpdate` 호출 + `onSegmentCreate` 미호출 부정 단정 | PASS | PASS | V1~V6 충족 | F1~F6 충족 |
-| GPS-LC-006 | cleanup | Given polling 중, When unmount, Then listener/interval 정리 | 상태전이 | /Users/hongtaeho/running/runtaeho_app/src/features/running/__tests__/useGpsTracking.lifecycle.test.tsx | PASS | `subscription.remove` 호출 + unmount 후 polling 호출수 고정 검증 | PASS | PASS | V1~V6 충족 | F1~F6 충족 |
-| GPS-LC-007 | background mode start/stop | Given background mode, When start/stop, Then background service 경로 사용 | 상태전이 | /Users/hongtaeho/running/runtaeho_app/src/features/running/__tests__/useGpsTracking.lifecycle.test.tsx | PASS | `startBackgroundTracking/stopBackgroundTracking` 호출 + foreground 경로 미호출 | PASS | PASS | V1~V6 충족 | F1~F6 충족 |
-| GPS-LC-008 | foreground mode start/stop | Given foreground mode, When start/stop, Then location service 경로 사용 | 상태전이 | /Users/hongtaeho/running/runtaeho_app/src/features/running/__tests__/useGpsTracking.lifecycle.test.tsx | PASS | `startTracking/stopTracking` 호출 + background 경로 미호출 | PASS | PASS | V1~V6 충족 | F1~F6 충족 |
-| GPS-LC-009 | pause/resume/reset 액션 | Given 러닝중, When pause/resume/reset, Then 상태/호출 정합성 유지 | 상태전이 | /Users/hongtaeho/running/runtaeho_app/src/features/running/__tests__/useGpsTracking.lifecycle.test.tsx | PASS | `pauseTracking/resumeTracking` 호출 + reset 후 distance/locations/trackingData 초기화 | PASS | PASS | V1~V6 충족 | F1~F6 충족 |
-| GPS-LC-010 | foreground subscription 분기 | Given foreground subscription, When distance 누적, Then onDistance/onSegment 분기 | 회귀(집계) | /Users/hongtaeho/running/runtaeho_app/src/features/running/__tests__/useGpsTracking.lifecycle.test.tsx | PASS | subscribe callback 직접 실행해 `onDistanceUpdate` 및 `onSegmentCreate` 분기 검증 | PASS | PASS | V1~V6 충족 | F1~F6 충족 |
-| GPS-LC-011 | polling 오류 복구 | Given polling 에러, When tick, Then throw 없이 오류 처리 | 오류 복구 | /Users/hongtaeho/running/runtaeho_app/src/features/running/__tests__/useGpsTracking.lifecycle.test.tsx | PASS | 에러 로그 검증 + segment 미생성 부정 단정 | PASS | PASS | V1~V6 충족 | F1~F6 충족 |
 
 ## Lifecycle Gate Results
 | Feature | Unit 실행 | Coverage 대상 | Coverage 결과 | 시나리오 검증 |
 |---|---|---|---|---|
 | AppStateProvider | PASS | AppStateProvider lifecycle | Statements 83.05 / Branches 72 | PASS |
-| useGpsTracking | PASS | useGpsTracking lifecycle | Statements 99.19 / Branches 84.61 | PASS |

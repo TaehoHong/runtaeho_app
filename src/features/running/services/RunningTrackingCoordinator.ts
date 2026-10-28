@@ -252,7 +252,6 @@ export class RunningTrackingCoordinator {
           await this.startForegroundSource();
         } catch (error) {
           if (this.appState !== 'active') {
-            locationService.stopTracking();
             await this.startBackgroundSource({ requireRegisteredTask: true });
             return;
           }

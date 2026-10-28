@@ -343,7 +343,7 @@ const reduceGpsSampleInternal = (
         ...currentState,
         pendingCandidate: null,
         lastPaceOnlyTimestampMs: canUseNativeSpeedForPace
-          ? currentSample.timestampMs : currentState.lastPaceOnlyTimestampMs,
+          ? currentSample.timestampMs : currentState.lastPaceOnlyTimestampMs ?? null,
       },
     };
   }
