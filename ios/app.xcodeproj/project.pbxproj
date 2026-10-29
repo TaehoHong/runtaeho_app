@@ -12,7 +12,6 @@
 		3BDB30733501BA1013E02344 /* RNWatchSyncBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = 7C133E9841783C0F6D47371F /* RNWatchSyncBridge.m */; };
 		3C5E3C226AC99DA0D0C71423 /* RNWatchSyncBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD4479BD40E3D6D71A10F133 /* RNWatchSyncBridge.swift */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		4EC46109A51EBE7E7EFB5506 /* RunTaehoWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 08B485A9DA046EC8407CFA9D /* RunTaehoWatch.app */; };
 		ADCD3A47B76623C95774D5E0 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 3EB4D8CB6799DC98CE183608 /* PrivacyInfo.xcprivacy */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		D3ECE5C27DC205CBAEEC4ABE /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA6CB44E8987100DFE3237E6 /* ExpoModulesProvider.swift */; };
@@ -33,13 +32,6 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		113DC7D8825DB0EE6FC599A9 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 39E8D92948C197863E90F4B7 /* RunTaehoWatch.xcodeproj */;
-			proxyType = 1;
-			remoteGlobalIDString = 47F4B01FACD1350410C37492;
-			remoteInfo = RunTaehoWatch;
-		};
 		87575DE40C9A474CAF9A32A6 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 39E8D92948C197863E90F4B7 /* RunTaehoWatch.xcodeproj */;
@@ -64,17 +56,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		B769F865DB270CD5C7B9CA14 /* Embed Watch Content */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
-			dstSubfolderSpec = 16;
-			files = (
-				4EC46109A51EBE7E7EFB5506 /* RunTaehoWatch.app in Embed Watch Content */,
-			);
-			name = "Embed Watch Content";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		F70CE70B2E8A6F280043B98B /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -294,13 +275,11 @@
 				1EAB617151155899E9934693 /* [CP] Embed Pods Frameworks */,
 				F70CE70B2E8A6F280043B98B /* Embed Frameworks */,
 				B7518CC071EF45C8B36BE467 /* Upload Debug Symbols to Sentry */,
-				B769F865DB270CD5C7B9CA14 /* Embed Watch Content */,
 				17DCDF355B275B8C965200BA /* [CP-User] [RNGoogleMobileAds] Configuration */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				52BDF885798FA17D1FC11FCC /* PBXTargetDependency */,
 				F8D000062F3A100100000001 /* PBXTargetDependency */,
 			);
 			name = app;
@@ -616,11 +595,6 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		52BDF885798FA17D1FC11FCC /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			name = RunTaehoWatch;
-			targetProxy = 113DC7D8825DB0EE6FC599A9 /* PBXContainerItemProxy */;
-		};
 		F8D000062F3A100100000001 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			name = UnityFramework;
@@ -651,7 +625,7 @@
 				CODE_SIGN_ENTITLEMENTS = app/app.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 3F893P33SC;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -666,7 +640,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.8.0;
+				MARKETING_VERSION = 1.9.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -702,7 +676,7 @@
 				CODE_SIGN_ENTITLEMENTS = app/app.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 3F893P33SC;
 				INFOPLIST_FILE = app/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "$(APP_NAME)";
@@ -712,7 +686,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.8.0;
+				MARKETING_VERSION = 1.9.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -747,7 +721,7 @@
 				CODE_SIGN_ENTITLEMENTS = app/app.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 3F893P33SC;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -761,7 +735,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.8.0;
+				MARKETING_VERSION = 1.9.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",

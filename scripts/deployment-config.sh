@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# 이 Mac의 배포 설정만 읽는다. credentials/는 Git에서 제외된다.
-if [[ -f "$ROOT/credentials/deployment.sh" ]]; then
+# 이 Mac의 배포 설정만 읽는다. 자격증명은 앱 저장소 밖의 공통 폴더에 둔다.
+CREDENTIALS_DIR="$(dirname "$ROOT")/credentials"
+if [[ -f "$CREDENTIALS_DIR/deployment.sh" ]]; then
   set -a
-  source "$ROOT/credentials/deployment.sh"
+  source "$CREDENTIALS_DIR/deployment.sh"
   set +a
 fi
 

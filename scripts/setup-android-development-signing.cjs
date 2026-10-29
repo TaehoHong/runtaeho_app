@@ -4,7 +4,7 @@ const path = require('node:path');
 const { randomBytes, X509Certificate } = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 
-const directory = path.join(__dirname, '../credentials');
+const directory = path.join(__dirname, '../../credentials');
 const propertiesPath = path.join(directory, 'android-development.properties');
 const keystorePath = path.join(directory, 'android-development.jks');
 try {
@@ -31,7 +31,7 @@ try {
   const certificate = execFileSync('keytool', ['-exportcert', '-rfc', '-keystore', keystorePath,
     '-alias', properties.keyAlias, '-storepass:env', 'RUNTAEHO_DEV_SIGNING_PASSWORD'],
   { env: { ...process.env, RUNTAEHO_DEV_SIGNING_PASSWORD: properties.storePassword }, stdio: ['ignore', 'pipe', 'pipe'] });
-  console.log('개발용 keystore 준비됨 (credentials/에 보관, Git 제외).');
+  console.log('개발용 keystore 준비됨 (작업공간 credentials/에 보관, 앱 저장소 외부).');
   console.log(`SHA-1: ${new X509Certificate(certificate).fingerprint}`);
 } catch (error) {
   console.error(error.stderr ? '개발 서명키 생성/확인 실패. keytool과 기존 키 설정을 확인한다.' : error.message);

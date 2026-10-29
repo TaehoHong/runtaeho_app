@@ -27,4 +27,7 @@ fastlane deliver --api_key_path "$ASC_API_KEY_PATH" \
   --app_identifier com.runtaeho.runtaeho --app_version "$VERSION" --build_number "$BUILD" \
   --skip_binary_upload "${METADATA_ARGS[@]}" --skip_screenshots \
   --submit_for_review --automatic_release false --force \
-  --precheck_include_in_app_purchases false
+  --precheck_include_in_app_purchases false || {
+    echo "심사 제출이 거부됐다. 위 Apple 오류를 확인하고 https://appstoreconnect.apple.com/apps 의 해당 앱에서 필요한 항목을 처리한 뒤 같은 버전·빌드로 재시도한다." >&2
+    exit 1
+  }

@@ -45,27 +45,35 @@ if [[ "$PROFILE" == development && "$PLATFORM" == android ]]; then
   [[ $PREFLIGHT_ONLY -eq 0 ]] || exit 0
   firebase appdistribution:distribute "$ARTIFACT" --project "$FIREBASE_PROJECT_ID" \
     --app "$FIREBASE_ANDROID_APP_ID" --groups "$FIREBASE_TESTER_GROUPS"
-elif [[ "$PROFILE" == development ]]; then
+elif [[ "$PLATFORM" == ios ]]; then
   command -v fastlane >/dev/null || die "설치된 fastlane이 필요하다."
   check_asc_api_key || exit 1
-  [[ -n "${TESTFLIGHT_DEV_GROUPS:-}" ]] || die "TESTFLIGHT_DEV_GROUPS에 개발 앱의 내부 테스터 그룹 이름을 설정한다."
-  APP_IDENTIFIER="$(node scripts/app-profile.cjs get development applicationId)"
+  APP_IDENTIFIER="$(node scripts/app-profile.cjs get "$PROFILE" applicationId)"
   export FASTLANE_SKIP_UPDATE_CHECK=1 FASTLANE_HIDE_CHANGELOG=1
-  fastlane development_preflight || die "App Store Connect의 .dev 앱·내부 그룹 등록과 API key 접근 권한을 확인한다."
+  if [[ "$PROFILE" == development ]]; then
+    [[ -n "${TESTFLIGHT_DEV_GROUPS:-}" ]] || die "App Store Connect에서 .dev 앱·TestFlight 내부 그룹을 등록하고 TESTFLIGHT_DEV_GROUPS에 그룹 이름을 설정한다."
+    fastlane development_preflight || die "https://appstoreconnect.apple.com/apps 에서 .dev 앱·내부 그룹과 API key 접근 권한을 확인한다."
+  else
+    fastlane production_preflight || die "https://appstoreconnect.apple.com/apps 에서 운영 앱과 API key 접근 권한을 확인한다."
+  fi
   [[ $PREFLIGHT_ONLY -eq 0 ]] || exit 0
-  fastlane pilot upload --api_key_path "$ASC_API_KEY_PATH" \
-    --app_identifier "$APP_IDENTIFIER" --ipa "$ARTIFACT" --groups "$TESTFLIGHT_DEV_GROUPS" \
-    --distribute_external false --submit_beta_review false --skip_submission false --skip_waiting_for_build_processing false
+  if [[ "$PROFILE" == development ]]; then
+    fastlane pilot upload --api_key_path "$ASC_API_KEY_PATH" \
+      --app_identifier "$APP_IDENTIFIER" --ipa "$ARTIFACT" --groups "$TESTFLIGHT_DEV_GROUPS" \
+      --distribute_external false --submit_beta_review false --skip_submission false --skip_waiting_for_build_processing false \
+      || die "App Store Connect가 개발 배포를 거부했다. 위 서버 오류를 확인하고 콘솔에서 필요한 항목을 처리한다."
+  else
+    fastlane pilot upload --api_key_path "$ASC_API_KEY_PATH" \
+      --app_identifier "$APP_IDENTIFIER" --ipa "$ARTIFACT" --skip_waiting_for_build_processing true --skip_submission true \
+      || die "App Store Connect가 업로드를 거부했다. 위 서버 오류를 확인하고 콘솔에서 필요한 항목을 처리한다."
+  fi
 else
   if [[ $PREFLIGHT_ONLY -eq 1 ]]; then
     npx --no-install eas whoami >/dev/null 2>&1 || die "EAS 로그인 또는 네트워크를 확인한다."
     exit 0
   fi
-  if [[ "$PLATFORM" == android ]]; then
-    bash scripts/verify-aab.sh "$ARTIFACT"
-    node -e 'const s=require("./eas.json").submit.production.android; console.log(`Google Play: track=${s.track}, releaseStatus=${s.releaseStatus}, rollout=${s.rollout ?? "default"}`)'
-  else
-    echo "App Store Connect 업로드 (심사 제출: npm run submit:review:ios -- <version> <build>)"
-  fi
-  npx eas submit --platform "$PLATFORM" --path "$ARTIFACT" --profile production --non-interactive
+  bash scripts/verify-aab.sh "$ARTIFACT"
+  node -e 'const s=require("./eas.json").submit.production.android; console.log(`Google Play: track=${s.track}, releaseStatus=${s.releaseStatus}, rollout=${s.rollout ?? "default"}`)'
+  npx eas submit --platform "$PLATFORM" --path "$ARTIFACT" --profile production --non-interactive \
+    || die "Google Play 제출이 실패했다. 위 서버 오류와 https://play.google.com/console 의 필요한 항목을 확인한다."
 fi

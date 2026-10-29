@@ -15,7 +15,7 @@ function fixture(t) {
   }
   for (const dir of ['scripts', 'tools']) {
     for (const name of fs.readdirSync(path.join(__dirname, '..', dir))) {
-      if (/\.(sh|js|cjs|json)$/.test(name)) fs.copyFileSync(path.join(__dirname, '..', dir, name), path.join(root, dir, name));
+      if (/\.(sh|js|cjs|json|py)$/.test(name)) fs.copyFileSync(path.join(__dirname, '..', dir, name), path.join(root, dir, name));
     }
   }
   fs.copyFileSync(path.join(__dirname, '../eas.json'), path.join(root, 'eas.json'));
@@ -33,8 +33,21 @@ function fixture(t) {
   return { root, run, calls: () => fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : '' };
 }
 
+function stubSigning(f) {
+  fs.writeFileSync(path.join(f.root, 'bin/python3'), `#!/bin/sh
+if [ "$1" = scripts/sign-ios.py ]; then
+  printf 'ios-signing %s\\n' "$*" >> "$CALL_LOG"
+  if [ "$SIGNING_PREFLIGHT_FAIL" = 1 ]; then echo '서명 파일이 없습니다' >&2; exit 1; fi
+  if [ "$2" = export ]; then mkdir -p "$5"; touch "$5/app.ipa"; fi
+  exit 0
+fi
+exec /usr/bin/python3 "$@"
+`, { mode: 0o755 });
+}
+
 function nativeFixture(t) {
   const f = fixture(t);
+  stubSigning(f);
   const unity = path.join(f.root, '../unity/RunTaehoUnity');
   for (const directory of ['Assets', 'Packages', 'ProjectSettings', 'Builds/iOS/Unity-iPhone.xcodeproj', 'Builds/Android/unityLibrary']) {
     fs.mkdirSync(path.join(unity, directory), { recursive: true });
@@ -48,13 +61,13 @@ function nativeFixture(t) {
   fs.writeFileSync(path.join(f.root, 'ios/app.xcworkspace/contents.xcworkspacedata'), `location = "absolute:${unity}/Builds/iOS/Unity-iPhone.xcodeproj">`);
   fs.writeFileSync(path.join(f.root, 'android/settings.gradle'), `project(':unityLibrary').projectDir = new File('${unity}/Builds/Android/unityLibrary')`);
   fs.copyFileSync(path.join(__dirname, 'ExportOptions.plist'), path.join(f.root, 'scripts/ExportOptions.plist'));
-  fs.mkdirSync(path.join(f.root, 'credentials'));
-  fs.writeFileSync(path.join(f.root, 'credentials/android-development.properties'), 'test signing configuration');
-  fs.writeFileSync(path.join(f.root, 'credentials/asc.json'), JSON.stringify({ key_id: 'TESTKEY123', issuer_id: 'test-issuer', key: 'test-only-private-key' }));
-  fs.writeFileSync(path.join(f.root, 'credentials/deployment.sh'), `export FIREBASE_PROJECT_ID=example-project
+  fs.mkdirSync(path.join(f.root, '../credentials'));
+  fs.writeFileSync(path.join(f.root, '../credentials/android-development.properties'), 'test signing configuration');
+  fs.writeFileSync(path.join(f.root, '../credentials/asc.json'), JSON.stringify({ key_id: 'TESTKEY123', issuer_id: 'test-issuer', key: 'test-only-private-key' }));
+  fs.writeFileSync(path.join(f.root, '../credentials/deployment.sh'), `export FIREBASE_PROJECT_ID=example-project
 export FIREBASE_ANDROID_APP_ID=1:123456789:android:abcdef
 export FIREBASE_TESTER_GROUPS=dev-testers
-export ASC_API_KEY_PATH="$ROOT/credentials/asc.json"
+export ASC_API_KEY_PATH="$ROOT/../credentials/asc.json"
 export TESTFLIGHT_DEV_GROUPS=DevTesters
 `);
   fs.writeFileSync(path.join(f.root, 'bin/firebase'), `#!/bin/sh
@@ -91,7 +104,7 @@ for (const scenario of [
   { profile: 'development', platform: 'android', build: /gradle :app:assembleDevelopmentRelease/, upload: /firebase appdistribution:distribute .*\.apk --project example-project --app 1:123456789:android:abcdef --groups dev-testers/ },
   { profile: 'development', platform: 'ios', build: /xcodebuild .* -scheme Development -configuration Development .* archive/, upload: /fastlane pilot upload .*--app_identifier com\.runtaeho\.runtaeho\.dev .*--groups DevTesters/ },
   { profile: 'production', platform: 'android', build: /gradle :app:bundleProductionRelease/, upload: /eas submit --platform android --path .*\.aab --profile production --non-interactive/ },
-  { profile: 'production', platform: 'ios', build: /xcodebuild .* -scheme app -configuration Release .* archive/, upload: /eas submit --platform ios --path .*\.ipa --profile production --non-interactive/ },
+  { profile: 'production', platform: 'ios', build: /xcodebuild .* -scheme app -configuration Release .* archive/, upload: /fastlane pilot upload .*--app_identifier com\.runtaeho\.runtaeho .*--ipa .*\.ipa .*--skip_waiting_for_build_processing true --skip_submission true/ },
 ]) {
   test(`${scenario.profile} ${scenario.platform} builds and uploads to its own distribution service`, (t) => {
     const f = nativeFixture(t);
@@ -101,6 +114,11 @@ for (const scenario of [
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.match(f.calls(), scenario.build);
     assert.match(f.calls(), scenario.upload);
+    if (scenario.platform === 'ios') {
+      assert.match(f.calls(), /CODE_SIGNING_ALLOWED=NO archive/);
+      assert.match(f.calls(), new RegExp(`ios-signing scripts/sign-ios.py export ${scenario.profile} `));
+      assert.doesNotMatch(f.calls(), /eas submit/);
+    }
     assert.doesNotMatch(result.stdout + result.stderr + f.calls(), /test-only-token|test-only-private-key|test-only-password/);
     assert.equal(fs.existsSync(path.join(f.root, 'build/deploy.lock')), false);
     if (scenario.profile === 'development') assert.doesNotMatch(f.calls(), /eas submit|deliver/);
@@ -110,7 +128,7 @@ for (const scenario of [
 
 test('missing tester settings stops before the build number or a native build changes', (t) => {
   const f = nativeFixture(t);
-  fs.writeFileSync(path.join(f.root, 'credentials/deployment.sh'), 'export FIREBASE_PROJECT_ID=example-project\n');
+  fs.writeFileSync(path.join(f.root, '../credentials/deployment.sh'), 'export FIREBASE_PROJECT_ID=example-project\n');
   const before = fs.readFileSync(path.join(f.root, 'android/app/build.gradle'), 'utf8');
   const result = f.run('bash', ['scripts/deploy-store.sh', '--profile', 'development', '--platform', 'android'], {
     ...f.env, FIREBASE_ANDROID_APP_ID: '', FIREBASE_TESTER_GROUPS: '',
@@ -134,7 +152,7 @@ test('another native deployment is rejected before changing versions', (t) => {
 
 test('a Firebase app from another target is rejected before a native build', (t) => {
   const f = nativeFixture(t);
-  fs.appendFileSync(path.join(f.root, 'credentials/deployment.sh'), 'export FIREBASE_ANDROID_APP_ID=1:987654321:android:other\n');
+  fs.appendFileSync(path.join(f.root, '../credentials/deployment.sh'), 'export FIREBASE_ANDROID_APP_ID=1:987654321:android:other\n');
   const before = fs.readFileSync(path.join(f.root, 'android/app/build.gradle'), 'utf8');
   const result = f.run('bash', ['scripts/deploy-store.sh', '--profile', 'development', '--platform', 'android'], f.env);
   assert.notEqual(result.status, 0);
@@ -190,14 +208,15 @@ test('invalid OTA platform fails closed', (t) => {
 });
 
 test('upload-only command leaves versions untouched and uses the explicit artifact', (t) => {
-  const f = fixture(t);
+  const f = nativeFixture(t);
   const before = fs.readFileSync(path.join(f.root, 'package.json'), 'utf8');
   const artifact = path.join(f.root, 'existing release.ipa');
   fs.writeFileSync(artifact, 'test artifact');
   const result = f.run('bash', ['scripts/submit-store.sh', '--platform', 'ios', '--path', artifact]);
   assert.equal(result.status, 0, result.stderr);
   assert.equal(fs.readFileSync(path.join(f.root, 'package.json'), 'utf8'), before);
-  assert.match(f.calls(), /eas submit --platform ios --path .*existing release\.ipa --profile production --non-interactive/);
+  assert.match(f.calls(), /pilot upload .*--ipa .*existing release\.ipa/);
+  assert.doesNotMatch(f.calls(), /eas submit/);
 });
 
 test('upload-only rejects a missing artifact before contacting EAS', (t) => {
@@ -298,8 +317,9 @@ test('Ads configuration updates the archived plist when the build-products app p
   const phase = Object.values(project.hash.project.objects.PBXShellScriptBuildPhase)
     .find(item => item.name === '"[CP-User] [RNGoogleMobileAds] Configuration"');
   assert.ok(phase.inputPaths.includes('"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)"'));
-  const appId = 'ca-app-pub-3940256099942544~1458002511';
-  fs.writeFileSync(path.join(f.root, 'app.json'), JSON.stringify({ 'react-native-google-mobile-ads': { ios_app_id: appId } }));
+  const configuration = JSON.parse(fs.readFileSync(path.join(__dirname, '../app.json')));
+  const appId = configuration['react-native-google-mobile-ads'].ios_app_id;
+  fs.writeFileSync(path.join(f.root, 'app.json'), JSON.stringify(configuration));
   const archive = path.join(f.root, 'archive/Applications');
   const plist = path.join(archive, 'Test.app/Info.plist');
   fs.mkdirSync(path.dirname(plist), { recursive: true });
@@ -314,20 +334,21 @@ test('Ads configuration updates the archived plist when the build-products app p
   const value = spawnSync('/usr/libexec/PlistBuddy', ['-c', 'Print :GADApplicationIdentifier', plist], { encoding: 'utf8' });
   assert.equal(value.status, 0, value.stderr);
   assert.equal(value.stdout.trim(), appId);
+  if (!configuration.ads.enabled) {
+    const tracking = spawnSync('/usr/libexec/PlistBuddy', ['-c', 'Print :NSUserTrackingUsageDescription', plist], { encoding: 'utf8' });
+    assert.notEqual(tracking.status, 0, 'Disabled production ads must not inject tracking usage permission');
+  }
 });
 
-test('embedded Watch metadata is available before scripts consume the phone plist', () => {
+test('phone build excludes the deferred Watch app from dependencies and packaging', () => {
   const project = require('xcode').project(path.join(__dirname, '../ios/app.xcodeproj/project.pbxproj'));
   project.parseSync();
   const objects = project.hash.project.objects;
   const app = Object.values(objects.PBXNativeTarget).find(target => target.name === 'app');
-  const watchIndex = app.buildPhases.findIndex(phase =>
-    objects.PBXCopyFilesBuildPhase[phase.value]?.name === '"Embed Watch Content"');
-  assert.ok(watchIndex >= 0);
-  app.buildPhases.forEach((phase, index) => {
-    const inputs = objects.PBXShellScriptBuildPhase[phase.value]?.inputPaths || [];
-    if (inputs.includes('"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)"')) assert.ok(index > watchIndex);
-  });
+  assert.equal(app.buildPhases.some(phase =>
+    objects.PBXCopyFilesBuildPhase[phase.value]?.name === '"Embed Watch Content"'), false);
+  assert.equal(app.dependencies.some(dependency =>
+    objects.PBXTargetDependency[dependency.value]?.name === 'RunTaehoWatch'), false);
 });
 
 test('Unity receipt accepts the same physical output directory and rejects another directory', (t) => {
@@ -450,6 +471,7 @@ test('OTA missing remote config cannot fall back to local shell values', (t) => 
 
 test('failed native build resumes without bumping again or requiring an EAS login', (t) => {
   const f = fixture(t);
+  stubSigning(f);
   fs.unlinkSync(path.join(f.root, 'bin/git'));
   fs.symlinkSync(path.join(__dirname, '../node_modules'), path.join(f.root, 'node_modules'));
   fs.copyFileSync(path.join(__dirname, 'ExportOptions.plist'), path.join(f.root, 'scripts/ExportOptions.plist'));
@@ -488,7 +510,32 @@ done
   const resumed = f.run('bash', ['scripts/deploy-store.sh', '--platform', 'ios', '--no-submit', '--resume'], { ...env, FAIL_BUILD: '0' });
   assert.equal(resumed.status, 0, resumed.stdout + resumed.stderr);
   assert.match(fs.readFileSync(path.join(f.root, 'ios/app.xcodeproj/project.pbxproj'), 'utf8'), /CURRENT_PROJECT_VERSION = 2;/);
-  assert.equal(f.calls(), '');
+  assert.doesNotMatch(f.calls(), /eas whoami|eas submit|pilot upload/);
+});
+
+test('failed iOS signing preflight stops before the build number or archive changes', (t) => {
+  const f = nativeFixture(t);
+  const before = fs.readFileSync(path.join(f.root, 'ios/app.xcodeproj/project.pbxproj'), 'utf8');
+  const result = f.run('bash', ['scripts/deploy-store.sh', '--platform', 'ios', '--no-submit'], {
+    ...f.env, SIGNING_PREFLIGHT_FAIL: '1',
+  });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /서명 파일/);
+  assert.equal(fs.readFileSync(path.join(f.root, 'ios/app.xcodeproj/project.pbxproj'), 'utf8'), before);
+  assert.doesNotMatch(f.calls(), /xcodebuild|pilot upload/);
+});
+
+test('Apple review rejection reports the console action and never changes declarations', (t) => {
+  const f = nativeFixture(t);
+  fs.writeFileSync(path.join(f.root, 'bin/fastlane'), `#!/bin/sh
+printf '%s\\n' "$*" >> "$CALL_LOG"
+if [ "$1" = deliver ]; then echo 'BINARY_INDICATES_APP_TRACKS_USERS' >&2; exit 1; fi
+`, { mode: 0o755 });
+  const result = f.run('bash', ['scripts/submit-review.sh', '1.9.0', '4']);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /BINARY_INDICATES_APP_TRACKS_USERS/);
+  assert.match(result.stderr, /https:\/\/appstoreconnect.apple.com\/apps/);
+  assert.doesNotMatch(f.calls(), /update_app_age_rating|upload_app_privacy_details/);
 });
 
 

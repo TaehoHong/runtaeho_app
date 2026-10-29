@@ -70,7 +70,7 @@ Data Layer requires the exact same ID and signing certificate as the correspondi
 phone environment. This project never evaluates or reads the phone Gradle build.
 
 Both `localDebug` and `developmentRelease` consume the phone's existing ignored
-`../credentials/android-development.properties`. Its `storeFile` is resolved
+`../../credentials/android-development.properties` in the workspace. Its `storeFile` is resolved
 relative to that properties file, matching the phone. No development key is copied,
 generated or replaced. Supply the existing properties file and matching key through
 the established credential setup before building; missing keys fail explicitly.

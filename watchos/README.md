@@ -70,12 +70,12 @@ Paired-device recording and delivery still need hardware validation.
 
 ## Companion integration
 
-`../ios/app.xcodeproj` references this external project. Its phone target depends
-on the remote watch target and embeds the remote `RunTaehoWatch.app` product using
-`Embed Watch Content`; there is one watch target implementation. Open the phone
-workspace for an integrated companion build, preserving its existing Pods/Unity
-setup and direct Xcode build requirements. Do not run `expo prebuild --clean` or
-EAS Build for that phone project.
+`../ios/app.xcodeproj` retains this external project reference for navigation.
+Watch distribution is deferred: the phone target has no Watch build dependency
+or `Embed Watch Content` phase, and the phone IPA excludes the Watch app.
+Build this independent project using the schemes above. The phone project keeps
+its existing Pods/Unity setup and direct Xcode build requirements; do not run
+`expo prebuild --clean` or EAS Build for that phone project.
 
 Phone release tooling in `../scripts/version.js` synchronizes version/build
 settings in both project files. Run the existing release/version commands from

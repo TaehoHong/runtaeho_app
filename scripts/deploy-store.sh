@@ -5,7 +5,7 @@
 # EAS Build(원격 빌드)를 쓸 수 없기 때문에 로컬 빌드가 유일한 경로다.
 # Unity 산출물이 저장소가 아니라 이 맥의 절대경로에 있고, ios/app.xcworkspace와
 # android/settings.gradle이 그 경로를 직접 참조한다. 그래서 빌드는 로컬에서 하고
-# 운영 업로드는 EAS Submit, 개발 업로드는 Firebase / fastlane으로 자동화한다.
+# Android 운영 업로드는 EAS Submit, iOS는 API key 기반 fastlane을 사용한다.
 #
 #   bash scripts/deploy-store.sh --version 1.9.0
 #   bash scripts/deploy-store.sh --platform ios
@@ -143,6 +143,7 @@ node scripts/check-env.cjs remote "$PROFILE"
 
 if want_ios; then
   command -v xcodebuild >/dev/null 2>&1 || die "xcodebuild를 찾을 수 없다."
+  python3 scripts/sign-ios.py preflight "$PROFILE"
   [[ -f "$ROOT/scripts/ExportOptions.plist" ]] || die "scripts/ExportOptions.plist가 없다."
   xcodebuild -workspace ios/app.xcworkspace -scheme "$IOS_SCHEME" -configuration "$IOS_CONFIGURATION" \
     -destination 'generic/platform=iOS' -showBuildSettings >/dev/null 2>&1 || \
@@ -167,7 +168,7 @@ Unity에서 Android로 다시 export해야 한다."
   node scripts/check-unity.cjs android "$(dirname "$UNITY_ANDROID_LIB")"
 
   if [[ "$PROFILE" == development ]]; then
-    [[ -f "$ROOT/credentials/android-development.properties" ]] || die "npm run signing:dev:android로 개발 서명키를 먼저 준비한다."
+    [[ -f "$CREDENTIALS_DIR/android-development.properties" ]] || die "npm run signing:dev:android로 개발 서명키를 먼저 준비한다."
   else
   for key in RUNTAEHO_UPLOAD_STORE_FILE RUNTAEHO_UPLOAD_STORE_PASSWORD \
              RUNTAEHO_UPLOAD_KEY_ALIAS RUNTAEHO_UPLOAD_KEY_PASSWORD; do
@@ -249,15 +250,11 @@ if want_ios; then
     -configuration "$IOS_CONFIGURATION" \
     -destination 'generic/platform=iOS' \
     -archivePath "$ARCHIVE_PATH" \
-    -allowProvisioningUpdates \
+    CODE_SIGNING_ALLOWED=NO \
     archive
 
   info "IPA 내보내기"
-  xcodebuild -exportArchive \
-    -archivePath "$ARCHIVE_PATH" \
-    -exportPath "$EXPORT_PATH" \
-    -exportOptionsPlist scripts/ExportOptions.plist \
-    -allowProvisioningUpdates
+  python3 scripts/sign-ios.py export "$PROFILE" "$ARCHIVE_PATH" "$EXPORT_PATH"
 
   IPA_PATH="$(find "$EXPORT_PATH" -maxdepth 1 -name '*.ipa' 2>/dev/null | head -1 || true)"
   [[ -n "$IPA_PATH" ]] || die "IPA를 찾지 못했다: $EXPORT_PATH"
@@ -320,11 +317,12 @@ if [[ $SUBMIT -eq 1 && "$PROFILE" == development ]]; then
   [[ -z "$ANDROID_PATH" ]] || echo "Android 개발 앱: Firebase 테스터 그룹 배포 완료"
 elif [[ $SUBMIT -eq 1 ]]; then
   echo "남은 수동 단계:"
-  if [[ -n "$IPA_PATH" && $SUBMIT_REVIEW -eq 0 ]]; then
-    cat <<'EOF'
-  - iOS: 처리(10~15분) 후 TestFlight에 올라온다. 실제 출시는 App Store Connect에서
-    npm run submit:review:ios -- <version> <build> 로 심사에 제출한다.
-EOF
+  if [[ -n "$IPA_PATH" ]]; then
+    if [[ $SUBMIT_REVIEW -eq 1 ]]; then
+      echo "  - iOS: 심사 제출 완료. 승인 후 App Store Connect에서 수동 출시한다."
+    else
+      echo "  - iOS: Apple 처리 후 npm run submit:review:ios -- $VERSION $IOS_BUILD 로 심사에 제출한다."
+    fi
   fi
   if [[ -n "$ANDROID_PATH" ]]; then
     node -e 'const s=require("./eas.json").submit.production.android; console.log(`  - Android: ${s.track} / ${s.releaseStatus}. 실제 공개 시점은 Play 심사 및 게시 설정에 따른다.`)'

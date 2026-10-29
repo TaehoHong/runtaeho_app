@@ -2,7 +2,7 @@ apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 
 def appProfiles = new groovy.json.JsonSlurper().parse(rootProject.file('../scripts/app-profiles.json'))
-def developmentSigningFile = rootProject.file('../credentials/android-development.properties')
+def developmentSigningFile = rootProject.file('../../credentials/android-development.properties')
 def developmentSigning = new Properties()
 if (developmentSigningFile.exists()) {
     developmentSigningFile.withInputStream { developmentSigning.load(it) }
@@ -96,7 +96,7 @@ android.applicationVariants.all { variant ->
             if (config?.storeFile == null || !config.storeFile.isFile()) {
                 throw new GradleException(variant.flavorName == 'production'
                     ? 'Matching production signing keystore is missing; supply RUNTAEHO_DEBUG_STORE_FILE or RUNTAEHO_UPLOAD_* Gradle properties'
-                    : 'Matching development signing keystore is missing; supply the existing credentials/android-development.properties and its key')
+                    : 'Matching development signing keystore is missing; supply the existing workspace credentials/android-development.properties and its key')
             }
         }
     }

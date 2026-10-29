@@ -25,8 +25,8 @@ npm run build:dev:ios         # 개발 IPA 빌드만
 npm run build:dev:android     # 개발 APK 빌드만
 ```
 
-로컬과 개발 Android는 같은 전용 개발 서명키를 사용한다. 키와 비밀번호는 Git에서 제외된
-`credentials/android-development.jks`, `credentials/android-development.properties`에만 둔다.
+로컬과 개발 Android는 같은 전용 개발 서명키를 사용한다. 키와 비밀번호는 앱 저장소 밖의
+`../credentials/android-development.jks`, `../credentials/android-development.properties`에만 둔다.
 두 파일은 함께 안전하게 백업하며, 기존 키를 임의로 새로 만들지 않는다. 운영 업로드 키와는 별개다.
 다른 개발 컴퓨터에서는 두 파일을 복원해 같은 키를 사용한다. 컴퓨터마다 새 키를 생성하지 않는다.
 `cd android && ./gradlew :app:verifyDevelopmentSigning`으로 실제 로컬·테스터 variant의 키가
@@ -44,8 +44,8 @@ OTA의 EAS 원격 변수 환경은 기존대로 `staging → preview`, `producti
 `npm run build:dev:android -- --allow-dirty`처럼 명시한다.
 Android APK는 Firebase App Distribution, iOS IPA는 fastlane을 통해 TestFlight로 배포한다.
 Apple Developer에 `.dev` App ID와 필요한
-권한을 등록하고 App Store Connect 개발 앱을 먼저 만들어야 한다. 포함된 Watch 앱도 개발에서는
-`com.runtaeho.runtaeho.dev.watchkitapp`, 운영에서는 기존 `.watchkitapp`을 사용한다.
+권한을 등록하고 App Store Connect 개발 앱을 먼저 만들어야 한다. 현재 폰 배포에는 Watch 앱을
+포함하지 않는다. 독립 Watch 프로젝트의 앱 ID는 개발 `.dev.watchkitapp`, 운영 `.watchkitapp`이다.
 Apple 로그인은 공유 백엔드의
 개발 client ID 처리도 별도로 확인한다. iOS Configuration 추가 후 `cd ios && pod install`이 필요하다.
 
@@ -65,7 +65,8 @@ Xcode/Gradle 빌드·서명 → 업로드를 순서대로 실행한다. 개발·
 
 `-- --version 1.9.0`, `-- --preflight-only`, `-- --resume` 옵션도 전달할 수 있다.
 `build:dev:*`, `build:prod:*`는 기존처럼 빌드만 수행한다. 이 명령은 현재 휴대폰 앱을 대상으로
-하며, Wear OS 독립 앱 배포는 포함하지 않는다. iOS에 포함되는 Watch 앱은 기존 Xcode 빌드가 함께 처리한다.
+하며, watchOS·Wear OS 독립 앱 배포는 포함하지 않는다. 폰 타깃의 Watch 빌드 의존성과
+`Embed Watch Content` 단계도 제거되어 기본 iOS IPA에는 Watch 앱이 들어가지 않는다.
 
 **최초 1회 설정**
 
@@ -76,24 +77,46 @@ Xcode/Gradle 빌드·서명 → 업로드를 순서대로 실행한다. 개발·
 2. 공식 Firebase CLI를 설치(`npm install -g firebase-tools`)하고 `firebase login`한다.
    또는 기존 권한을 부여한 서비스 계정 JSON 경로를 `GOOGLE_APPLICATION_CREDENTIALS`로 지정한다.
 3. App Store Connect에 `.dev` 앱과 TestFlight **내부** 그룹을 만들고 테스터를 지정한다.
-   Apple Developer의 휴대폰·Watch App ID/권한과 이 Mac의 배포 인증서·프로비저닝도 준비한다.
+   Apple Developer의 휴대폰 App ID/권한과 이 Mac의 배포 인증서·프로비저닝도 준비한다.
+   휴대폰의 네이티브 엔타이틀먼트에 HealthKit을 선언하므로 App ID와 App Store 배포
+   프로파일에도 HealthKit이 포함되어야 한다.
 4. 기존 fastlane과 App Store Connect API key JSON을 사용한다. 개발 그룹 배포에는 App Manager
-   또는 Admin 권한이 필요하다. 운영 EAS Submit의 기존 Apple/Play 제출 자격증명도 먼저 등록한다.
+   또는 Admin 권한이 필요하다. Android 운영은 EAS Submit의 Play 제출 자격증명을 사용한다.
 5. 아래 템플릿을 복사하고 값·경로를 로컬 파일에 채운다. 토큰·개인 키는 Git에 저장하지 않는다.
 
 ```bash
-mkdir -p credentials
-cp scripts/deployment-config.example.sh credentials/deployment.sh
-chmod 600 credentials/deployment.sh
+mkdir -p ../credentials
+chmod 700 ../credentials
+cp scripts/deployment-config.example.sh ../credentials/deployment.sh
+chmod 600 ../credentials/deployment.sh
 ```
 
-모든 배포 명령이 `credentials/deployment.sh`를 자동으로 읽는다. Firebase App ID는
+모든 배포 명령이 `../credentials/deployment.sh`를 자동으로 읽는다. 이 Mac의 공통 위치는
+`/Users/hongtaeho/running/credentials`이며, Android 개발·운영 키, Apple API 키 JSON·p8,
+배포 인증서·프로파일과 로컬 배포 설정을 함께 보관한다. 키 내용은 문서·Git에 넣지 않고
+파일 권한은 600, 폴더 권한은 700으로 유지한다. 백업·복원 시 같은 위치와 기존 키를 유지한다.
+iOS 두 앱은 `ios-production-signing.p12`와 `ios-production-signing.json`의
+`certificatePassword`를 공유한다. App Store 프로파일은 운영
+`ios-production-phone.mobileprovision`, 개발 `ios-development-phone.mobileprovision`으로 구분한다.
+TestFlight용 개발 앱도 App Store 배포 프로파일이 필요하며, `.dev` 앱 ID와 HealthKit·Apple 로그인·푸시
+권한이 일치해야 한다. `scripts/sign-ios.py`가 빌드번호 증가 전에 인증서·개인 키·프로파일을 검사한다.
+아카이브는 자동 서명 없이 만들고, 임시 키체인에서 서명·내보내기·IPA 검증을 수행한다.
+기존 키체인 검색 목록은 성공·실패 시 모두 복원하고 임시 키체인을 삭제한다. Xcode에 필요한
+프로파일도 이미 설치된 파일은 보존하고 이번 내보내기에서 추가한 파일만 정리한다.
+이 과정은 이전 IPA나 `/private/tmp` 보조 스크립트에 의존하지 않는다.
+Firebase App ID는
 Google OAuth Client ID와 다르며, 기존 로컬·개발 공용 OAuth와 서명키는 유지한다.
-운영 업로드 키는 기존 `~/.gradle/gradle.properties` 설정을 사용한다.
+운영 업로드 키의 절대 경로와 비밀번호는 로컬 배포 설정의 `ORG_GRADLE_PROJECT_RUNTAEHO_UPLOAD_*`
+환경변수로 주입한다. 기존 `~/.gradle/gradle.properties` 설정도 계속 사용할 수 있다.
 새 `deploy:*` 명령은 기존 프로파일 로더로 환경 파일을 읽으므로 기존 Sentry 토큰도 재사용한다.
 배포 프로젝트를 옮길 때는 새 대상에 같은 패키지 앱과 그룹을 등록한 뒤
 `FIREBASE_PROJECT_ID`, `FIREBASE_ANDROID_APP_ID`, 필요한 그룹 별칭을 바꾼다.
 기존 배포 이력과 테스터 그룹은 자동으로 합쳐지지 않는다.
+
+Play 심사 전에는 광고 ID 선언도 확인한다. 현재 AdMob SDK와 병합된 운영 매니페스트에
+`com.google.android.gms.permission.AD_ID`가 포함되므로 광고 ID 사용을 선언한다.
+SDK의 사용 목적은 [Google 공식 데이터 공개 안내](https://developers.google.com/admob/android/privacy/play-data-disclosure)의
+광고·분석·사기 예방에 맞춘다. 광고 ID 권한 누락 오류를 무시하는 옵션은 사용하지 않는다.
 
 Unity는 기존 export 산출물과 현재 소스가 일치해야 한다. 이 명령은 export를 다시 만들지 않고
 검증하며, 오래된 경우 업로드 전에 중단한다. Unity export 갱신과 Xcode 플랫폼 설치는 먼저 완료한다.
@@ -110,9 +133,16 @@ Unity Xcode 프로젝트에는 `Development` 구성이 없어 이 구성으로 �
 광고 SDK 설정 단계는 `TARGET_BUILD_DIR/INFOPLIST_PATH`를 입력과 수정 대상으로 사용한다.
 아카이브에서는 일반 빌드 제품 폴더와 앱 설치 폴더가 다르므로 이 의존성을 선언해야 한다.
 `ios/Podfile`의 `post_integrate`가 `pod install` 후에도 해당 설정을 유지한다.
-폰의 처리된 Info.plist는 Watch 메타데이터에 의존하므로 Watch 포함 단계를 그 plist를 읽는
-광고 설정 단계보다 앞에 둔다. 반대 순서는 Xcode 아카이브 의존성 순환을 만든다.
+현재 운영 광고는 `app.json`의 `ads.enabled: false`로 비활성화되어 있다. 이 상태에서는
+`user_tracking_usage_description`을 넣지 않는다. 이 값은 SDK 빌드 단계에서 실제 IPA의
+`NSUserTrackingUsageDescription`으로 주입되어 추적하지 않는 개인정보 신고와 충돌한다.
+광고·추적을 활성화할 때 실제 데이터 사용과 동의 흐름, App Store 개인정보 신고를 함께 검토한다.
+추후 Watch를 다시 포함하면 폰의 처리된 Info.plist가 Watch 메타데이터에 의존한다.
+이 경우 Watch 포함 단계를 그 plist를 읽는 광고 설정 단계보다 앞에 둔다.
+반대 순서는 Xcode 아카이브 의존성 순환을 만든다.
 실제 스토어 검토·약관·개인정보·수출 규정 답변은 이 명령으로 우회하지 않는다.
+스토어 앱 등록·신고 항목·약관 때문에 중단되면 원래 서버 오류와 처리할 콘솔을 표시한다.
+스크립트가 이 답변을 자동 변경하지 않으며, 콘솔에서 해결한 뒤 같은 업로드/심사 명령을 재시도한다.
 
 개발 iOS는 앱과 그룹을 사전 조회하고 기존 내부 그룹만 허용한다. 업로드 후 Apple 빌드 처리와
 그룹 배포 완료까지 기다린다. 운영 심사 제출도 지정한 버전·빌드 처리 완료를 최대 30분 기다린다.
@@ -176,7 +206,8 @@ android/settings.gradle
 커밋할 수도 없다. 실제로 EAS Build를 시도한 4건은 전부 `no such module 'UnityFramework'`로
 실패했다.
 
-그래서 **빌드는 이 맥에서, 운영 스토어 업로드는 `eas submit --path`로 자동화**한다.
+그래서 **빌드는 이 맥에서**, iOS 업로드는 API key 기반 `fastlane pilot`, Android 운영 업로드는
+`eas submit --path`로 자동화한다.
 개발 앱 업로드는 위의 Firebase / fastlane 경로를 사용한다.
 
 ## 1. 두 가지 배포 경로
@@ -207,7 +238,7 @@ npx eas whoami
 비밀번호는 저장소에 두지 않고 `~/.gradle/gradle.properties`에 넣는다.
 
 ```properties
-RUNTAEHO_UPLOAD_STORE_FILE=/Users/hongtaeho/running/runtaeho_android_key.jks
+RUNTAEHO_UPLOAD_STORE_FILE=/Users/hongtaeho/running/credentials/runtaeho_android_key.jks
 RUNTAEHO_UPLOAD_STORE_PASSWORD=<키스토어 비밀번호>
 RUNTAEHO_UPLOAD_KEY_ALIAS=<별칭>
 RUNTAEHO_UPLOAD_KEY_PASSWORD=<키 비밀번호>
@@ -222,12 +253,11 @@ Play에 올라간 기존 AAB는 `CN=TAEHO HONG, O=RT262` 인증서로 서명돼 
 
 ### 2.3 App Store Connect API Key 등록
 
-```bash
-npx eas credentials --platform ios
-```
-
-App Store Connect API Key를 등록해 두면 `eas submit`이 비대화형으로 업로드한다.
-`eas.json`의 `submit.production.ios.ascAppId`는 이 앱의 Apple ID(`6755414468`)로 채워져 있다.
+`../credentials/deployment.sh`의 `ASC_API_KEY_PATH`를 fastlane 형식 API key JSON으로 지정한다.
+개발·운영 iOS 모두 이 키로 `fastlane pilot`을 실행한다. 운영은 업로드만 하고, 개발은 지정한
+TestFlight 내부 그룹 배포까지 기다린다. 운영 심사는 `submit-review.sh`가 정확한 버전·빌드를
+선택한다. 별도의 EAS Apple 자격증명 등록이나 브라우저 로그인은 필요하지 않다.
+App Store Connect의 앱·내부 그룹 최초 등록과 계정 약관 처리는 콘솔에서 먼저 완료해야 한다.
 
 ### 2.4 Google Play 서비스 계정 키 등록
 
@@ -236,8 +266,11 @@ npx eas credentials --platform android
 ```
 
 Google Play Console에서 만든 서비스 계정 JSON을 등록한다. `eas.json`의
-`submit.production.android`는 `production` 트랙에 `completed`로 올린다. 즉 Play 검토를
-통과하면 전체 사용자에게 바로 배포된다.
+`submit.production.android`는 `production` 트랙에 `completed`로 올린다. 관리형 게시가
+꺼져 있으면 심사 승인 후 자동 공개된다. 심사만 제출하고 공개를 수동으로 하려는 릴리스는
+업로드 전에 Play Console의 관리형 게시를 켜고, 승인 후 직접 게시한다.
+한 번만 공개를 보류하는 경우 해당 릴리스를 직접 게시한 뒤 관리형 게시를 꺼서 기존 자동 공개
+방식으로 복원한다. 승인된 변경사항이 남아 있는 동안에는 관리형 게시를 끄지 않는다.
 
 단계적 출시로 바꾸려면 `releaseStatus`를 `"inProgress"`로 두고 `rollout`에 비율을 준다.
 내부 테스트만 하려면 `track: "internal"`, `releaseStatus: "draft"`로 되돌린다.
@@ -285,16 +318,16 @@ npm run deploy:store -- --platform android --no-submit
 
 절차는 이렇게 돈다.
 
-1. 프리플라이트 — 소스 상태, 필수 환경변수, Sentry 인증, **Unity export 소스 해시**, Android 서명 설정. 업로드할 때만 EAS 로그인 확인
+1. 프리플라이트 — 소스 상태, 필수 환경변수, Sentry 인증, **Unity export 소스 해시**, Android 서명 설정, iOS 프로파일·배포 개인 키. iOS는 API key와 앱/그룹 접근, Android 운영은 EAS 로그인을 확인
 2. 버전 반영 — `--version` 적용, `runtimeVersion` 동기화, 빌드번호/versionCode 증가, 재시도용 소스 상태 기록
-3. iOS — `xcodebuild archive` (Unity 프로젝트 포함) → `-exportArchive`로 IPA
-4. Android — `./gradlew :app:bundleRelease` → AAB 서명자 검사
-5. 업로드 — `eas submit --path`로 각각 제출
+3. iOS — 서명 없는 `xcodebuild archive` (Unity 프로젝트 포함) → `sign-ios.py`의 임시 키체인 서명·`-exportArchive`·IPA 검증
+4. Android — `./gradlew :app:bundleProductionRelease` → AAB 서명자 검사
+5. 업로드 — iOS는 `fastlane pilot`, Android 운영은 `eas submit`, Android 개발은 Firebase CLI로 제출
 6. 산출물은 `build/release/` 아래에 버전·빌드번호가 붙은 이름으로 남는다
 
 업로드 후 남는 수동 단계:
 
-- **iOS**: `eas submit`은 업로드까지만 한다. `--submit-review`를 붙이면 업로드 뒤
+- **iOS**: 운영 `pilot`은 업로드까지만 한다. `--submit-review`를 붙이면 업로드 뒤
   정확한 버전/빌드를 fastlane으로 심사 제출한다. 승인 후 출시는 수동이다.
 - **Android**: 현재 `eas.json`은 `production/completed`이다. 실제 공개 시점은 Play 심사와
   관리형 게시 설정에 따른다. 스크립트는 실제 설정을 읽어 표시한다.
@@ -307,9 +340,9 @@ Unity Editor는 `ProjectVersion.txt`에 지정된 **6000.0.60f1**을 사용한�
 `Assets/Editor/VersionSync/VersionSyncEditor.cs`가 앱 버전을 읽고, export 전후의
 `Assets`, `Packages`, `ProjectSettings` SHA-256을 비교한다. 정상 export 후 출력 폴더에
 `.runtaeho-export.json`을 기록한다. export 시작 때 이전 기록을 지워 실패한 결과를 재사용하지 않는다.
-배포는 이 기록과 현재 입력을 비교한다. `.DS_Store`만 제외한다.
+배포는 이 기록과 현재 입력을 비교한다. `.DS_Store`와 위에서 설명한 Addressables 생성 상태 파일은 제외한다.
 
-**기존 export에는 기록이 없으므로 첫 배포 전에 iOS와 Android를 다시 export해야 한다.**
+**기록이 없거나 현재 소스와 다를 때만 해당 플랫폼을 다시 export한다.**
 Android는 Gradle 프로젝트 export를 사용한다. 기록을 수동으로 만들거나 복사하지 않는다.
 이 검증은 소스/export의 대응 확인이며, export 후 수동으로 수정한 네이티브 파일의 정합성이나
 실기기 동작까지 보장하지 않는다. Unity 프로젝트는 앱 Git 저장소 밖에 있으므로 함께 보관해야 한다.
@@ -325,7 +358,7 @@ npm run submit:ios -- --path /absolute/path/app.ipa
 npm run submit:android -- --path /absolute/path/app.aab
 
 # 업로드는 성공했고 심사 제출만 다시 해야 할 때
-npm run submit:review:ios -- 1.9.0 2
+npm run submit:review:ios -- 1.9.0 4
 ```
 
 `--resume`은 `build/release/pending.json`에 기록한 소스·커밋·플랫폼이 같을 때만 허용한다.
@@ -336,7 +369,7 @@ npm run submit:review:ios -- 1.9.0 2
 
 이미 설치된 fastlane을 사용한다. `ASC_API_KEY_PATH`에는 저장소 외부의 fastlane 형식
 App Store Connect API key JSON 경로를 지정한다 (`key_id`, `issuer_id`, `key`).
-기존 EAS 제출 자격증명과 별도로 fastlane에서 읽을 수 있어야 한다.
+iOS 업로드와 심사 제출이 같은 API key JSON을 공유한다.
 
 ```bash
 npm run deploy:store -- --version 1.9.0 --submit-review
@@ -364,13 +397,20 @@ npm run version:bump-build -- android  # 한쪽만 (all | ios | android)
 
 | 값 | 의미 | 언제 올리나 |
 |---|---|---|
-| `version` | 스토어 표시 버전 | 릴리스마다 |
-| `runtimeVersion` | 네이티브 호환 경계 | **스토어 배포에서만** |
+| `version` | 스토어 표시 버전 | **새 스토어 릴리스마다 minor 증가·patch는 0** (`1.8.x → 1.9.0`) |
+| `runtimeVersion` | 네이티브 호환 경계 | **스토어 배포에서 새 `version`과 동일하게 동기화**, OTA에서는 유지 |
 | iOS `CURRENT_PROJECT_VERSION` | 빌드번호 | 업로드마다 (단조 증가) |
 | Android `versionCode` | 빌드번호 | 업로드마다 (단조 증가) |
 
-`runtimeVersion`을 OTA 직전에 올리면 이미 설치된 앱은 업데이트를 못 받는다. 그래서
-`deploy-ota.sh`가 이 값을 먼저 검사한다.
+스토어 릴리스는 `npm run deploy:prod -- --version 1.9.0`처럼 새 minor 버전을 명시한다.
+`version:minor`만으로 네이티브 설정은 동기화되지 않으므로, 스토어 빌드는 `scripts/version.js`를 호출하는
+배포 명령으로 네이티브 버전과 런타임까지 함께 맞춘다. 같은 릴리스의 실패 재시도는 minor를
+다시 올리지 않고 위의 `--resume` 또는 산출물 재전송 절차를 따른다.
+
+minor 증가는 이 프로젝트의 릴리스 규칙이다. EAS Update의 호환 조건은 설치된 네이티브
+빌드와 OTA의 플랫폼·`runtimeVersion`이 일치하는 것이다. OTA 직전에 런타임을 올리면
+기존 설치 앱이 받지 못하므로 `deploy-ota.sh`가 먼저 검사한다.
+참고: [Expo 런타임 버전](https://docs.expo.dev/eas-update/runtime-versions/).
 
 Wear OS는 `wearos/`에서 별도로 빌드하며, `wearos/app/build.gradle`의
 `versionCode`와 `versionName`을 관리한다. 휴대폰 Android 배포 명령은 Wear OS
@@ -380,23 +420,11 @@ Wear OS는 `wearos/`에서 별도로 빌드하며, `wearos/app/build.gradle`의
 
 ## 6. 현재 알려진 문제
 
-- **기존 설치 앱의 Android 런타임**: 새 빌드용 AndroidManifest는 `1.8.0`으로 맞췄다.
-  기존 스토어 설치 바이너리의 런타임은 별도 확인한다. `1.7.0` 바이너리는 `1.8.0` OTA를 받지 못한다.
-
-  같은 `1.8.0`으로 다시 올려서 해소할 수 있다. Play는 versionName 중복을 허용하고
-  versionCode만 이전보다 크면 된다.
-
-  ```bash
-  npm run deploy:store -- --platform android
-  # sync-runtime → versionCode 증가 → 새 네이티브 빌드 → 업로드
-  ```
-
-  재배포 없이 급히 Android로만 OTA를 보내야 한다면 `config.runtimeVersion`을 `1.7.0`으로
-  되돌려 `-p android`로 퍼블리시하고, 다시 `1.8.0`으로 올려 `-p ios`로 퍼블리시한다.
-  런타임이 갈려 있는 동안은 한 번의 퍼블리시로 양쪽을 덮을 수 없다.
-  이 절차는 각 플랫폼의 JS/네이티브 호환성을 확인하고 해당 런타임 변경을 커밋한 후 진행한다.
-- **iOS 빌드번호**: `CURRENT_PROJECT_VERSION`이 1이다. App Store Connect에 같은 버전
-  트레인으로 이미 올라간 빌드번호보다 커야 하므로, 첫 실행 전에 ASC에서 마지막 빌드번호를
+- **기존 설치 앱의 런타임**: 로컬 설정을 바꿔도 이미 설치된 바이너리의 런타임은 바뀌지 않는다.
+  예를 들어 `1.8.0` 런타임의 앱은 `1.9.0` OTA를 받지 못한다. 배포 대상 바이너리의 실제 값을
+  확인하며, 네이티브 변경을 OTA로 보내기 위해 런타임을 임의로 되돌리지 않는다.
+- **iOS 빌드번호**: App Store Connect에 같은 버전
+  트레인으로 이미 올라간 빌드번호보다 커야 하므로, 실행 전에 ASC에서 마지막 빌드번호를
   확인하고 필요하면 `node scripts/version.js bump-build`를 여러 번 돌리거나 pbxproj를 직접 맞춘다.
 - **명령 별칭**: `build:prod:*`는 운영 스토어 빌드(`--no-submit`), `build:dev:*`는 테스터용
   Release 빌드다. 로컬 실행은 `ios`, `android`, `build:local:*`을 사용한다. `submit:ios/android`는 `--path`가 필수다. 산출물을 지정하지 않던
@@ -413,7 +441,9 @@ Wear OS는 `wearos/`에서 별도로 빌드하며, `wearos/app/build.gradle`의
 | `AAB가 debug 키로 서명됐다` | 프로퍼티 이름 오타 또는 `~/.gradle/gradle.properties` 위치 확인 |
 | `The sandbox is not in sync with the Podfile.lock` | `npm run deploy:store -- --pods` |
 | OTA를 퍼블리시했는데 반영이 안 됨 | `npm run version:status`로 런타임 정합 확인 |
-| `eas submit`이 자격증명을 물어봄 | 2.3 / 2.4를 먼저 등록한다 |
+| iOS 서명 파일 누락·만료·앱 ID 불일치 | 공통 credentials의 해당 앱 프로파일·배포 p12를 확인한다 |
+| iOS 앱·내부 그룹 또는 심사 서버 오류 | 표시된 Apple 원본 오류와 App Store Connect 항목을 처리한 뒤 재시도한다 |
+| Android `eas submit`이 자격증명을 물어봄 | 2.4의 Play 제출 자격증명을 등록한다 |
 
 ## 환경과 검증
 

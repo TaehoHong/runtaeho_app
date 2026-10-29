@@ -7,7 +7,7 @@ def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 def appProfiles = new groovy.json.JsonSlurper().parse(new File(projectRoot, 'scripts/app-profiles.json'))
 def profileScript = new File(projectRoot, 'scripts/app-profile.cjs').absolutePath
 def developmentSigning = new Properties()
-def developmentSigningFile = new File(projectRoot, 'credentials/android-development.properties')
+def developmentSigningFile = new File(projectRoot, '../credentials/android-development.properties')
 if (developmentSigningFile.exists()) {
     developmentSigningFile.withInputStream { developmentSigning.load(it) }
 }
@@ -111,8 +111,8 @@ android {
         applicationId 'com.runtaeho.runtaeho'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 68
-        versionName "1.8.0"
+        versionCode 69
+        versionName "1.9.0"
         manifestPlaceholders = [
             GOOGLE_MAPS_ANDROID_API_KEY: findProperty("GOOGLE_MAPS_ANDROID_API_KEY")
                 ?: System.getenv("EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY")
