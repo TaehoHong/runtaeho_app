@@ -1,9 +1,11 @@
 import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
 import axios from 'axios';
+import { waitFor } from '@testing-library/react-native';
+import { Platform } from 'react-native';
 import { apiClient } from '~/services/api/client';
 import { notificationService } from '../services/notificationService';
-import { detachPushRegistration, syncPushRegistration } from '../services/pushRegistration';
+import { detachPushRegistration, requestPushPermission, syncPushRegistration } from '../services/pushRegistration';
 
 const mockState = { generation: 1, userId: 7, isLoggedIn: true, accessToken: 'old-account-token' };
 const disk = new Map<string, string>();
@@ -12,7 +14,7 @@ jest.mock('~/features/auth/stores/authStore', () => ({
   isSessionCurrent: (snapshot: { generation: number; userId: number }) => snapshot.generation === mockState.generation && snapshot.userId === mockState.userId,
   useAuthStore: { getState: () => mockState },
 }));
-jest.mock('axios', () => ({ post: jest.fn() }));
+jest.mock('axios', () => ({ post: jest.fn(), isAxiosError: (error: { isAxiosError?: boolean }) => error?.isAxiosError === true }));
 jest.mock('~/services/api/client', () => ({ apiClient: { put: jest.fn() } }));
 jest.mock('~/services/api/config', () => ({ API_CONFIG: { BASE_URL: 'https://test.invalid/api/v1' } }));
 jest.mock('../services/notificationService', () => ({ notificationService: { configuration: jest.fn(), configure: jest.fn() } }));
@@ -30,6 +32,7 @@ jest.mock('expo-notifications', () => ({
 beforeEach(() => {
   disk.clear();
   mockState.generation = 1; mockState.userId = 7; mockState.isLoggedIn = true;
+  mockState.accessToken = 'old-account-token';
   jest.mocked(SecureStore.getItemAsync).mockImplementation(async key => disk.get(key) ?? null);
   jest.mocked(SecureStore.setItemAsync).mockImplementation(async (key, value) => { disk.set(key, value); });
   jest.mocked(SecureStore.deleteItemAsync).mockImplementation(async key => { disk.delete(key); });
@@ -38,6 +41,8 @@ beforeEach(() => {
   jest.mocked(notificationService.configuration).mockResolvedValue({ pushEnabled: true, leaguePushEnabled: true, reminderPushEnabled: true, noticePushEnabled: true, timezone: 'Asia/Seoul' });
   jest.mocked(apiClient.put).mockResolvedValue({ data: { id: 3, version: 4 } });
 });
+
+afterEach(async () => { await detachPushRegistration(); });
 
 it('passive login sync never requests permission and sends no token when push is disabled', async () => {
   jest.mocked(notificationService.configuration).mockResolvedValue({ pushEnabled: false, leaguePushEnabled: true, reminderPushEnabled: true, noticePushEnabled: true, timezone: 'Asia/Seoul' });
@@ -88,4 +93,118 @@ it('logout revokes a successful server binding even when persisting it fails', a
   expect(axios.post).toHaveBeenCalledWith('https://test.invalid/api/v1/notifications/device/unbind',
     { installationId: '12345678-1234-1234-1234-123456789abc', version: 9 },
     expect.objectContaining({ headers: { Authorization: 'Bearer old-account-token' } }));
+});
+
+it.each(['android', 'ios'] as const)('exchanges a %s token event without requesting another native token', async type => {
+  const devicePushToken: Notifications.DevicePushToken = { type, data: 'native-token' };
+  await syncPushRegistration(devicePushToken);
+  expect(Notifications.getExpoPushTokenAsync).toHaveBeenCalledWith({ projectId: 'test-project', devicePushToken });
+  expect(apiClient.put).toHaveBeenCalledWith('/notifications/device', expect.objectContaining({ pushToken: 'ExpoPushToken[test]' }), expect.anything());
+});
+
+it('logout does not wait for token acquisition and a late token cannot rebind', async () => {
+  let finish!: (value: Notifications.ExpoPushToken) => void;
+  jest.mocked(Notifications.getExpoPushTokenAsync).mockReturnValue(new Promise(resolve => { finish = resolve; }));
+  const sync = syncPushRegistration();
+  await waitFor(() => expect(Notifications.getExpoPushTokenAsync).toHaveBeenCalledTimes(1));
+  const logout = detachPushRegistration();
+  mockState.generation++;
+  mockState.isLoggedIn = false;
+
+  try {
+    await waitFor(() => expect(Notifications.clearLastNotificationResponseAsync).toHaveBeenCalled());
+    await logout;
+  } finally {
+    finish({ type: 'expo', data: 'ExpoPushToken[late]' });
+    await logout;
+  }
+  expect(await sync).toBe(false);
+  expect(apiClient.put).not.toHaveBeenCalled();
+});
+
+it('a newer disabled sync supersedes a pending token without restoring it later', async () => {
+  let finish!: (value: Notifications.ExpoPushToken) => void;
+  jest.mocked(Notifications.getExpoPushTokenAsync).mockReturnValue(new Promise(resolve => { finish = resolve; }));
+  const older = syncPushRegistration();
+  await waitFor(() => expect(Notifications.getExpoPushTokenAsync).toHaveBeenCalledTimes(1));
+  jest.mocked(notificationService.configuration).mockResolvedValue({ pushEnabled: false, leaguePushEnabled: true, reminderPushEnabled: true, noticePushEnabled: true, timezone: 'Asia/Seoul' });
+  const newer = syncPushRegistration();
+
+  try {
+    await waitFor(() => expect(apiClient.put).toHaveBeenCalledWith('/notifications/device', expect.objectContaining({ pushToken: null }), expect.anything()));
+    expect(await newer).toBe(false);
+  } finally {
+    finish({ type: 'expo', data: 'ExpoPushToken[obsolete]' });
+    await older;
+    await newer;
+  }
+  expect(await older).toBe(false);
+  expect(apiClient.put).toHaveBeenCalledTimes(1);
+});
+
+it('native token events do not create a self-sustaining registration loop', async () => {
+  const nativeToken: Notifications.DevicePushToken = { type: 'ios', data: 'native-token' };
+  let eventRegistration: Promise<boolean> | undefined;
+  let nativeRequests = 0;
+  jest.mocked(Notifications.getExpoPushTokenAsync).mockImplementation(async options => {
+    if (!options?.devicePushToken) {
+      nativeRequests++;
+      // Native token lookup emits a token event. Cap the test's emitter on broken code.
+      if (nativeRequests < 4) eventRegistration = syncPushRegistration(nativeToken);
+    }
+    return { type: 'expo', data: 'ExpoPushToken[test]' };
+  });
+
+  await syncPushRegistration();
+  await waitFor(() => expect(apiClient.put).toHaveBeenCalled());
+  await eventRegistration;
+
+  expect(nativeRequests).toBe(1);
+  expect(apiClient.put).toHaveBeenCalledTimes(1);
+});
+
+it('requests OS authorization without waiting for any server or push token request', async () => {
+  const os = Platform.OS;
+  Object.defineProperty(Platform, 'OS', { configurable: true, value: 'android' });
+  jest.mocked(Notifications.getPermissionsAsync).mockResolvedValue({ granted: false } as Notifications.NotificationPermissionsStatus);
+  jest.mocked(Notifications.requestPermissionsAsync).mockResolvedValue({ granted: true } as Notifications.NotificationPermissionsStatus);
+  try {
+    expect(await requestPushPermission()).toBe(true);
+    expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith('activity', expect.anything());
+    expect(Notifications.requestPermissionsAsync).toHaveBeenCalledTimes(1);
+    expect(notificationService.configuration).not.toHaveBeenCalled();
+    expect(Notifications.getExpoPushTokenAsync).not.toHaveBeenCalled();
+    expect(apiClient.put).not.toHaveBeenCalled();
+  } finally {
+    Object.defineProperty(Platform, 'OS', { configurable: true, value: os });
+  }
+});
+
+it('retains revocation credentials when logout cleanup fails and retries after session reset', async () => {
+  await syncPushRegistration();
+  jest.mocked(axios.post).mockRejectedValueOnce(new Error('unbind unavailable'));
+  try {
+    await expect(detachPushRegistration()).rejects.toThrow('unbind unavailable');
+    mockState.generation++;
+    mockState.isLoggedIn = false;
+    mockState.accessToken = '';
+    await detachPushRegistration();
+    expect(axios.post).toHaveBeenLastCalledWith('https://test.invalid/api/v1/notifications/device/unbind',
+      { installationId: '12345678-1234-1234-1234-123456789abc', version: 4 },
+      expect.objectContaining({ headers: { Authorization: 'Bearer old-account-token' } }));
+    expect(axios.post).toHaveBeenCalledTimes(2);
+    expect(disk.has('notification-device-binding')).toBe(false);
+  } finally {
+    await detachPushRegistration();
+  }
+});
+
+it.each([401, 403])('finishes native cleanup when captured credentials are permanently rejected with %i', async status => {
+  await syncPushRegistration();
+  jest.mocked(axios.post).mockRejectedValueOnce(Object.assign(new Error('expired authorization'), { isAxiosError: true, response: { status } }));
+
+  await expect(detachPushRegistration()).resolves.toBeUndefined();
+
+  expect(Notifications.unregisterForNotificationsAsync).toHaveBeenCalled();
+  expect(disk.has('notification-device-binding')).toBe(false);
 });

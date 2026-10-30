@@ -73,7 +73,7 @@ Xcode/Gradle 빌드·서명 → 업로드를 순서대로 실행한다. 개발·
 1. 배포 전용 Firebase 프로젝트 `run-taeho-distribution`의 Android 앱
    `com.runtaeho.runtaeho.dev`와 `dev-testers` 그룹을 사용한다. Google 로그인·서버의 기존
    `run-taeho` 프로젝트와 분리한다. 테스터는 이 배포 프로젝트의 그룹에 별도로 초대한다.
-   이 용도만 사용하면 Firebase SDK나 `google-services.json`을 앱에 추가할 필요가 없다.
+   App Distribution 자체에는 SDK가 필요 없지만, 현재 푸시 알림은 FCM을 사용하므로 아래 Android 초기화 설정이 별도로 필요하다.
 2. 공식 Firebase CLI를 설치(`npm install -g firebase-tools`)하고 `firebase login`한다.
    또는 기존 권한을 부여한 서비스 계정 JSON 경로를 `GOOGLE_APPLICATION_CREDENTIALS`로 지정한다.
 3. App Store Connect에 `.dev` 앱과 TestFlight **내부** 그룹을 만들고 테스터를 지정한다.
@@ -106,6 +106,21 @@ TestFlight용 개발 앱도 App Store 배포 프로파일이 필요하며, `.dev
 이 과정은 이전 IPA나 `/private/tmp` 보조 스크립트에 의존하지 않는다.
 Firebase App ID는
 Google OAuth Client ID와 다르며, 기존 로컬·개발 공용 OAuth와 서명키는 유지한다.
+
+Android 푸시는 `android/app/build.gradle`의 Google Services 플러그인과 앱 package에 맞는
+`google-services.json`을 함께 사용한다. `android/app/google-services.json`의 client 배열에
+로컬·개발(`com.runtaeho.runtaeho.dev`)과 운영(`com.runtaeho.runtaeho`)의 실제 등록 항목을 함께 둔다.
+Google Services 플러그인이 variant의 applicationId와 일치하는 client를 선택하며,
+`app.config.js`도 이 단일 설정 파일을 사용한다.
+이 파일은 기존 Git ignore 정책에 따라 로컬에서 관리한다. Firebase 콘솔 또는
+`firebase apps:sdkconfig ANDROID <Firebase App ID> --project <project ID> --out <위 경로>`로
+두 앱이 등록된 프로젝트의 실제 설정을 받는다. 다른 package의 설정을 복사하거나 식별자를 임의로 바꾸지 않는다.
+`android/`에서 `./gradlew :app:processLocalDebugGoogleServices :app:processLocalDebugResources`로
+FCM 초기화 리소스가 생성되는지 확인한다. 네이티브 설정 추가는 새 바이너리가 필요하다.
+Release의 `process*Resources`는 JS 번들·Sentry 소스맵 업로드 훅까지 실행할 수 있으므로,
+업로드가 필요 없는 검증에서는 `SENTRY_DISABLE_AUTO_UPLOAD=true`를 주입한다.
+실제 Expo 푸시 발송에는 해당 FCM 프로젝트의 V1 발송 자격증명도 Expo에 연결되어야 한다.
+
 운영 업로드 키의 절대 경로와 비밀번호는 로컬 배포 설정의 `ORG_GRADLE_PROJECT_RUNTAEHO_UPLOAD_*`
 환경변수로 주입한다. 기존 `~/.gradle/gradle.properties` 설정도 계속 사용할 수 있다.
 새 `deploy:*` 명령은 기존 프로파일 로더로 환경 파일을 읽으므로 기존 Sentry 토큰도 재사용한다.
@@ -432,13 +447,16 @@ Wear OS는 `wearos/`에서 별도로 빌드하며, `wearos/app/build.gradle`의
 - **명령 별칭**: `build:prod:*`는 운영 스토어 빌드(`--no-submit`), `build:dev:*`는 테스터용
   Release 빌드다. 로컬 실행은 `ios`, `android`, `build:local:*`을 사용한다. `submit:ios/android`는 `--path`가 필수다. 산출물을 지정하지 않던
   `submit:all` 별칭은 제거했다. 플랫폼별로 정확한 산출물을 지정한다.
-- **`aps-environment`**: `ios/app/app.entitlements`가 `development`다. 푸시 알림을 실제로
-  쓰기 시작하면 배포 빌드에서 확인이 필요하다.
+- **`aps-environment`**: 소스는 `development`이며, `scripts/sign-ios.py`가 App Store 프로파일의
+  `production` 권한으로 내보낸다. 소스 문자열만으로 배포 푸시 환경을 판단하지 않고 최종 IPA의
+  서명 권한과 embedded profile이 일치하는지 확인한다.
 
 ## 7. 트러블슈팅
 
 | 증상 | 원인 / 조치 |
 |---|---|
+| 푸시 켜기에서 설정 PUT이 보이지 않음 | OS 권한 요청과 토큰 발급을 구분한다. 설정 저장은 토큰 발급·기기 등록을 기다리지 않아야 한다. Android는 Google Services 설정 및 생성 리소스를 확인한다. |
+| 토큰 발급·기기 등록이 반복되거나 logout이 토큰을 기다림 | token listener에서 받은 native token을 재사용하고, 네이티브/Expo 토큰 준비를 binding PUT·해제의 직렬화 큐에 넣지 않는다. 회귀 테스트는 코드 가이드의 알림 등록 수명 항목을 따른다. |
 | `Unity iOS 프로젝트가 없다` | Unity에서 iOS export를 다시 한다 |
 | `업로드 키 서명 설정이 없다` | 2.2의 gradle 프로퍼티 4개를 넣는다 |
 | `AAB가 debug 키로 서명됐다` | 프로퍼티 이름 오타 또는 `~/.gradle/gradle.properties` 위치 확인 |

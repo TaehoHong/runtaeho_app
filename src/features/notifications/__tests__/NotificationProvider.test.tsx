@@ -1,7 +1,9 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 import { router } from 'expo-router';
+import * as Notifications from 'expo-notifications';
 import { NotificationProvider } from '../NotificationProvider';
+import { syncPushRegistration } from '../services/pushRegistration';
 
 const mockAuth = { isLoggedIn: false, sessionGeneration: 1 };
 const mockUser: { currentUser: { id: number } | null } = { currentUser: null };
@@ -26,7 +28,7 @@ jest.mock('../services/pushRegistration', () => ({ syncPushRegistration: jest.fn
 jest.mock('expo-notifications', () => ({
   useLastNotificationResponse: () => mockResponse, DEFAULT_ACTION_IDENTIFIER: 'default',
   setNotificationHandler: jest.fn(), clearLastNotificationResponseAsync: jest.fn(async () => undefined),
-  addNotificationReceivedListener: () => ({ remove: jest.fn() }), addPushTokenListener: () => ({ remove: jest.fn() }),
+  addNotificationReceivedListener: () => ({ remove: jest.fn() }), addPushTokenListener: jest.fn(() => ({ remove: jest.fn() })),
 }));
 
 beforeEach(() => {
@@ -49,4 +51,14 @@ it('an arbitrary URL in push data cannot drive navigation', () => {
   mockResponse!.notification.request.content.data = { url: 'https://untrusted.invalid', notificationId: '../admin' };
   render(<NotificationProvider />);
   expect(router.push).not.toHaveBeenCalled();
+});
+
+it('passes token events to registration so they do not require another native token request', () => {
+  mockAuth.isLoggedIn = true; mockUser.currentUser = { id: 7 }; mockApp.viewState = 'Loaded';
+  render(<NotificationProvider />);
+  const token: Notifications.DevicePushToken = { type: 'ios', data: 'rolled-native-token' };
+
+  jest.mocked(Notifications.addPushTokenListener).mock.calls[0]![0](token);
+
+  expect(syncPushRegistration).toHaveBeenLastCalledWith(token);
 });

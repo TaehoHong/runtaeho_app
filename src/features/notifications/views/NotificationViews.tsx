@@ -11,7 +11,7 @@ import { useUserStore } from '~/stores/user/userStore';
 import { getSessionSnapshot, isSessionCurrent } from '~/features/auth/stores/authStore';
 import { queryKeys } from '~/services/queryClient';
 import { notificationService, type NotificationConfiguration } from '../services/notificationService';
-import { currentTimezone, syncPushRegistration } from '../services/pushRegistration';
+import { currentTimezone, requestPushPermission, syncPushRegistration } from '../services/pushRegistration';
 import { useScreenLifetime } from '~/shared/hooks/useScreenLifetime';
 import { leagueService } from '~/features/league/services/leagueService';
 
@@ -113,6 +113,7 @@ export function NotificationDetailView() {
 }
 
 export function NotificationSettingsView() {
+  const captureLifetime = useScreenLifetime();
   useAppLanguage();
   const userId = useUserStore(state => state.currentUser?.id);
   const queryClient = useQueryClient();
@@ -126,11 +127,13 @@ export function NotificationSettingsView() {
   const save = async (field: 'pushEnabled' | 'leaguePushEnabled' | 'reminderPushEnabled' | 'noticePushEnabled', enabled: boolean) => {
     if (!query.data || saving) return;
     const snapshot = getSessionSnapshot();
+    const isScreenCurrent = captureLifetime();
+    const isCurrent = () => isScreenCurrent() && isSessionCurrent(snapshot);
     setSaving(true);
     try {
-      if (field === 'pushEnabled' && enabled && !await syncPushRegistration(true)) {
-        if (isSessionCurrent(snapshot)) Alert.alert(t('알림 권한이 필요해요'), t('기기 설정에서 알림을 허용해주세요.'), [
-          { text: t('취소'), style: 'cancel' }, { text: t('설정 열기'), onPress: () => { void Linking.openSettings(); } },
+      if (field === 'pushEnabled' && enabled && !await requestPushPermission()) {
+        if (isCurrent()) Alert.alert(t('알림 권한이 필요해요'), t('기기 설정에서 알림을 허용해주세요.'), [
+          { text: t('취소'), style: 'cancel' }, { text: t('설정 열기'), onPress: () => { if (isCurrent()) void Linking.openSettings(); } },
         ]);
         return;
       }
@@ -142,9 +145,11 @@ export function NotificationSettingsView() {
       await queryClient.cancelQueries({ queryKey: queryKeys.notifications.configuration(userId), exact: true });
       if (!isSessionCurrent(snapshot)) return;
       queryClient.setQueryData(queryKeys.notifications.configuration(userId), saved);
-      await syncPushRegistration();
+      void syncPushRegistration().catch(() => {
+        if (isCurrent()) Alert.alert(t('푸시 알림 등록 실패'), t('설정은 저장했지만 푸시 알림을 등록하지 못했어요. 잠시 후 앱을 다시 열어주세요.'));
+      });
     } catch {
-      if (isSessionCurrent(snapshot)) Alert.alert(t('설정 변경 실패'), t('알림 설정을 저장하지 못했어요. 다시 시도해주세요.'));
+      if (isCurrent()) Alert.alert(t('설정 변경 실패'), t('알림 설정을 저장하지 못했어요. 다시 시도해주세요.'));
     } finally { setSaving(false); }
   };
   const rows = [

@@ -10,12 +10,12 @@ import { useUserStore } from '~/stores/user/userStore';
 import { createUser } from '~/features/user/models/User';
 import { NotificationSettingsView } from '../views/NotificationViews';
 import type { NotificationConfiguration } from '../services/notificationService';
-import { syncPushRegistration } from '../services/pushRegistration';
+import { requestPushPermission, syncPushRegistration } from '../services/pushRegistration';
 
-jest.mock('expo-router', () => ({ router: { push: jest.fn(), back: jest.fn() } }));
+jest.mock('expo-router', () => ({ router: { push: jest.fn(), back: jest.fn() }, useFocusEffect: (effect: () => void) => require('react').useEffect(effect, []) }));
 jest.mock('~/shared/components', () => ({ TopScreenSafeAreaView: require('react-native').View }));
 jest.mock('~/shared/components/typography', () => ({ Text: require('react-native').Text }));
-jest.mock('../services/pushRegistration', () => ({ syncPushRegistration: jest.fn(), currentTimezone: () => 'Asia/Seoul' }));
+jest.mock('../services/pushRegistration', () => ({ requestPushPermission: jest.fn(), syncPushRegistration: jest.fn(), currentTimezone: () => 'Asia/Seoul' }));
 jest.mock('~/shared/services/TokenRefreshInterceptor', () => ({
   tokenRefreshInterceptor: {
     validateAndRefreshIfNeeded: jest.fn().mockResolvedValue(undefined),
@@ -57,6 +57,7 @@ beforeEach(() => {
   useAuthStore.setState({ isLoggedIn: true, tokensRevoked: false, accessToken: 'test-token', sessionGeneration: 1 });
   useUserStore.setState({ currentUser: createUser({ id: 7, nickname: 'Runner' }) });
   jest.mocked(syncPushRegistration).mockResolvedValue(true);
+  jest.mocked(requestPushPermission).mockResolvedValue(true);
   appStateSpy = jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, listener) => {
     appStateChanged = listener;
     return { remove: jest.fn() };
@@ -155,5 +156,82 @@ it('does not apply a pending save after the same user starts a new session', asy
   expect(screen.getByLabelText('리그 결과').props.value).toBe(true);
   expect(screen.getByLabelText('운영 공지').props.value).toBe(false);
   expect(syncPushRegistration).not.toHaveBeenCalled();
+  expect(alert).not.toHaveBeenCalled();
+});
+
+it('saves an enabled preference and releases the switches while push registration is pending', async () => {
+  const screen = setup();
+  await waitFor(() => expect(screen.getByLabelText('푸시 알림').props.value).toBe(true));
+  act(() => screen.client.setQueryData(queryKeys.notifications.configuration(7), { ...initial, pushEnabled: false }));
+  const registration = deferred<boolean>();
+  jest.mocked(syncPushRegistration).mockReturnValue(registration.promise);
+
+  fireEvent(screen.getByLabelText('푸시 알림'), 'valueChange', true);
+
+  await waitFor(() => expect(writes).toEqual([{ ...initial, pushEnabled: true }]));
+  await waitFor(() => expect(screen.getByLabelText('푸시 알림').props.disabled).toBe(false));
+  expect(screen.getByLabelText('푸시 알림').props.value).toBe(true);
+  expect(alert).not.toHaveBeenCalled();
+  await act(async () => { registration.resolve(true); });
+});
+
+it('keeps a successful save and reports registration failure separately', async () => {
+  const screen = setup();
+  await waitFor(() => expect(screen.getByLabelText('푸시 알림').props.value).toBe(true));
+  act(() => screen.client.setQueryData(queryKeys.notifications.configuration(7), { ...initial, pushEnabled: false }));
+  jest.mocked(syncPushRegistration).mockRejectedValue(new Error('FCM unavailable'));
+
+  fireEvent(screen.getByLabelText('푸시 알림'), 'valueChange', true);
+
+  await waitFor(() => expect(writes).toEqual([{ ...initial, pushEnabled: true }]));
+  await waitFor(() => expect(alert).toHaveBeenCalledWith('푸시 알림 등록 실패', expect.any(String)));
+  expect(screen.getByLabelText('푸시 알림').props.value).toBe(true);
+  expect(screen.getByLabelText('푸시 알림').props.disabled).toBe(false);
+  expect(alert).not.toHaveBeenCalledWith('설정 변경 실패', expect.anything());
+});
+
+it('does not save or register when OS notification permission is denied', async () => {
+  const screen = setup();
+  await waitFor(() => expect(screen.getByLabelText('푸시 알림').props.value).toBe(true));
+  act(() => screen.client.setQueryData(queryKeys.notifications.configuration(7), { ...initial, pushEnabled: false }));
+  jest.mocked(requestPushPermission).mockResolvedValue(false);
+
+  fireEvent(screen.getByLabelText('푸시 알림'), 'valueChange', true);
+
+  await waitFor(() => expect(alert).toHaveBeenCalledWith('알림 권한이 필요해요', expect.any(String), expect.any(Array)));
+  expect(writes).toEqual([]);
+  expect(syncPushRegistration).not.toHaveBeenCalled();
+  expect(screen.getByLabelText('푸시 알림').props.value).toBe(false);
+});
+
+it('does not send the preference after the session changes during the permission prompt', async () => {
+  const screen = setup();
+  await waitFor(() => expect(screen.getByLabelText('푸시 알림').props.value).toBe(true));
+  act(() => screen.client.setQueryData(queryKeys.notifications.configuration(7), { ...initial, pushEnabled: false }));
+  const permission = deferred<boolean>();
+  jest.mocked(requestPushPermission).mockReturnValue(permission.promise);
+  fireEvent(screen.getByLabelText('푸시 알림'), 'valueChange', true);
+  act(() => { useAuthStore.getState().invalidateSession(); });
+
+  await act(async () => { permission.resolve(true); });
+
+  expect(writes).toEqual([]);
+  expect(syncPushRegistration).not.toHaveBeenCalled();
+  expect(alert).not.toHaveBeenCalled();
+});
+
+it('keeps the committed preference without showing a late registration alert after leaving', async () => {
+  const screen = setup();
+  await waitFor(() => expect(screen.getByLabelText('리그 결과').props.value).toBe(true));
+  let failRegistration!: (error: Error) => void;
+  jest.mocked(syncPushRegistration).mockReturnValue(new Promise((_resolve, reject) => { failRegistration = reject; }));
+  fireEvent(screen.getByLabelText('리그 결과'), 'valueChange', false);
+  await waitFor(() => expect(screen.getByLabelText('리그 결과').props.disabled).toBe(false));
+  expect(writes).toEqual([{ ...initial, leaguePushEnabled: false }]);
+  screen.unmount();
+
+  await act(async () => { failRegistration(new Error('registration unavailable')); });
+
+  expect(screen.client.getQueryData(queryKeys.notifications.configuration(7))).toEqual({ ...initial, leaguePushEnabled: false });
   expect(alert).not.toHaveBeenCalled();
 });

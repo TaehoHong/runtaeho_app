@@ -48,7 +48,7 @@ test('tester release loads development server config independently of NODE_ENV w
 test('local Expo config disables OTA and uses the development Google callback', () => {
   const result = spawnSync('node', ['-e', `
     const {exp} = require('@expo/config').getConfig(process.cwd());
-    console.log(JSON.stringify({id:exp.ios.bundleIdentifier, androidId:exp.android.package,
+    console.log(JSON.stringify({id:exp.ios.bundleIdentifier, androidId:exp.android.package, firebase:exp.android.googleServicesFile,
       ota:exp.updates.enabled, client:exp.extra.googleIosClientId,
       scheme:exp.plugins.find(p=>Array.isArray(p)&&p[0]==='@react-native-google-signin/google-signin')[1].iosUrlScheme}));
   `], { cwd: path.join(__dirname, '..'), encoding: 'utf8', env: {
@@ -56,7 +56,7 @@ test('local Expo config disables OTA and uses the development Google callback', 
   } });
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(JSON.parse(result.stdout), {
-    id: 'com.runtaeho.runtaeho.dev', androidId: 'com.runtaeho.runtaeho.dev', ota: false,
+    id: 'com.runtaeho.runtaeho.dev', androidId: 'com.runtaeho.runtaeho.dev', firebase: './android/app/google-services.json', ota: false,
     client: '322350985432-8ncbik7vqu55b9k0elq2rnrf7utl42ka.apps.googleusercontent.com',
     scheme: 'com.googleusercontent.apps.322350985432-8ncbik7vqu55b9k0elq2rnrf7utl42ka',
   });

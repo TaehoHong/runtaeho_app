@@ -55,6 +55,7 @@ export default {
       // 개발 환경에서 HTTP (localhost) 요청 허용
       usesCleartextTraffic: ENV !== 'production',
       package: profile.applicationId,
+      googleServicesFile: './android/app/google-services.json',
       permissions: [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",

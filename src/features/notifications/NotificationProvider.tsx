@@ -36,7 +36,9 @@ export function NotificationProvider() {
 
   useEffect(() => {
     if (!ready) return;
-    const sync = () => { void syncPushRegistration().catch(() => console.warn('[Notifications] Registration sync failed')); };
+    const sync = (devicePushToken?: Notifications.DevicePushToken) => {
+      void syncPushRegistration(devicePushToken).catch(() => console.warn('[Notifications] Registration sync failed'));
+    };
     sync();
     const token = Notifications.addPushTokenListener(sync);
     const foreground = AppState.addEventListener('change', state => {
