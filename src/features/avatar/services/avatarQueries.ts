@@ -28,6 +28,16 @@ import { avatarService } from './avatarService';
 import type { CursorResult } from '~/shared/utils/dto/CursorResult';
 import { pointService } from '~/features/point/services/pointService';
 import { useUserStore } from '~/stores/user/userStore';
+import { getSessionSnapshot, isSessionCurrent, type SessionSnapshot } from '~/features/auth/stores/authStore';
+import { SessionSupersededError } from '~/utils/storage/errors';
+
+type PurchaseOperation = PurchaseItemsRequest & { sessionSnapshot?: SessionSnapshot };
+type EquipOperation = UpdateEquippedItemsRequest & { sessionSnapshot?: SessionSnapshot };
+type PurchaseAndEquipOperation = {
+  itemIds: readonly number[];
+  avatarId: number;
+  sessionSnapshot?: SessionSnapshot;
+};
 
 // ===================================
 // Query Keys (캐시 키 관리)
@@ -132,16 +142,18 @@ export function useMainAvatar(): UseQueryResult<Avatar, Error> {
 export function usePurchaseItems(): UseMutationResult<
   void,
   Error,
-  PurchaseItemsRequest,
+  PurchaseOperation,
   unknown
 > {
   const queryClient = useQueryClient();
   const setTotalPoint = useUserStore((state) => state.setTotalPoint);
 
-  return useMutation({
-    mutationFn: (request: PurchaseItemsRequest) =>
-      avatarService.purchaseItems(request),
+  const mutation = useMutation<void, Error, PurchaseOperation>({
+    mutationFn: ({ sessionSnapshot, ...request }) =>
+      avatarService.purchaseItems(request, sessionSnapshot),
     onSuccess: async (_, request) => {
+      const { sessionSnapshot } = request;
+      if (!sessionSnapshot || !isSessionCurrent(sessionSnapshot)) return;
       // 재진입하거나 목록 갱신이 실패해도 구매한 아이템을 다시 판매하지 않는다.
       queryClient.setQueriesData<InfiniteData<CursorResult<Item>>>(
         { queryKey: avatarQueryKeys.items() },
@@ -159,12 +171,15 @@ export function usePurchaseItems(): UseMutationResult<
       const RETRY_DELAY_MS = 1000;
 
       for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        if (!isSessionCurrent(sessionSnapshot)) return;
         try {
-          const { point } = await pointService.getUserPoint();
+          const { point } = await pointService.getUserPoint(sessionSnapshot);
+          if (!isSessionCurrent(sessionSnapshot)) return;
           setTotalPoint(point);
           console.log(`💰 [usePurchaseItems] 포인트 동기화 성공: ${point}`);
           break; // 성공 시 루프 종료
         } catch (error) {
+          if (!isSessionCurrent(sessionSnapshot)) return;
           console.warn(`⚠️ [usePurchaseItems] 포인트 동기화 실패 (${attempt}/${MAX_RETRIES}):`, error);
           if (attempt === MAX_RETRIES) {
             console.error('❌ [usePurchaseItems] 포인트 동기화 최종 실패 - 새로고침 필요');
@@ -175,6 +190,7 @@ export function usePurchaseItems(): UseMutationResult<
         }
       }
 
+      if (!isSessionCurrent(sessionSnapshot)) return;
       // 모든 아이템 목록 캐시 무효화
       queryClient.invalidateQueries({
         queryKey: avatarQueryKeys.items(),
@@ -182,6 +198,15 @@ export function usePurchaseItems(): UseMutationResult<
     },
     retry: 0, // 포인트 차감 요청은 응답 유실 시 자동으로 재전송하지 않는다.
   });
+  return {
+    ...mutation,
+    mutate: (request, options) => mutation.mutate({
+      ...request, sessionSnapshot: request.sessionSnapshot ?? getSessionSnapshot(),
+    }, options),
+    mutateAsync: (request, options) => mutation.mutateAsync({
+      ...request, sessionSnapshot: request.sessionSnapshot ?? getSessionSnapshot(),
+    }, options),
+  };
 }
 
 /**
@@ -208,15 +233,16 @@ export function usePurchaseItems(): UseMutationResult<
 export function useUpdateEquippedItems(): UseMutationResult<
   Avatar,
   Error,
-  UpdateEquippedItemsRequest,
+  EquipOperation,
   unknown
 > {
   const queryClient = useQueryClient();
 
-  return useMutation({
-    mutationFn: (request: UpdateEquippedItemsRequest) =>
-      avatarService.updateEquippedItems(request),
-    onSuccess: (data) => {
+  const mutation = useMutation<Avatar, Error, EquipOperation>({
+    mutationFn: ({ sessionSnapshot, ...request }) =>
+      avatarService.updateEquippedItems(request, sessionSnapshot),
+    onSuccess: (_, { sessionSnapshot }) => {
+      if (!sessionSnapshot || !isSessionCurrent(sessionSnapshot)) return;
       // 메인 아바타 캐시 무효화
       queryClient.invalidateQueries({
         queryKey: avatarQueryKeys.mainAvatar(),
@@ -229,6 +255,15 @@ export function useUpdateEquippedItems(): UseMutationResult<
     },
     retry: QUERY_OPTIONS.RETRY_COUNT,
   });
+  return {
+    ...mutation,
+    mutate: (request, options) => mutation.mutate({
+      ...request, sessionSnapshot: request.sessionSnapshot ?? getSessionSnapshot(),
+    }, options),
+    mutateAsync: (request, options) => mutation.mutateAsync({
+      ...request, sessionSnapshot: request.sessionSnapshot ?? getSessionSnapshot(),
+    }, options),
+  };
 }
 
 // ===================================
@@ -257,26 +292,25 @@ export function useUpdateEquippedItems(): UseMutationResult<
 export function usePurchaseAndEquipItems(): UseMutationResult<
   Avatar,
   Error,
-  {
-    itemIds: readonly number[];
-    avatarId: number;
-  },
+  PurchaseAndEquipOperation,
   unknown
 > {
   const queryClient = useQueryClient();
 
-  return useMutation({
-    mutationFn: async ({ itemIds, avatarId }) => {
+  const mutation = useMutation<Avatar, Error, PurchaseAndEquipOperation>({
+    mutationFn: async ({ itemIds, avatarId, sessionSnapshot }) => {
       // 1. 구매
-      await avatarService.purchaseItems({ itemIds });
+      await avatarService.purchaseItems({ itemIds }, sessionSnapshot);
 
       // 2. 착용
+      if (!sessionSnapshot || !isSessionCurrent(sessionSnapshot)) throw new SessionSupersededError();
       return await avatarService.updateEquippedItems({
         avatarId,
         itemIds,
-      });
+      }, sessionSnapshot);
     },
-    onSuccess: () => {
+    onSuccess: (_, { sessionSnapshot }) => {
+      if (!sessionSnapshot || !isSessionCurrent(sessionSnapshot)) return;
       // 모든 관련 캐시 무효화
       queryClient.invalidateQueries({
         queryKey: avatarQueryKeys.all,
@@ -284,6 +318,15 @@ export function usePurchaseAndEquipItems(): UseMutationResult<
     },
     retry: 0, // 복합 작업이므로 재시도 안 함 (롤백 복잡)
   });
+  return {
+    ...mutation,
+    mutate: (request, options) => mutation.mutate({
+      ...request, sessionSnapshot: request.sessionSnapshot ?? getSessionSnapshot(),
+    }, options),
+    mutateAsync: (request, options) => mutation.mutateAsync({
+      ...request, sessionSnapshot: request.sessionSnapshot ?? getSessionSnapshot(),
+    }, options),
+  };
 }
 
 // ===================================

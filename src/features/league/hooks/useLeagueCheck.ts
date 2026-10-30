@@ -33,11 +33,12 @@ export const useLeagueCheck = () => {
    * 앱 첫 진입 시 리그 결과가 있으면 결과 화면으로 바로 이동하기 위해
    * 미리 확인하여 상태에 저장해둠
    *
-   * Race Condition 방지: startCheck()가 false를 반환하면 이미 확인 중이므로 스킵
+   * Race Condition 방지: 시작 작업이 없으면 이미 확인 중이므로 스킵
    */
   const checkUncheckedLeagueResult = useCallback(async () => {
     // 이미 확인 중이거나 완료된 경우 스킵 (Race Condition 방지)
-    if (!startCheck()) {
+    const operation = startCheck();
+    if (!operation) {
       console.log('🏆 [useLeagueCheck] 리그 결과 확인 스킵 (이미 진행 중)');
       return;
     }
@@ -45,7 +46,7 @@ export const useLeagueCheck = () => {
     try {
       console.log('🏆 [useLeagueCheck] 미확인 리그 결과 확인 중...');
 
-      const uncheckedResult = await leagueService.getUncheckedResult();
+      const uncheckedResult = await leagueService.getUncheckedResult(operation);
 
       if (uncheckedResult) {
         console.log('🏆 [useLeagueCheck] 미확인 리그 결과 발견:', uncheckedResult.resultStatus);
@@ -53,11 +54,11 @@ export const useLeagueCheck = () => {
         console.log('🏆 [useLeagueCheck] 미확인 리그 결과 없음');
       }
 
-      setChecked(uncheckedResult);
+      setChecked(uncheckedResult, operation);
     } catch (error) {
       console.log('⚠️ [useLeagueCheck] 리그 결과 확인 실패 (무시):', error);
       // 리그 미참가 또는 네트워크 오류 시 무시하고 계속 진행
-      setChecked(null);
+      setChecked(null, operation);
     }
   }, [startCheck, setChecked]);
 
@@ -65,8 +66,9 @@ export const useLeagueCheck = () => {
    * 리그 결과 확인 스킵 (로그인하지 않은 상태용)
    */
   const skipLeagueCheck = useCallback(() => {
-    setChecked(null);
-  }, [setChecked]);
+    const operation = startCheck();
+    if (operation) setChecked(null, operation);
+  }, [startCheck, setChecked]);
 
   return {
     checkUncheckedLeagueResult,

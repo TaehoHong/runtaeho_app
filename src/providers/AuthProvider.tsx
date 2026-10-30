@@ -1,8 +1,8 @@
 import { useWatchSync } from '~/features/watchSync/useWatchSync';
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useState, type ReactNode } from 'react';
+import React, { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useAuth } from '../features/auth/hooks/useAuth';
-import { useAuthStore, isSessionGenerationCurrent } from '../features/auth/stores/authStore';
+import { useAuthStore, getSessionSnapshot, isSessionCurrent, isSessionGenerationCurrent } from '../features/auth/stores/authStore';
 import { isAgreedOnTermsFromToken } from '~/features/auth/utils/jwtUtils';
 import { useOfflineSync } from '../features/running/hooks/useOfflineSync';
 import { useAppStore, ViewState } from '~/stores';
@@ -22,27 +22,36 @@ interface AuthProviderProps {
  */
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
-  const accessToken = useAuthStore((state) => state.accessToken);
-  const { verifyAndRefreshToken, refreshUserData } = useAuth();
+  const sessionGeneration = useAuthStore((state) => state.sessionGeneration);
+  const requiresTermsAgreement = useAuthStore((state) =>
+    state.isLoggedIn && !!state.accessToken && !isAgreedOnTermsFromToken(state.accessToken)
+  );
+  const { verifyAndRefreshToken, refreshUserData, user } = useAuth();
+  const userId = user?.id;
   const { syncOfflineData } = useOfflineSync();
-  const [isNavigationReady, setIsNavigationReady] = useState(false);
+  const startupGeneration = useRef(sessionGeneration);
+  const [isBootstrapComplete, setIsNavigationReady] = useState(false);
+  const [initializedSession, setInitializedSession] = useState<{
+    generation: number; userId: number | null; canReplay: boolean;
+  } | null>(null);
+  const isNavigationReady = isBootstrapComplete && initializedSession?.generation === sessionGeneration;
   useWatchSync(isNavigationReady);
 
   // OTA 자동 업데이트 완료 여부 확인
   const isAutoUpdateCompleted = useUpdateStore((state) => state.isAutoUpdateCompleted);
 
   /**
-   * 앱 시작 시 저장된 인증 상태 복원 및 오프라인 데이터 동기화
+   * 현재 세션의 저장된 인증 상태와 사용자 데이터 복원
    *
    * 단순화된 로직:
    * 1. Zustand persist가 자동으로 AsyncStorage 복원
    * 2. SecureStorage 토큰 동기화
    * 3. 토큰 검증 (useAuth hook 사용)
-   * 4. 오프라인 러닝 데이터 자동 동기화
+   * 4. 사용자 데이터 복원 (오프라인 재전송은 별도 실행)
    *
    * NOTE: 리그 결과 확인은 RunningView/LeagueView에서 처리
    */
-  const initializeAuthState = useCallback(async () => {
+  const initializeAuthState = useCallback(async (isActive: () => boolean): Promise<boolean> => {
     const generation = useAuthStore.getState().sessionGeneration;
     try {
       console.log('🔍 [AuthProvider] 저장된 인증 상태 확인 중...');
@@ -50,33 +59,52 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // 1. AuthStore에 SecureStorage 토큰 동기화
       const initializeTokens = useAuthStore.getState().initializeTokens;
       await initializeTokens();
-      if (!isSessionGenerationCurrent(generation)) return;
+      if (!isActive() || !isSessionGenerationCurrent(generation)) return false;
 
       // 2. 토큰 검증 및 자동 갱신 (useAuth hook)
       const isTokenValid = await verifyAndRefreshToken();
 
-      // 3. 로그인 상태이고 토큰이 유효하면 오프라인 데이터 동기화
-      if (isSessionGenerationCurrent(generation) && isTokenValid && useAuthStore.getState().isLoggedIn) {
-        await refreshUserData();
-        if (isSessionGenerationCurrent(generation)) await syncOfflineData();
-      }
+      if (!isActive() || !isSessionGenerationCurrent(generation)) return false;
 
-      console.log('✅ [AuthProvider] 인증 상태 복원 완료');
+      // 3. 로그인 상태이고 토큰이 유효하면 사용자 데이터 복원
+      if (isTokenValid && useAuthStore.getState().isLoggedIn) {
+        await refreshUserData();
+        return isActive() && isSessionGenerationCurrent(generation);
+      }
+      return false;
     } catch {
       console.error('⚠️ [AuthProvider] 인증 상태 초기화 실패:');
+      return false;
     }
-  }, [verifyAndRefreshToken, refreshUserData, syncOfflineData]);
+  }, [verifyAndRefreshToken, refreshUserData]);
 
   useEffect(() => {
+    if (sessionGeneration !== startupGeneration.current) {
+      // 새 로그인은 useAuth가 토큰과 사용자 복원을 완료한 뒤 세션을 교체한다.
+      setInitializedSession({ ...getSessionSnapshot(), canReplay: useAuthStore.getState().isLoggedIn });
+      setIsNavigationReady(true);
+      return;
+    }
+    let active = true;
     const init = async () => {
       console.log('🔐 [AuthProvider] 인증 상태 초기화 시작');
-      await initializeAuthState();
-      // 토큰 초기화 완료 후 네비게이션 준비 완료 표시
-      // 기존 100ms setTimeout 제거 → Race Condition 방지
+      const canReplay = await initializeAuthState(() => active);
+      if (!active || !isSessionGenerationCurrent(sessionGeneration)) return;
+      setInitializedSession({ ...getSessionSnapshot(), canReplay });
       setIsNavigationReady(true);
     };
-    init();
-  }, [initializeAuthState]);
+    void init();
+    return () => { active = false; };
+  }, [initializeAuthState, sessionGeneration]);
+
+  useEffect(() => {
+    if (!initializedSession?.canReplay || !isSessionCurrent(initializedSession) ||
+        !isLoggedIn || userId == null) return;
+    // 재전송 완료는 화면 준비 조건이 아니다. 큐·세션 수명은 useOfflineSync가 소유한다.
+    void syncOfflineData().catch((error) => {
+      console.error('⚠️ [AuthProvider] 오프라인 데이터 동기화 실패:', error);
+    });
+  }, [initializedSession, sessionGeneration, isLoggedIn, userId, syncOfflineData]);
 
 
   /**
@@ -90,7 +118,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
    *
    * 의존성:
    * - isLoggedIn: 로그인 여부
-   * - accessToken: 토큰 변경 감지 (약관 동의 후 토큰 재발행 시 필수)
+   * - requiresTermsAgreement: 토큰 문자열 대신 실제 약관 접근 상태 변경 감지
+   * - sessionGeneration / userId: 실제 로그인 세션·사용자 변경 감지
    * - isNavigationReady: 네비게이션 준비 완료 여부
    * - isAutoUpdateCompleted: OTA 자동 업데이트 완료 여부
    *
@@ -101,7 +130,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
    * 4. 약관 미동의 → /auth/terms-agreement
    */
   useEffect(() => {
-    console.log('🔄 [AuthProvider] useEffect 실행 - isLoggedIn:', isLoggedIn, 'hasToken:', !!accessToken, 'isNavigationReady:', isNavigationReady, 'isAutoUpdateCompleted:', isAutoUpdateCompleted);
+    console.log('🔄 [AuthProvider] useEffect 실행 - isLoggedIn:', isLoggedIn, 'requiresTermsAgreement:', requiresTermsAgreement, 'sessionGeneration:', sessionGeneration, 'userId:', userId, 'isNavigationReady:', isNavigationReady, 'isAutoUpdateCompleted:', isAutoUpdateCompleted);
 
     // 네비게이션이 준비되지 않았으면 대기
     if (!isNavigationReady) {
@@ -117,23 +146,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return;
     }
 
-    console.log('🔄 [AuthProvider] 인증 상태 확인 - isLoggedIn:', isLoggedIn, 'hasToken:', !!accessToken);
+    console.log('🔄 [AuthProvider] 인증 상태 확인 - isLoggedIn:', isLoggedIn, 'requiresTermsAgreement:', requiresTermsAgreement);
 
     // 로그인 상태에 따라 네비게이션 제어
     try {
       if (isLoggedIn) {
-        // 토큰에서 약관 동의 여부 확인
-        const accessToken = useAuthStore.getState().accessToken;
-
-        if (accessToken) {
-          const isAgreedOnTerms = isAgreedOnTermsFromToken(accessToken);
-
-          if (!isAgreedOnTerms) {
-            // 약관 미동의 → 약관 동의 화면으로
-            console.log('📄 [AuthProvider] 약관 미동의 → 약관 동의 화면으로 이동');
-            router.replace('/auth/terms-agreement');
-            return;
-          }
+        if (requiresTermsAgreement) {
+          // 약관 미동의 → 약관 동의 화면으로
+          console.log('📄 [AuthProvider] 약관 미동의 → 약관 동의 화면으로 이동');
+          router.replace('/auth/terms-agreement');
+          return;
         }
 
         // 러닝 탭으로 이동 (리그 결과 확인은 RunningView에서 처리)
@@ -162,7 +184,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setTimeout(() => setIsNavigationReady(true), 200);
       }, 500);
     }
-  }, [isLoggedIn, accessToken, isNavigationReady, isAutoUpdateCompleted]);
+  }, [isLoggedIn, requiresTermsAgreement, sessionGeneration, userId, isNavigationReady, isAutoUpdateCompleted]);
 
   return <>{children}</>;
 };

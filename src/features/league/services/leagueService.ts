@@ -6,6 +6,7 @@
 import { apiClient } from '../../../services/api/client';
 import { API_ENDPOINTS } from '../../../services/api/config';
 import type { CurrentLeague, LeagueResult } from '../models';
+import type { SessionSnapshot } from '~/features/auth/stores/authStore';
 
 /**
  * League API Service
@@ -42,9 +43,10 @@ export const leagueService = {
    * GET /api/v1/league/result
    * @returns 미확인 결과가 없으면 null
    */
-  getUncheckedResult: async (): Promise<LeagueResult | null> => {
+  getUncheckedResult: async (sessionSnapshot?: SessionSnapshot): Promise<LeagueResult | null> => {
     const { data } = await apiClient.get<LeagueResult | null>(
-      API_ENDPOINTS.LEAGUE.RESULT
+      API_ENDPOINTS.LEAGUE.RESULT,
+      sessionSnapshot ? { sessionSnapshot } : undefined
     );
     return data;
   },

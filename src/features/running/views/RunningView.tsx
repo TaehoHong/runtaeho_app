@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import { AppState, BackHandler, Platform, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
-import { useRouter } from 'expo-router';
 import { GREY } from '~/shared/styles';
 import type { Item } from '~/features/avatar';
 import { UnityLoadingState } from '~/features/unity/components/UnityLoadingState';
@@ -16,6 +15,7 @@ import { useAuthStore } from '~/features';
 import { useUserStore } from '~/stores/user/userStore';
 import { useUnityStore } from '~/stores/unity/unityStore';
 import { useLeagueCheck } from '~/features/league/hooks/useLeagueCheck';
+import { useLeagueResultNavigation } from '~/features/league/hooks/useLeagueResultNavigation';
 import { RunningProvider } from '../contexts/RunningContext';
 import { ControlPanelView } from './components/ControlPanelView';
 
@@ -26,7 +26,6 @@ import { ControlPanelView } from './components/ControlPanelView';
  * Unity 컴포넌트 + 상태별 컴트롤 패널
  */
 export const RunningView: React.FC = () => {
-  const router = useRouter();
   const isRunningActive = useIsFocused();
   const viewState = useAppStore((state) => state.viewState);
   const runningState = useAppStore((state) => state.runningState);
@@ -36,8 +35,7 @@ export const RunningView: React.FC = () => {
   const hairColor = useUserStore((state) => state.hairColor);
 
   // 리그 결과 확인용 상태
-  const pendingResult = useLeagueCheckStore((state) => state.pendingResult);
-  const clearPendingResult = useLeagueCheckStore((state) => state.clearPendingResult);
+  useLeagueResultNavigation();
   const { checkUncheckedLeagueResult } = useLeagueCheck();
 
   const { requestPermissionsOnFirstLogin, isPermissionChecked } = usePermissionRequest();
@@ -92,29 +90,6 @@ export const RunningView: React.FC = () => {
   const isUnitySectionLoading = !isUnityReady || !isInitialAvatarSynced || !isUnitySurfaceVisible;
 
   console.log('🏃 [RunningView] 렌더링, viewState:', viewState, 'runningState:', runningState, 'isLoggedIn:', isLoggedIn, 'isUnityReady:', isUnityReady);
-
-  /**
-   * 리그 결과 확인 - pendingResult가 있으면 결과 화면으로 이동
-   *
-   * 정책:
-   * - 러닝탭 진입 시 결과 확인 화면 표시 → 확인 후 러닝탭으로 복귀
-   * - 러닝 중이면 결과 화면 표시 안 함 (러닝 중단 방지)
-   */
-  useEffect(() => {
-    // 러닝 중이면 결과 화면 표시 안 함
-    if (runningState !== RunningState.Stopped) {
-      return;
-    }
-
-    if (pendingResult) {
-      console.log('🏆 [RunningView] 미확인 리그 결과 있음 → 결과 화면으로 이동');
-      router.push({
-        pathname: '/league/result' as const,
-        params: { resultData: JSON.stringify(pendingResult) },
-      } as any);
-      clearPendingResult();
-    }
-  }, [pendingResult, runningState, router, clearPendingResult]);
 
   useEffect(() => {
     console.log('🔄 [RunningView] 컴포넌트 마운트');

@@ -48,6 +48,8 @@ jest.mock('~/features/league/services/leagueService', () => ({
 
 jest.mock('~/features/running/services/sensors/PedometerService', () => ({
   pedometerService: {
+    pauseTracking: jest.fn(),
+    resumeTracking: jest.fn(),
     startTracking: async () => undefined,
     stopTracking: () => undefined,
     getCurrentSteps: () => 0,
@@ -124,6 +126,134 @@ describe('useRunningLifecycle offline persistence', () => {
     mockGetCurrentLeague.mockResolvedValue(null);
   });
 
+  it('preserves the final snapshot while league lookup is stalled and excludes it from replay', async () => {
+    let releaseLeague!: () => void;
+    mockGetCurrentLeague.mockImplementation(() => new Promise<void>(resolve => { releaseLeague = resolve; }));
+    mockEndRunning.mockResolvedValue({ id: 404, point: 1 });
+    const { result } = renderHook(() => useRunningLifecycle(createProps()));
+    await startTestRun(result.current.startRunning);
+    let ending!: ReturnType<typeof result.current.endRunning>;
+    act(() => { ending = result.current.endRunning(); });
+    await waitFor(() => expect(mockGetCurrentLeague).toHaveBeenCalled());
+    try {
+      expect(await offlineStorageService.getPendingUploads()).toMatchObject([{
+        runningRecordId: 404, data: { distance: 80 }, segments: [{ distance: 80, orderIndex: 0 }],
+      }]);
+      const replayEnd = jest.fn().mockResolvedValue({ id: 404, point: 1 });
+      await offlineStorageService.serializeReplay(() => offlineStorageService.retryAllPendingUploads(replayEnd));
+      expect(replayEnd).not.toHaveBeenCalled();
+      expect(mockEndRunning).not.toHaveBeenCalled();
+    } finally {
+      await act(async () => { releaseLeague(); await ending; });
+    }
+    expect(mockEndRunning).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves the final snapshot while an older replay is stalled without duplicate end dispatch', async () => {
+    let releaseReplay!: () => void;
+    const blockedReplay = offlineStorageService.serializeReplay(() => new Promise<void>(resolve => { releaseReplay = resolve; }));
+    const replayEnd = jest.fn().mockResolvedValue({ id: 404, point: 1 });
+    const queuedReplay = offlineStorageService.serializeReplay(() => offlineStorageService.retryAllPendingUploads(replayEnd));
+    mockEndRunning.mockResolvedValue({ id: 404, point: 1 });
+    const { result } = renderHook(() => useRunningLifecycle(createProps()));
+    await startTestRun(result.current.startRunning);
+    let ending!: ReturnType<typeof result.current.endRunning>;
+    act(() => { ending = result.current.endRunning(); });
+    try {
+      await waitFor(async () => expect(await offlineStorageService.getPendingUploads()).toMatchObject([{
+        runningRecordId: 404, data: { distance: 80 }, segments: [{ distance: 80, orderIndex: 0 }],
+      }]));
+      expect(mockEndRunning).not.toHaveBeenCalled();
+    } finally {
+      await act(async () => { releaseReplay(); await blockedReplay; await queuedReplay; await ending; });
+    }
+    expect(replayEnd).not.toHaveBeenCalled();
+    expect(mockEndRunning).toHaveBeenCalledTimes(1);
+  });
+
+  it('persists the complete final snapshot before dispatching the end request', async () => {
+    let resolveEnd!: (value: unknown) => void;
+    mockEndRunning.mockImplementation(() => new Promise(resolve => { resolveEnd = resolve; }));
+    const { result } = renderHook(() => useRunningLifecycle(createProps()));
+    await startTestRun(result.current.startRunning);
+    let ending!: ReturnType<typeof result.current.endRunning>;
+    act(() => { ending = result.current.endRunning(); });
+    await waitFor(() => expect(mockEndRunning).toHaveBeenCalled());
+    const summaries = await offlineStorageService.getPendingUploads();
+    await act(async () => { resolveEnd({ id: 404, point: 1 }); await ending; });
+
+    expect(summaries).toMatchObject([{
+      runningRecordId: 404, data: { distance: 80, durationSec: 120 },
+      segments: [{ ...segment, locations: [{ ...segment.locations![0], timestamp: '2025-01-01T00:00:00.000Z' }] }],
+    }]);
+  });
+
+  it('retains GPS after UI teardown until ACK and prevents a concurrent replay from resending it', async () => {
+    let resolveItems!: () => void;
+    mockEndRunning.mockResolvedValue({ id: 404, point: 1 });
+    mockSaveItems.mockImplementation(() => new Promise<void>(resolve => { resolveItems = resolve; }));
+    const props = createProps();
+    const { result, unmount } = renderHook(() => useRunningLifecycle(props));
+    await startTestRun(result.current.startRunning);
+    await act(async () => { await result.current.endRunning(); });
+    await waitFor(() => expect(mockSaveItems).toHaveBeenCalled());
+    act(() => result.current.resetRunning());
+    props.segmentItemsRef.current = [];
+    unmount();
+    const restored = await offlineStorageService.getPendingSegmentUploads();
+    const replay = offlineStorageService.serializeReplay(() => offlineStorageService.retryAllPendingSegmentUploads(mockSaveItems));
+    resolveItems();
+    await replay;
+
+    expect(mockSaveItems).toHaveBeenCalledTimes(1);
+    expect(await offlineStorageService.getPendingSegmentCount()).toBe(0);
+    expect(restored).toMatchObject([{ runningRecordId: 404, segments: [segment] }]);
+    expect(restored[0]?.segments[0]?.locations?.[0]?.timestamp).toBeInstanceOf(Date);
+  });
+
+  it('blocks online completion and source deletion when the final snapshot cannot persist', async () => {
+    mockEndRunning.mockResolvedValue({ id: 404, point: 1 });
+    jest.spyOn(AsyncStorage, 'setItem').mockImplementation(async (key, value) => {
+      if (key === '@pending_running_uploads') throw new Error('storage-write-failed');
+      return originalSetItem(key, value);
+    });
+    const props = createProps();
+    const { result } = renderHook(() => useRunningLifecycle(props));
+    await startTestRun(result.current.startRunning);
+    await act(async () => { await expect(result.current.endRunning()).rejects.toThrow('storage-write-failed'); });
+    expect(useAppStore.getState().runningState).toBe(RunningState.Paused);
+    expect(mockEndRunning).not.toHaveBeenCalled();
+    expect(mockSaveItems).not.toHaveBeenCalled();
+    expect(mockClearBackgroundData).not.toHaveBeenCalled();
+    expect(props.segmentItemsRef.current).toEqual([segment]);
+  });
+
+  it('recovers the complete snapshot after segment queue handoff fails and the screen is destroyed', async () => {
+    mockEndRunning.mockResolvedValue({ id: 404, point: 1 });
+    jest.spyOn(AsyncStorage, 'setItem').mockImplementation(async (key, value) => {
+      if (key === '@pending_segment_uploads') throw new Error('storage-write-failed');
+      return originalSetItem(key, value);
+    });
+    const props = createProps();
+    const { result, unmount } = renderHook(() => useRunningLifecycle(props));
+    await startTestRun(result.current.startRunning);
+    await act(async () => { await expect(result.current.endRunning()).rejects.toThrow('storage-write-failed'); });
+    expect(mockClearBackgroundData).not.toHaveBeenCalled();
+    expect(useAppStore.getState().runningState).toBe(RunningState.Paused);
+    unmount();
+    props.segmentItemsRef.current = [];
+    jest.mocked(AsyncStorage.setItem).mockImplementation(originalSetItem);
+
+    await offlineStorageService.serializeReplay(async () => {
+      await offlineStorageService.retryAllPendingUploads(mockEndRunning);
+      await offlineStorageService.retryAllPendingSegmentUploads(mockSaveItems);
+    });
+
+    expect(mockSaveItems).toHaveBeenCalledWith(404, [segment]);
+    expect(await offlineStorageService.getPendingCount()).toBe(0);
+    expect(await offlineStorageService.getPendingSegmentCount()).toBe(0);
+  });
+
   it('preserves the summary and finalized GPS segment after end API failure and UI reset', async () => {
     const props = createProps({ segmentItemsRef: { current: [] } });
     props.finalizeCurrentSegment = () => { props.segmentItemsRef.current = [segment]; };
@@ -141,10 +271,7 @@ describe('useRunningLifecycle offline persistence', () => {
     const summaries = await offlineStorageService.getPendingUploads();
     expect(summaries).toHaveLength(1);
     expect(summaries[0]?.data).toMatchObject({ id: 404, distance: 80, durationSec: 120 });
-    const segments = await offlineStorageService.getPendingSegmentUploads();
-    expect(segments).toHaveLength(1);
-    expect(segments[0]?.runningRecordId).toBe(404);
-    expect(segments[0]?.segments).toMatchObject([{
+    expect(summaries[0]?.segments).toMatchObject([{
       distance: 80,
       durationSec: 120,
       cadence: 170,
@@ -196,7 +323,7 @@ describe('useRunningLifecycle offline persistence', () => {
     let releaseWrite: () => void = () => undefined;
     const writeGate = new Promise<void>((resolve) => { releaseWrite = resolve; });
     jest.spyOn(AsyncStorage, 'setItem').mockImplementation(async (key, value) => {
-      if (key === '@pending_segment_uploads') await writeGate;
+      if (key === '@pending_running_uploads') await writeGate;
       return originalSetItem(key, value);
     });
     const { result } = renderHook(() => useRunningLifecycle(createProps()));
@@ -205,12 +332,12 @@ describe('useRunningLifecycle offline persistence', () => {
     let endPromise: ReturnType<typeof result.current.endRunning>;
     act(() => { endPromise = result.current.endRunning(); });
     await waitFor(() => {
-      expect(AsyncStorage.setItem).toHaveBeenCalledWith('@pending_segment_uploads', expect.any(String));
+      expect(AsyncStorage.setItem).toHaveBeenCalledWith('@pending_running_uploads', expect.any(String));
     });
     expect(useAppStore.getState().runningState).toBe(RunningState.Running);
     await act(async () => { releaseWrite(); await endPromise; });
     expect(useAppStore.getState().runningState).toBe(RunningState.Finished);
-    expect(await offlineStorageService.getPendingSegmentCount()).toBe(1);
+    expect((await offlineStorageService.getPendingUploads())[0]?.segments).toHaveLength(1);
   });
 
   it('persists the end-button timestamp before GPS cleanup or a delayed upload', async () => {
@@ -238,65 +365,45 @@ describe('useRunningLifecycle offline persistence', () => {
     }
   });
 
-  it.each(['@pending_running_uploads', '@pending_segment_uploads'])(
-    'propagates a local write failure for %s instead of completing', async (failingKey) => {
-      jest.spyOn(AsyncStorage, 'setItem').mockImplementation(async (key, value) => {
-        if (key === failingKey) throw new Error('storage-write-failed');
-        return originalSetItem(key, value);
-      });
-      const { result } = renderHook(() => useRunningLifecycle(createProps()));
-      await startTestRun(result.current.startRunning);
+  it('retries a failed snapshot write with the original final record and GPS segment', async () => {
+    let failNextWrite = true;
+    jest.spyOn(AsyncStorage, 'setItem').mockImplementation(async (key, value) => {
+      if (key === '@pending_running_uploads' && failNextWrite) {
+        failNextWrite = false;
+        throw new Error('storage-write-failed');
+      }
+      return originalSetItem(key, value);
+    });
+    const dateNowSpy = jest.spyOn(Date, 'now').mockReturnValue(1736091000123);
+    const stopGpsTracking = jest.fn()
+      .mockResolvedValueOnce({ distance: 80, locations: segment.locations })
+      .mockResolvedValue({ distance: 0, locations: [] });
+    const props = createProps({ segmentItemsRef: { current: [] }, stopGpsTracking });
+    props.finalizeCurrentSegment = () => {
+      props.segmentItemsRef.current = [...props.segmentItemsRef.current, segment];
+    };
+    const { result } = renderHook(() => useRunningLifecycle(props));
 
+    try {
+      await startTestRun(result.current.startRunning);
       await act(async () => {
         await expect(result.current.endRunning()).rejects.toThrow('storage-write-failed');
       });
-      expect(useAppStore.getState().runningState).not.toBe(RunningState.Finished);
+      expect(useAppStore.getState().runningState).toBe(RunningState.Paused);
+      expect(result.current.currentRecord).toMatchObject({ distance: 80, durationSec: 120, endTimestamp: 1736091000 });
+
+      dateNowSpy.mockReturnValue(1736177400000);
+      await act(async () => { expect(await result.current.endRunning()).toBeNull(); });
+
+      const summaries = await offlineStorageService.getPendingUploads();
+      expect(summaries).toHaveLength(1);
+      expect(summaries[0]?.data).toMatchObject({ distance: 80, durationSec: 120, endTimestamp: 1736091000 });
+      expect(summaries[0]?.segments).toMatchObject([{ distance: 80, durationSec: 120, orderIndex: 0 }]);
+      expect(useAppStore.getState().runningState).toBe(RunningState.Finished);
+    } finally {
+      dateNowSpy.mockRestore();
     }
-  );
-
-  it.each(['@pending_running_uploads', '@pending_segment_uploads'])(
-    'retries a failed write to %s with the original final record and GPS segment', async (failingKey) => {
-      let failNextWrite = true;
-      jest.spyOn(AsyncStorage, 'setItem').mockImplementation(async (key, value) => {
-        if (key === failingKey && failNextWrite) {
-          failNextWrite = false;
-          throw new Error('storage-write-failed');
-        }
-        return originalSetItem(key, value);
-      });
-      const dateNowSpy = jest.spyOn(Date, 'now').mockReturnValue(1736091000123);
-      const stopGpsTracking = jest.fn()
-        .mockResolvedValueOnce({ distance: 80, locations: segment.locations })
-        .mockResolvedValue({ distance: 0, locations: [] });
-      const props = createProps({ segmentItemsRef: { current: [] }, stopGpsTracking });
-      props.finalizeCurrentSegment = () => {
-        props.segmentItemsRef.current = [...props.segmentItemsRef.current, segment];
-      };
-      const { result } = renderHook(() => useRunningLifecycle(props));
-
-      try {
-        await startTestRun(result.current.startRunning);
-        await act(async () => {
-          await expect(result.current.endRunning()).rejects.toThrow('storage-write-failed');
-        });
-        expect(useAppStore.getState().runningState).toBe(RunningState.Paused);
-        expect(result.current.currentRecord).toMatchObject({ distance: 80, durationSec: 120, endTimestamp: 1736091000 });
-
-        dateNowSpy.mockReturnValue(1736177400000);
-        await act(async () => { expect(await result.current.endRunning()).toBeNull(); });
-
-        const summaries = await offlineStorageService.getPendingUploads();
-        expect(summaries).toHaveLength(1);
-        expect(summaries[0]?.data).toMatchObject({ distance: 80, durationSec: 120, endTimestamp: 1736091000 });
-        const segments = await offlineStorageService.getPendingSegmentUploads();
-        expect(segments).toHaveLength(1);
-        expect(segments[0]?.segments).toEqual([segment]);
-        expect(useAppStore.getState().runningState).toBe(RunningState.Finished);
-      } finally {
-        dateNowSpy.mockRestore();
-      }
-    }
-  );
+  });
 
   it('does not resume tracking a finalized record after a failed save', async () => {
     jest.spyOn(AsyncStorage, 'setItem').mockRejectedValueOnce(new Error('storage-write-failed'));
@@ -316,7 +423,6 @@ describe('useRunningLifecycle offline persistence', () => {
   it('keeps a server-saved record complete when background cleanup fails', async () => {
     mockEndRunning.mockResolvedValue({ id: 404, point: 1 });
     mockClearBackgroundData.mockRejectedValue(new Error('cleanup-failed'));
-    jest.spyOn(AsyncStorage, 'setItem').mockRejectedValue(new Error('storage-write-failed'));
     const { result } = renderHook(() => useRunningLifecycle(createProps()));
     await startTestRun(result.current.startRunning);
     await act(async () => {

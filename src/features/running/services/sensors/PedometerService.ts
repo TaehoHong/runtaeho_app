@@ -9,6 +9,7 @@
 
 import { Pedometer } from 'expo-sensors';
 import { DataSource } from './SensorTypes';
+import { RunningClock } from '../../models/RunningClock';
 
 const MIN_CADENCE_MEASUREMENT_SECONDS = 10;
 const MIN_CADENCE_MEASUREMENT_STEPS = 8;
@@ -54,7 +55,9 @@ export class PedometerService {
   // 걸음 수 데이터
   private startSteps: number = 0;
   private currentSteps: number = 0;
-  private startTime: number = 0;
+  private readonly clock = new RunningClock();
+  private isPaused = false;
+  private onUpdate: ((data: PedometerData) => void) | null = null;
   private currentCadence: number = 0;
   private lastMeasuredCadence: number = 0;
   private lastStepTimestamp: number | null = null;
@@ -147,8 +150,10 @@ export class PedometerService {
         return;
       }
 
-      this.startTime = Date.now();
+      this.clock.start(Date.now());
       this.startSteps = 0;
+      this.isPaused = false;
+      this.onUpdate = callback;
       this.currentSteps = 0;
       this.currentCadence = 0;
       this.lastMeasuredCadence = 0;
@@ -158,56 +163,7 @@ export class PedometerService {
 
       console.log('[PedometerService] Starting tracking...');
 
-      this.subscription = Pedometer.watchStepCount((result) => {
-        if (generation !== this.trackingGeneration) return;
-        try {
-          const now = Date.now();
-
-          // 걸음 수 업데이트
-          this.currentSteps = result.steps;
-          if (this.currentSteps > 0) {
-            this.lastStepTimestamp = now;
-          }
-
-          // 케이던스 계산 (steps/min)
-          const elapsedMs = now - this.startTime;
-          const elapsedSec = elapsedMs / 1000;
-          const elapsedMin = elapsedMs / 60000;
-          const hasEnoughWarmup =
-            elapsedSec >= MIN_CADENCE_MEASUREMENT_SECONDS
-            && this.currentSteps >= MIN_CADENCE_MEASUREMENT_STEPS;
-          const isFreshSignal =
-            this.lastStepTimestamp !== null
-            && now - this.lastStepTimestamp <= CADENCE_STALE_MS;
-
-          if (elapsedMin > 0 && hasEnoughWarmup && isFreshSignal) {
-            this.currentCadence = this.normalizeCadence(
-              Math.round(this.currentSteps / elapsedMin)
-            );
-            this.lastMeasuredCadence = this.currentCadence;
-            this.isCadenceMeasured = true;
-          } else {
-            this.currentCadence = 0;
-            this.isCadenceMeasured = false;
-          }
-
-          // 콜백 호출
-          const data: PedometerData = {
-            steps: this.currentSteps,
-            cadence: this.currentCadence,
-            timestamp: now,
-            source: DataSource.PHONE_SENSORS,
-          };
-
-          console.log(
-            `[PedometerService] Steps: ${data.steps}, Cadence: ${data.cadence} steps/min`
-          );
-
-          callback(data);
-        } catch (error) {
-          console.error('[PedometerService] Callback error:', error);
-        }
-      });
+      this.subscribe(generation);
 
       console.log('[PedometerService] Tracking started successfully');
     } catch (error) {
@@ -215,6 +171,79 @@ export class PedometerService {
       if (generation === this.trackingGeneration) this.isTracking = false;
       throw error;
     }
+  }
+
+  private subscribe(generation = ++this.trackingGeneration): void {
+    // Expo counts from each subscription; retain earlier active intervals.
+    const previousSteps = this.currentSteps;
+    this.subscription = Pedometer.watchStepCount((result) => {
+      if (generation !== this.trackingGeneration) return;
+      try {
+        const now = Date.now();
+
+        // 걸음 수 업데이트
+        const steps = previousSteps + result.steps;
+        if (steps > this.currentSteps) {
+          this.lastStepTimestamp = now;
+        }
+        this.currentSteps = steps;
+
+        // 케이던스 계산 (steps/min)
+        const elapsedMs = this.clock.elapsed(now);
+        const elapsedSec = elapsedMs / 1000;
+        const elapsedMin = elapsedMs / 60000;
+        const hasEnoughWarmup =
+          elapsedSec >= MIN_CADENCE_MEASUREMENT_SECONDS
+          && this.currentSteps >= MIN_CADENCE_MEASUREMENT_STEPS;
+        const isFreshSignal =
+          this.lastStepTimestamp !== null
+          && now - this.lastStepTimestamp <= CADENCE_STALE_MS;
+
+        if (elapsedMin > 0 && hasEnoughWarmup && isFreshSignal) {
+          this.currentCadence = this.normalizeCadence(
+            Math.round(this.currentSteps / elapsedMin)
+          );
+          this.lastMeasuredCadence = this.currentCadence;
+          this.isCadenceMeasured = true;
+        } else {
+          this.currentCadence = 0;
+          this.isCadenceMeasured = false;
+        }
+
+        // 콜백 호출
+        const data: PedometerData = {
+          steps: this.currentSteps,
+          cadence: this.currentCadence,
+          timestamp: now,
+          source: DataSource.PHONE_SENSORS,
+        };
+
+        console.log(
+          `[PedometerService] Steps: ${data.steps}, Cadence: ${data.cadence} steps/min`
+        );
+
+        this.onUpdate?.(data);
+      } catch (error) {
+        console.error('[PedometerService] Callback error:', error);
+      }
+    });
+  }
+
+  pauseTracking(now = Date.now()): void {
+    if (!this.isTracking || this.isPaused) return;
+    this.clock.pause(now);
+    this.isPaused = true;
+    this.trackingGeneration++;
+    this.subscription?.remove();
+    this.subscription = null;
+    this.lastStepTimestamp = null;
+  }
+
+  resumeTracking(now = Date.now()): void {
+    if (!this.isTracking || !this.isPaused) return;
+    this.clock.resume(now);
+    this.isPaused = false;
+    this.subscribe();
   }
 
   /**
@@ -236,7 +265,10 @@ export class PedometerService {
         this.subscription = null;
       }
 
+      this.clock.pause(Date.now());
       this.isTracking = false;
+      this.isPaused = false;
+      this.onUpdate = null;
 
       console.log(
         `[PedometerService] Tracking stopped. Final steps: ${this.currentSteps}, Final cadence: ${this.currentCadence}`
@@ -309,7 +341,9 @@ export class PedometerService {
     this.stopTracking();
     this.startSteps = 0;
     this.currentSteps = 0;
-    this.startTime = 0;
+    this.clock.reset();
+    this.isPaused = false;
+    this.onUpdate = null;
     this.currentCadence = 0;
     this.lastMeasuredCadence = 0;
     this.lastStepTimestamp = null;

@@ -6,6 +6,7 @@ import { apiClient } from '../../../services/api/client';
 import { API_ENDPOINTS } from '../../../services/api/config';
 import type { PointHistory, PointHistoryRequest } from '../models';
 import type { CursorResult } from '~/shared/utils/dto/CursorResult';
+import type { SessionSnapshot } from '~/features/auth/stores/authStore';
 /**
  * Point API Service
  */
@@ -31,9 +32,10 @@ export const pointService = {
   /**
    * 사용자 포인트 잔액 조회
    */
-  getUserPoint: async (): Promise<{ userId: number; point: number }> => {
+  getUserPoint: async (sessionSnapshot?: SessionSnapshot): Promise<{ userId: number; point: number }> => {
     const { data } = await apiClient.get<{ userId: number; point: number }>(
-      API_ENDPOINTS.POINT.BASE
+      API_ENDPOINTS.POINT.BASE,
+      sessionSnapshot ? { sessionSnapshot } : undefined
     );
     return data;
   },

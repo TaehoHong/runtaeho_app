@@ -23,6 +23,8 @@ import {
 import { t } from '~/i18n';
 import { unityService } from '~/features/unity/services/UnityService';
 import { useUserStore } from '~/stores/user/userStore';
+import { isSessionCurrent, useAuthStore, type SessionSnapshot } from '~/features/auth/stores/authStore';
+import { SessionSupersededError } from '~/utils/storage/errors';
 
 // ===================================
 // Helper Functions (로컬 유틸리티)
@@ -126,6 +128,11 @@ export function useAvatarViewModel(): AvatarViewModel {
   const globalHairColor = useUserStore((state) => state.hairColor);
   const setEquippedItems = useUserStore((state) => state.setEquippedItems);
   const setGlobalHairColor = useUserStore((state) => state.setHairColor);
+  const sessionGeneration = useAuthStore((state) => state.sessionGeneration);
+  const userId = useUserStore((state) => state.currentUser?.id);
+  const viewSession = useMemo<SessionSnapshot>(() => ({
+    generation: sessionGeneration, userId: userId ?? null,
+  }), [sessionGeneration, userId]);
 
   // 전역 equippedItems를 항상 Map으로 정규화해 사용
   const globalEquippedMap = useMemo<EquippedItemsMap>(() => normalizeEquippedMap(globalEquippedItems), [globalEquippedItems]);
@@ -143,7 +150,7 @@ export function useAvatarViewModel(): AvatarViewModel {
   const [purchasedIds, setPurchasedIds] = useState<ReadonlySet<number>>(() => new Set());
   const [actionError, setActionError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const savingRef = useRef(false);
+  const savingRef = useRef<SessionSnapshot | null>(null);
 
   // 카테고리 정의
   const categories = ITEM_CATEGORIES;
@@ -258,6 +265,15 @@ export function useAvatarViewModel(): AvatarViewModel {
     setPendingHairColor(globalHairColor);
   }, [globalHairColor]);
 
+  useEffect(() => {
+    savingRef.current = null;
+    setIsSaving(false);
+    setPurchasedIds(new Set());
+    setActionError(null);
+    setShowPurchaseModal(false);
+    setShowInsufficientPointsAlert(false);
+  }, [viewSession]);
+
   // ===================================
   // Actions
   // ===================================
@@ -344,29 +360,34 @@ export function useAvatarViewModel(): AvatarViewModel {
    *
    * 포인트 동기화는 usePurchaseItems의 onSuccess에서 서버 조회로 처리됨
    */
-  const applySelection = useCallback(async (items: EquippedItemsMap) => {
+  const applySelection = useCallback(async (items: EquippedItemsMap, sessionSnapshot: SessionSnapshot) => {
+    if (!isSessionCurrent(sessionSnapshot)) throw new SessionSupersededError();
     await updateEquippedMutation.mutateAsync({
       avatarId,
       itemIds: toItemIds(items),
       hairColor: pendingHairColor,
+      sessionSnapshot,
     });
+    if (!isSessionCurrent(sessionSnapshot)) throw new SessionSupersededError();
     setEquippedItems(items);
     setGlobalHairColor(pendingHairColor);
   }, [avatarId, pendingHairColor, updateEquippedMutation, setEquippedItems, setGlobalHairColor]);
 
   const confirmPurchase = useCallback(async () => {
-    if (savingRef.current || itemsToPurchase.length === 0) return;
+    if (savingRef.current || !isSessionCurrent(viewSession) || itemsToPurchase.length === 0) return;
     if (totalPoint < totalPurchasePrice) {
       setShowPurchaseModal(false);
       setShowInsufficientPointsAlert(true);
       return;
     }
-    savingRef.current = true;
+    const sessionSnapshot = viewSession;
+    savingRef.current = sessionSnapshot;
     setIsSaving(true);
     setActionError(null);
     let purchased = false;
     try {
-      await purchaseMutation.mutateAsync({ itemIds: itemsToPurchase.map(item => item.id) });
+      await purchaseMutation.mutateAsync({ itemIds: itemsToPurchase.map(item => item.id), sessionSnapshot });
+      if (!isSessionCurrent(sessionSnapshot)) return;
       purchased = true;
       // 구매와 착용은 별도 API이므로 착용 실패 시에도 구매 완료 상태를 유지한다.
       setPurchasedIds(previous => new Set([...previous, ...itemsToPurchase.map(item => item.id)]));
@@ -375,36 +396,43 @@ export function useAvatarViewModel(): AvatarViewModel {
       );
       setPendingEquippedItems(ownedSelection);
       setShowPurchaseModal(false);
-      await applySelection(ownedSelection);
+      await applySelection(ownedSelection, sessionSnapshot);
     } catch {
+      if (!isSessionCurrent(sessionSnapshot)) return;
       setShowPurchaseModal(false);
       setActionError(purchased
         ? t('구매는 완료됐지만 적용하지 못했어요. 다시 적용해주세요.')
         : t('아이템 구매에 실패했습니다.'));
     } finally {
-      savingRef.current = false;
-      setIsSaving(false);
+      if (savingRef.current === sessionSnapshot) {
+        savingRef.current = null;
+        setIsSaving(false);
+      }
     }
-  }, [itemsToPurchase, totalPoint, totalPurchasePrice, purchaseMutation, pendingEquippedItems, applySelection]);
+  }, [itemsToPurchase, totalPoint, totalPurchasePrice, purchaseMutation, pendingEquippedItems, applySelection, viewSession]);
 
   const confirmChanges = useCallback(async () => {
-    if (savingRef.current || !hasChanges) return;
+    if (savingRef.current || !isSessionCurrent(viewSession) || !hasChanges) return;
     if (shouldShowPurchaseButton) {
       attemptPurchase();
       return;
     }
-    savingRef.current = true;
+    const sessionSnapshot = viewSession;
+    savingRef.current = sessionSnapshot;
     setIsSaving(true);
     setActionError(null);
     try {
-      await applySelection(pendingEquippedItems);
+      await applySelection(pendingEquippedItems, sessionSnapshot);
     } catch {
+      if (!isSessionCurrent(sessionSnapshot)) return;
       setActionError(t('착용 상태 업데이트에 실패했습니다.'));
     } finally {
-      savingRef.current = false;
-      setIsSaving(false);
+      if (savingRef.current === sessionSnapshot) {
+        savingRef.current = null;
+        setIsSaving(false);
+      }
     }
-  }, [hasChanges, shouldShowPurchaseButton, attemptPurchase, applySelection, pendingEquippedItems]);
+  }, [hasChanges, shouldShowPurchaseButton, attemptPurchase, applySelection, pendingEquippedItems, viewSession]);
 
   /**
    * 취소

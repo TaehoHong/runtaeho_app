@@ -179,6 +179,7 @@ export const useRunningLifecycle = ({
       if (pauseStartTimeRef.current === null) {
         const now = Date.now();
         clockRef.current.pause(now);
+        pedometerService.pauseTracking(now);
         pauseStartTimeRef.current = now;
       }
 
@@ -209,6 +210,7 @@ export const useRunningLifecycle = ({
     if (pauseStartedAt !== null) {
       const now = Date.now();
       clockRef.current.resume(now);
+      pedometerService.resumeTracking(now);
       const pauseDuration = (now - pauseStartedAt) / 1000;
       setPausedDuration((prev) => prev + pauseDuration);
       pauseStartTimeRef.current = null;
@@ -241,6 +243,7 @@ export const useRunningLifecycle = ({
         const endedAt = endTimeRef.current ?? Date.now();
         endTimeRef.current = endedAt;
         clockRef.current.pause(endedAt);
+        pedometerService.stopTracking();
         const endTimestamp = Math.floor(endedAt / 1000);
         setLeagueBeforeRunningEnd(null);
         // 0. 마지막 세그먼트 저장
@@ -250,8 +253,7 @@ export const useRunningLifecycle = ({
         const { distance: finalDistance } = await stopGpsTracking();
         checkCurrent();
 
-        // 2. Pedometer 중지
-        pedometerService.stopTracking();
+        // 2. 종료 시점에 중지한 Pedometer의 최종 값 조회
         const finalSteps = pedometerService.getCurrentSteps();
         const cadenceSnapshot = pedometerService.getCadenceSnapshot();
         const finalCadence = pedometerService.getFinalCadence();
@@ -291,110 +293,78 @@ export const useRunningLifecycle = ({
           });
           return null;
         }
-
-        // 종료 API가 리그를 갱신하기 전에 애니메이션에 사용할 순위를 보관한다.
-        try {
-          const league = await leagueService.getCurrentLeague();
-          checkCurrent();
-          setLeagueBeforeRunningEnd(league && league.myRank > 0
-            ? { sessionId: league.sessionId, rank: league.myRank }
-            : null);
-        } catch {
-          console.warn('[useRunningLifecycle] League rank lookup failed, skipping rank animation');
-        }
       }
 
       checkCurrent();
-      // 5. 백엔드 API: 러닝 종료
-      try {
-        const endRecord = await endRunningMutation(finalRecord, session);
-        checkCurrent();
+      // 네트워크 대기보다 먼저 저장하고, 현재 종료 작업의 snapshot은 재전송에서 제외한다.
+      const endRecord = await offlineStorageService.withPendingUpload(
+        finalRecord, segmentItemsRef.current, session, async (uploadId) => {
+          checkCurrent();
+          if (!isRetry) {
+            // 종료 API가 리그를 갱신하기 전에 애니메이션에 사용할 순위를 보관한다.
+            try {
+              const league = await leagueService.getCurrentLeague();
+              checkCurrent();
+              setLeagueBeforeRunningEnd(league && league.myRank > 0
+                ? { sessionId: league.sessionId, rank: league.myRank }
+                : null);
+            } catch {
+              console.warn('[useRunningLifecycle] League rank lookup failed, skipping rank animation');
+            }
+          }
+          return offlineStorageService.serializeReplay(async () => {
+            checkCurrent();
+            let saved: EndRunningRecord;
+            try {
+              saved = await endRunningMutation(finalRecord, session);
+            } catch (apiError) {
+              checkCurrent();
+              if (getRunningRejectionCode(apiError)) {
+                setLeagueBeforeRunningEnd(null);
+                await offlineStorageService.discardPendingSegments(currentRecord.id, session);
+                await offlineStorageService.removePendingUpload(uploadId, session);
+                throw apiError;
+              }
+              console.warn('[useRunningLifecycle] End request failed; final record remains queued');
+              return null;
+            }
+            checkCurrent();
+            await offlineStorageService.completePendingUpload(uploadId, session, saved);
+            return saved;
+          });
+        }
+      );
+      checkCurrent();
+      if (endRecord) {
         setCurrentRecord({ ...finalRecord, acceptanceStatus: endRecord.acceptanceStatus });
         if (endRecord.acceptanceStatus === 'DUPLICATE' || endRecord.acceptanceStatus === 'PERSONAL_ONLY') {
           setLeagueBeforeRunningEnd(null);
         }
-        setRunningState(RunningState.Finished);
-        console.log('[useRunningLifecycle] Running completed, data sent to server');
+      }
+      setRunningState(RunningState.Finished);
 
-        // 5. 세그먼트 비동기 업로드
-        const segmentsToUpload = segmentItemsRef.current;
-        if (segmentsToUpload.length > 0 && endRecord.acceptanceStatus !== 'DUPLICATE') {
-          const itemsForServer = segmentsToUpload.map(toSegmentPayload);
+      if (endRecord && endRecord.acceptanceStatus !== 'DUPLICATE') {
+        // 완료 화면은 영속 저장 후 열고, 업로드 ACK 전까지 큐 원본을 보존한다.
+        void offlineStorageService.serializeReplay(() => offlineStorageService.retryAllPendingSegmentUploads(
+          async (runningRecordId, segments) => {
+            await runningService.saveRunningRecordItems({
+              runningRecordId,
+              items: segments.map(toSegmentPayload),
+            }, session);
+          }, session
+        )).catch(() => {
+          console.warn('[useRunningLifecycle] Segment replay interrupted; data remains queued');
+        });
+      }
 
-          // 비동기로 전송 (UI 블로킹 방지)
-          runningService
-            .saveRunningRecordItems({
-              runningRecordId: currentRecord.id,
-              items: itemsForServer,
-            }, session)
-            .then(() => {
-              console.log(
-                `[useRunningLifecycle] ${segmentsToUpload.length} segments uploaded`
-              );
-            })
-            .catch(async (error) => {
-              if (!isSessionCurrent(session)) return;
-              if (getRunningRejectionCode(error)) {
-                console.warn('[useRunningLifecycle] Segment upload rejected by validation');
-                return;
-              }
-              console.warn(
-                '[useRunningLifecycle] Segment upload failed, saving offline:',
-                error
-              );
-              try {
-                await offlineStorageService.addPendingSegmentUpload(
-                  currentRecord.id,
-                  segmentsToUpload,
-                  session
-                );
-                console.log(
-                  `[useRunningLifecycle] ${segmentsToUpload.length} segments saved offline`
-                );
-              } catch (offlineError) {
-                console.error(
-                  '[useRunningLifecycle] Segment offline save failed:',
-                  offlineError
-                );
-              }
-            });
-        }
-
-        // 6. 백그라운드 데이터 정리
+      if (endRecord) {
         try {
           await backgroundTaskService.clearBackgroundData();
         } catch {
           console.warn('[useRunningLifecycle] Background cleanup failed after the record was saved');
         }
-
-        return endRecord;
-      } catch (apiError: unknown) {
-        checkCurrent();
-        if (getRunningRejectionCode(apiError)) {
-          setLeagueBeforeRunningEnd(null);
-          throw apiError;
-        }
-        // 네트워크 에러 시 오프라인 저장
-        const errorMessage =
-          apiError instanceof Error ? apiError.message : 'Unknown error';
-        console.warn(
-          '[useRunningLifecycle] API failed, saving offline:',
-          errorMessage
-        );
-        await offlineStorageService.addPendingUpload(currentRecord.id, finalRecord, session);
-        checkCurrent();
-        const segmentsToSave = segmentItemsRef.current;
-        if (segmentsToSave.length > 0) {
-          await offlineStorageService.addPendingSegmentUpload(
-            currentRecord.id,
-            segmentsToSave,
-            session
-          );
-          checkCurrent();
-        }
-        setRunningState(RunningState.Finished);
-        return null;
       }
+      return endRecord;
     } catch (error) {
       checkCurrent();
       console.error('[useRunningLifecycle] Failed to end running', {

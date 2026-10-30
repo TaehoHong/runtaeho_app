@@ -15,6 +15,8 @@ const mockLeagueHeader = jest.fn();
 const mockMyRankCard = jest.fn();
 const mockRankingSection = jest.fn();
 
+jest.mock('@react-navigation/native', () => ({ useIsFocused: () => true }));
+
 jest.mock('~/features/league/hooks', () => ({
   useLeagueCheck: () => ({
     checkUncheckedLeagueResult: () => mockCheckUncheckedLeagueResult(),
@@ -87,10 +89,11 @@ describe('LeagueView', () => {
       resultStatus: LeagueResultStatus.MAINTAINED, finalRank: 3,
       totalParticipants: 12, totalDistance: 1000, rewardPoints: null, participants: [],
     };
-    act(() => useLeagueCheckStore.getState().setChecked(pending));
+    const operation = useLeagueCheckStore.getState().startCheck()!;
+    act(() => useLeagueCheckStore.getState().setChecked(pending, operation));
     expect(routerMock.push).toHaveBeenCalledTimes(1);
     expect(useLeagueCheckStore.getState().pendingResult).toBeNull();
-    act(() => useLeagueCheckStore.getState().setChecked(pending));
+    act(() => useLeagueCheckStore.getState().setChecked(pending, operation));
     expect(routerMock.push).toHaveBeenCalledTimes(1);
   });
 

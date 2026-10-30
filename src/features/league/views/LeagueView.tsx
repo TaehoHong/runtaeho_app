@@ -11,14 +11,15 @@ import { t, useAppLanguage } from '~/i18n';
  * - 미확인 결과 체크 후 결과 화면으로 리다이렉트
  */
 
-import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { TopScreenSafeAreaView } from '~/shared/components';
 import { GREY, PRIMARY } from '~/shared/styles';
 import { useLeagueCheckStore } from '~/stores';
 import { useAppStore } from '~/stores/app/appStore';
 import { useLeagueCheck } from '../hooks';
+import { useLeagueResultNavigation } from '../hooks/useLeagueResultNavigation';
 import { useLeagueViewModel } from '../viewmodels';
 import { LeagueHeader } from './components/LeagueHeader';
 import { LeagueNotJoinedView } from './components/LeagueNotJoinedView';
@@ -27,31 +28,14 @@ import { RankingSection } from './components/RankingSection';
 
 export const LeagueView = () => {
   useAppLanguage();
-  const router = useRouter();
-  const consumedResult = useRef<typeof pendingResult>(null);
+  useLeagueResultNavigation();
 
   // 이전 리그 순위 (애니메이션용) - running-finished에서 설정됨
   const previousLeagueRank = useAppStore((state) => state.previousLeagueRank);
   const setPreviousLeagueRank = useAppStore((state) => state.setPreviousLeagueRank);
 
-  // 미확인 결과 (Single Point of Truth: AuthProvider에서 API 호출, Store에서 상태 참조)
-  const pendingResult = useLeagueCheckStore((state) => state.pendingResult);
-  const clearPendingResult = useLeagueCheckStore((state) => state.clearPendingResult);
-
   // 리그 결과 체크 함수
   const { checkUncheckedLeagueResult } = useLeagueCheck();
-
-  // 미확인 결과가 있으면 결과 화면으로 리다이렉트
-  useEffect(() => {
-    if (pendingResult && consumedResult.current !== pendingResult) {
-      router.push({
-        pathname: '/league/result' as const,
-        params: { resultData: JSON.stringify(pendingResult) },
-      } as any);
-      consumedResult.current = pendingResult;
-      clearPendingResult();
-    }
-  }, [pendingResult, router, clearPendingResult]);
 
   const {
     formattedData,

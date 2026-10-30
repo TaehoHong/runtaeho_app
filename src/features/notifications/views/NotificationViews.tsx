@@ -130,6 +130,9 @@ export function NotificationSettingsView() {
       const value: NotificationConfiguration = { ...query.data, [field]: enabled, timezone: currentTimezone() };
       const saved = await notificationService.configure(value);
       if (!isSessionCurrent(snapshot)) return;
+      // Foreground reads can start during the save; retire them before committing its result.
+      await queryClient.cancelQueries({ queryKey: queryKeys.notifications.configuration(userId), exact: true });
+      if (!isSessionCurrent(snapshot)) return;
       queryClient.setQueryData(queryKeys.notifications.configuration(userId), saved);
       await syncPushRegistration();
     } catch {

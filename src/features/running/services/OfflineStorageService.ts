@@ -9,6 +9,7 @@ import { getRunningRejectionCode, isRunningRejectionCode, type RunningRejectionC
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { EndRunningRecord } from '../models';
 import type { RunningRecord } from '../models/RunningRecord';
 import type { RunningRecordItem } from '../models/RunningRecordItem';
 
@@ -31,6 +32,7 @@ interface PendingUpload {
   id: string; // UUID
   runningRecordId: number;
   data: RunningRecord;
+  segments?: RunningRecordItem[];
   timestamp: number;
   retryCount: number;
   lastError?: string;
@@ -66,6 +68,7 @@ export class OfflineStorageService {
   private maxRetryCount = 3;
   private writes: Promise<unknown> = Promise.resolve();
   private replay: Promise<unknown> = Promise.resolve();
+  private activeUploads = new Map<number, SessionSnapshot>();
 
   private assertSession(session: SessionSnapshot): void {
     if (session.userId === null || !isSessionCurrent(session)) throw new SessionSupersededError();
@@ -85,11 +88,11 @@ export class OfflineStorageService {
     return result;
   }
 
-  private async upsert<T extends OwnedUpload>(key: string, upload: T, session: SessionSnapshot, replace = true): Promise<void> {
+  private async upsert<T extends OwnedUpload>(key: string, upload: T, session: SessionSnapshot): Promise<void> {
     await this.write(session, async () => {
       const pending = await this.readQueue<T>(key);
       this.assertSession(session);
-      const remaining = replace ? pending.filter(item => item.runningRecordId !== upload.runningRecordId || item.ownerUserId !== session.userId) : pending;
+      const remaining = pending.filter(item => item.runningRecordId !== upload.runningRecordId || item.ownerUserId !== session.userId);
       await AsyncStorage.setItem(key, JSON.stringify([...remaining, upload]));
       this.assertSession(session);
     });
@@ -145,14 +148,38 @@ export class OfflineStorageService {
   }
 
   /**
-   * 업로드 대기열에 추가
+   * 최종 기록과 세그먼트를 하나의 영속 snapshot으로 저장한다.
    */
-  async addPendingUpload(runningRecordId: number, data: RunningRecord, session: SessionSnapshot = getSessionSnapshot()): Promise<void> {
+  async addPendingUpload(
+    runningRecordId: number, data: RunningRecord, session: SessionSnapshot = getSessionSnapshot(),
+    segments?: RunningRecordItem[],
+  ): Promise<string> {
     this.assertSession(session);
+    const id = this.generateId();
     await this.upsert(STORAGE_KEYS.PENDING_UPLOADS, {
-      id: this.generateId(), ownerUserId: session.userId!, runningRecordId, data,
+      id, ownerUserId: session.userId!, runningRecordId, data, segments,
       timestamp: Date.now(), retryCount: 0,
     }, session);
+    return id;
+  }
+
+  async withPendingUpload<T>(
+    data: RunningRecord, segments: RunningRecordItem[], session: SessionSnapshot,
+    action: (uploadId: string) => Promise<T>,
+  ): Promise<T> {
+    this.assertSession(session);
+    this.activeUploads.set(data.id, session);
+    try {
+      const uploadId = await this.addPendingUpload(data.id, data, session, segments);
+      return await action(uploadId);
+    } finally {
+      if (this.activeUploads.get(data.id) === session) this.activeUploads.delete(data.id);
+    }
+  }
+
+  private isUploadActive(runningRecordId: number): boolean {
+    const session = this.activeUploads.get(runningRecordId);
+    return session !== undefined && isSessionCurrent(session);
   }
 
   /**
@@ -173,6 +200,20 @@ export class OfflineStorageService {
    */
   async removePendingUpload(uploadId: string, session: SessionSnapshot = getSessionSnapshot()): Promise<void> {
     await this.removeOwned(STORAGE_KEYS.PENDING_UPLOADS, uploadId, session);
+  }
+
+  async completePendingUpload(uploadId: string, session: SessionSnapshot, result?: EndRunningRecord | void): Promise<void> {
+    const pending = await this.readQueue<PendingUpload>(STORAGE_KEYS.PENDING_UPLOADS);
+    this.assertSession(session);
+    const upload = pending.find(item => item.id === uploadId && item.ownerUserId === session.userId);
+    if (!upload) return;
+    if (result?.acceptanceStatus === 'DUPLICATE') {
+      await this.discardPendingSegments(upload.runningRecordId, session);
+    } else if (upload.segments?.length) {
+      // 세그먼트 큐 저장이 실패해도 최종 snapshot은 기록 큐에 남아 재시작 후 복구된다.
+      await this.addPendingSegmentUpload(upload.runningRecordId, upload.segments, session);
+    }
+    await this.removePendingUpload(uploadId, session);
   }
 
   /**
@@ -261,7 +302,7 @@ export class OfflineStorageService {
    * 모든 대기 중인 업로드 재시도
    */
   async retryAllPendingUploads(
-    uploadFn: (data: RunningRecord) => Promise<void>,
+    uploadFn: (data: RunningRecord) => Promise<EndRunningRecord | void>,
     session: SessionSnapshot = getSessionSnapshot(),
   ): Promise<{ success: number; failed: number }> {
     const pending = await this.getPendingUploads();
@@ -272,9 +313,10 @@ export class OfflineStorageService {
       try {
         if (!await this.claim(STORAGE_KEYS.PENDING_UPLOADS, upload, session)) continue;
         this.assertSession(session);
-        await uploadFn(upload.data);
+        if (this.isUploadActive(upload.runningRecordId)) continue;
+        const result = await uploadFn(upload.data);
         this.assertSession(session);
-        await this.removePendingUpload(upload.id, session);
+        await this.completePendingUpload(upload.id, session, result);
         success++;
       } catch (error) {
         this.assertSession(session);
@@ -362,7 +404,17 @@ export class OfflineStorageService {
     await this.upsert(STORAGE_KEYS.PENDING_SEGMENT_UPLOADS, {
       id: this.generateId(), ownerUserId: session.userId!, runningRecordId, segments,
       timestamp: Date.now(), retryCount: 0,
-    }, session, false);
+    }, session);
+  }
+
+  async discardPendingSegments(runningRecordId: number, session: SessionSnapshot): Promise<void> {
+    await this.write(session, async () => {
+      const pending = await this.readQueue<PendingSegmentUpload>(STORAGE_KEYS.PENDING_SEGMENT_UPLOADS);
+      this.assertSession(session);
+      await AsyncStorage.setItem(STORAGE_KEYS.PENDING_SEGMENT_UPLOADS, JSON.stringify(pending.filter(item =>
+        item.runningRecordId !== runningRecordId || item.ownerUserId !== session.userId)));
+      this.assertSession(session);
+    });
   }
 
   /**
@@ -408,7 +460,13 @@ export class OfflineStorageService {
       this.assertSession(session);
       try {
         if (!await this.claim(STORAGE_KEYS.PENDING_SEGMENT_UPLOADS, upload, session)) continue;
+        const summaries = [
+          ...await this.readQueue<PendingUpload>(STORAGE_KEYS.PENDING_UPLOADS),
+          ...await this.readQueue<PendingUpload>(STORAGE_KEYS.FAILED_UPLOADS),
+        ];
         this.assertSession(session);
+        if (this.isUploadActive(upload.runningRecordId) || summaries.some(item => item.runningRecordId === upload.runningRecordId &&
+          (item.ownerUserId === session.userId || item.ownerUserId === undefined))) continue;
         await uploadFn(upload.runningRecordId, upload.segments);
         this.assertSession(session);
         await this.removePendingSegmentUpload(upload.id, session);

@@ -49,7 +49,6 @@ export const useOfflineSync = () => {
       if (!isSessionCurrent(session)) return null;
 
       const pendingCount = await offlineStorageService.getPendingCount();
-      const pendingSegmentCount = await offlineStorageService.getPendingSegmentCount();
 
       const result: SyncResult = {
         records: { success: 0, failed: 0 },
@@ -62,7 +61,7 @@ export const useOfflineSync = () => {
 
         const recordResult = await offlineStorageService.retryAllPendingUploads(
           async (record) => {
-            await runningService.endRunning(record, session);
+            return runningService.endRunning(record, session);
           }, session
         );
 
@@ -74,7 +73,8 @@ export const useOfflineSync = () => {
         }
       }
 
-      // 2. 세그먼트 동기화
+      // 2. 종료 ACK로 이동된 세그먼트까지 같은 동기화에서 전송한다.
+      const pendingSegmentCount = await offlineStorageService.getPendingSegmentCount();
       if (pendingSegmentCount > 0) {
         console.log(`🔄 [useOfflineSync] ${pendingSegmentCount}개의 오프라인 세그먼트 동기화 시작...`);
 

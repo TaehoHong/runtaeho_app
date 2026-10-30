@@ -1,3 +1,5 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { offlineStorageService } from '../services/OfflineStorageService';
 import { act, renderHook } from '@testing-library/react-native';
 import type { MutableRefObject } from 'react';
 import { RunningState, useAppStore } from '~/stores/app/appStore';
@@ -17,8 +19,6 @@ const mockPedometerGetCurrentSteps = jest.fn();
 const mockPedometerGetCurrentCadence = jest.fn();
 const mockPedometerGetCadenceSnapshot = jest.fn();
 const mockPedometerGetFinalCadence = jest.fn();
-const mockOfflineAddPendingUpload = jest.fn();
-const mockOfflineAddPendingSegmentUpload = jest.fn();
 const mockBackgroundClearData = jest.fn();
 const mockBackgroundStopTracking = jest.fn();
 const mockBackgroundPauseTracking = jest.fn();
@@ -60,17 +60,12 @@ jest.mock('~/features/running/services/sensors/PedometerService', () => ({
   pedometerService: {
     startTracking: (...args: unknown[]) => mockPedometerStartTracking(...args),
     stopTracking: (...args: unknown[]) => mockPedometerStopTracking(...args),
+    pauseTracking: jest.fn(),
+    resumeTracking: jest.fn(),
     getCurrentSteps: (...args: unknown[]) => mockPedometerGetCurrentSteps(...args),
     getCurrentCadence: (...args: unknown[]) => mockPedometerGetCurrentCadence(...args),
     getCadenceSnapshot: (...args: unknown[]) => mockPedometerGetCadenceSnapshot(...args),
     getFinalCadence: (...args: unknown[]) => mockPedometerGetFinalCadence(...args),
-  },
-}));
-
-jest.mock('~/features/running/services/OfflineStorageService', () => ({
-  offlineStorageService: {
-    addPendingUpload: (...args: unknown[]) => mockOfflineAddPendingUpload(...args),
-    addPendingSegmentUpload: (...args: unknown[]) => mockOfflineAddPendingSegmentUpload(...args),
   },
 }));
 
@@ -176,7 +171,8 @@ const buildHookProps = (overrides?: {
 };
 
 describe('useRunningLifecycle', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await AsyncStorage.clear();
     jest.clearAllMocks();
     resetAllStores();
     useUserStore.setState({ currentUser: { id: 7, nickname: 'runner', userAccounts: [], level: 1, createdAt: new Date(0) } });
@@ -367,7 +363,7 @@ describe('useRunningLifecycle', () => {
     expect(mocks.stopGpsTracking).toHaveBeenCalledTimes(1);
     expect(mockEndRunningMutation).not.toHaveBeenCalled();
     expect(mockSaveRunningRecordItems).not.toHaveBeenCalled();
-    expect(mockOfflineAddPendingUpload).not.toHaveBeenCalled();
+    expect(await offlineStorageService.getPendingCount()).toBe(0);
     expect(mockBackgroundClearData).toHaveBeenCalledTimes(1);
     expect(useAppStore.getState().runningState).toBe(RunningState.Finished);
   });
@@ -431,7 +427,7 @@ describe('useRunningLifecycle', () => {
     expect((endResult as { id: number }).id).toBe(303);
     expect(mockEndRunningMutation).toHaveBeenCalledTimes(1);
     expect(mockSaveRunningRecordItems).toHaveBeenCalledTimes(1);
-    expect(mockOfflineAddPendingUpload).not.toHaveBeenCalled();
+    expect(await offlineStorageService.getPendingCount()).toBe(0);
     expect(mockBackgroundClearData).toHaveBeenCalledTimes(1);
     expect(useAppStore.getState().runningState).toBe(RunningState.Finished);
     expect(mocks.finalizeCurrentSegment).toHaveBeenCalledTimes(1);
@@ -460,7 +456,7 @@ describe('useRunningLifecycle', () => {
       expect(endResult).toBeNull();
     });
 
-    expect(mockOfflineAddPendingUpload).toHaveBeenCalledTimes(1);
+    expect(await offlineStorageService.getPendingCount()).toBe(1);
     expect(useAppStore.getState().runningState).toBe(RunningState.Finished);
     expect(mockSaveRunningRecordItems).not.toHaveBeenCalled();
   });

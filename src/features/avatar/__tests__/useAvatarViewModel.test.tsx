@@ -11,6 +11,7 @@ import { ItemStatus, type Item } from '../models/Item';
 import type { Avatar } from '../models/Avatar';
 import { AvatarView } from '../views/AvatarView';
 import { renderWithProviders } from '~/test-utils/renderWithProviders';
+import { getSessionSnapshot } from '~/features/auth/stores/authStore';
 
 jest.mock('../services/avatarService', () => ({
   avatarService: { getItems: jest.fn(), purchaseItems: jest.fn(), updateEquippedItems: jest.fn() },
@@ -79,7 +80,7 @@ it('purchases selections from both categories even when the owned filter hides t
   expect(result.current.totalPurchasePrice).toBe(2000);
   expect(result.current.remainingPoints).toBe(500);
   await act(async () => result.current.confirmPurchase());
-  expect(avatarService.purchaseItems).toHaveBeenCalledWith({ itemIds: [2, 4] });
+  expect(avatarService.purchaseItems).toHaveBeenCalledWith({ itemIds: [2, 4] }, getSessionSnapshot());
   expect(useUserStore.getState().equippedItems[1]?.id).toBe(2);
   expect(useUserStore.getState().equippedItems[2]?.id).toBe(4);
   expect(result.current.hasChanges).toBe(false);

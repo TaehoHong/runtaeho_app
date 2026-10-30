@@ -16,6 +16,7 @@
 import { apiClient } from '~/services/api/client';
 import type { CursorResult } from '~/shared/utils/dto/CursorResult';
 import { API_ENDPOINTS } from '~/services/api/config';
+import { getSessionSnapshot, type SessionSnapshot } from '~/features/auth/stores/authStore';
 import type {
   Avatar,
   GetItemsRequest,
@@ -53,10 +54,10 @@ export const avatarService = {
    * 백엔드 API: POST /api/v1/user-items
    * Request Body: { itemIds: number[] }
    */
-  purchaseItems: async (request: PurchaseItemsRequest): Promise<void> => {
+  purchaseItems: async (request: PurchaseItemsRequest, sessionSnapshot: SessionSnapshot = getSessionSnapshot()): Promise<void> => {
     await apiClient.post(API_ENDPOINTS.USER_ITEMS.PURCHASE_ITEMS, {
       itemIds: request.itemIds,
-    });
+    }, { sessionSnapshot });
   },
 
   /**
@@ -65,13 +66,14 @@ export const avatarService = {
    * 백엔드 API: PUT /api/v1/avatars/{avatarId}
    * Request Body: { itemIds: number[], hairColor?: string }
    */
-  updateEquippedItems: async (request: UpdateEquippedItemsRequest): Promise<Avatar> => {
+  updateEquippedItems: async (request: UpdateEquippedItemsRequest, sessionSnapshot: SessionSnapshot = getSessionSnapshot()): Promise<Avatar> => {
     const { data } = await apiClient.put<Avatar>(
       API_ENDPOINTS.AVATAR.UPDATE_EQUIPPED_ITEMS(request.avatarId),
       {
         itemIds: request.itemIds,
         hairColor: request.hairColor,
-      }
+      },
+      { sessionSnapshot }
     );
     return data;
   },

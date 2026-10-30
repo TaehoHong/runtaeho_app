@@ -64,6 +64,33 @@ describe('offline GPS segment synchronization', () => {
     mockEndRunning.mockReset().mockResolvedValue(undefined);
   });
 
+  it('retains GPS without uploading it while its end request is still failing', async () => {
+    await offlineStorageService.addPendingUpload(404, {
+      id: 404, distance: 80, steps: null, cadence: null, heartRate: null,
+      calorie: 15, durationSec: 120, startTimestamp: 1735689600, endTimestamp: 1735689720,
+    });
+    await offlineStorageService.addPendingSegmentUpload(404, [segment]);
+    mockEndRunning.mockRejectedValue(new Error('network-unavailable'));
+    const { result } = renderHook(() => useOfflineSync());
+    await act(async () => { await result.current.syncOfflineData(); });
+    expect(mockSaveItems).not.toHaveBeenCalled();
+    expect(await offlineStorageService.getPendingSegmentUploads()).toMatchObject([{ segments: [segment] }]);
+  });
+
+  it('discards GPS for a duplicate end response without posting its items', async () => {
+    await offlineStorageService.addPendingUpload(404, {
+      id: 404, distance: 80, steps: null, cadence: null, heartRate: null,
+      calorie: 15, durationSec: 120, startTimestamp: 1735689600, endTimestamp: 1735689720,
+    });
+    await offlineStorageService.addPendingSegmentUpload(404, [segment]);
+    mockEndRunning.mockResolvedValue({ id: 404, point: 0, acceptanceStatus: 'DUPLICATE' });
+    const { result } = renderHook(() => useOfflineSync());
+    await act(async () => { await result.current.syncOfflineData(); });
+    expect(mockSaveItems).not.toHaveBeenCalled();
+    expect(await offlineStorageService.getPendingSegmentCount()).toBe(0);
+    expect(await offlineStorageService.getPendingCount()).toBe(0);
+  });
+
   it('restores GPS dates from persisted JSON without changing queue timestamps', async () => {
     await offlineStorageService.addPendingSegmentUpload(404, [segment]);
     const stored = await AsyncStorage.getItem('@pending_segment_uploads');
@@ -179,7 +206,7 @@ describe('offline GPS segment synchronization', () => {
     };
     const dateNowSpy = jest.spyOn(Date, 'now').mockReturnValue(1736091000000);
     try {
-      await offlineStorageService.addPendingUpload(404, record);
+      await offlineStorageService.addPendingUpload(404, record, getSessionSnapshot(), [segment]);
       dateNowSpy.mockReturnValue(1736177400000);
       mockEndRunning.mockRejectedValueOnce(new Error('network-unavailable'));
       const { result } = renderHook(() => useOfflineSync());
@@ -188,12 +215,17 @@ describe('offline GPS segment synchronization', () => {
         expect((await result.current.syncOfflineData())?.records).toEqual({ success: 0, failed: 1 });
       });
       expect((await offlineStorageService.getPendingUploads())[0]?.data).toEqual(record);
+      expect(mockSaveItems).not.toHaveBeenCalled();
       await act(async () => {
         expect((await result.current.syncOfflineData())?.records).toEqual({ success: 1, failed: 0 });
       });
       expect(mockEndRunning).toHaveBeenNthCalledWith(1, record, getSessionSnapshot());
       expect(mockEndRunning).toHaveBeenNthCalledWith(2, record, getSessionSnapshot());
       expect(await offlineStorageService.getPendingCount()).toBe(0);
+      expect(mockSaveItems).toHaveBeenCalledWith({
+        runningRecordId: 404, items: [expect.objectContaining({ orderIndex: 0, distance: 80 })],
+      }, getSessionSnapshot());
+      expect(await offlineStorageService.getPendingSegmentCount()).toBe(0);
     } finally {
       dateNowSpy.mockRestore();
     }

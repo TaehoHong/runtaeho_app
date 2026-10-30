@@ -160,3 +160,24 @@ it('removes only a permanently rejected segment upload and leaves network failur
 
   expect(await offlineStorageService.getPendingSegmentUploads()).toMatchObject([{ runningRecordId: 11 }]);
 });
+
+it('replays a saved snapshot in a new login generation while the old session operation is stalled', async () => {
+  let releaseOperation!: () => void;
+  let notifySaved!: () => void;
+  const saved = new Promise<void>(resolve => { notifySaved = resolve; });
+  const operation = offlineStorageService.withPendingUpload(createRunningRecord(10), [], { ...mockSession }, async () => {
+    notifySaved();
+    await new Promise<void>(resolve => { releaseOperation = resolve; });
+  });
+  await saved;
+  mockSession = { userId: 1, generation: 2 };
+  const upload = jest.fn().mockResolvedValue(undefined);
+  try {
+    await offlineStorageService.serializeReplay(() => offlineStorageService.retryAllPendingUploads(upload));
+    expect(upload).toHaveBeenCalledTimes(1);
+    expect(await offlineStorageService.getPendingCount()).toBe(0);
+  } finally {
+    releaseOperation();
+    await operation;
+  }
+});

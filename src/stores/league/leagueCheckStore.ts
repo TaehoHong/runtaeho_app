@@ -10,6 +10,7 @@
 
 import { create } from 'zustand';
 import type { LeagueResult } from '~/features/league/models';
+import { getSessionSnapshot, isSessionCurrent, type SessionSnapshot } from '~/features/auth/stores/authStore';
 
 /**
  * 리그 결과 확인 상태
@@ -23,11 +24,12 @@ interface LeagueCheckState {
   // State
   checkStatus: LeagueCheckStatus;
   pendingResult: LeagueResult | null;
+  checkOperation: SessionSnapshot | null;
 
   // Actions
-  startCheck: () => boolean;
-  setChecked: (result: LeagueResult | null) => void;
-  clearPendingResult: () => void;
+  startCheck: () => SessionSnapshot | null;
+  setChecked: (result: LeagueResult | null, operation: SessionSnapshot) => void;
+  consumePendingResult: () => LeagueResult | null;
   reset: () => void;
   allowRecheck: () => void;
 }
@@ -38,6 +40,7 @@ interface LeagueCheckState {
 const initialState = {
   checkStatus: 'idle' as LeagueCheckStatus,
   pendingResult: null as LeagueResult | null,
+  checkOperation: null as SessionSnapshot | null,
 };
 
 /**
@@ -47,10 +50,10 @@ const initialState = {
  * ```typescript
  * const { checkStatus, pendingResult, startCheck, setChecked } = useLeagueCheckStore();
  *
- * // 체크 시작 (이미 체크 중이면 false 반환)
- * if (startCheck()) {
- *   const result = await leagueService.getUncheckedResult();
- *   setChecked(result);
+ * const operation = startCheck();
+ * if (operation) {
+ *   const result = await leagueService.getUncheckedResult(operation);
+ *   setChecked(result, operation);
  * }
  * ```
  */
@@ -62,24 +65,26 @@ export const useLeagueCheckStore = create<LeagueCheckState>((set, get) => ({
 
   /**
    * 체크 시작
-   * 이미 체크 중이거나 완료된 경우 false 반환
+   * 이미 체크 중이거나 완료된 경우 null 반환
    * Race Condition 방지용
    */
   startCheck: () => {
-    const current = get().checkStatus;
-    if (current !== 'idle') {
+    const { checkStatus: current, checkOperation } = get();
+    if (current !== 'idle' && (!checkOperation || isSessionCurrent(checkOperation))) {
       console.log(`🏆 [LeagueCheckStore] startCheck 스킵 (현재 상태: ${current})`);
-      return false;
+      return null;
     }
     console.log('🏆 [LeagueCheckStore] startCheck → checking');
-    set({ checkStatus: 'checking' });
-    return true;
+    const operation = getSessionSnapshot();
+    set({ checkStatus: 'checking', checkOperation: operation, pendingResult: null });
+    return operation;
   },
 
   /**
    * 체크 완료 및 결과 설정
    */
-  setChecked: (result) => {
+  setChecked: (result, operation) => {
+    if (get().checkOperation !== operation || get().checkStatus !== 'checking' || !isSessionCurrent(operation)) return;
     console.log('🏆 [LeagueCheckStore] setChecked:', result ? result.resultStatus : 'null');
     set({
       checkStatus: 'checked',
@@ -88,12 +93,13 @@ export const useLeagueCheckStore = create<LeagueCheckState>((set, get) => ({
   },
 
   /**
-   * 보류 중인 결과 클리어
-   * 결과 화면으로 이동 후 호출
+   * 현재 세션의 결과를 이동 전에 원자적으로 가져와 중복 소비 방지
    */
-  clearPendingResult: () => {
-    console.log('🏆 [LeagueCheckStore] clearPendingResult');
+  consumePendingResult: () => {
+    const { pendingResult, checkOperation } = get();
+    if (!pendingResult || !checkOperation || !isSessionCurrent(checkOperation)) return null;
     set({ pendingResult: null });
+    return pendingResult;
   },
 
   /**
