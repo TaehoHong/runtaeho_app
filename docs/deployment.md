@@ -49,6 +49,26 @@ Apple Developer에 `.dev` App ID와 필요한
 Apple 로그인은 공유 백엔드의
 개발 client ID 처리도 별도로 확인한다. iOS Configuration 추가 후 `cd ios && pod install`이 필요하다.
 
+### iOS Unity 대상 선택
+
+Unity 소스·씬·에셋은 하나이며 실행 명령에 따라 export 결과만 선택한다.
+로컬 실행 전에는 iPhone 시뮬레이터를 켜고 별도 터미널에서 `npm start`를 실행한다.
+
+| 명령 | Unity export | Xcode workspace |
+|---|---|---|
+| `npm run ios` | `../unity/RunTaehoUnity/Builds/iOS-Simulator` (Simulator SDK, ARM64) | `ios/app-simulator.xcworkspace` (자동 생성) |
+| `npm run build:dev:ios` / `npm run build:prod:ios` | `../unity/RunTaehoUnity/Builds/iOS` (Device SDK) | `ios/app.xcworkspace` |
+
+`scripts/prepare-ios-simulator.cjs`는 Simulator export가 없거나 입력이 바뀌면
+`ProjectVersion.txt`에 지정된 설치 Editor의 `NativeProjectExport.ExportIosSimulator`를 실행한다.
+Unity 프로젝트를 Editor에서 사용 중이면 먼저 저장하고 닫는다. 로그는
+`build/local/unity-ios-simulator.log`에 남는다. 정상 export는 다음 로컬 실행에서 재사용한다.
+
+Local 전용 `app-simulator.xcodeproj`·workspace·Local scheme은 기존 원본에서 매번 생성하며
+Git에 저장하지 않는다. 생성본만 Simulator Unity를 참조하므로 개발·운영 원본의 참조는 바뀌지 않는다.
+SDK·Simulator Architecture 설정은 export 후 복원하고, 복원 전후 입력 검증을 통과한 결과에만
+정상 receipt를 남긴다. 실기기용 Unity 바이너리를 Simulator 앱에 링크할 수는 없다.
+
 ### 이 Mac에서 명령 하나로 빌드·배포
 
 GitHub Actions 없이 이 Mac에서 린트·배포 회귀 테스트 → 사전 검사 → 빌드번호 증가 →
@@ -361,6 +381,9 @@ Unity Editor는 `ProjectVersion.txt`에 지정된 **6000.0.60f1**을 사용한�
 배포는 이 기록과 현재 입력을 비교한다. `.DS_Store`와 위에서 설명한 Addressables 생성 상태 파일은 제외한다.
 
 **기록이 없거나 현재 소스와 다를 때만 해당 플랫폼을 다시 export한다.**
+기록의 플랫폼은 실기기 `ios`, Simulator `ios-simulator`, Android `android`로 구분한다.
+Device 배포 검증은 Simulator 기록을 거부한다. Local iOS만 필요한 Simulator export를 자동 생성하며,
+개발·운영의 오래된 Device export는 기존처럼 배포 전에 중단하므로 Device export를 먼저 갱신한다.
 Android는 Gradle 프로젝트 export를 사용한다. 기록을 수동으로 만들거나 복사하지 않는다.
 이 검증은 소스/export의 대응 확인이며, export 후 수동으로 수정한 네이티브 파일의 정합성이나
 실기기 동작까지 보장하지 않는다. Unity 프로젝트는 앱 Git 저장소 밖에 있으므로 함께 보관해야 한다.
@@ -455,6 +478,8 @@ Wear OS는 `wearos/`에서 별도로 빌드하며, `wearos/app/build.gradle`의
 
 | 증상 | 원인 / 조치 |
 |---|---|
+| Simulator 링크에서 `built for 'iOS'` 발생 | Device export를 참조한 상태다. `npm run ios`는 `prepare-ios-simulator.cjs`가 생성한 Simulator 전용 workspace를 사용한다. |
+| Simulator 링크에서 `_OBJC_CLASS_$_UnityFramework` 누락 | Unity 6000.0.60f1의 Simulator 심볼 목록에는 IL2CPP API만 포함된다. `NativeProjectExport.PreserveFrameworkIntegration`이 호스트에서 사용하는 UnityFramework 클래스·메타클래스 공개 심볼을 추가하므로 해당 export를 갱신한다. |
 | 푸시 켜기에서 설정 PUT이 보이지 않음 | OS 권한 요청과 토큰 발급을 구분한다. 설정 저장은 토큰 발급·기기 등록을 기다리지 않아야 한다. Android는 Google Services 설정 및 생성 리소스를 확인한다. |
 | 토큰 발급·기기 등록이 반복되거나 logout이 토큰을 기다림 | token listener에서 받은 native token을 재사용하고, 네이티브/Expo 토큰 준비를 binding PUT·해제의 직렬화 큐에 넣지 않는다. 회귀 테스트는 코드 가이드의 알림 등록 수명 항목을 따른다. |
 | `Unity iOS 프로젝트가 없다` | Unity에서 iOS export를 다시 한다 |

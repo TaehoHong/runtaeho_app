@@ -24,7 +24,7 @@ function sourceHash(root) {
 }
 
 function check(root, platform, output) {
-  if (!['ios', 'android'].includes(platform)) throw new Error('잘못된 Unity 플랫폼');
+  if (!['ios', 'ios-simulator', 'android'].includes(platform)) throw new Error('잘못된 Unity 플랫폼');
   const receiptPath = path.join(output, '.runtaeho-export.json');
   if (!fs.existsSync(receiptPath)) throw new Error(`Unity ${platform} export 기록이 없다. Unity에서 다시 export한다.`);
   const receipt = JSON.parse(fs.readFileSync(receiptPath, 'utf8'));

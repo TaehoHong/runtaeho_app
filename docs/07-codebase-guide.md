@@ -86,7 +86,8 @@
 | Android 폰 예약 원장 | [호스트 하네스](../android/app/run-watch-upload-regressions.sh) | Android 폰 localDebug 컴파일 결과와 명시적 runtime jar 입력 |
 | 리그·통계 예제 | `npm run test:unit -- --runTestsByPath src/features/league/__tests__/leagueQueries.test.tsx src/features/statistics/__tests__/statisticsQueries.test.tsx` | 소유 feature 테스트 |
 | 타입·린트 | `npx tsc --noEmit`; `npm run lint` | [TypeScript 설정](../tsconfig.json) / [ESLint 설정](../eslint.config.js) |
-| 배포 도구 | `npm run test:deploy` | scripts/*.test.cjs |
+| 배포 도구 | `npm run test:deploy` | scripts/*.test.cjs. `prepare-ios-simulator.test.cjs`는 Local의 Simulator 참조와 Device 원본 보존을, `deployment.test.cjs`는 플랫폼 receipt 격리와 개발·운영 배포 경로를 검증 |
+| iOS Local Unity 선택 | `npm run ios` / [prepare-ios-simulator.cjs](../scripts/prepare-ios-simulator.cjs) / [run-local.sh](../scripts/run-local.sh) | Simulator export를 검사·필요 시 생성하고 Local 전용 Xcode 프로젝트·workspace를 원본에서 생성. Device workspace는 유지하며 상세 export·receipt 계약은 [배포 가이드](deployment.md#ios-unity-대상-선택) 소유 |
 | 폰 네이티브 빌드 | [배포 가이드](deployment.md) | Unity 입력·프로필·서명·빌드 옵션 |
 
 ## 생성물과 환경 경로

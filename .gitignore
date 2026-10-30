@@ -77,6 +77,8 @@ prepare-native-build.sh
 
 # 로컬 스토어 빌드 산출물 (scripts/deploy-store.sh)
 /build/
+/ios/app-simulator.xcodeproj/
+/ios/app-simulator.xcworkspace/
 /fastlane/report.xml
 /fastlane/README.md
 /firebase-debug.log*

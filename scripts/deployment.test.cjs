@@ -368,6 +368,20 @@ test('Unity receipt accepts the same physical output directory and rejects anoth
   assert.throws(() => check(f.root, 'android', other), /소스가 다르다/);
 });
 
+test('Simulator Unity export is accepted locally and rejected by the device gate', (t) => {
+  const { sourceHash, check } = require('./check-unity.cjs');
+  const f = fixture(t);
+  for (const directory of ['Assets', 'Packages', 'ProjectSettings', 'Builds/iOS-Simulator']) {
+    fs.mkdirSync(path.join(f.root, directory), { recursive: true });
+  }
+  const output = path.join(f.root, 'Builds/iOS-Simulator');
+  fs.writeFileSync(path.join(output, '.runtaeho-export.json'), JSON.stringify({
+    platform: 'ios-simulator', exportPath: output, sourceHash: sourceHash(f.root),
+  }));
+  assert.doesNotThrow(() => check(f.root, 'ios-simulator', output));
+  assert.throws(() => check(f.root, 'ios', output), /소스가 다르다/);
+});
+
 test('Addressables generated build state does not invalidate another platform but real settings do', (t) => {
   const { sourceHash, check } = require('./check-unity.cjs');
   const f = fixture(t);

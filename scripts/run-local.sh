@@ -20,10 +20,11 @@ if [[ "$PLATFORM" == android ]]; then
   "$ADB" -e install -r "$ROOT/android/app/build/outputs/apk/local/debug/app-local-debug.apk"
   "$ADB" -e shell am start -a android.intent.action.VIEW -d "$URL" "$APPLICATION_ID"
 else
+  node scripts/prepare-ios-simulator.cjs
   xcrun simctl bootstatus booted -b
-  xcodebuild -workspace ios/app.xcworkspace -scheme Local -configuration Debug \
+  xcodebuild -workspace ios/app-simulator.xcworkspace -scheme Local -configuration Debug \
     -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
-    -derivedDataPath "$ROOT/build/local/ios" build
+    -derivedDataPath "$ROOT/build/local/ios" ARCHS=arm64 ONLY_ACTIVE_ARCH=YES build
   xcrun simctl install booted "$ROOT/build/local/ios/Build/Products/Debug-iphonesimulator/RunTaeho.app"
   xcrun simctl openurl booted "$URL"
 fi
