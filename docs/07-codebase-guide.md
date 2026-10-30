@@ -36,6 +36,7 @@
 | UI·문자·언어 | [colors](../src/shared/styles/colors.ts) / [typography](../src/shared/components/typography) / [i18n](../src/i18n) | 기존 토큰·컴포넌트·문자열 소유자 |
 | 오류 보고 | [Sentry 설정](../src/config/sentry.ts) / [ErrorService](../src/shared/services/ErrorService.ts) | 보고되는 데이터와 오류 처리의 실제 범위 확인 |
 | 공개 프로필 | [app-profiles.json](../scripts/app-profiles.json) | 폰·두 워치 식별자/환경 연결 |
+| Garmin 인증 복귀 | [garminService.connect](../src/features/garmin/services/garminService.ts) / [복귀 계약 테스트](../src/features/garmin/__tests__/garminService.test.ts) | 공개 프로필의 등록 스킴으로 복귀 URL을 만들고 appScheme을 서버에 전달한다. state의 프로필 결합·복귀 URL·세션을 검증한 뒤 인증된 연결 상태를 다시 확인한다. 개발·운영 앱은 같은 서버를 사용하므로 서버 전체의 복귀 스킴을 하나로 고정하지 않는다. |
 | 로컬 빌드·배포 | [deploy-store.sh](../scripts/deploy-store.sh) / [sign-ios.py](../scripts/sign-ios.py) / [submit-store.sh](../scripts/submit-store.sh) | iOS 임시 키체인 서명·IPA 검증, Firebase·TestFlight·Play 업로드; 스토어 수동 설정은 오류로 안내 |
 
 ## Conventions and Canonical Examples

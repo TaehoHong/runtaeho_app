@@ -1,4 +1,5 @@
 import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import type { ActivityConnection } from '~/features/activity-connection/types';
 import { apiClient } from '~/services/api/client';
 import { getSessionSnapshot, isSessionCurrent, type SessionSnapshot } from '~/features/auth/stores/authStore';
@@ -18,8 +19,6 @@ interface GarminAuthorization {
   expiresAt: string;
 }
 
-export const GARMIN_RETURN_URL = 'runtaeho://user/activity-connection';
-
 function assertSession(snapshot: SessionSnapshot): void {
   if (!isSessionCurrent(snapshot)) throw new SessionSupersededError();
 }
@@ -37,21 +36,27 @@ export const garminService = {
 
   async connect(): Promise<'connected' | 'cancelled'> {
     const snapshot = getSessionSnapshot();
-    const { data } = await apiClient.post<GarminAuthorization>('/garmin/authorization', null, { sessionSnapshot: snapshot });
+    const appScheme = Linking.resolveScheme({});
+    if (!['app', 'runtaeho-dev'].includes(appScheme)) throw new Error('Invalid Garmin app scheme');
+    const returnUrl = `${appScheme}://user/activity-connection`;
+    const appReturn = new URL(returnUrl);
+    const { data } = await apiClient.post<GarminAuthorization>('/garmin/authorization', { appScheme }, { sessionSnapshot: snapshot });
     assertSession(snapshot);
     const authorization = new URL(data.authorizationUrl);
     if (authorization.origin !== 'https://connect.garmin.com' || authorization.pathname !== '/oauth2Confirm' ||
         authorization.username || authorization.password || authorization.hash ||
-        !/^[A-Za-z0-9_-]{43}$/.test(data.state) || authorization.searchParams.get('state') !== data.state) {
+        typeof data.state !== 'string' || !data.state.startsWith(`${appScheme}_`) ||
+        !/^[A-Za-z0-9_-]{43}$/.test(data.state.slice(appScheme.length + 1)) ||
+        authorization.searchParams.get('state') !== data.state) {
       throw new Error('Invalid Garmin authorization');
     }
-    const result = await WebBrowser.openAuthSessionAsync(data.authorizationUrl, GARMIN_RETURN_URL);
+    const result = await WebBrowser.openAuthSessionAsync(data.authorizationUrl, returnUrl);
     assertSession(snapshot);
     if (result.type === 'cancel' || result.type === 'dismiss') return 'cancelled';
     if (result.type !== 'success') throw new Error('Garmin authorization failed');
     const returned = new URL(result.url);
-    if (returned.protocol !== 'runtaeho:' || returned.hostname !== 'user' ||
-        returned.pathname !== '/activity-connection' || returned.username || returned.password || returned.port || returned.hash ||
+    if (returned.protocol !== appReturn.protocol || returned.hostname !== appReturn.hostname ||
+        returned.pathname !== appReturn.pathname || returned.username || returned.password || returned.port || returned.hash ||
         returned.searchParams.getAll('state').length !== 1 || returned.searchParams.get('state') !== data.state ||
         returned.searchParams.getAll('garminResult').length !== 1) {
       throw new Error('Invalid Garmin callback');
