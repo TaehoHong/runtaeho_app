@@ -284,10 +284,13 @@ Google Play Console에서 만든 서비스 계정 JSON을 등록한다. `eas.jso
 ## 3. 앱푸시 (OTA)
 
 ```bash
-npm run deploy:ota -- -m "러닝 상세 화면 문구 수정"
-npm run deploy:ota -- -m "스테이징 확인" -b staging
-npm run deploy:ota -- -m "iOS만" -p ios
+npm run deploy:ota -- -m "러닝 상세 화면 문구 수정" -p android
+npm run deploy:ota -- -m "러닝 상세 화면 문구 수정" -p ios
+npm run deploy:ota -- -m "스테이징 확인" -b staging -p android
 ```
+
+현재 구성에서 `-p all`은 웹 정적 내보내기도 실행하며, 네이티브 전용 광고 모듈에서
+실패한다. 모바일 양쪽을 발행할 때는 `-p android`와 `-p ios`를 각각 실행한다.
 
 절차는 이렇게 돈다.
 
