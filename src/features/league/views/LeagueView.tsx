@@ -13,7 +13,8 @@ import { t, useAppLanguage } from '~/i18n';
 
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { NativeText as Text } from '~/shared/components/typography';
 import { TopScreenSafeAreaView } from '~/shared/components';
 import { GREY, PRIMARY } from '~/shared/styles';
 import { useLeagueCheckStore } from '~/stores';

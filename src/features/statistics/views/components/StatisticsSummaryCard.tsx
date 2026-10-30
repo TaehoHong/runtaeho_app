@@ -14,6 +14,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Period } from '../../models';
 import { PRIMARY, GREY } from '~/shared/styles';
 import { RunningStatusFormat } from '~/shared/utils/formatters';
+import { getNumberFontStyle } from '~/shared/components/typography/fontUtils';
 
 interface StatisticsSummaryCardProps {
   runCount: number;
@@ -116,7 +117,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontSize: 52,
     lineHeight: 60,
-    fontWeight: '800',
+    ...getNumberFontStyle('800'),
     color: GREY[900],
   },
   distanceUnit: {
@@ -148,7 +149,7 @@ const styles = StyleSheet.create({
     marginTop: 3,
     fontSize: 14,
     lineHeight: 20,
-    fontWeight: '600',
+    ...getNumberFontStyle('600'),
     color: GREY[900],
   },
   divider: {

@@ -5,6 +5,7 @@ import { UpdateStatus } from '../../models/UpdateState';
 import { useUpdateStore } from '../../stores/updateStore';
 import { useUpdateDownload } from '../../hooks/useUpdateDownload';
 import { PRIMARY, GREY } from '~/shared/styles/colors';
+import { getNumberFontStyle } from '~/shared/components/typography/fontUtils';
 
 interface UpdateBannerProps {
   /** 배너 표시 여부 제어 */
@@ -55,7 +56,7 @@ export function UpdateBanner({ visible = true }: UpdateBannerProps) {
         <>
           <View style={styles.textContainer}>
             <Text style={styles.title}>{t("업데이트 다운로드 중...")}</Text>
-            <Text style={styles.subtitle}>{Math.round(progress)}%</Text>
+            <Text style={[styles.subtitle, getNumberFontStyle()]}>{Math.round(progress)}%</Text>
           </View>
           <ActivityIndicator size="small" color={GREY.WHITE} />
         </>

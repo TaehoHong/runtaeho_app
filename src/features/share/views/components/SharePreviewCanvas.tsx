@@ -8,7 +8,8 @@ import { useAppTranslation } from '~/i18n';
  */
 
 import React, { forwardRef, useMemo, useCallback, useEffect, useRef } from 'react';
-import { StyleSheet, View, Text, Dimensions } from 'react-native';
+import { StyleSheet, View, Dimensions } from 'react-native';
+import { NativeText as Text } from '~/shared/components/typography';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,

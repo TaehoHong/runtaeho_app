@@ -20,6 +20,7 @@ import { useScreenLifetime } from '~/shared/hooks/useScreenLifetime';
 import { getSessionSnapshot, isSessionCurrent } from '~/features/auth/stores/authStore';
 import { useAuth } from '~/features/auth/hooks/useAuth';
 import { Text } from '~/shared/components/typography';
+import { getAndroidFontStyle } from '~/shared/components/typography/fontUtils';
 import { useMediaPicker } from '~/shared/hooks';
 import { GREY, PRIMARY } from '~/shared/styles';
 import { userService } from '../services/userService';
@@ -205,7 +206,7 @@ export const ProfileEditView: React.FC = () => {
           <View style={styles.inputSection}>
             <Text style={styles.inputLabel}>{t("닉네임")}</Text>
             <TextInput
-              style={styles.textInput}
+              style={[styles.textInput, getAndroidFontStyle(styles.textInput)]}
               value={nickname}
               onChangeText={setNickname}
               placeholder={t("닉네임을 입력하세요")}

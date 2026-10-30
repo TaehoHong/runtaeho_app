@@ -4,7 +4,8 @@ import { t, useAppLanguage } from '~/i18n';
  * 내 순위 정보 카드
  */
 
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { NativeText as Text } from '~/shared/components/typography';
 import { PRIMARY, GREY, RED, BLUE } from '~/shared/styles';
 import type { PromotionStatus } from '../../models';
 

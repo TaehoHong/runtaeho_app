@@ -1,6 +1,7 @@
 import { t, useAppLanguage } from '~/i18n';
 import React, { useState, useCallback } from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, ScrollView, TouchableOpacity } from 'react-native';
+import { NativeText as Text } from '~/shared/components/typography';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import type { BackgroundOption } from '../../models/types';

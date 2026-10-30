@@ -1,4 +1,4 @@
-import { StyleSheet, type TextStyle } from 'react-native';
+import { Platform, StyleSheet, type TextStyle } from 'react-native';
 
 /**
  * fontWeight 값에 따라 적절한 Pretendard 폰트 패밀리를 반환합니다.
@@ -41,6 +41,38 @@ export const getFontFamily = (fontWeight?: TextStyle['fontWeight']): string => {
     default:
       return 'Pretendard-Regular';
   }
+};
+
+/** Android는 Expo에 등록한 개별 폰트 이름과 NORMAL 스타일로 조회해야 합니다. */
+export const getAndroidFontStyle = ({ fontFamily, fontWeight }: TextStyle): TextStyle | undefined => {
+  if (Platform.OS !== 'android') {
+    return undefined;
+  }
+
+  if (fontFamily === 'Pretendard') {
+    return { fontFamily: getFontFamily(fontWeight), fontWeight: 'normal' };
+  }
+
+  if (fontFamily?.startsWith('Pretendard-')) {
+    return { fontFamily, fontWeight: 'normal' };
+  }
+
+  if (fontFamily === 'Cafe24PROUP' || fontFamily === 'Cafe24Proup') {
+    return { fontFamily: 'Cafe24Proup', fontWeight: 'normal' };
+  }
+
+  return undefined;
+};
+
+/** 숫자는 두 OS에서 같은 Pretendard 굵기 파일을 사용합니다. */
+export const getNumberFontStyle = (
+  fontWeight: TextStyle['fontWeight'] = 'normal'
+): { fontFamily: string; fontWeight: NonNullable<TextStyle['fontWeight']> } => {
+  const fontFamily = getFontFamily(fontWeight);
+  return {
+    fontFamily,
+    fontWeight: getAndroidFontStyle({ fontFamily, fontWeight })?.fontWeight ?? fontWeight,
+  };
 };
 
 /**

@@ -6,7 +6,8 @@ import { t, useAppLanguage } from '~/i18n';
  * 피그마: #리그_결과_화면
  */
 
-import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, TouchableOpacity } from 'react-native';
+import { NativeText as Text } from '~/shared/components/typography';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';

@@ -9,6 +9,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Icon } from '~/shared/components/ui';
 import { GREY } from '~/shared/styles';
+import { getNumberFontStyle } from '~/shared/components/typography/fontUtils';
 
 interface Props {
   onClose: (() => void)
@@ -68,7 +69,7 @@ const styles = StyleSheet.create({
   },
   pointsText: {
     fontSize: 14,
-    fontWeight: '600',
+    ...getNumberFontStyle('600'),
     color: GREY[900],
   },
 });

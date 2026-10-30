@@ -1,6 +1,7 @@
 import { t, useAppLanguage } from '~/i18n';
 import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, ScrollView } from 'react-native';
+import { NativeText as Text } from '~/shared/components/typography';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import type { StatType, StatElementConfig } from '../../models/types';

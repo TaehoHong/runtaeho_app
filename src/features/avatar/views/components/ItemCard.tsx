@@ -10,6 +10,7 @@ import { GRID_LAYOUT, ITEM_OPACITY, ItemStatus } from '~/features/avatar';
 import { resolveAvatarItemImage } from '~/features/avatar/utils/avatarItemImageResolver';
 import { GREY, PRIMARY } from '~/shared/styles';
 import { t, useAppLanguage } from '~/i18n';
+import { getNumberFontStyle } from '~/shared/components/typography/fontUtils';
 
 interface Props {
   item: Item;
@@ -88,7 +89,7 @@ const styles = StyleSheet.create({
   },
   priceText: {
     fontSize: 12,
-    fontWeight: '600',
+    ...getNumberFontStyle('600'),
     color: GREY[900],
     textAlign: 'center',
     marginTop: 6,

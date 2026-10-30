@@ -12,6 +12,7 @@ import { formatDuration, calculateAveragePace } from '../../../running/models';
 import { formatRecordDate } from '~/shared/utils/dateUtils';
 import { RunningStatusFormat } from '~/shared/utils/formatters';
 import { GREY } from '~/shared/styles';
+import { getNumberFontStyle } from '~/shared/components/typography/fontUtils';
 
 interface RunningRecordCardProps {
   record: RunningRecord;
@@ -79,7 +80,7 @@ const styles = StyleSheet.create({
   },
   cardDate: {
     fontSize: 12,
-    fontWeight: '500',
+    ...getNumberFontStyle('500'),
     color: GREY[500],
   },
   cardStats: {
@@ -94,7 +95,7 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: 16,
-    fontWeight: '600',
+    ...getNumberFontStyle('600'),
     color: GREY[900],
     lineHeight: 24,
   },

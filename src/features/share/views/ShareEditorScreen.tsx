@@ -17,11 +17,11 @@ import {
   type NativeSyntheticEvent,
   ScrollView,
   StyleSheet,
-  Text,
   TouchableOpacity,
   type ViewStyle,
   View,
 } from 'react-native';
+import { NativeText as Text } from '~/shared/components/typography';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';

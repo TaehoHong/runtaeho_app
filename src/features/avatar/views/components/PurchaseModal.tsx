@@ -20,6 +20,7 @@ import { getCategoryDisplayName } from '~/features/avatar';
 import { resolveAvatarItemImage } from '~/features/avatar/utils/avatarItemImageResolver';
 import { Icon } from '~/shared/components/ui';
 import { BLUE, GREY, PRIMARY, RED } from '~/shared/styles';
+import { getNumberFontStyle } from '~/shared/components/typography/fontUtils';
 
 interface Props {
   items: readonly Item[];
@@ -235,7 +236,7 @@ const styles = StyleSheet.create({
   },
   itemPrice: {
     fontSize: 16,
-    fontWeight: '600',
+    ...getNumberFontStyle('600'),
     color: GREY[900],
   },
   calculationContainer: {
@@ -264,7 +265,7 @@ const styles = StyleSheet.create({
   },
   pointValue: {
     fontSize: 14,
-    fontWeight: '400',
+    ...getNumberFontStyle('400'),
     color: GREY[900],
   },
   pointDecrease: {

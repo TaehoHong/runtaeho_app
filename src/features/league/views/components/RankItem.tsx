@@ -4,7 +4,8 @@ import { t, useAppLanguage } from '~/i18n';
  * 순위표의 개별 항목
  */
 
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { NativeText as Text } from '~/shared/components/typography';
 import { Image } from 'expo-image';
 import { PRIMARY, GREY } from '~/shared/styles';
 import { formatDistance, type LeagueParticipant } from '../../models';

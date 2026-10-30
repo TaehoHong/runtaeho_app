@@ -3,7 +3,8 @@
  * 리그 상단 티어 정보 표시
  */
 
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { NativeText as Text } from '~/shared/components/typography';
 import { Image } from 'expo-image';
 import { LeagueTierType, TIER_INFO } from '../../models';
 import { GREY } from '~/shared/styles';

@@ -10,7 +10,8 @@ import { t, useAppLanguage } from '~/i18n';
  */
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { Animated, Easing, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import { NativeText as Text } from '~/shared/components/typography';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from 'expo-router';
 import { GREY, PRIMARY } from '~/shared/styles';

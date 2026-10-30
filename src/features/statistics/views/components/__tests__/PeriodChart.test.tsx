@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react-native';
 import { Period } from '~/features/statistics/models';
 import { PeriodChart } from '~/features/statistics/views/components/PeriodChart';
 import { PRIMARY } from '~/shared/styles';
+import { Platform } from 'react-native';
 
 jest.mock('react-native-svg', () => {
   const React = require('react');
@@ -28,8 +29,28 @@ jest.mock('react-native-svg', () => {
 });
 
 describe('PeriodChart', () => {
+  const originalPlatformOS = Platform.OS;
+
   afterEach(() => {
     jest.useRealTimers();
+    Object.defineProperty(Platform, 'OS', { configurable: true, value: originalPlatformOS });
+  });
+
+  it.each([
+    ['ios', '600', '500'],
+    ['android', 'normal', 'normal'],
+  ] as const)('uses bundled Pretendard for %s date and axis numbers', (platform, titleWeight, axisWeight) => {
+    Object.defineProperty(Platform, 'OS', { configurable: true, value: platform });
+    render(
+      <PeriodChart data={[]} period={Period.MONTH} isEmpty={true} referenceDate={new Date('2026-06-01T00:00:00.000Z')} />
+    );
+
+    expect(screen.getByText('2026년 6월')).toHaveProp('fontFamily', 'Pretendard-SemiBold');
+    expect(screen.getByText('2026년 6월')).toHaveProp('fontWeight', titleWeight);
+    expect(screen.getByText('2026년 6월')).toHaveProp('fontSize', 18);
+    expect(screen.getByText('0.0')).toHaveProp('fontFamily', 'Pretendard-Medium');
+    expect(screen.getByText('0.0')).toHaveProp('fontWeight', axisWeight);
+    expect(screen.getByText('0.0')).toHaveProp('fontSize', 10);
   });
 
   it('renders the chart at the compact statistics height', () => {

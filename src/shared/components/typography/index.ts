@@ -5,6 +5,7 @@
 
 // Text 컴포넌트
 export {
+  NativeText,
   Text,
   TextThin,
   TextExtraLight,

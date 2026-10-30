@@ -5,11 +5,11 @@ import React, { useCallback } from 'react';
 import {
   StyleSheet,
   View,
-  Text,
   ScrollView,
   LayoutChangeEvent,
   AccessibilityActionEvent,
 } from 'react-native';
+import { NativeText as Text } from '~/shared/components/typography';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';

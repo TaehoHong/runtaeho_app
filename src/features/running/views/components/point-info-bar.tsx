@@ -1,9 +1,11 @@
 import { t, useAppLanguage } from '~/i18n';
 import React from 'react';
 import { PRIMARY, GREY } from '~/shared/styles';
-import { View, StyleSheet, Text } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { NativeText as Text } from '~/shared/components/typography';
 import { Icon } from '~/shared/components/ui';
 import { RunningStatusFormat } from '~/shared/utils/formatters';
+import { getNumberFontStyle } from '~/shared/components/typography/fontUtils';
 
 interface PointInfoBarProps {
   earnedPoints: number;
@@ -98,17 +100,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   earnedPointsValue: {
-    fontFamily: 'Rounded Mplus 1c Bold',
     fontSize: 13,
-    fontWeight: '700',
+    ...getNumberFontStyle('700'),
     lineHeight: 14,
     color: PRIMARY[500],
     letterSpacing: -0.3,
   },
   totalPointsValue: {
-    fontFamily: 'Rounded Mplus 1c Bold',
     fontSize: 13,
-    fontWeight: '700',
+    ...getNumberFontStyle('700'),
     lineHeight: 14,
     color: PRIMARY[500],
     letterSpacing: -0.3,

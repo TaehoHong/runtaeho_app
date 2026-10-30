@@ -22,6 +22,7 @@ import {
 } from '../../models';
 import { PRIMARY, GREY } from '~/shared/styles';
 import { RunningStatusFormat } from '~/shared/utils/formatters';
+import { getNumberFontStyle } from '~/shared/components/typography/fontUtils';
 
 interface PeriodChartProps {
   data: ChartDataPoint[];
@@ -376,7 +377,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
           x={TITLE_LEFT_X}
           y={32}
           fontSize={18}
-          fontWeight="600"
+          {...getNumberFontStyle('600')}
           fill={GREY[900]}
         >
           {periodLabel.left}
@@ -387,7 +388,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
             x={TITLE_LEFT_X}
             y={52}
             fontSize={11}
-            fontWeight="700"
+            {...getNumberFontStyle('700')}
             fill={PRIMARY[600]}
             textAnchor="start"
           >
@@ -401,7 +402,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
             x={CHART_WIDTH - IN_CHART_OPTIONS_RESERVED_WIDTH}
             y={32}
             fontSize={14}
-            fontWeight="500"
+            {...getNumberFontStyle('500')}
             fill={GREY[700]}
             textAnchor="end"
           >
@@ -416,7 +417,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
             x={11}
             y={getYPosition(label) + 4}
             fontSize={10}
-            fontWeight="500"
+            {...getNumberFontStyle('500')}
             fill={GREY[300]}
           >
             {RunningStatusFormat.distance(label * 1000, { fractionDigits: 1, includeUnit: false })}
@@ -441,7 +442,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
               x={CHART_WIDTH - 4}
               y={getCumulativeYPosition(label) + 4}
               fontSize={10}
-              fontWeight="500"
+              {...getNumberFontStyle('500')}
               fill={GREY[400]}
               textAnchor="end"
             >
@@ -521,7 +522,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
               x={x}
               y={CHART_HEIGHT - CHART_PADDING.bottom + 20}
               fontSize={10}
-              fontWeight="500"
+              {...getNumberFontStyle('500')}
               fill={GREY[300]}
               textAnchor="middle"
             >

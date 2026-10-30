@@ -11,6 +11,7 @@ import {
 import { useUpdateStore } from '../../stores/updateStore';
 import { useUpdateDownload } from '../../hooks/useUpdateDownload';
 import { PRIMARY, GREY } from '~/shared/styles/colors';
+import { getNumberFontStyle } from '~/shared/components/typography/fontUtils';
 
 interface UpdateModalProps {
   /** 모달 표시 여부 */
@@ -195,7 +196,7 @@ const styles = StyleSheet.create({
   },
   progressText: {
     fontSize: 16,
-    fontWeight: '600',
+    ...getNumberFontStyle('600'),
     color: PRIMARY[500],
     marginLeft: 12,
   },

@@ -1,5 +1,6 @@
 import { t, useAppLanguage } from '~/i18n';
-import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, TouchableOpacity } from 'react-native';
+import { NativeText as Text } from '~/shared/components/typography';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {

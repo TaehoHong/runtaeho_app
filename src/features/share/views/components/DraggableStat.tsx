@@ -4,7 +4,8 @@
  */
 
 import React from 'react';
-import { StyleSheet, View, Text } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { NativeText as Text } from '~/shared/components/typography';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
 import type { StatType, ElementTransform } from '../../models/types';

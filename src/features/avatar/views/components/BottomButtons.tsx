@@ -7,6 +7,7 @@ import { t, useAppLanguage } from '~/i18n';
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BLUE, GREY, PRIMARY } from '~/shared/styles';
+import { getNumberFontStyle } from '~/shared/components/typography/fontUtils';
 
 interface Props {
   hasChanges: boolean;
@@ -29,7 +30,7 @@ export const BottomButtons: React.FC<Props> = ({
   return (
     <View style={styles.footer}>
       {shouldShowPurchase && (
-        <Text style={styles.totalPrice}>{t('총 구매 금액')} · {totalPurchasePrice.toLocaleString()} P</Text>
+        <Text style={styles.totalPrice}>{t('총 구매 금액')} · <Text style={getNumberFontStyle(styles.totalPrice.fontWeight)}>{totalPurchasePrice.toLocaleString()} P</Text></Text>
       )}
       <View style={styles.container}>
         {/* Cancel Button */}

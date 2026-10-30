@@ -14,6 +14,7 @@ import { useScreenLifetime } from '~/shared/hooks/useScreenLifetime';
 import { getSessionSnapshot, isSessionCurrent } from '~/features/auth/stores/authStore';
 import { TopScreenSafeAreaView } from '~/shared/components';
 import { Text } from '~/shared/components/typography';
+import { getAndroidFontStyle } from '~/shared/components/typography/fontUtils';
 import { GREY, PRIMARY, RED } from '~/shared/styles';
 import type { ShoeViewModel } from '../models';
 import { createPatchShoeDto } from '../models';
@@ -232,7 +233,7 @@ const InputField: React.FC<InputFieldProps> = ({
     <View style={styles.inputContainer}>
       <Text style={styles.inputLabel}>{label}</Text>
       <TextInput
-        style={[styles.input, error && styles.inputError]}
+        style={[styles.input, error && styles.inputError, getAndroidFontStyle(styles.input)]}
         placeholder={placeholder}
         placeholderTextColor={GREY[300]}
         value={value}

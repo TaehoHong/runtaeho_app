@@ -5,7 +5,8 @@ import { t, useAppLanguage } from '~/i18n';
  */
 
 import React from 'react';
-import { StyleSheet, TouchableOpacity, Text, Platform } from 'react-native';
+import { StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { NativeText as Text } from '~/shared/components/typography';
 import { Ionicons } from '@expo/vector-icons';
 import { PRIMARY, GREY } from '~/shared/styles';
 
