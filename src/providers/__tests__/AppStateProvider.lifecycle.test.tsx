@@ -4,6 +4,7 @@ import { act, render, waitFor } from '@testing-library/react-native';
 import { AppState, type AppStateStatus, View } from 'react-native';
 import { useAuthStore } from '~/features/auth/stores/authStore';
 import { AppStateProvider } from '~/providers/AppStateProvider';
+import { createUser } from '~/features/user/models/User';
 import { useUserStore } from '~/stores/user/userStore';
 import { resetAllStores } from '~/test-utils/resetState';
 
@@ -18,11 +19,11 @@ jest.mock('~/features', () => {
   return { useAuthStore };
 });
 
-jest.mock('~/features/point/services/pointService', () => ({
-  pointService: {
-    getUserPoint: (...args: unknown[]) => mockGetUserPoint(...args),
-  },
-}));
+jest.mock('~/features/point/services/pointService', () => {
+  const actual = jest.requireActual('~/features/point/services/pointService');
+  actual.pointService.getUserPoint = (...args: unknown[]) => mockGetUserPoint(...args);
+  return actual;
+});
 
 jest.mock('~/features/unity/services/UnityService', () => ({
   unityService: {
@@ -34,6 +35,14 @@ jest.mock('~/features/unity/services/UnityService', () => ({
 }));
 
 const asyncStorageMock = AsyncStorage as jest.Mocked<typeof AsyncStorage>;
+
+const installInMemoryStorage = (backgroundTime: string) => {
+  const stored = new Map([['backgroundEnterTime', backgroundTime]]);
+  asyncStorageMock.getItem.mockImplementation(async (key) => stored.get(key) ?? null);
+  asyncStorageMock.setItem.mockImplementation(async (key, value) => { stored.set(key, value); });
+  asyncStorageMock.removeItem.mockImplementation(async (key) => { stored.delete(key); });
+  return stored;
+};
 
 type Deferred<T> = {
   promise: Promise<T>;
@@ -164,6 +173,7 @@ describe('AppStateProvider lifecycle', () => {
     useAuthStore.getState().setLoggedIn(true);
     const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(2_000_000);
     asyncStorageMock.getItem.mockResolvedValue(String(2_000_000 - 301_000));
+    useUserStore.setState({ currentUser: createUser({ id: 7, nickname: 'User 7' }) });
     mockGetUserPoint.mockResolvedValue({ userId: 7, point: 777 });
 
     renderProvider();
@@ -224,10 +234,171 @@ describe('AppStateProvider lifecycle', () => {
     expect(mockRecoverConnection).not.toHaveBeenCalled();
   });
 
+  it('keeps the next long background duration when the previous foreground completes', async () => {
+    useAuthStore.getState().setLoggedIn(true);
+    useUserStore.setState({ currentUser: createUser({ id: 7, nickname: 'User 7' }) });
+    mockGetUserPoint.mockResolvedValue({ userId: 7, point: 777 });
+    const stored = installInMemoryStorage('10000');
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(400_000);
+    const oldReset = createDeferred<void>();
+    mockResetReadyAndResync.mockReturnValueOnce(oldReset.promise);
+    renderProvider();
+
+    emitAppState('active');
+    await waitFor(() => expect(mockResetReadyAndResync).toHaveBeenCalledTimes(1));
+    nowSpy.mockReturnValue(410_000);
+    emitAppState('background');
+    await waitFor(() => expect(stored.get('backgroundEnterTime')).toBe('410000'));
+    nowSpy.mockReturnValue(420_000);
+    await act(async () => { oldReset.resolve(); });
+    await flushAsync();
+    nowSpy.mockReturnValue(820_000);
+    emitAppState('active');
+
+    await waitFor(() => expect(mockResetReadyAndResync).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(useUserStore.getState().totalPoint).toBe(777));
+    expect(mockRecoverConnection).toHaveBeenCalled();
+  });
+
+  it('processes the latest foreground cycle after an older cycle finishes waiting', async () => {
+    useAuthStore.getState().setLoggedIn(true);
+    useUserStore.setState({ currentUser: createUser({ id: 7, nickname: 'User 7' }) });
+    mockGetUserPoint.mockResolvedValue({ userId: 7, point: 888 });
+    const stored = installInMemoryStorage('10000');
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(400_000);
+    const oldReset = createDeferred<void>();
+    mockResetReadyAndResync.mockReturnValueOnce(oldReset.promise);
+    renderProvider();
+
+    emitAppState('active');
+    await waitFor(() => expect(mockResetReadyAndResync).toHaveBeenCalledTimes(1));
+    nowSpy.mockReturnValue(410_000);
+    emitAppState('background');
+    await waitFor(() => expect(stored.get('backgroundEnterTime')).toBe('410000'));
+    nowSpy.mockReturnValue(820_000);
+    emitAppState('active');
+    emitAppState('active');
+    await act(async () => { oldReset.resolve(); });
+
+    await waitFor(() => expect(useUserStore.getState().totalPoint).toBe(888));
+    expect(mockResetReadyAndResync).toHaveBeenCalledTimes(2);
+    expect(mockGetUserPoint).toHaveBeenCalledTimes(1);
+    expect(mockRecoverConnection).toHaveBeenCalledTimes(1);
+  });
+
+  it('finishes a required long-background refresh on the latest short foreground cycle', async () => {
+    useAuthStore.getState().setLoggedIn(true);
+    useUserStore.setState({
+      currentUser: createUser({ id: 7, nickname: 'User 7' }),
+      totalPoint: 100,
+    });
+    mockGetUserPoint.mockResolvedValue({ userId: 7, point: 200 });
+    const stored = installInMemoryStorage('10000');
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(400_000);
+    const oldReset = createDeferred<void>();
+    mockResetReadyAndResync.mockReturnValueOnce(oldReset.promise);
+    renderProvider();
+
+    emitAppState('active');
+    await waitFor(() => expect(mockResetReadyAndResync).toHaveBeenCalledTimes(1));
+    nowSpy.mockReturnValue(410_000);
+    emitAppState('background');
+    await waitFor(() => expect(stored.get('backgroundEnterTime')).toBe('410000'));
+    nowSpy.mockReturnValue(420_000);
+    emitAppState('active');
+    await act(async () => { oldReset.resolve(); });
+
+    await waitFor(() => expect(useUserStore.getState().totalPoint).toBe(200));
+    expect(mockGetUserPoint).toHaveBeenCalledTimes(1);
+    expect(mockSyncAvatar).toHaveBeenCalledTimes(1);
+    expect(mockRecoverConnection).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves a background write overlapping a pending foreground timestamp read', async () => {
+    useAuthStore.getState().setLoggedIn(true);
+    useUserStore.setState({ currentUser: createUser({ id: 7, nickname: 'User 7' }) });
+    mockGetUserPoint.mockResolvedValue({ userId: 7, point: 999 });
+    const stored = installInMemoryStorage('10000');
+    const oldRead = createDeferred<string | null>();
+    const newWrite = createDeferred<void>();
+    asyncStorageMock.getItem.mockReturnValueOnce(oldRead.promise);
+    asyncStorageMock.setItem.mockImplementation(async (key, value) => {
+      await newWrite.promise;
+      stored.set(key, value);
+    });
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(400_000);
+    renderProvider();
+
+    emitAppState('active');
+    await waitFor(() => expect(asyncStorageMock.getItem).toHaveBeenCalledTimes(1));
+    nowSpy.mockReturnValue(410_000);
+    emitAppState('background');
+    nowSpy.mockReturnValue(820_000);
+    emitAppState('active');
+    await act(async () => { oldRead.resolve('10000'); });
+    await waitFor(() => expect(asyncStorageMock.setItem).toHaveBeenCalled());
+    expect(mockResetReadyAndResync).not.toHaveBeenCalled();
+    await act(async () => { newWrite.resolve(); });
+
+    await waitFor(() => expect(useUserStore.getState().totalPoint).toBe(999));
+    expect(mockResetReadyAndResync).toHaveBeenCalledTimes(1);
+    expect(mockRecoverConnection).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not let a pending timestamp removal erase the next background write', async () => {
+    useAuthStore.getState().setLoggedIn(true);
+    useUserStore.setState({ currentUser: createUser({ id: 7, nickname: 'User 7' }) });
+    mockGetUserPoint.mockResolvedValue({ userId: 7, point: 123 });
+    const stored = installInMemoryStorage('390000');
+    const oldRemoval = createDeferred<void>();
+    asyncStorageMock.removeItem.mockImplementationOnce(async () => {
+      await oldRemoval.promise;
+      stored.delete('backgroundEnterTime');
+    });
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(400_000);
+    renderProvider();
+
+    emitAppState('active');
+    await waitFor(() => expect(asyncStorageMock.removeItem).toHaveBeenCalledTimes(1));
+    nowSpy.mockReturnValue(410_000);
+    emitAppState('background');
+    await flushAsync();
+    await act(async () => { oldRemoval.resolve(); });
+    await flushAsync();
+    nowSpy.mockReturnValue(820_000);
+    emitAppState('active');
+
+    await waitFor(() => expect(useUserStore.getState().totalPoint).toBe(123));
+    expect(mockResetReadyAndResync).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses live login state and tracks cycles through logged-out foreground events', async () => {
+    const stored = installInMemoryStorage('10000');
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(400_000);
+    renderProvider();
+
+    act(() => {
+      useAuthStore.getState().setLoggedIn(true);
+      emitAppState('background');
+    });
+    await waitFor(() => expect(stored.get('backgroundEnterTime')).toBe('400000'));
+    act(() => {
+      useAuthStore.getState().logout();
+      emitAppState('active');
+      useAuthStore.getState().setLoggedIn(true);
+      nowSpy.mockReturnValue(410_000);
+      emitAppState('background');
+    });
+
+    await waitFor(() => expect(stored.get('backgroundEnterTime')).toBe('410000'));
+    expect(mockRecoverConnection).not.toHaveBeenCalled();
+  });
+
   it('does not apply account A point data after logout and account B login', async () => {
     useAuthStore.getState().setLoggedIn(true);
     jest.spyOn(Date, 'now').mockReturnValue(2_000_000);
     asyncStorageMock.getItem.mockResolvedValue(String(2_000_000 - 301_000));
+    useUserStore.setState({ currentUser: createUser({ id: 1, nickname: 'User 1' }) });
     const oldPoint = createDeferred<{ userId: number; point: number }>();
     mockGetUserPoint.mockReturnValue(oldPoint.promise);
     renderProvider();
@@ -236,7 +407,7 @@ describe('AppStateProvider lifecycle', () => {
     act(() => {
       useAuthStore.getState().logout();
       useAuthStore.getState().setLoggedIn(true);
-      useUserStore.getState().setTotalPoint(900);
+      useUserStore.setState({ currentUser: createUser({ id: 2, nickname: 'User 2' }), totalPoint: 900 });
     });
     await act(async () => { oldPoint.resolve({ userId: 1, point: 1 }); });
     expect(useUserStore.getState().totalPoint).toBe(900);

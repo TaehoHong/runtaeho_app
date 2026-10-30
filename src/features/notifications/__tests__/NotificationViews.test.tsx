@@ -1,13 +1,14 @@
 import React from 'react';
 import { Alert } from 'react-native';
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { NotificationDetailView, NotificationInboxView, NotificationSettingsView } from '../views/NotificationViews';
 import { notificationService } from '../services/notificationService';
+import { leagueService } from '~/features/league/services/leagueService';
 import { syncPushRegistration } from '../services/pushRegistration';
 
-jest.mock('expo-router', () => ({ router: { push: jest.fn(), back: jest.fn() }, useLocalSearchParams: () => ({ id: '42' }) }));
+jest.mock('expo-router', () => ({ router: { push: jest.fn(), back: jest.fn() }, useLocalSearchParams: () => ({ id: '42' }), useFocusEffect: (effect: () => void) => require('react').useEffect(effect, [effect]) }));
 jest.mock('~/shared/components', () => ({ TopScreenSafeAreaView: require('react-native').View }));
 jest.mock('~/shared/components/typography', () => ({ Text: require('react-native').Text }));
 jest.mock('~/stores/user/userStore', () => ({ useUserStore: (select: (state: unknown) => unknown) => select({ currentUser: { id: 7 } }) }));
@@ -56,4 +57,16 @@ it('an inbox fetch failure offers retry rather than an empty inbox', async () =>
   const screen = view(<NotificationInboxView />);
   await waitFor(() => expect(screen.getByText('다시 시도')).toBeTruthy());
   expect(screen.queryByText('아직 받은 알림이 없어요.')).toBeNull();
+});
+
+
+it('leaving detail while league result loads does not navigate on its late response', async () => {
+  let finish!: (value: any) => void;
+  jest.mocked(notificationService.open).mockResolvedValue({ ...item, type: 'LEAGUE_RESULT', leagueParticipantId: 12 });
+  jest.mocked(leagueService.getResult).mockReturnValue(new Promise(resolve => { finish = resolve; }));
+  const detail = view(<NotificationDetailView />);
+  fireEvent.press(await detail.findByText('결과 확인'));
+  detail.unmount();
+  await act(async () => { finish({ id: 12 }); });
+  expect(router.push).not.toHaveBeenCalled();
 });

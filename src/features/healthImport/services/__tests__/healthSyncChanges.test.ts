@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert, Platform } from 'react-native';
 import { getSessionSnapshot, isSessionCurrent } from '~/features/auth/stores/authStore';
+import { API_ENDPOINTS } from '~/services/api/config';
 import { apiClient } from '~/services/api/client';
 import { queryClient } from '~/services/queryClient';
 import { healthImportBridge } from '../../native/HealthImportBridge';
@@ -68,7 +69,8 @@ describe('Health change cursor synchronization', () => {
     jest.mocked(isSessionCurrent).mockReturnValue(true);
     jest.mocked(AsyncStorage.getItem).mockImplementation(async (key) => disk.get(key) ?? null);
     jest.mocked(AsyncStorage.setItem).mockImplementation(async (key, value) => { disk.set(key, value); });
-    api.get.mockResolvedValue({ data: configuration });
+    api.get.mockImplementation(async (url) => ({ data: url === API_ENDPOINTS.POINT.BASE
+      ? { userId: getSessionSnapshot().userId, point: 1234 } : configuration }));
     api.post.mockResolvedValue({ data: response });
     native.isAvailable.mockResolvedValue(true);
     native.getPermissionStatus.mockResolvedValue('granted');

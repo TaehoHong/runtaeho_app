@@ -9,6 +9,10 @@ import { toSegmentPayload } from '../services/segmentPayload';
  */
 
 import { useCallback } from 'react';
+import { pointService } from '~/features/point/services/pointService';
+import { queryClient } from '~/services/queryClient';
+import { completeRunningRecord } from '../services/runningCompletion';
+import type { EndRunningRecord } from '../models';
 
 /**
  * 오프라인 동기화 결과
@@ -41,6 +45,8 @@ export const useOfflineSync = () => {
   const syncOfflineData = useCallback(async (): Promise<SyncResult | null> => {
     const session = getSessionSnapshot();
     if (session.userId === null) return null;
+    let completed: { record: EndRunningRecord; pointRevision: number } | undefined;
+    let rewardChanged = false;
     try {
       const { offlineStorageService } = await import('../services/OfflineStorageService');
       const { runningService } = await import('../services/runningService');
@@ -61,7 +67,11 @@ export const useOfflineSync = () => {
 
         const recordResult = await offlineStorageService.retryAllPendingUploads(
           async (record) => {
-            return runningService.endRunning(record, session);
+            const pointRevision = pointService.captureUserPointRevision();
+            const response = await runningService.endRunning(record, session);
+            completed = { record: response, pointRevision };
+            rewardChanged ||= response.acceptanceStatus === undefined || response.acceptanceStatus === 'ACCEPTED';
+            return response;
           }, session
         );
 
@@ -103,6 +113,11 @@ export const useOfflineSync = () => {
     } catch (error) {
       console.error('❌ [useOfflineSync] 오프라인 데이터 동기화 실패:', error);
       return null;
+    } finally {
+      // Queue ACK/segment handoff completes and releases replay before any read.
+      if (completed) {
+        await completeRunningRecord(completed.record, session, completed.pointRevision, queryClient, rewardChanged);
+      }
     }
   }, []);
 

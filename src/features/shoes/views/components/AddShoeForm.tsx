@@ -2,6 +2,8 @@ import { t, useAppLanguage } from '~/i18n';
 import React, { useRef, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useScreenLifetime } from '~/shared/hooks/useScreenLifetime';
+import { getSessionSnapshot, isSessionCurrent } from '~/features/auth/stores/authStore';
 import { TopScreenSafeAreaView } from '~/shared/components';
 import { Text } from '~/shared/components/typography';
 import { PRIMARY, GREY, RED } from '~/shared/styles';
@@ -19,11 +21,13 @@ interface AddShoeFormProps {
 
 export function AddShoeForm({ entry, onClose, onSuccess }: AddShoeFormProps) {
   useAppLanguage();
+  const captureLifetime = useScreenLifetime();
   const { mutateAsync: addShoe, isPending: isAddingShoe } = useAddShoe();
   const submittingRef = useRef(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [targetDistanceError, setTargetDistanceError] = useState('');
   const handleTargetDistanceChange = (text: string) => {
+    if (submittingRef.current || isAddingShoe) return;
     setTargetDistance(text);
     setTargetDistanceError(text && !/^\d+$/.test(text)
       ? t("목표 거리는 숫자로만 입력이 가능해요.") : '');
@@ -45,6 +49,9 @@ export function AddShoeForm({ entry, onClose, onSuccess }: AddShoeFormProps) {
   // Submit Handler
   const handleSubmit = async () => {
     if (!isFormValid() || isAddingShoe || submittingRef.current) return;
+    const isScreenCurrent = captureLifetime();
+    const session = getSessionSnapshot();
+    const isCurrent = () => isScreenCurrent() && isSessionCurrent(session);
     submittingRef.current = true;
     setIsSubmitting(true);
 
@@ -69,10 +76,12 @@ export function AddShoeForm({ entry, onClose, onSuccess }: AddShoeFormProps) {
         parseInt(targetDistance) * 1000,
         entry === 'route'
       ));
+      if (!isCurrent()) return;
       onSuccess?.();
       onClose?.();
 
     } catch {
+      if (!isCurrent()) return;
       console.error('[AddShoeForm] 신발 추가 실패');
       if (entry === 'route') {
         setErrors([t("신발 추가에 실패했습니다. 다시 시도해주세요.")]);
@@ -105,7 +114,8 @@ export function AddShoeForm({ entry, onClose, onSuccess }: AddShoeFormProps) {
             label={t("브랜드")}
             placeholder={t("신발의 브랜드를 입력해주세요.")}
             value={brand}
-            onChangeText={setBrand}
+            onChangeText={(text) => { if (!submittingRef.current && !isAddingShoe) setBrand(text); }}
+            editable={!isSubmitting && !isAddingShoe}
           />
 
           {/* 모델명 입력 */}
@@ -113,7 +123,8 @@ export function AddShoeForm({ entry, onClose, onSuccess }: AddShoeFormProps) {
             label={t("모델명")}
             placeholder={t("신발의 모델명을 입력해주세요.")}
             value={model}
-            onChangeText={setModel}
+            onChangeText={(text) => { if (!submittingRef.current && !isAddingShoe) setModel(text); }}
+            editable={!isSubmitting && !isAddingShoe}
           />
 
           {/* 목표 거리 입력 */}
@@ -122,6 +133,7 @@ export function AddShoeForm({ entry, onClose, onSuccess }: AddShoeFormProps) {
             placeholder={t("목표 거리를 입력해주세요.")}
             value={targetDistance}
             onChangeText={handleTargetDistanceChange}
+            editable={!isSubmitting && !isAddingShoe}
             error={entry === 'list' ? targetDistanceError : undefined}
             keyboardType="numeric"
           />
@@ -163,6 +175,7 @@ interface InputFieldProps {
   placeholder: string;
   value: string;
   onChangeText: (text: string) => void;
+  editable: boolean;
   keyboardType?: 'default' | 'numeric';
   error?: string | undefined;
 }
@@ -172,6 +185,7 @@ const InputField: React.FC<InputFieldProps> = ({
   placeholder,
   value,
   onChangeText,
+  editable,
   keyboardType = 'default',
   error,
 }) => {
@@ -185,6 +199,7 @@ const InputField: React.FC<InputFieldProps> = ({
         placeholderTextColor={GREY[300]}
         value={value}
         onChangeText={onChangeText}
+        editable={editable}
         keyboardType={keyboardType}
         autoCapitalize="none"
         autoCorrect={false}

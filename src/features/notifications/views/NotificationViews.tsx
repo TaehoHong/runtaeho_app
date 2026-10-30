@@ -12,6 +12,7 @@ import { getSessionSnapshot, isSessionCurrent } from '~/features/auth/stores/aut
 import { queryKeys } from '~/services/queryClient';
 import { notificationService, type NotificationConfiguration } from '../services/notificationService';
 import { currentTimezone, syncPushRegistration } from '../services/pushRegistration';
+import { useScreenLifetime } from '~/shared/hooks/useScreenLifetime';
 import { leagueService } from '~/features/league/services/leagueService';
 
 function Header({ title, settings = false }: { title: string; settings?: boolean }) {
@@ -64,6 +65,7 @@ export function NotificationInboxView({ type }: { type?: 'NOTICE' }) {
 }
 
 export function NotificationDetailView() {
+  const captureLifetime = useScreenLifetime();
   const { id: rawId } = useLocalSearchParams<{ id: string }>();
   const id = Number(rawId);
   const language = useAppLanguage();
@@ -83,10 +85,16 @@ export function NotificationDetailView() {
     const participantId = query.data?.leagueParticipantId;
     if (!participantId) return;
     const snapshot = getSessionSnapshot();
-    const result = await leagueService.getResult(participantId);
-    if (!isSessionCurrent(snapshot)) return;
-    router.push({ pathname: '/league/result', params: { resultData: JSON.stringify(result), participantId: String(participantId) } });
-  }, onError: () => Alert.alert(t('조회 실패'), t('리그 결과를 불러오지 못했어요.')) });
+    const isScreenCurrent = captureLifetime();
+    const isCurrent = () => isScreenCurrent() && isSessionCurrent(snapshot);
+    try {
+      const result = await leagueService.getResult(participantId);
+      if (!isCurrent()) return;
+      router.push({ pathname: '/league/result', params: { resultData: JSON.stringify(result), participantId: String(participantId) } });
+    } catch {
+      if (isCurrent()) Alert.alert(t('조회 실패'), t('리그 결과를 불러오지 못했어요.'));
+    }
+  } });
   return <TopScreenSafeAreaView style={styles.container}>
     <Header title={t('알림')} />
     {query.isError || !Number.isSafeInteger(id) || id <= 0 ? <View style={styles.message}>

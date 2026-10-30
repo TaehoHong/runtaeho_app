@@ -13,7 +13,8 @@ import {
   type RunningRecordItemResponse,
   type UpdateRunningRecordShoeParams,
 } from './runningService';
-import { useUserStore } from '~/stores/user/userStore';
+import { pointService } from '~/features/point/services/pointService';
+import { completeRunningRecord } from './runningCompletion';
 
 /**
  * 러닝 시작
@@ -33,30 +34,18 @@ export const useStartRunning = () => {
  * 러닝 종료
  * 기존: useEndRunningMutation()
  *
- * 서버 응답의 point는 러닝 완료 후 총 포인트이므로
- * setTotalPoint로 전역 상태를 동기화합니다.
+ * 완료 시점의 포인트와 관련 query를 공통 완료 소유자를 통해 동기화합니다.
  */
 export const useEndRunning = () => {
   const queryClient = useQueryClient();
-  const setTotalPoint = useUserStore((state) => state.setTotalPoint);
 
   const mutation = useMutation({
     mutationFn: ({ record, session }: { record: RunningRecord; session: SessionSnapshot }) => runningService.endRunning(record, session),
-    onSuccess: (endRecord, { session }) => {
-      if (!isSessionCurrent(session)) return;
-      // 서버 응답의 총 포인트로 전역 상태 동기화
-      if (endRecord.point !== undefined) {
-        setTotalPoint(endRecord.point);
-        console.log(`💰 [useEndRunning] 포인트 동기화: ${endRecord.point}`);
-      }
-      queryClient.invalidateQueries({ queryKey: queryKeys.running.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.statistics.all });
-      queryClient.invalidateQueries({ queryKey: ['runningRecords'] });
-      queryClient.invalidateQueries({ queryKey: queryKeys.league.current });
-      if (endRecord.acceptanceStatus === undefined || endRecord.acceptanceStatus === 'ACCEPTED') {
-        queryClient.invalidateQueries({ queryKey: queryKeys.point.all });
-        queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
-      }
+    onMutate: () => pointService.captureUserPointRevision(),
+    onSuccess: (endRecord, { session }, pointRevision) => {
+      // The lifecycle awaits this mutation inside the replay lock. Reconciliation
+      // must not keep uploads locked while a point GET or query refetch is pending.
+      void completeRunningRecord(endRecord, session, pointRevision!, queryClient);
     },
   });
   return {

@@ -5,7 +5,15 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { tokenStorage } from '~/utils/storage';
-import { useUserStore } from '~/stores/user/userStore';
+import { useUserStore, userStoreHydration } from '~/stores/user/userStore';
+import { createPersistHydration } from '~/utils/storage/PersistHydration';
+
+const authStoreHydration = createPersistHydration<AuthState>('AuthStore');
+
+export const waitForAuthHydration = async (): Promise<boolean> => {
+  const restored = await Promise.all([authStoreHydration.wait(), userStoreHydration.wait()]);
+  return restored.every(Boolean);
+};
 
 /**
  * Authentication State
@@ -166,6 +174,7 @@ export const useAuthStore = create<AuthState>()(
       initializeTokens: async () => {
         if (get().tokensRevoked) return;
         const generation = get().sessionGeneration;
+        if (!await authStoreHydration.wait() || get().sessionGeneration !== generation) return;
         try {
           console.log('🔐 [AuthStore] Initializing tokens from SecureStorage...');
           const { accessToken, refreshToken } = await tokenStorage.loadTokens();
@@ -196,13 +205,16 @@ export const useAuthStore = create<AuthState>()(
        * 메모리에 없으면 SecureStorage에서 fallback
        */
       getAccessTokenSafe: async (): Promise<string | null> => {
+        const generation = get().sessionGeneration;
+        const restored = await authStoreHydration.wait();
         const state = get();
-        if (state.tokensRevoked) return null;
+        if (state.sessionGeneration !== generation || state.tokensRevoked) return null;
 
         // 메모리에 있으면 반환
         if (state.accessToken) {
           return state.accessToken;
         }
+        if (!restored) return null;
 
         // SecureStorage에서 로드 시도
         try {
@@ -227,13 +239,16 @@ export const useAuthStore = create<AuthState>()(
        * 메모리에 없으면 SecureStorage에서 fallback
        */
       getRefreshTokenSafe: async (): Promise<string | null> => {
+        const generation = get().sessionGeneration;
+        const restored = await authStoreHydration.wait();
         const state = get();
-        if (state.tokensRevoked) return null;
+        if (state.sessionGeneration !== generation || state.tokensRevoked) return null;
 
         // 메모리에 있으면 반환
         if (state.refreshToken) {
           return state.refreshToken;
         }
+        if (!restored) return null;
 
         // SecureStorage에서 로드 시도
         try {
@@ -255,7 +270,10 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage', // AsyncStorage key
+      onRehydrateStorage: authStoreHydration.onRehydrateStorage,
       storage: createJSONStorage(() => AsyncStorage),
+      merge: (persistedState, currentState) => currentState.tokensRevoked
+        ? currentState : { ...currentState, ...persistedState as Partial<AuthState> },
       // isLoggedIn만 persist
       partialize: (state) => ({
         isLoggedIn: state.isLoggedIn,

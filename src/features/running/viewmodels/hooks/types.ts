@@ -92,7 +92,7 @@ export interface UseRunningSegmentsReturn {
 
   // Actions
   createSegment: (distance: number, locations: Location[], startTime: number) => void;
-  finalizeCurrentSegment: () => void;
+  finalizeCurrentSegment: (endedAt?: number) => void;
   initializeSegmentTracking: () => void;
   processDistanceUpdate: (
     distanceDelta: number,
@@ -205,7 +205,7 @@ export interface UseRunningLifecycleProps {
 
   // Segment actions
   initializeSegmentTracking: () => void;
-  finalizeCurrentSegment: () => void;
+  finalizeCurrentSegment: (endedAt?: number) => void;
   resetSegments: () => void;
 
   // Current values (for final record creation)

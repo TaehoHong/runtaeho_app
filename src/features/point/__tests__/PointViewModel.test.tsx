@@ -6,7 +6,7 @@ import { PointFilter, type PointHistory, type PointHistoryRequest } from '~/feat
 import { pointService } from '~/features/point/services/pointService';
 import { usePointViewModel, usePointFilterViewModel, usePointHistoryItemViewModel } from '~/features/point/viewmodels/PointViewModel';
 
-jest.mock('~/features/point/services/pointService', () => ({ pointService: { getPointHistories: jest.fn() } }));
+jest.mock('~/features/point/services/pointService', () => ({ pointService: { getPointHistories: jest.fn(), refreshUserPoint: jest.fn().mockResolvedValue(undefined) } }));
 jest.mock('~/stores/user/userStore', () => ({ useUserStore: (selector: (state: { totalPoint: number }) => number) => selector({ totalPoint: 1200 }) }));
 const history = (id: number, point = 10): PointHistory => ({ id, point, pointType: 'test', createdTimestamp: 1760000000 });
 const request = jest.mocked(pointService.getPointHistories);

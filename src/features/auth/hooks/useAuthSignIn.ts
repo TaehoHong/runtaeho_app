@@ -1,6 +1,6 @@
 import { t, useAppLanguage } from '~/i18n';
 import { useState, useRef } from 'react';
-import { useAuthStore, isLoginAttemptCurrent } from '../stores/authStore';
+import { useAuthStore, isLoginAttemptCurrent, waitForAuthHydration } from '../stores/authStore';
 import { waitForLogout } from '~/shared/services/AppResetService';
 import { SessionSupersededError } from '~/utils/storage/errors';
 import { Alert } from 'react-native';
@@ -85,6 +85,7 @@ export const useAuthSignIn = () => {
 
     try {
       await waitForLogout();
+      await waitForAuthHydration();
       const attempt = useAuthStore.getState().beginLoginAttempt();
       // 1. Strategy 패턴으로 OAuth 인증 코드 획득
       const strategy = AuthStrategyFactory.getStrategy(provider);

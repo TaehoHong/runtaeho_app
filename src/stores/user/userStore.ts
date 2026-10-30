@@ -17,6 +17,9 @@ import { ItemStatus, getItemTypeById } from '~/features/avatar/models';
 import { type User } from '~/features/user/models/User';
 import { type UserAccount } from '~/features/user/models/UserAccount';
 import { userDataDtoToUser, type UserDataDto } from '~/features/user/models/UserDataDto';
+import { createPersistHydration } from '~/utils/storage/PersistHydration';
+
+export const userStoreHydration = createPersistHydration<UserState>('UserStore');
 
 /**
  * Theme Mode
@@ -517,6 +520,7 @@ export const useUserStore = create<UserState>()(
     }),
     {
       name: 'user-storage', // AsyncStorage key
+      onRehydrateStorage: userStoreHydration.onRehydrateStorage,
       version: 1,
       migrate: (persistedState) => {
         const previous = persistedState as Partial<UserState>;

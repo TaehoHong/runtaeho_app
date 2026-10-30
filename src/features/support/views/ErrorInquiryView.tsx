@@ -17,12 +17,15 @@ import { TopScreenSafeAreaView } from '~/shared/components';
 import { Text, TextInput } from '~/shared/components/typography';
 import { SystemInfoManager } from '~/shared/utils/SystemInfoManager';
 import { GREY, PRIMARY, RED } from '~/shared/styles';
+import { useScreenLifetime } from '~/shared/hooks/useScreenLifetime';
+import { getSessionSnapshot, isSessionCurrent } from '~/features/auth/stores/authStore';
 import { inquiryService } from '../inquiryService';
 import type { InquiryRequest } from '../types';
 
 export const ErrorInquiryView: React.FC = () => {
   useAppLanguage();
   const router = useRouter();
+  const captureLifetime = useScreenLifetime();
   const params = useLocalSearchParams<{
     errorCode?: string | string[];
     screenName?: string | string[];
@@ -40,6 +43,9 @@ export const ErrorInquiryView: React.FC = () => {
       return;
     }
 
+    const isScreenCurrent = captureLifetime();
+    const session = getSessionSnapshot();
+    const isCurrent = () => isScreenCurrent() && isSessionCurrent(session);
     setError('');
     setSubmitting(true);
     try {
@@ -50,10 +56,12 @@ export const ErrorInquiryView: React.FC = () => {
         replyEmail: replyEmail.trim(),
         ...(sendInfo ? diagnostics(params) : {}),
       });
+      if (!isCurrent()) return;
       router.replace(
         `/user/inquiry-done?trackingNo=${encodeURIComponent(result.trackingNo)}` as Href
       );
     } catch {
+      if (!isCurrent()) return;
       Alert.alert(t("문의 접수 실패"), t("오류 문의를 접수하지 못했어요. 잠시 후 다시 보내주세요."), [
         { text: t("확인") },
       ]);
@@ -88,7 +96,8 @@ export const ErrorInquiryView: React.FC = () => {
             <Field
               label={t("어떤 문제가 있었나요?")}
               value={content}
-              onChangeText={setContent}
+              onChangeText={(value) => { if (!submitting) setContent(value); }}
+              editable={!submitting}
               placeholder={t("문제가 발생한 상황을 적어주세요.")}
               multiline
               inputStyle={styles.contentInput}
@@ -98,7 +107,8 @@ export const ErrorInquiryView: React.FC = () => {
             <Field
               label={t("답변 받을 이메일")}
               value={replyEmail}
-              onChangeText={setReplyEmail}
+              onChangeText={(value) => { if (!submitting) setReplyEmail(value); }}
+              editable={!submitting}
               placeholder="email@example.com"
               keyboardType="email-address"
               autoCapitalize="none"
@@ -107,7 +117,8 @@ export const ErrorInquiryView: React.FC = () => {
 
           <TouchableOpacity
             style={styles.checkRow}
-            onPress={() => setSendInfo((value) => !value)}
+            onPress={() => { if (!submitting) setSendInfo((value) => !value); }}
+            disabled={submitting}
             activeOpacity={0.8}
             testID="diagnostics-toggle"
           >
@@ -202,6 +213,7 @@ interface FieldProps {
   onChangeText: (value: string) => void;
   placeholder: string;
   inputStyle?: object;
+  editable?: boolean;
   multiline?: boolean;
   keyboardType?: 'default' | 'email-address';
   autoCapitalize?: 'none' | 'sentences';

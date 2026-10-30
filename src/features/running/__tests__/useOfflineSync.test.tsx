@@ -61,7 +61,7 @@ describe('offline GPS segment synchronization', () => {
     await AsyncStorage.clear();
     useUserStore.setState({ currentUser: { id: 7, nickname: 'runner', userAccounts: [], level: 1, createdAt: new Date(0) } });
     mockSaveItems.mockReset().mockResolvedValue(undefined);
-    mockEndRunning.mockReset().mockResolvedValue(undefined);
+    mockEndRunning.mockReset().mockResolvedValue({ id: 404, point: 0, acceptanceStatus: 'ACCEPTED' });
   });
 
   it('retains GPS without uploading it while its end request is still failing', async () => {

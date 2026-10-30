@@ -4,6 +4,8 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { TopScreenSafeAreaView } from '~/shared/components';
+import { useScreenLifetime } from '~/shared/hooks/useScreenLifetime';
+import { getSessionSnapshot, isSessionCurrent } from '~/features/auth/stores/authStore';
 import { useAuth } from '~/features/auth/hooks/useAuth';
 import { Text } from '~/shared/components/typography';
 import { GREY, RED } from '~/shared/styles';
@@ -20,6 +22,7 @@ import { useAds } from '~/features/ads/AdsProvider';
 export const SettingsView: React.FC = () => {
   useAppLanguage();
   const router = useRouter();
+  const captureLifetime = useScreenLifetime();
   const { logout } = useAuth();
   const { privacyRequired, showPrivacyOptions } = useAds();
   const [isOpeningPrivacy, setIsOpeningPrivacy] = useState(false);
@@ -91,19 +94,26 @@ export const SettingsView: React.FC = () => {
    */
   const handleWithdraw = async () => {
     if (isWithdrawing) return;
+    const isScreenCurrent = captureLifetime();
+    const session = getSessionSnapshot();
+    let followupSession = session;
 
     try {
       setIsWithdrawing(true);
       console.log('[SettingsView] 회원 탈퇴 시작...');
 
       await userService.withdraw();
-      await logout();
+      if (!isSessionCurrent(session)) return;
+      const logoutOperation = logout();
+      followupSession = getSessionSnapshot();
+      await logoutOperation;
 
       console.log('[SettingsView] 회원 탈퇴 완료');
       setShowWithdrawAlert(false);
 
-      router.replace('/auth/login');
+      // AuthProvider owns routing after logout invalidates the initiating session.
     } catch (error) {
+      if (!isScreenCurrent() || !isSessionCurrent(followupSession)) return;
       console.error('[SettingsView] 회원 탈퇴 실패:', error);
       setShowWithdrawAlert(false);
 

@@ -1,12 +1,17 @@
 import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { ShoesListView } from '../views/ShoesListView';
 import { TouchableOpacity } from 'react-native';
 import AddShoeRoute from '../../../../app/shoes/add-shoe';
 import { AddShoeView } from '../views/AddShoeView';
 
 const mockAdd = jest.fn();
 const mockBack = jest.fn();
-jest.mock('expo-router', () => ({ router: { back: () => mockBack() } }));
+jest.mock('expo-router', () => ({
+  router: { back: () => mockBack() },
+  useFocusEffect: (effect: () => void) => require('react').useEffect(effect, [effect]),
+}));
 jest.mock('../services', () => ({
   useAddShoe: () => ({ mutateAsync: mockAdd, isPending: false }),
   shoeService: { addShoe: (...args: unknown[]) => mockAdd(...args) },
@@ -16,6 +21,10 @@ jest.mock('../viewmodels', () => ({
     handleAddShoe: (brand: string, model: string, targetDistance: number, isMain: boolean) =>
       mockAdd({ brand, model, targetDistance, isMain }),
     isAddingShoe: false,
+    shoeViewModels: [],
+    mainShoeViewModel: null,
+    isLoading: false,
+    refreshShoes: jest.fn(),
   }),
 }));
 
@@ -111,4 +120,37 @@ it('starts with an empty form when the list modal is mounted again', () => {
   expect(screen.getByPlaceholderText('목표 거리를 입력해주세요.').props.value).toBe('');
   fireEvent.press(screen.getByText('신발 저장하기'));
   expect(mockAdd).not.toHaveBeenCalled();
+});
+
+
+it('a previous submission cannot close the real list owner’s reopened add modal', async () => {
+  let finish!: (value: unknown) => void;
+  mockAdd.mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+  render(<ShoesListView />);
+  const addButton = () => screen.UNSAFE_getAllByType(Ionicons).find(node => node.props.name === 'add-circle-outline')!;
+  fireEvent.press(addButton());
+  fill();
+  fireEvent.press(screen.getByText('신발 저장하기'));
+  fireEvent.press(screen.UNSAFE_getAllByType(Ionicons).find(node => node.props.name === 'chevron-back')!);
+  fireEvent.press(addButton());
+  await act(async () => { finish({ id: 1 }); });
+  expect(screen.getByText('신발 저장하기')).toBeOnTheScreen();
+  expect(screen.getByPlaceholderText('신발의 브랜드를 입력해주세요.').props.value).toBe('');
+});
+
+it('keeps the submitted shoe unchanged while pending and restores editing after failure', async () => {
+  let fail!: (error: Error) => void;
+  mockAdd.mockReturnValueOnce(new Promise((_, reject) => { fail = reject; }));
+  render(<AddShoeRoute />);
+  fill();
+  fireEvent.press(screen.getByText('신발 저장하기'));
+  const brand = screen.getByPlaceholderText('신발의 브랜드를 입력해주세요.');
+  expect(brand.props.editable).toBe(false);
+  act(() => brand.props.onChangeText('Changed after submit'));
+  expect(screen.getByPlaceholderText('신발의 브랜드를 입력해주세요.').props.value).toBe(' Brand ');
+  expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({ brand: 'Brand' }));
+  await act(async () => { fail(new Error('offline')); });
+  expect(screen.getByPlaceholderText('신발의 브랜드를 입력해주세요.').props.editable).toBe(true);
+  fireEvent.changeText(screen.getByPlaceholderText('신발의 브랜드를 입력해주세요.'), 'Retry');
+  expect(screen.getByPlaceholderText('신발의 브랜드를 입력해주세요.').props.value).toBe('Retry');
 });

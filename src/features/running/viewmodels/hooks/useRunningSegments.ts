@@ -10,7 +10,7 @@
  * - 세그먼트 추적 초기화/리셋
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import type { Location, RunningRecordItem } from '../../models';
 import { createRunningRecordItem } from '../../models';
 import type { RunningStats, UseRunningSegmentsReturn } from './types';
@@ -26,78 +26,64 @@ export const useRunningSegments = ({
 }: UseRunningSegmentsProps): UseRunningSegmentsReturn => {
   // Segment state
   const [currentSegmentItems, setCurrentSegmentItems] = useState<RunningRecordItem[]>([]);
-  const [segmentStartTime, setSegmentStartTime] = useState<number | null>(null);
-  const [segmentDistance, setSegmentDistance] = useState<number>(0);
-  const [segmentLocations, setSegmentLocations] = useState<Location[]>([]);
-  const [, setSegmentIdCounter] = useState<number>(1);
+  const [segmentDistance, setSegmentDistanceState] = useState<number>(0);
+  const [segmentLocations, setSegmentLocationsState] = useState<Location[]>([]);
 
-  // Refs for synchronous access in callbacks (closure stale value 방지)
-  const segmentItemsRef = useRef<RunningRecordItem[]>(currentSegmentItems);
-  const segmentStartTimeRef = useRef<number | null>(segmentStartTime);
-
+  // Completion reads these refs before React can render the final GPS drain.
+  const segmentItemsRef = useRef<RunningRecordItem[]>([]);
+  const segmentStartTimeRef = useRef<number | null>(null);
+  const segmentDistanceRef = useRef(0);
+  const segmentLocationsRef = useRef<Location[]>([]);
   const segmentActiveStartRef = useRef<number | null>(null);
 
-  // Sync refs with state
-  useEffect(() => {
-    segmentItemsRef.current = currentSegmentItems;
-  }, [currentSegmentItems]);
+  const setSegmentDistance = useCallback<React.Dispatch<React.SetStateAction<number>>>((value) => {
+    segmentDistanceRef.current = typeof value === 'function' ? value(segmentDistanceRef.current) : value;
+    setSegmentDistanceState(segmentDistanceRef.current);
+  }, []);
 
-  useEffect(() => {
-    segmentStartTimeRef.current = segmentStartTime;
-  }, [segmentStartTime]);
+  const setSegmentLocations = useCallback<React.Dispatch<React.SetStateAction<Location[]>>>((value) => {
+    segmentLocationsRef.current = typeof value === 'function' ? value(segmentLocationsRef.current) : value;
+    setSegmentLocationsState(segmentLocationsRef.current);
+  }, []);
 
   /**
    * 세그먼트 생성 (iOS createSegment 대응)
    * 10미터마다 호출
    */
   const createSegment = useCallback(
-    (distance: number, locations: Location[], startTime: number) => {
-      const now = Date.now();
+    (distance: number, locations: Location[], startTime: number, now = Date.now()) => {
       const activeNow = getActiveElapsedMs?.();
       const segmentDuration = activeNow !== undefined && segmentActiveStartRef.current !== null
         ? Math.max(0, activeNow - segmentActiveStartRef.current) / 1000
         : (now - startTime) / 1000; // seconds
       const currentStats = statsRef.current;
 
-      // Race condition 방지: segmentIdCounter 읽기 + 증가를 원자적으로 처리
-      setSegmentIdCounter((currentId) => {
-        const segmentId = currentId;
-
-        setCurrentSegmentItems((prev) => {
-          const segmentCalories = Math.round(
-            (currentStats.calories || 0) / Math.max(1, prev.length + 1)
-          );
-
-          const newSegment = createRunningRecordItem({
-            id: segmentId,
-            distance: distance,
-            cadence: currentStats.cadence ?? null,
-            heartRate: currentStats.bpm ?? null,
-            calories: segmentCalories,
-            orderIndex: segmentId - 1,
-            durationSec: segmentDuration,
-            endTimestamp: now / 1000,
-            startTimestamp: startTime / 1000, // Unix timestamp in seconds
-            locations: locations,
-          });
-
-          console.log(
-            `[useRunningSegments] Segment created: #${prev.length + 1}, ID=${segmentId}, ${distance}m`
-          );
-          return [...prev, newSegment];
-        });
-
-        return currentId + 1;
+      const currentItems = segmentItemsRef.current;
+      const segmentId = currentItems.length + 1;
+      const newSegment = createRunningRecordItem({
+        id: segmentId,
+        distance,
+        cadence: currentStats.cadence ?? null,
+        heartRate: currentStats.bpm ?? null,
+        calories: Math.round((currentStats.calories || 0) / segmentId),
+        orderIndex: segmentId - 1,
+        durationSec: segmentDuration,
+        endTimestamp: now / 1000,
+        startTimestamp: startTime / 1000,
+        locations,
       });
+      segmentItemsRef.current = [...currentItems, newSegment];
+      setCurrentSegmentItems(segmentItemsRef.current);
+
+      console.log(`[useRunningSegments] Segment created: ID=${segmentId}, ${distance}m`);
 
       // 다음 세그먼트를 위한 초기화
       segmentStartTimeRef.current = now;
       segmentActiveStartRef.current = activeNow ?? null;
-      setSegmentStartTime(now);
       setSegmentDistance(0);
       setSegmentLocations([]);
     },
-    [statsRef, getActiveElapsedMs]
+    [statsRef, getActiveElapsedMs, setSegmentDistance, setSegmentLocations]
   );
 
   /**
@@ -105,54 +91,15 @@ export const useRunningSegments = ({
    * 러닝 종료 시 10m 미만이라도 저장
    * NOTE: ref도 동기적으로 업데이트하여 endRunning에서 즉시 참조 가능
    */
-  const finalizeCurrentSegment = useCallback(() => {
+  const finalizeCurrentSegment = useCallback((endedAt?: number) => {
     const currentSegmentStartTime = segmentStartTimeRef.current;
 
-    if (segmentDistance > 0 && currentSegmentStartTime !== null) {
-      const now = Date.now();
-      const activeNow = getActiveElapsedMs?.();
-      const segmentDuration = activeNow !== undefined && segmentActiveStartRef.current !== null
-        ? Math.max(0, activeNow - segmentActiveStartRef.current) / 1000
-        : (now - currentSegmentStartTime) / 1000;
-      const currentStats = statsRef.current;
-      const currentItems = segmentItemsRef.current;
-
-      const segmentId = currentItems.length + 1;
-      const segmentCalories = Math.round(
-        (currentStats.calories || 0) / Math.max(1, currentItems.length + 1)
-      );
-
-      const finalSegment = createRunningRecordItem({
-        id: segmentId,
-        distance: segmentDistance,
-        cadence: currentStats.cadence ?? null,
-        heartRate: currentStats.bpm ?? null,
-        calories: segmentCalories,
-        orderIndex: segmentId - 1,
-        durationSec: segmentDuration,
-        endTimestamp: now / 1000,
-        startTimestamp: currentSegmentStartTime / 1000,
-        locations: segmentLocations,
-      });
-
-      console.log(
-        `[useRunningSegments] Final segment created: ID=${segmentId}, ${segmentDistance}m`
-      );
-
-      // ref를 먼저 업데이트 (동기) -> endRunning에서 즉시 참조 가능
-      const newItems = [...currentItems, finalSegment];
-      segmentItemsRef.current = newItems;
-
-      // state도 업데이트 (비동기) -> UI 반영용
-      setCurrentSegmentItems(newItems);
-      setSegmentIdCounter(segmentId + 1);
+    if (segmentDistanceRef.current > 0 && currentSegmentStartTime !== null) {
+      createSegment(segmentDistanceRef.current, segmentLocationsRef.current, currentSegmentStartTime, endedAt);
       segmentStartTimeRef.current = null;
       segmentActiveStartRef.current = null;
-      setSegmentStartTime(null);
-      setSegmentDistance(0);
-      setSegmentLocations([]);
     }
-  }, [segmentDistance, segmentLocations, statsRef, getActiveElapsedMs]);
+  }, [createSegment]);
 
   /**
    * 세그먼트 추적 초기화 (iOS initializeSegmentTracking 대응)
@@ -160,15 +107,13 @@ export const useRunningSegments = ({
   const initializeSegmentTracking = useCallback(() => {
     const now = Date.now();
     segmentActiveStartRef.current = getActiveElapsedMs?.() ?? null;
-    setSegmentStartTime(now);
     segmentStartTimeRef.current = now;
     setSegmentDistance(0);
     setSegmentLocations([]);
     setCurrentSegmentItems([]);
     segmentItemsRef.current = [];
-    setSegmentIdCounter(1);
     console.log('[useRunningSegments] Segment tracking initialized');
-  }, [getActiveElapsedMs]);
+  }, [getActiveElapsedMs, setSegmentDistance, setSegmentLocations]);
 
   /**
    * 거리 업데이트 처리 및 세그먼트 생성 여부 판단
@@ -178,7 +123,7 @@ export const useRunningSegments = ({
     (distanceDelta: number, newLocations: Location[], threshold: number): boolean => {
       if (distanceDelta <= 0) return false;
 
-      const newSegmentDistance = segmentDistance + distanceDelta;
+      const newSegmentDistance = segmentDistanceRef.current + distanceDelta;
       setSegmentDistance(newSegmentDistance);
       setSegmentLocations((prev) => [...prev, ...newLocations]);
 
@@ -186,13 +131,13 @@ export const useRunningSegments = ({
 
       // threshold 달성 시 세그먼트 생성
       if (newSegmentDistance >= threshold && currentSegmentStartTime !== null) {
-        createSegment(newSegmentDistance, [...segmentLocations, ...newLocations], currentSegmentStartTime);
+        createSegment(newSegmentDistance, segmentLocationsRef.current, currentSegmentStartTime);
         return true;
       }
 
       return false;
     },
-    [segmentDistance, segmentLocations, createSegment]
+    [createSegment, setSegmentDistance, setSegmentLocations]
   );
 
   /**
@@ -201,14 +146,12 @@ export const useRunningSegments = ({
   const resetSegments = useCallback(() => {
     setCurrentSegmentItems([]);
     segmentItemsRef.current = [];
-    setSegmentStartTime(null);
     segmentStartTimeRef.current = null;
     segmentActiveStartRef.current = null;
     setSegmentDistance(0);
     setSegmentLocations([]);
-    setSegmentIdCounter(1);
     console.log('[useRunningSegments] Segments reset');
-  }, []);
+  }, [setSegmentDistance, setSegmentLocations]);
 
   return {
     // State

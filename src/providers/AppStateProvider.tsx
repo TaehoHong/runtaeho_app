@@ -15,11 +15,9 @@ interface AppStateProviderProps {
 // 임계치 상수 (5분)
 const BACKGROUND_SYNC_THRESHOLD_SECONDS = 300 as const;
 
-// 최신 값을 참조하기 위한 ref 헬퍼
-function useLatestRef<T>(value: T) {
-  const ref = React.useRef(value);
-  useEffect(() => { ref.current = value; }, [value]);
-  return ref;
+interface ForegroundCycle {
+  snapshot: SessionSnapshot;
+  backgroundDuration: Promise<number>;
 }
 
 // AppState 구독을 캡슐화한 헬퍼 (중복 구독 방지용)
@@ -58,37 +56,48 @@ function subscribeToAppLifecycle(params: {
  */
 export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) => {
   const setViewState = useAppStore((state) => state.setViewState);
-  const isLoggedIn = useAuthStore((state) => state.isLoggedIn); // ✅ AuthStore로 변경
-
-  const isLoggedInRef = useLatestRef(isLoggedIn);
-  const fgInFlight = useRef(false); // 포그라운드 재진입 가드
+  const foregroundCycle = useRef<ForegroundCycle | null>(null);
+  const pendingForeground = useRef<ForegroundCycle | null>(null);
+  const pendingResync = useRef<SessionSnapshot | null>(null);
+  const fgInFlight = useRef(false);
+  const timestampOperations = useRef<Promise<void>>(Promise.resolve());
+  const isBackground = useRef(false);
   const tokenSetupDone = useRef(false); // 토큰 알림 1회 설정 가드
   const hasInitialized = useRef(false); // ✅ 초기화 중복 방지 가드
 
   /**
    * 앱이 Background로 진입할 때 처리
    */
-  const handleAppBackground = useCallback(async () => {
-    console.log('🌙 [AppStateProvider] App entering background, saving state');
-    await AsyncStorage.setItem('backgroundEnterTime', String(Date.now()));
-    // TODO: 현재 상태 저장 로직
-    console.log('💾 [AppStateProvider] Background 상태 저장 완료');
+  const handleAppBackground = useCallback(() => {
+    if (isBackground.current) return;
+    isBackground.current = true;
+    foregroundCycle.current = null;
+    pendingForeground.current = null;
+    if (!useAuthStore.getState().isLoggedIn) return;
+    const enteredAt = String(Date.now());
+    // Serialize only timestamp storage: foreground consumption cannot delete a later write.
+    timestampOperations.current = timestampOperations.current.then(async () => {
+      await AsyncStorage.setItem('backgroundEnterTime', enteredAt);
+    }).catch(() => {
+      console.error('⚠️ [AppStateProvider] 백그라운드 시간 저장 실패:');
+    });
   }, []);
 
   /**
-   * 백그라운드 시간 계산
+   * 해당 복귀 시각의 백그라운드 시간을 읽고 소비한다.
    */
-  const calculateBackgroundDuration = useCallback(async (): Promise<number> => {
-    try {
+  const consumeBackgroundDuration = useCallback((enteredAt: number): Promise<number> => {
+    const duration = timestampOperations.current.then(async () => {
       const ts = await AsyncStorage.getItem('backgroundEnterTime');
-      if (!ts) return 0;
+      await AsyncStorage.removeItem('backgroundEnterTime');
       const bgMillis = Number(ts);
-      if (!Number.isFinite(bgMillis)) return 0;
-      return (Date.now() - bgMillis) / 1000;
-    } catch {
+      return ts && Number.isFinite(bgMillis) ? (enteredAt - bgMillis) / 1000 : 0;
+    }).catch(() => {
       console.error('⚠️ [AppStateProvider] 백그라운드 시간 계산 실패:');
       return 0;
-    }
+    });
+    timestampOperations.current = duration.then(() => {});
+    return duration;
   }, []);
 
   /**
@@ -101,9 +110,7 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
 
     // 포인트 동기화
     try {
-      const { point } = await pointService.getUserPoint();
-      if (!isSessionCurrent(snapshot)) return;
-      useUserStore.getState().setTotalPoint(point);
+      await pointService.refreshUserPoint(snapshot);
       console.log('[AppStateProvider] point sync completed');
     } catch {
       console.error('❌ [AppStateProvider] 포인트 동기화 실패:');
@@ -143,26 +150,27 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
     // TODO: 백그라운드에서 실패한 API 호출 재시도 등
   }, []);
 
-  const performForegroundTasks = useCallback(async (backgroundDuration: number, snapshot: SessionSnapshot) => {
-    if (!isSessionCurrent(snapshot)) return;
+  const performForegroundTasks = useCallback(async (backgroundDuration: number, snapshot: SessionSnapshot, isCurrent: () => boolean) => {
+    if (!isCurrent()) return;
     console.log('📋 [AppStateProvider] Handling pending background tasks');
 
     // ★ 5분 이상 백그라운드 시 Unity 상태 강제 리셋 + 아바타 재적용
-    if (backgroundDuration > BACKGROUND_SYNC_THRESHOLD_SECONDS) {
+    const needsResync = pendingResync.current && isSessionCurrent(pendingResync.current);
+    if (backgroundDuration > BACKGROUND_SYNC_THRESHOLD_SECONDS || needsResync) {
       console.log('🎮 [AppStateProvider] 5분 이상 백그라운드 - Unity 상태 리셋');
 
       // 1. Store 상태 리셋 + Native 동기화
       await unityService.resetReadyAndResync();
 
       // 2. 사용자 데이터 동기화
-      if (!isSessionCurrent(snapshot)) return;
+      if (!isCurrent()) return;
       await syncUserDataFromServer(snapshot);
-      if (!isSessionCurrent(snapshot)) return;
+      if (!isCurrent()) return;
 
       // 3. Unity 재초기화 완료 후 아바타 재적용
       await unityService.runWhenReady(async () => {
         try {
-          if (!isSessionCurrent(snapshot)) return;
+          if (!isCurrent()) return;
           const currentState = useUserStore.getState();
           const items = Object.values(currentState.equippedItems).filter(
             (item): item is Item => !!item
@@ -177,15 +185,18 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
           console.error('❌ [AppStateProvider] 아바타 재적용 실패:');
         }
       }, { waitForAvatar: false, timeoutMs: 3000, forceReadyOnTimeout: true });
+      if (isCurrent()) pendingResync.current = null;
     }
 
-    if (!isSessionCurrent(snapshot)) return;
+    if (!isCurrent()) return;
     // 2. 시스템 권한 상태 재확인
     await checkSystemPermissions();
 
+    if (!isCurrent()) return;
     // 3. Unity 연동 상태 확인 (앱 업데이트 후 stale 상태 감지/복구)
     await checkUnityConnection();
 
+    if (!isCurrent()) return;
     // 4. 네트워크 상태 확인 및 대기중인 작업 처리
     await handlePendingTasks();
   }, [checkSystemPermissions, checkUnityConnection, handlePendingTasks, syncUserDataFromServer]);
@@ -194,30 +205,49 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
    * 앱이 Foreground로 진입할 때 처리
    */
   const handleAppForeground = useCallback(async () => {
-    if (!useAuthStore.getState().isLoggedIn) return;
-    if (fgInFlight.current) {
-      console.log('🛡️ [AppStateProvider] Foreground 작업이 이미 진행 중, 중복 호출 차단');
+    isBackground.current = false;
+    if (!useAuthStore.getState().isLoggedIn) {
+      foregroundCycle.current = null;
+      pendingForeground.current = null;
       return;
     }
+    if (foregroundCycle.current && isSessionCurrent(foregroundCycle.current.snapshot)) return;
+
     const snapshot = getSessionSnapshot();
+    const cycle: ForegroundCycle = {
+      snapshot,
+      backgroundDuration: consumeBackgroundDuration(Date.now()).then((duration) => {
+        // A newer short cycle must still finish a long resync interrupted in this session.
+        if (duration > BACKGROUND_SYNC_THRESHOLD_SECONDS && isSessionCurrent(snapshot)) {
+          pendingResync.current = snapshot;
+        }
+        return duration;
+      }),
+    };
+    foregroundCycle.current = cycle;
+    // Keep only the latest active cycle while an older Unity/network operation finishes.
+    pendingForeground.current = cycle;
+    if (fgInFlight.current) return;
     fgInFlight.current = true;
     try {
-      console.log('🌅 [AppStateProvider] App entering foreground, performing comprehensive check');
-      const backgroundDuration = await calculateBackgroundDuration();
-      console.log('⏰ [AppStateProvider] App was in background for', Math.floor(backgroundDuration), 'seconds');
-
-      if (backgroundDuration > BACKGROUND_SYNC_THRESHOLD_SECONDS) {
-        console.log('🔍 [AppStateProvider] Long background duration, validating token');
-        // TODO: 토큰 검증 로직 (SessionGuard.verifyOnForeground 등)
+      while (pendingForeground.current) {
+        const nextCycle = pendingForeground.current;
+        pendingForeground.current = null;
+        const isCurrent = () => foregroundCycle.current === nextCycle
+          && useAuthStore.getState().isLoggedIn
+          && isSessionCurrent(nextCycle.snapshot);
+        const backgroundDuration = await nextCycle.backgroundDuration;
+        if (!isCurrent()) continue;
+        try {
+          await performForegroundTasks(backgroundDuration, nextCycle.snapshot, isCurrent);
+        } catch {
+          console.error('❌ [AppStateProvider] Foreground 작업 실패:');
+        }
       }
-
-      await performForegroundTasks(backgroundDuration, snapshot);
-      if (!isSessionCurrent(snapshot)) return;
-      await AsyncStorage.removeItem('backgroundEnterTime');
     } finally {
       fgInFlight.current = false;
     }
-  }, [calculateBackgroundDuration, performForegroundTasks]);
+  }, [consumeBackgroundDuration, performForegroundTasks]);
 
   useEffect(() => {
     // ✅ 이미 초기화 완료 시 스킵 - 이중 상태 변경으로 인한 빠른 마운트/언마운트 방지
@@ -234,16 +264,8 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
 
     // AppState 구독(단일 진입점)
     const unsubscribe = subscribeToAppLifecycle({
-      onForeground: async () => {
-        if (isLoggedInRef.current) {
-          await handleAppForeground();
-        }
-      },
-      onBackground: async () => {
-        if (isLoggedInRef.current) {
-          await handleAppBackground();
-        }
-      },
+      onForeground: handleAppForeground,
+      onBackground: handleAppBackground,
       setupTokenRefreshNotificationsOnce: () => {
         if (tokenSetupDone.current) return;
         tokenSetupDone.current = true;
@@ -253,9 +275,12 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({ children }) 
     });
 
     return () => {
+      foregroundCycle.current = null;
+      pendingForeground.current = null;
+      pendingResync.current = null;
       unsubscribe();
     };
-  }, [handleAppBackground, handleAppForeground, isLoggedInRef, setViewState]);
+  }, [handleAppBackground, handleAppForeground, setViewState]);
 
   return <>{children}</>;
 };

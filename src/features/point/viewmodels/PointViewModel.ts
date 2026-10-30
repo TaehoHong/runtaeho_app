@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, useMemo } from 'react';
-import { useInfinitePointHistories, useGetRecentPointHistories } from '../services';
+import { pointService, useInfinitePointHistories, useGetRecentPointHistories } from '../services';
 import { useUserStore } from '~/stores/user/userStore';
 import {
   PointFilter, type PointHistory, createPointHistoryViewModel,
@@ -51,8 +51,12 @@ export const usePointViewModel = (pointOverride?: number) => {
   const { refetch: refetchRecent } = recent;
   const { refetch: refetchOlder, hasNextPage, isFetching, fetchNextPage } = older;
   const refreshPointHistory = useCallback(async () => {
+    const balanceRefresh = pointService.refreshUserPoint().catch(() => {
+      console.warn('[PointViewModel] Point balance refresh failed');
+    });
     const refreshed = await refetchRecent();
     if (refreshed.data && refreshed.data.cursor === seedCursor) await refetchOlder();
+    await balanceRefresh;
   }, [refetchRecent, refetchOlder, seedCursor]);
   const loadMoreHistories = useCallback(async () => {
     if (hasNextPage && !isFetching) await fetchNextPage();

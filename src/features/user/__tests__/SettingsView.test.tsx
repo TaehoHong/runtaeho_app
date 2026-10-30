@@ -1,12 +1,21 @@
 import React from 'react';
 import { Alert } from 'react-native';
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { SettingsView } from '~/features/user/views/SettingsView';
 import { renderWithProviders } from '~/test-utils/renderWithProviders';
 import { routerMock } from '~/test-utils/mocks/native';
 
 const mockLogout = jest.fn();
 const mockWithdraw = jest.fn();
+const mockSnapshot = { generation: 1, userId: 7 };
+jest.mock('expo-router', () => ({
+  useRouter: () => require('~/test-utils/mocks/native').routerMock,
+  useFocusEffect: (effect: () => void) => require('react').useEffect(effect, [effect]),
+}));
+jest.mock('~/features/auth/stores/authStore', () => ({
+  getSessionSnapshot: () => ({ ...mockSnapshot }),
+  isSessionCurrent: (snapshot: typeof mockSnapshot) => snapshot.generation === mockSnapshot.generation && snapshot.userId === mockSnapshot.userId,
+}));
 
 jest.mock('~/features/auth/hooks/useAuth', () => ({
   useAuth: () => ({
@@ -25,6 +34,8 @@ describe('SettingsView', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSnapshot.generation = 1;
+    mockSnapshot.userId = 7;
     alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     mockLogout.mockResolvedValue(undefined);
     mockWithdraw.mockResolvedValue(undefined);
@@ -85,7 +96,7 @@ describe('SettingsView', () => {
     expect(routerMock.replace).not.toHaveBeenCalledWith('/auth/login');
   });
 
-  it('USER-SET-003 performs withdraw flow and redirects to login on success', async () => {
+  it('USER-SET-003 performs withdraw flow and delegates logout routing to AuthProvider', async () => {
     renderWithProviders(<SettingsView />);
 
     fireEvent.press(screen.getByText('회원 탈퇴'));
@@ -94,7 +105,6 @@ describe('SettingsView', () => {
     await waitFor(() => {
       expect(mockWithdraw).toHaveBeenCalledTimes(1);
       expect(mockLogout).toHaveBeenCalledTimes(1);
-      expect(routerMock.replace).toHaveBeenCalledWith('/auth/login');
     });
   });
 
@@ -127,4 +137,20 @@ describe('SettingsView', () => {
     expect(mockWithdraw).not.toHaveBeenCalled();
     expect(mockLogout).not.toHaveBeenCalled();
   });
+});
+
+
+it('a late withdrawal response cannot log out a replacement session', async () => {
+  let finish!: () => void;
+  mockWithdraw.mockReturnValueOnce(new Promise<void>(resolve => { finish = resolve; }));
+  renderWithProviders(<SettingsView />);
+  fireEvent.press(screen.getByText('회원 탈퇴'));
+  fireEvent.press(screen.getByText('탈퇴하기'));
+  fireEvent.press(screen.getByText('취소'));
+  // A logs out and B signs in while the DELETE response is pending.
+  mockSnapshot.generation = 3;
+  mockSnapshot.userId = 8;
+  await act(async () => { finish(); });
+  expect(mockLogout).not.toHaveBeenCalled();
+  expect(routerMock.replace).not.toHaveBeenCalled();
 });

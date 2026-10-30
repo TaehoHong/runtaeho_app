@@ -10,12 +10,14 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useScreenLifetime } from '~/shared/hooks/useScreenLifetime';
+import { getSessionSnapshot, isSessionCurrent } from '~/features/auth/stores/authStore';
 import { TopScreenSafeAreaView } from '~/shared/components';
 import { Text } from '~/shared/components/typography';
 import { GREY, PRIMARY, RED } from '~/shared/styles';
 import type { ShoeViewModel } from '../models';
 import { createPatchShoeDto } from '../models';
-import { shoeService } from '../services';
+import { usePatchShoe } from '../services';
 
 /**
  * 신발 수정 화면
@@ -33,6 +35,8 @@ export const EditShoeView: React.FC<EditShoeViewProps> = ({
   onSuccess,
 }) => {
   useAppLanguage();
+  const captureLifetime = useScreenLifetime();
+  const { mutateAsync: patchShoe } = usePatchShoe();
   const [brand, setBrand] = useState(shoe.brand);
   const [model, setModel] = useState(shoe.model);
   const [targetDistance, setTargetDistance] = useState(
@@ -55,16 +59,19 @@ export const EditShoeView: React.FC<EditShoeViewProps> = ({
 
   // 브랜드 입력 처리
   const handleBrandChange = (text: string) => {
+    if (isSubmitting) return;
     setBrand(text);
   };
 
   // 모델명 입력 처리
   const handleModelChange = (text: string) => {
+    if (isSubmitting) return;
     setModel(text);
   };
 
   // 목표 거리 입력 처리
   const handleTargetDistanceChange = (text: string) => {
+    if (isSubmitting) return;
     setTargetDistance(text);
 
     // 숫자 검증
@@ -91,6 +98,9 @@ export const EditShoeView: React.FC<EditShoeViewProps> = ({
   const handleSubmit = async () => {
     if (!isFormValid() || isSubmitting) return;
 
+    const isScreenCurrent = captureLifetime();
+    const session = getSessionSnapshot();
+    const isCurrent = () => isScreenCurrent() && isSessionCurrent(session);
     try {
       setIsSubmitting(true);
       const dto = createPatchShoeDto(shoe.id, {
@@ -99,10 +109,11 @@ export const EditShoeView: React.FC<EditShoeViewProps> = ({
         targetDistance: parseInt(targetDistance) * 1000, // km to meters
       });
 
-      await shoeService.patchShoe(dto);
+      await patchShoe(dto);
       console.log('✅ [EditShoeView] 신발 수정 완료');
 
       // 성공 콜백 호출
+      if (!isCurrent()) return;
       onSuccess?.();
       onClose?.();
     } catch (error) {
@@ -130,6 +141,7 @@ export const EditShoeView: React.FC<EditShoeViewProps> = ({
             placeholder={t("신발의 브랜드를 입력해주세요.")}
             value={brand}
             onChangeText={handleBrandChange}
+            editable={!isSubmitting}
           />
 
           {/* 모델명 입력 */}
@@ -138,6 +150,7 @@ export const EditShoeView: React.FC<EditShoeViewProps> = ({
             placeholder={t("신발의 모델명을 입력해주세요.")}
             value={model}
             onChangeText={handleModelChange}
+            editable={!isSubmitting}
           />
 
           {/* 목표 거리 입력 */}
@@ -146,6 +159,7 @@ export const EditShoeView: React.FC<EditShoeViewProps> = ({
             placeholder={t("목표 거리를 입력해주세요.")}
             value={targetDistance}
             onChangeText={handleTargetDistanceChange}
+            editable={!isSubmitting}
             keyboardType="numeric"
             error={targetDistanceError}
           />
@@ -199,6 +213,7 @@ interface InputFieldProps {
   placeholder: string;
   value: string;
   onChangeText: (text: string) => void;
+  editable: boolean;
   keyboardType?: 'default' | 'numeric';
   error?: string;
 }
@@ -208,6 +223,7 @@ const InputField: React.FC<InputFieldProps> = ({
   placeholder,
   value,
   onChangeText,
+  editable,
   keyboardType = 'default',
   error,
 }) => {
@@ -221,6 +237,7 @@ const InputField: React.FC<InputFieldProps> = ({
         placeholderTextColor={GREY[300]}
         value={value}
         onChangeText={onChangeText}
+        editable={editable}
         keyboardType={keyboardType}
         autoCapitalize="none"
         autoCorrect={false}

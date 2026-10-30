@@ -25,6 +25,7 @@ import { SessionSupersededError } from '~/utils/storage/errors';
 import { setUserContext } from '~/config/sentry';
 import { resetAllAppData, waitForLogout } from '~/shared/services/AppResetService';
 import { queryClient } from '~/services/queryClient';
+import { pointService } from '~/features/point/services/pointService';
 
 /**
  * 통합 인증 Hook
@@ -159,6 +160,7 @@ export const useAuth = () => {
       ? isSessionGenerationCurrent(snapshot.generation) : isSessionCurrent(snapshot);
     try {
       setLoading(true);
+      const pointRead = pointService.beginUserPointRead();
       const userData = await userService.getUserData({ sessionSnapshot: snapshot });
       if (!isCurrent()) return;
 
@@ -166,7 +168,7 @@ export const useAuth = () => {
         const user = userDataDtoToUser(userData);
         setLoginData({
           user,
-          totalPoint: userData.totalPoint,
+          totalPoint: pointService.completeUserPointRead(pointRead, userData.totalPoint),
           avatarId: userData.avatarId,
           haveRunningRecord: userData.haveRunningRecord,
           equippedItems: convertEquippedItems(userData.equippedItems || []),

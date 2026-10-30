@@ -16,6 +16,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useScreenLifetime } from '~/shared/hooks/useScreenLifetime';
+import { getSessionSnapshot, isSessionCurrent } from '~/features/auth/stores/authStore';
 import { useAuth } from '~/features/auth/hooks/useAuth';
 import { Text } from '~/shared/components/typography';
 import { useMediaPicker } from '~/shared/hooks';
@@ -29,6 +31,7 @@ import { userService } from '../services/userService';
 export const ProfileEditView: React.FC = () => {
   useAppLanguage();
   const router = useRouter();
+  const captureLifetime = useScreenLifetime();
   const { user: currentUser, refreshUserData } = useAuth();
 
   const [nickname, setNickname] = useState(currentUser?.nickname || '');
@@ -94,6 +97,9 @@ export const ProfileEditView: React.FC = () => {
       return;
     }
 
+    const isScreenCurrent = captureLifetime();
+    const session = getSessionSnapshot();
+    const isCurrent = () => isScreenCurrent() && isSessionCurrent(session);
     setIsLoading(true);
     try {
       const updateParams: Parameters<typeof userService.updateProfile>[0] = {};
@@ -112,16 +118,20 @@ export const ProfileEditView: React.FC = () => {
 
       await userService.updateProfile(updateParams);
 
+      if (!isSessionCurrent(session)) return;
+
       // 사용자 정보 새로고침
       await refreshUserData();
 
+      if (!isCurrent()) return;
       Alert.alert(t("완료"), t("프로필이 수정되었습니다."), [
         {
           text: t("확인"),
-          onPress: () => router.back(),
+          onPress: () => { if (isCurrent()) router.back(); },
         },
       ]);
     } catch (error) {
+      if (!isCurrent()) return;
       console.error('프로필 수정 실패:', error);
       Alert.alert(t("오류"), t("프로필 수정에 실패했습니다. 다시 시도해주세요."));
     } finally {
@@ -133,13 +143,20 @@ export const ProfileEditView: React.FC = () => {
    * 뒤로가기 (변경사항 확인)
    */
   const handleBack = () => {
+    if (isLoading) {
+      router.back();
+      return;
+    }
+
+    const isScreenCurrent = captureLifetime();
+    const session = getSessionSnapshot();
     const nicknameChanged = nickname.trim() !== currentUser?.nickname;
     const imageChanged = selectedImage !== null;
 
     if (nicknameChanged || imageChanged) {
       Alert.alert(t("변경 사항 취소"), t("수정된 내용이 저장되지 않습니다. 나가시겠습니까?"), [
         { text: t("계속 편집"), style: 'cancel' },
-        { text: t("나가기"), style: 'destructive', onPress: () => router.back() },
+        { text: t("나가기"), style: 'destructive', onPress: () => { if (isScreenCurrent() && isSessionCurrent(session)) router.back(); } },
       ]);
     } else {
       router.back();

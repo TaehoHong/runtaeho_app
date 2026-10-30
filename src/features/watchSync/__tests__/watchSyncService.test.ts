@@ -6,7 +6,7 @@ import type { CompletedRunningRequest } from '../types';
 jest.mock('react-native', () => ({ NativeModules: { RNWatchSyncBridge: { getPendingRecords: jest.fn(), acknowledgeRecord: jest.fn(), setOwnerUserId: jest.fn() } } }));
 jest.mock('~/features/auth/stores/authStore', () => ({ getSessionSnapshot: jest.fn(), isSessionCurrent: jest.fn(), useAuthStore: { getState: () => ({ isLoggedIn: true, accessToken: 'available' }) } }));
 jest.mock('~/features/running/services/OfflineStorageService', () => ({ offlineStorageService: { serializeReplay: (work: () => Promise<void>) => work() } }));
-jest.mock('~/services/api/client', () => ({ apiClient: { post: jest.fn() } }));
+jest.mock('~/services/api/client', () => ({ apiClient: { get: jest.fn(), post: jest.fn() } }));
 jest.mock('~/services/queryClient', () => ({ queryClient: { invalidateQueries: jest.fn() }, queryKeys: { running: { all: ['running'] }, statistics: { all: ['stats'] }, league: { current: ['league'] }, point: { all: ['points'] }, user: { all: ['user'] } } }));
 const record: CompletedRunningRequest = { schemaVersion: 1, sessionId: 'e8dd6930-5915-4c6a-b57a-7538eab48b4b', ownerUserId: 7, source: 'APPLE_WATCH', startTimestamp: 10, endTimestamp: 20, distance: 12, durationSec: 10, cadence: 0, heartRate: 0, calorie: 0, gpsPoints: [] };
 const pending = watchSyncBridge!.getPendingRecords as jest.Mock;
@@ -17,6 +17,7 @@ beforeEach(async () => {
   await AsyncStorage.clear();
   (getSessionSnapshot as jest.Mock).mockReturnValue({ generation: 1, userId: 7 });
   (isSessionCurrent as jest.Mock).mockReturnValue(true);
+  jest.mocked(apiClient.get).mockImplementation(async () => ({ data: { userId: getSessionSnapshot().userId, point: 1234 } }));
   pending.mockResolvedValue([record]);
   post.mockResolvedValue({ data: { sessionId: record.sessionId, runningRecordId: 99, status: 'CREATED' } });
 });

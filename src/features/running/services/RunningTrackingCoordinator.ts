@@ -290,40 +290,35 @@ export class RunningTrackingCoordinator {
   }
 
   private async stopSessionInternal(): Promise<{ distance: number; locations: Location[] }> {
-    try {
-      locationService.stopTracking();
-      const hasRegisteredBackgroundTask = await backgroundTaskService.isTaskRegistered();
-
-      if (this.source === 'background') {
-        if (hasRegisteredBackgroundTask) {
-          await backgroundTaskService.stopBackgroundTracking();
-        }
-        this.setSnapshot((await this.takeBackgroundState()).snapshot, false);
-      } else {
-        if (hasRegisteredBackgroundTask) {
-          await backgroundTaskService.stopBackgroundTracking();
-        }
-      }
-
-      return {
-        distance: this.snapshot.distance,
-        locations: [...this.snapshot.locations],
-      };
-    } finally {
-      this.currentRecordId = null;
-      this.source = 'idle';
-      this.setSnapshot({
-        source: 'idle',
-        latestPaceSignal: null,
-        paceState: createInitialPaceAccumulatorState(),
-        trackingData: this.snapshot.trackingData
-          ? {
-              ...this.snapshot.trackingData,
-              isTracking: false,
-            }
-          : this.snapshot.trackingData,
-      });
+    locationService.stopTracking();
+    const hasRegisteredBackgroundTask = await backgroundTaskService.isTaskRegistered();
+    this.assertCurrentOperation();
+    if (hasRegisteredBackgroundTask) {
+      await backgroundTaskService.stopBackgroundTracking();
+      this.assertCurrentOperation();
     }
+    if (this.source === 'background') {
+      const backgroundState = await this.takeBackgroundState();
+      this.assertCurrentOperation();
+      this.setSnapshot(backgroundState.snapshot, false);
+    }
+
+    // Retain the source on failure so a retry can drain the same pending data.
+    this.currentRecordId = null;
+    this.source = 'idle';
+    this.runningState = RunningState.Stopped;
+    this.setSnapshot({
+      source: 'idle',
+      latestPaceSignal: null,
+      paceState: createInitialPaceAccumulatorState(),
+      trackingData: this.snapshot.trackingData
+        ? { ...this.snapshot.trackingData, isTracking: false }
+        : this.snapshot.trackingData,
+    });
+    return {
+      distance: this.snapshot.distance,
+      locations: [...this.snapshot.locations],
+    };
   }
 
   pauseSession(): void {

@@ -27,7 +27,6 @@ import type { Item, Avatar, PurchaseItemsRequest, UpdateEquippedItemsRequest } f
 import { avatarService } from './avatarService';
 import type { CursorResult } from '~/shared/utils/dto/CursorResult';
 import { pointService } from '~/features/point/services/pointService';
-import { useUserStore } from '~/stores/user/userStore';
 import { getSessionSnapshot, isSessionCurrent, type SessionSnapshot } from '~/features/auth/stores/authStore';
 import { SessionSupersededError } from '~/utils/storage/errors';
 
@@ -146,7 +145,6 @@ export function usePurchaseItems(): UseMutationResult<
   unknown
 > {
   const queryClient = useQueryClient();
-  const setTotalPoint = useUserStore((state) => state.setTotalPoint);
 
   const mutation = useMutation<void, Error, PurchaseOperation>({
     mutationFn: ({ sessionSnapshot, ...request }) =>
@@ -173,10 +171,9 @@ export function usePurchaseItems(): UseMutationResult<
       for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         if (!isSessionCurrent(sessionSnapshot)) return;
         try {
-          const { point } = await pointService.getUserPoint(sessionSnapshot);
+          await pointService.refreshUserPoint(sessionSnapshot);
           if (!isSessionCurrent(sessionSnapshot)) return;
-          setTotalPoint(point);
-          console.log(`💰 [usePurchaseItems] 포인트 동기화 성공: ${point}`);
+          console.log('💰 [usePurchaseItems] 포인트 동기화 성공');
           break; // 성공 시 루프 종료
         } catch (error) {
           if (!isSessionCurrent(sessionSnapshot)) return;

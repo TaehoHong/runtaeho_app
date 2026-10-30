@@ -2,7 +2,7 @@ import { useWatchSync } from '~/features/watchSync/useWatchSync';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useAuth } from '../features/auth/hooks/useAuth';
-import { useAuthStore, getSessionSnapshot, isSessionCurrent, isSessionGenerationCurrent } from '../features/auth/stores/authStore';
+import { useAuthStore, getSessionSnapshot, isSessionCurrent, isSessionGenerationCurrent, waitForAuthHydration } from '../features/auth/stores/authStore';
 import { isAgreedOnTermsFromToken } from '~/features/auth/utils/jwtUtils';
 import { useOfflineSync } from '../features/running/hooks/useOfflineSync';
 import { useAppStore, ViewState } from '~/stores';
@@ -31,6 +31,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const { syncOfflineData } = useOfflineSync();
   const startupGeneration = useRef(sessionGeneration);
   const [isBootstrapComplete, setIsNavigationReady] = useState(false);
+  const [didRestorePersistedState, setDidRestorePersistedState] = useState(false);
   const [initializedSession, setInitializedSession] = useState<{
     generation: number; userId: number | null; canReplay: boolean;
   } | null>(null);
@@ -79,16 +80,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [verifyAndRefreshToken, refreshUserData]);
 
   useEffect(() => {
-    if (sessionGeneration !== startupGeneration.current) {
-      // 새 로그인은 useAuth가 토큰과 사용자 복원을 완료한 뒤 세션을 교체한다.
-      setInitializedSession({ ...getSessionSnapshot(), canReplay: useAuthStore.getState().isLoggedIn });
-      setIsNavigationReady(true);
-      return;
-    }
     let active = true;
     const init = async () => {
+      const restored = await waitForAuthHydration();
+      if (!active || !isSessionGenerationCurrent(sessionGeneration)) return;
+      const isNewSession = sessionGeneration !== startupGeneration.current;
+      setDidRestorePersistedState(restored || isNewSession);
+      if (isNewSession) {
+        // 새 로그인은 useAuth가 토큰과 사용자 복원을 완료한 뒤 세션을 교체한다.
+        setInitializedSession({ ...getSessionSnapshot(), canReplay: useAuthStore.getState().isLoggedIn });
+        setIsNavigationReady(true);
+        return;
+      }
       console.log('🔐 [AuthProvider] 인증 상태 초기화 시작');
-      const canReplay = await initializeAuthState(() => active);
+      const canReplay = restored && await initializeAuthState(() => active);
       if (!active || !isSessionGenerationCurrent(sessionGeneration)) return;
       setInitializedSession({ ...getSessionSnapshot(), canReplay });
       setIsNavigationReady(true);
@@ -150,7 +155,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     // 로그인 상태에 따라 네비게이션 제어
     try {
-      if (isLoggedIn) {
+      if (isLoggedIn && didRestorePersistedState) {
         if (requiresTermsAgreement) {
           // 약관 미동의 → 약관 동의 화면으로
           console.log('📄 [AuthProvider] 약관 미동의 → 약관 동의 화면으로 이동');
@@ -184,7 +189,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setTimeout(() => setIsNavigationReady(true), 200);
       }, 500);
     }
-  }, [isLoggedIn, requiresTermsAgreement, sessionGeneration, userId, isNavigationReady, isAutoUpdateCompleted]);
+  }, [isLoggedIn, requiresTermsAgreement, sessionGeneration, userId, isNavigationReady, isAutoUpdateCompleted, didRestorePersistedState]);
 
   return <>{children}</>;
 };

@@ -32,6 +32,7 @@ export const useGpsTracking = ({
   const lastProcessedLocationCountRef = useRef(0);
   const currentSegmentDistanceRef = useRef(0);
   const currentSegmentLocationsRef = useRef<Location[]>([]);
+  const isStoppingRef = useRef(false);
   const previousSourceRef = useRef<'idle' | 'foreground' | 'background'>('idle');
   const segmentStartTimeSourceRef = useRef(segmentStartTimeRef);
   const onSegmentCreateRef = useRef(onSegmentCreate);
@@ -81,6 +82,7 @@ export const useGpsTracking = ({
 
         const currentSegmentStartTime = segmentStartTimeSourceRef.current.current;
         if (
+          !isStoppingRef.current &&
           currentSegmentDistanceRef.current >= SEGMENT_DISTANCE_THRESHOLD &&
           currentSegmentStartTime !== null
         ) {
@@ -173,12 +175,19 @@ export const useGpsTracking = ({
   }, []);
 
   const stopGpsTracking = useCallback(async () => {
-    runningStateRef.current = RunningState.Stopped;
-    currentSegmentDistanceRef.current = 0;
-    currentSegmentLocationsRef.current = [];
-    const result = await coordinatorRef.current!.stopSession();
-    console.log('[useGpsTracking] Tracking session stopped');
-    return result;
+    // Keep accepting the final source snapshot until the coordinator has drained it.
+    // Lifecycle finalizes that progress with the original end-button timestamp.
+    isStoppingRef.current = true;
+    try {
+      const result = await coordinatorRef.current!.stopSession();
+      runningStateRef.current = RunningState.Stopped;
+      currentSegmentDistanceRef.current = 0;
+      currentSegmentLocationsRef.current = [];
+      console.log('[useGpsTracking] Tracking session stopped');
+      return result;
+    } finally {
+      isStoppingRef.current = false;
+    }
   }, []);
 
   const pauseGpsTracking = useCallback(() => {

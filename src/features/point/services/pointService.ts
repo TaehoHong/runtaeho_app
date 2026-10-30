@@ -6,7 +6,12 @@ import { apiClient } from '../../../services/api/client';
 import { API_ENDPOINTS } from '../../../services/api/config';
 import type { PointHistory, PointHistoryRequest } from '../models';
 import type { CursorResult } from '~/shared/utils/dto/CursorResult';
-import type { SessionSnapshot } from '~/features/auth/stores/authStore';
+import { getSessionSnapshot, isSessionCurrent, type SessionSnapshot } from '~/features/auth/stores/authStore';
+import { useUserStore } from '~/stores/user/userStore';
+import { SessionSupersededError } from '~/utils/storage/errors';
+// Profile/point reads share ordering with completed balance mutations.
+let balanceRevision = 0;
+
 /**
  * Point API Service
  */
@@ -38,6 +43,40 @@ export const pointService = {
       sessionSnapshot ? { sessionSnapshot } : undefined
     );
     return data;
+  },
+
+  beginUserPointRead: (): number => ++balanceRevision,
+
+  // A whole-profile response may update metadata without replacing a newer balance.
+  completeUserPointRead: (revision: number, point: number): number => {
+    if (revision !== balanceRevision) return useUserStore.getState().totalPoint;
+    // An already pending GET can commit while END is in flight as well.
+    balanceRevision += 1;
+    return point;
+  },
+
+  captureUserPointRevision: (): number => balanceRevision,
+
+  reconcileCompletedPoint: async (point: number, revision: number, snapshot: SessionSnapshot): Promise<void> => {
+    if (!isSessionCurrent(snapshot)) return;
+    if (revision === balanceRevision) {
+      // Completion invalidates older reads even when END started after those reads.
+      balanceRevision += 1;
+      useUserStore.getState().setTotalPoint(point);
+    } else {
+      // Request-start order cannot date a mutation's server commit. Read again
+      // after completion instead of applying or dropping a possibly stale DTO.
+      await pointService.refreshUserPoint(snapshot);
+    }
+  },
+
+  /** 서버 잔액을 현재 세션의 표시 상태에 반영한다. */
+  refreshUserPoint: async (snapshot = getSessionSnapshot()): Promise<void> => {
+    if (snapshot.userId === null || !isSessionCurrent(snapshot)) throw new SessionSupersededError();
+    const refresh = pointService.beginUserPointRead();
+    const { userId, point } = await pointService.getUserPoint(snapshot);
+    if (!isSessionCurrent(snapshot) || userId !== snapshot.userId) throw new SessionSupersededError();
+    useUserStore.getState().setTotalPoint(pointService.completeUserPointRead(refresh, point));
   },
 
   /**

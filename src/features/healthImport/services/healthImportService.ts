@@ -1,5 +1,6 @@
 import { getSessionSnapshot, isSessionCurrent } from '~/features/auth/stores/authStore';
 import { SessionSupersededError } from '~/utils/storage/errors';
+import { pointService } from '~/features/point/services/pointService';
 import { Platform } from 'react-native';
 import { queryClient, queryKeys } from '~/services/queryClient';
 import { apiClient } from '~/services/api/client';
@@ -222,8 +223,8 @@ const validateImportAcknowledgment = (response: HealthImportBatchResponse, recor
 const importWorkouts = async (
   workouts: HealthRunningWorkout[],
   snapshot: SessionSnapshot,
-  isolatePermanentRejections = false,
-  result = emptySyncResult()
+  isolatePermanentRejections: boolean,
+  result: HealthImportSyncResult
 ): Promise<HealthImportSyncResult> => {
   const upload = async (records: HealthImportBatchRecord[]): Promise<void> => {
     assertCurrentSession(snapshot);
@@ -311,12 +312,11 @@ const validateChangePage = (value: unknown): HealthRunningWorkoutChanges => {
   return page as unknown as HealthRunningWorkoutChanges;
 };
 
-const syncChanges = async (snapshot: SessionSnapshot): Promise<HealthImportSyncResult> => {
+const syncChanges = async (snapshot: SessionSnapshot, result: HealthImportSyncResult): Promise<HealthImportSyncResult> => {
   const readChanges = healthImportBridge.readRunningWorkoutChanges;
   if (!readChanges) throw invalidChangePage();
   let cursor = await healthSyncCursorStore.read(snapshot);
   let resetAttempted = false;
-  const result = emptySyncResult();
   try {
     while (true) {
       assertCurrentSession(snapshot);
@@ -373,13 +373,25 @@ export const healthImportService = {
   },
 
   sync: (snapshot = getSessionSnapshot()): Promise<HealthImportSyncResult> => {
-    const sync = syncTail.then(() => syncHealthWorkouts(snapshot));
+    const sync = syncTail.then(async () => {
+      const result = emptySyncResult();
+      try {
+        return await syncHealthWorkouts(snapshot, result);
+      } finally {
+        if (result.awardedPoint > 0 && isSessionCurrent(snapshot)) {
+          // Balance reads cannot undo accepted imports or prevent cursor commits.
+          await pointService.refreshUserPoint(snapshot).catch(() => {
+            console.warn('[HealthImport] Point balance refresh failed');
+          });
+        }
+      }
+    });
     syncTail = sync.then(() => undefined, () => undefined);
     return sync;
   },
 };
 
-const syncHealthWorkouts = async (snapshot: SessionSnapshot): Promise<HealthImportSyncResult> => {
+const syncHealthWorkouts = async (snapshot: SessionSnapshot, result: HealthImportSyncResult): Promise<HealthImportSyncResult> => {
   assertCurrentSession(snapshot);
   const configuration = await healthImportService.getConfiguration(snapshot);
   assertCurrentSession(snapshot);
@@ -414,7 +426,7 @@ const syncHealthWorkouts = async (snapshot: SessionSnapshot): Promise<HealthImpo
   if (Object.prototype.hasOwnProperty.call(configuration, 'healthImportRewardCutoffTimestamp') &&
       healthImportBridge.readRunningWorkoutChanges) {
     if (snapshot.userId == null || configuration.userId !== snapshot.userId) throw new SessionSupersededError();
-    return syncChanges(snapshot);
+    return syncChanges(snapshot, result);
   }
 
   // Old server/native builds retain timestamp reads; delayed historical writes
@@ -440,7 +452,7 @@ const syncHealthWorkouts = async (snapshot: SessionSnapshot): Promise<HealthImpo
   });
 
   if (configuration.healthImportLastSyncedTimestamp == null) {
-    const result = await importWorkouts(importableWorkouts, snapshot);
+    await importWorkouts(importableWorkouts, snapshot, false, result);
     assertCurrentSession(snapshot);
     await finalizeSync(snapshot);
     return result;
@@ -450,5 +462,5 @@ const syncHealthWorkouts = async (snapshot: SessionSnapshot): Promise<HealthImpo
     return { importedCount: 0, duplicateCount: 0, personalOnlyCount: 0, awardedPoint: 0 };
   }
 
-  return importWorkouts(importableWorkouts, snapshot);
+  return importWorkouts(importableWorkouts, snapshot, false, result);
 };

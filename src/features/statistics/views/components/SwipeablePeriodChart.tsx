@@ -76,21 +76,6 @@ interface CachedChartData {
   referenceDate: Date;
 }
 
-const areChartDataPointsEqual = (
-  prevData: ChartDataPoint[] = [],
-  nextData: ChartDataPoint[] = []
-) => {
-  if (prevData.length !== nextData.length) return false;
-  return prevData.every((item, i) => {
-    const nextItem = nextData[i];
-    return (
-      nextItem !== undefined &&
-      item.datetime === nextItem.datetime &&
-      item.distance === nextItem.distance
-    );
-  });
-};
-
 const SwipeablePeriodChartComponent: React.FC<SwipeablePeriodChartProps> = ({
   data,
   period,
@@ -468,28 +453,5 @@ const styles = StyleSheet.create({
   },
 });
 
-/**
- * memo로 감싸서 불필요한 리렌더링 방지
- *
- * 주의: 내부에서 cachedChart를 사용하므로 props 변경에 덜 민감함
- * isInitialLoading 변경은 허용 (로딩 오버레이 제어)
- */
-export const SwipeablePeriodChart = memo(SwipeablePeriodChartComponent, (prev, next) => {
-  // period 변경은 항상 리렌더링
-  if (prev.period !== next.period) return false;
-
-  // isInitialLoading 변경은 항상 리렌더링 (로딩 오버레이)
-  if (prev.isInitialLoading !== next.isInitialLoading) return false;
-  if (prev.isTrendComparisonEnabled !== next.isTrendComparisonEnabled) return false;
-
-  // data, referenceDate, isEmpty는 내부 캐시로 관리되므로
-  // 변경되어도 리렌더링 필요 (useEffect에서 캐시 업데이트)
-  if (!areChartDataPointsEqual(prev.data, next.data)) return false;
-  if (!areChartDataPointsEqual(prev.comparisonData, next.comparisonData)) return false;
-  if (!areChartDataPointsEqual(prev.prevComparisonData, next.prevComparisonData)) return false;
-  if (!areChartDataPointsEqual(prev.nextComparisonData, next.nextComparisonData)) return false;
-  if (prev.referenceDate.getTime() !== next.referenceDate.getTime()) return false;
-  if (prev.isEmpty !== next.isEmpty) return false;
-
-  return true;
-});
+// 모든 prop 변경을 반영해 프리페치 슬롯과 페칭 완료 후 캐시를 함께 갱신한다.
+export const SwipeablePeriodChart = memo(SwipeablePeriodChartComponent);

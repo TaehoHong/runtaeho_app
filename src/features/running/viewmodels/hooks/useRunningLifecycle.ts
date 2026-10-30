@@ -239,19 +239,16 @@ export const useRunningLifecycle = ({
       let finalRecord = finalRecordRef.current ?? currentRecord;
       // 저장 재시도에서는 첫 종료의 시각·거리·세그먼트를 그대로 사용한다.
       if (!isRetry) {
-        const firstEndAttempt = endTimeRef.current === null;
         const endedAt = endTimeRef.current ?? Date.now();
         endTimeRef.current = endedAt;
         clockRef.current.pause(endedAt);
         pedometerService.stopTracking();
         const endTimestamp = Math.floor(endedAt / 1000);
         setLeagueBeforeRunningEnd(null);
-        // 0. 마지막 세그먼트 저장
-        if (firstEndAttempt) finalizeCurrentSegment();
-
-        // 1. GPS 추적 중지
+        // 1. 마지막 source snapshot까지 수거한 뒤 세그먼트를 확정한다.
         const { distance: finalDistance } = await stopGpsTracking();
         checkCurrent();
+        finalizeCurrentSegment(endedAt);
 
         // 2. 종료 시점에 중지한 Pedometer의 최종 값 조회
         const finalSteps = pedometerService.getCurrentSteps();

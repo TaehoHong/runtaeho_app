@@ -11,14 +11,17 @@ import { ItemStatus, type Item } from '../models/Item';
 import type { Avatar } from '../models/Avatar';
 import { AvatarView } from '../views/AvatarView';
 import { renderWithProviders } from '~/test-utils/renderWithProviders';
+import { createUser } from '~/features/user/models/User';
 import { getSessionSnapshot } from '~/features/auth/stores/authStore';
 
 jest.mock('../services/avatarService', () => ({
   avatarService: { getItems: jest.fn(), purchaseItems: jest.fn(), updateEquippedItems: jest.fn() },
 }));
-jest.mock('~/features/point/services/pointService', () => ({
-  pointService: { getUserPoint: jest.fn() },
-}));
+jest.mock('~/features/point/services/pointService', () => {
+  const actual = jest.requireActual('~/features/point/services/pointService');
+  actual.pointService.getUserPoint = jest.fn();
+  return actual;
+});
 jest.mock('~/features/unity/services/UnityService', () => ({
   unityService: { syncAvatar: jest.fn().mockResolvedValue(undefined) },
 }));
@@ -45,6 +48,7 @@ function setup() {
 
 beforeEach(() => {
   useUserStore.setState({
+    currentUser: createUser({ id: 1, nickname: 'User 1' }),
     avatarId: 1, equippedItems: { 1: hair, 2: cloth }, hairColor: '#000000', totalPoint: 2500,
   });
   jest.mocked(avatarService.getItems).mockImplementation(async ({ itemTypeId }) => ({

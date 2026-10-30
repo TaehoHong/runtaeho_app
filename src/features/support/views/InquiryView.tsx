@@ -16,11 +16,14 @@ import {
 import { TopScreenSafeAreaView } from '~/shared/components';
 import { Text, TextInput } from '~/shared/components/typography';
 import { GREY, PRIMARY, RED } from '~/shared/styles';
+import { useScreenLifetime } from '~/shared/hooks/useScreenLifetime';
+import { getSessionSnapshot, isSessionCurrent } from '~/features/auth/stores/authStore';
 import { inquiryService } from '../inquiryService';
 
 export const InquiryView: React.FC = () => {
   useAppLanguage();
   const router = useRouter();
+  const captureLifetime = useScreenLifetime();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [replyEmail, setReplyEmail] = useState('');
@@ -34,6 +37,9 @@ export const InquiryView: React.FC = () => {
       return;
     }
 
+    const isScreenCurrent = captureLifetime();
+    const session = getSessionSnapshot();
+    const isCurrent = () => isScreenCurrent() && isSessionCurrent(session);
     setError('');
     setSubmitting(true);
     try {
@@ -43,10 +49,12 @@ export const InquiryView: React.FC = () => {
         content: content.trim(),
         replyEmail: replyEmail.trim(),
       });
+      if (!isCurrent()) return;
       router.replace(
         `/user/inquiry-done?trackingNo=${encodeURIComponent(result.trackingNo)}` as Href
       );
     } catch {
+      if (!isCurrent()) return;
       Alert.alert(t("문의 접수 실패"), t("문의를 접수하지 못했어요. 잠시 후 다시 보내주세요."), [
         { text: t("확인") },
       ]);
@@ -71,7 +79,8 @@ export const InquiryView: React.FC = () => {
             <Field
               label={t("제목")}
               value={title}
-              onChangeText={setTitle}
+              onChangeText={(value) => { if (!submitting) setTitle(value); }}
+              editable={!submitting}
               placeholder={t("문의 제목을 입력해주세요.")}
               returnKeyType="next"
             />
@@ -79,7 +88,8 @@ export const InquiryView: React.FC = () => {
             <Field
               label={t("문의 내용")}
               value={content}
-              onChangeText={setContent}
+              onChangeText={(value) => { if (!submitting) setContent(value); }}
+              editable={!submitting}
               placeholder={t("궁금한 점을 자세히 적어주세요.")}
               multiline
               inputStyle={styles.contentInput}
@@ -89,7 +99,8 @@ export const InquiryView: React.FC = () => {
             <Field
               label={t("답변 받을 이메일")}
               value={replyEmail}
-              onChangeText={setReplyEmail}
+              onChangeText={(value) => { if (!submitting) setReplyEmail(value); }}
+              editable={!submitting}
               placeholder="email@example.com"
               keyboardType="email-address"
               autoCapitalize="none"
@@ -148,6 +159,7 @@ interface FieldProps {
   onChangeText: (value: string) => void;
   placeholder: string;
   inputStyle?: object;
+  editable?: boolean;
   multiline?: boolean;
   keyboardType?: 'default' | 'email-address';
   autoCapitalize?: 'none' | 'sentences';
