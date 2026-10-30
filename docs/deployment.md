@@ -334,9 +334,10 @@ npm run deploy:ota -- -m "러닝 상세 화면 문구 수정" -p ios
 npm run deploy:ota -- -m "스테이징 확인" -b staging -p android
 ```
 
-모바일 양쪽을 발행할 때는 `-p all`을 사용할 수 있다. 현재 설치된 EAS CLI는 이를
-Expo export의 `--platform ios --platform android`로 전달한다. 플랫폼을 지정하지 않은
-일반 Expo export는 웹도 포함할 수 있으므로 모바일 검증에는 플랫폼을 명시한다.
+모바일 양쪽을 발행할 때는 `-p all`을 사용할 수 있다. 배포 도구는 이를 iOS·Android의
+개별 `eas update --platform` 호출로 나누며 각 플랫폼은 별도 update group을 갖는다.
+EAS의 구형 export 경로에서는 `all`에 웹도 포함되므로 그대로 전달하지 않는다.
+일반 Expo export로 모바일 양쪽을 검증할 때도 플랫폼을 명시한다.
 
 절차는 이렇게 돈다.
 

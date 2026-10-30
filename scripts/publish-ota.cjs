@@ -32,11 +32,16 @@ if (!execute) {
     throw new Error('OTA 게시 전에 SENTRY_AUTH_TOKEN을 배포 환경에 설정한다.');
   }
   fs.mkdirSync('build', { recursive: true });
-  const output = uploadOnly ? path.resolve(message) : fs.mkdtempSync(path.resolve('build/ota-'));
-  const published = uploadOnly ? 0 : run(['--no-install', 'eas', 'update', '--branch', branch, '--environment', environment,
-    '--platform', platform, '--message', message, '--input-dir', output, '--emit-metadata', '--non-interactive']);
-  if (published !== 0) process.exitCode = published;
-  else {
+  // Legacy EAS export treats "all" as including web, so publish mobile targets explicitly.
+  const platforms = platform === 'all' ? ['ios', 'android'] : [platform];
+  for (const target of platforms) {
+    const output = uploadOnly ? path.resolve(message) : fs.mkdtempSync(path.resolve('build/ota-'));
+    const published = uploadOnly ? 0 : run(['--no-install', 'eas', 'update', '--branch', branch, '--environment', environment,
+      '--platform', target, '--message', message, '--input-dir', output, '--emit-metadata', '--non-interactive']);
+    if (published !== 0) {
+      process.exitCode = published;
+      break;
+    }
     let uploaded = 1;
     try {
       const files = fs.readdirSync(output, { recursive: true });
@@ -59,5 +64,6 @@ if (!execute) {
       console.error(`node scripts/publish-ota.cjs ${branch} ${environment} --upload-only ${quote(output)}`);
     }
     process.exitCode = uploaded;
+    if (uploaded !== 0) break;
   }
 }

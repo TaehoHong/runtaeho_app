@@ -505,6 +505,21 @@ test('OTA uploads the exact published artifact and retries upload without republ
   assert.doesNotMatch(failed.stdout + failed.stderr + f.calls(), /synthetic-upload-token/);
 });
 
+test('OTA all publishes each mobile platform without invoking a web export', (t) => {
+  const f = fixture(t);
+  stubOta(f);
+  const result = f.run('node', ['scripts/publish-ota.cjs', 'production', 'production', 'all', 'mobile release']);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  const calls = f.calls();
+  assert.match(calls, /eas update .*--platform ios /);
+  assert.match(calls, /eas update .*--platform android /);
+  assert.doesNotMatch(calls, /--platform all /);
+  const artifacts = [...calls.matchAll(/^artifact=(.+)$/gm)].map(match => match[1]);
+  assert.equal(artifacts.length, 2);
+  assert.notEqual(artifacts[0], artifacts[1]);
+  assert.equal(calls.match(/sentry-expo-upload-sourcemaps/g)?.length, 2);
+});
+
 test('OTA does not publish without its upload credential', (t) => {
   const f = fixture(t);
   stubOta(f);
