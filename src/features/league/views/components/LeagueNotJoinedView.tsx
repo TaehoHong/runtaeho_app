@@ -8,8 +8,9 @@ import { t, useAppLanguage } from '~/i18n';
  * - 모듈 레벨 캐싱으로 성능 최적화
  */
 
-import { useEffect, useRef, useMemo } from 'react';
-import { Animated, StyleSheet, Text, View, Easing } from 'react-native';
+import { useEffect, useRef, useMemo, useState } from 'react';
+import { Animated, AppState, StyleSheet, Text, View, Easing } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 import { Image } from 'expo-image';
 import { TIER_IMAGES } from '~/shared/constants/images';
 import { GREY } from '~/shared/styles';
@@ -179,9 +180,19 @@ const TierItem = ({
 
 export const LeagueNotJoinedView = () => {
   useAppLanguage();
+  const focused = useIsFocused();
+  const [foreground, setForeground] = useState(AppState.currentState === 'active');
+  const active = focused && foreground;
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', state => setForeground(state === 'active'));
+    return () => subscription.remove();
+  }, []);
+
   // 페이드인 애니메이션
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(20)).current;
+  const hasEntered = useRef(false);
 
   // 연속 스크롤 값 (무한히 증가)
   const scrollAnim = useRef(new Animated.Value(0)).current;
@@ -195,7 +206,8 @@ export const LeagueNotJoinedView = () => {
 
   // 초기 페이드인 애니메이션
   useEffect(() => {
-    Animated.parallel([
+    if (!active || hasEntered.current) return;
+    const animation = Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 500,
@@ -206,25 +218,29 @@ export const LeagueNotJoinedView = () => {
         duration: 500,
         useNativeDriver: true,
       }),
-    ]).start();
-  }, [fadeAnim, translateY]);
+    ]);
+    animation.start(({ finished }) => {
+      if (finished) hasEntered.current = true;
+    });
+    return () => animation.stop();
+  }, [active, fadeAnim, translateY]);
 
   // 캐러셀 자동 순환
   useEffect(() => {
+    if (!active) return;
     let intervalId: ReturnType<typeof setInterval>;
-    let isMounted = true;
+    let animation: Animated.CompositeAnimation | undefined;
 
     const animate = () => {
-      if (!isMounted) return;
-
       scrollValue.current += 1;
 
-      Animated.timing(scrollAnim, {
+      animation = Animated.timing(scrollAnim, {
         toValue: scrollValue.current,
         duration: ANIMATION_DURATION,
         easing: Easing.inOut(Easing.cubic),
         useNativeDriver: false,
-      }).start();
+      });
+      animation.start();
     };
 
     // 초기 딜레이 후 시작
@@ -234,11 +250,13 @@ export const LeagueNotJoinedView = () => {
     }, 1500);
 
     return () => {
-      isMounted = false;
       clearTimeout(initialDelay);
       if (intervalId) clearInterval(intervalId);
+      animation?.stop();
+      // Finish the interrupted slot while hidden so re-entry starts from a whole step.
+      scrollAnim.setValue(scrollValue.current);
     };
-  }, [scrollAnim]);
+  }, [active, scrollAnim]);
 
   return (
     <Animated.View
