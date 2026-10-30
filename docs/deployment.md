@@ -316,6 +316,16 @@ Google Play Console에서 만든 서비스 계정 JSON을 등록한다. `eas.jso
 `SENTRY_AUTH_TOKEN`을 셸 환경변수로 주입한다. 과거 Git에 들어간 토큰은 별도로 폐기하고
 교체해야 한다. 파일에서 제거해도 Git 이력이나 원격 서비스의 토큰이 폐기되지는 않는다.
 
+앱의 오류 수집은 `EXPO_PUBLIC_SENTRY_DSN`, 빌드·OTA 소스맵 업로드는 비공개
+`SENTRY_AUTH_TOKEN`을 사용한다. OTA에 사용하는 EAS `production`·`preview` 환경에는
+로컬 `env:exec`가 읽을 수 있도록 토큰을 **sensitive** visibility로 설정한다. 토큰은
+`EXPO_PUBLIC_` 변수로 만들지 않는다. 기존 Sentry 조직·프로젝트를 유지하는 계정 전환에는
+앱 DSN 변경이 필요하지 않다.
+
+런타임의 `release`·`dist`는 Sentry SDK의 네이티브 빌드 감지를 사용한다. OTA에서는
+`expo-update-id`·`expo-runtime-version`·`expo-channel`·`expo-is-embedded-update` 태그로
+업데이트를 구분한다. 실제 오류의 소스 위치 복원은 해당 빌드·OTA에서 별도로 검증한다.
+
 ## 3. 앱푸시 (OTA)
 
 ```bash
@@ -324,15 +334,27 @@ npm run deploy:ota -- -m "러닝 상세 화면 문구 수정" -p ios
 npm run deploy:ota -- -m "스테이징 확인" -b staging -p android
 ```
 
-현재 구성에서 `-p all`은 웹 정적 내보내기도 실행하며, 네이티브 전용 광고 모듈에서
-실패한다. 모바일 양쪽을 발행할 때는 `-p android`와 `-p ios`를 각각 실행한다.
+모바일 양쪽을 발행할 때는 `-p all`을 사용할 수 있다. 현재 설치된 EAS CLI는 이를
+Expo export의 `--platform ios --platform android`로 전달한다. 플랫폼을 지정하지 않은
+일반 Expo export는 웹도 포함할 수 있으므로 모바일 검증에는 플랫폼을 명시한다.
 
 절차는 이렇게 돈다.
 
 1. 선택한 플랫폼의 로컬 네이티브 런타임과 OTA 런타임 정합 확인
 2. 커밋되지 않은 변경 확인
-3. `eas env:exec`로 원격 환경변수를 읽고 필수 설정 검증 (로컬 `.env`/셸 값으로 누락을 보충하지 않음)
-4. `eas update --branch <브랜치> --environment <환경> --platform <플랫폼>`
+3. `eas env:exec`로 원격 환경변수를 읽고 필수 설정·`SENTRY_AUTH_TOKEN` 검증 (공개 앱 설정의 누락을 로컬 `.env`/셸 값으로 보충하지 않음)
+4. `build/ota-*`의 새 산출물 폴더를 선택해 `eas update --branch <브랜치> --environment <환경> --platform <플랫폼> --input-dir <폴더> --emit-metadata` 실행
+5. 게시 성공 후 각 JS/Hermes 번들의 소스맵·Debug ID를 확인하고 동일 폴더를 Sentry에 업로드
+
+업로더는 `@sentry/react-native`가 설치한 로컬 `sentry-expo-upload-sourcemaps` 실행 파일을
+`npx --no-install`로 사용한다. 게시 또는 업로드가 실패하면 전체 명령도 실패한다.
+게시 후 업로드만 실패하면 이미 게시된 OTA를 다시 만들지 않고 보존한 산출물로 재시도한다.
+오류 출력에 표시된 정확한 폴더와 환경을 사용한다.
+
+```bash
+node scripts/publish-ota.cjs production production --upload-only /absolute/path/to/build/ota-XXXXXX
+# staging은 staging preview --upload-only <폴더>
+```
 
 `update:prod`, `update:staging`, `release:ota`도 이 경로를 사용한다. OTA 명령은 앱 버전을
 자동 변경하지 않는다. `--dry-run`은 네트워크 없이 로컬 검사와 실행 계획만 표시한다.

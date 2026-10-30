@@ -88,7 +88,7 @@ describe('useAuth', () => {
     expect(useAuthStore.getState().isLoggedIn).toBe(true);
     expect(useUserStore.getState().currentUser?.nickname).toBe('Runner');
     expect(useUserStore.getState().hairColor).toBe('#000000');
-    expect(mockSetUserContext).toHaveBeenCalledWith('10', 'runner@test.com', 'Runner');
+    expect(mockSetUserContext).toHaveBeenCalledWith('10');
   });
 
   it('AUTH-HOOK-003 does not trigger login side-effects when token verification fails', async () => {

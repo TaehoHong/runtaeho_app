@@ -1,5 +1,25 @@
 import * as Sentry from '@sentry/react-native';
-import Constants from 'expo-constants';
+import * as Updates from 'expo-updates';
+
+let navigationIntegration: ReturnType<typeof Sentry.reactNavigationIntegration> | undefined;
+
+const safeDiagnosticData = (data?: Record<string, unknown>) => Object.fromEntries(
+  Object.entries(data ?? {}).filter(([key, value]) =>
+    ['type', 'method', 'status', 'operation', 'errorBoundary'].includes(key) &&
+    (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'))
+);
+
+const sanitizeEvent = <T extends Sentry.Event>(event: T): T => {
+  if (event.request) event.request = event.request.method ? { method: event.request.method } : {};
+  if (event.user) event.user = event.user.id ? { id: event.user.id } : {};
+  delete event.extra;
+  if (event.contexts?.custom) event.contexts.custom = safeDiagnosticData(event.contexts.custom);
+  return event;
+};
+
+export const registerSentryNavigationContainer = (ref: unknown) => {
+  navigationIntegration?.registerNavigationContainer(ref);
+};
 
 /**
  * Sentry 초기화 설정
@@ -14,17 +34,13 @@ export const initializeSentry = () => {
   }
 
   const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
-  const releaseVersion = Constants.expoConfig?.version ?? '0.0.0';
-  const distValue =
-    Constants.expoConfig?.ios?.buildNumber ??
-    Constants.expoConfig?.android?.versionCode?.toString() ??
-    null;
 
   if (!sentryDsn) {
     console.warn('Sentry DSN이 설정되지 않았습니다. 에러 리포팅이 비활성화됩니다.');
     return;
   }
 
+  navigationIntegration = Sentry.reactNavigationIntegration();
   const options: Sentry.ReactNativeOptions = {
     dsn: sentryDsn,
 
@@ -34,8 +50,13 @@ export const initializeSentry = () => {
     // 디버그 모드 (개발 환경에서만 활성화)
     debug: __DEV__,
 
-    // 앱 버전 정보
-    release: releaseVersion,
+    // release/dist는 SDK가 실제 설치된 네이티브 빌드에서 결정한다.
+    initialScope: { tags: {
+      'expo-update-id': Updates.updateId ?? 'embedded',
+      'expo-runtime-version': Updates.runtimeVersion ?? 'unknown',
+      'expo-channel': Updates.channel ?? 'unknown',
+      'expo-is-embedded-update': Updates.isEmbeddedLaunch,
+    } },
 
     // 성능 모니터링 (프로덕션에서만 활성화)
     enableAutoSessionTracking: true,
@@ -53,18 +74,25 @@ export const initializeSentry = () => {
 
     // 사용자 정보 자동 수집 비활성화 (개인정보 보호)
     sendDefaultPii: false,
+    enableLogs: false,
 
     // 에러 필터링
     beforeSend(event, hint) {
-      // Request metadata may contain OAuth codes, tokens and user payloads.
-      if (event.request) event.request = event.request.method ? { method: event.request.method } : {};
       // 특정 에러 무시 (예: 네트워크 타임아웃)
       const error = hint.originalException as Error;
       if (error?.message?.includes('Network request failed')) {
         return null;
       }
 
-      return event;
+      return sanitizeEvent(event);
+    },
+    beforeSendTransaction: sanitizeEvent,
+    beforeSendSpan(span) {
+      if (!span.op?.startsWith('http')) return span;
+      return { ...span, description: 'HTTP request', data: Object.fromEntries(
+        Object.entries(span.data ?? {}).filter(([key]) =>
+          ['http.method', 'http.status_code', 'http.request.method', 'http.response.status_code'].includes(key))
+      ) };
     },
 
     // Breadcrumb 필터링
@@ -75,21 +103,19 @@ export const initializeSentry = () => {
         return { ...breadcrumb, message: 'HTTP request', data: {
           method: breadcrumb.data?.method,
           status_code: breadcrumb.data?.status_code,
+          operation: breadcrumb.data?.operation,
         } };
       }
-      return breadcrumb;
+      // Navigation params and other arbitrary SDK data may contain user input.
+      return { ...breadcrumb, data: safeDiagnosticData(breadcrumb.data) };
     },
 
     // 통합 설정
     integrations: [
       // React Navigation 통합 (라우트 추적)
-      Sentry.reactNavigationIntegration(),
+      navigationIntegration,
     ],
   };
-
-  if (distValue) {
-    options.dist = distValue;
-  }
 
   Sentry.init(options);
 };
@@ -99,7 +125,7 @@ export const initializeSentry = () => {
  */
 const isSentryEnabled = (): boolean => {
   const environment = process.env.EXPO_PUBLIC_ENV || 'production';
-  return environment !== 'local';
+  return environment !== 'local' && Boolean(process.env.EXPO_PUBLIC_SENTRY_DSN);
 };
 
 /**
@@ -111,8 +137,12 @@ export const reportError = (error: Error, context?: Record<string, unknown>) => 
     return;
   }
   Sentry.captureException(error, {
+    ...(context?.type === 'api-error' ? {
+      fingerprint: ['api-error', String(context.operation), String(context.status ?? 'transport')],
+      tags: { operation: String(context.operation) },
+    } : {}),
     contexts: {
-      custom: context,
+      custom: safeDiagnosticData(context),
     },
   });
 };
@@ -131,15 +161,13 @@ export const reportMessage = (message: string, level: Sentry.SeverityLevel = 'in
 /**
  * 사용자 컨텍스트 설정
  */
-export const setUserContext = (userId: string, email: string, username: string) => {
+export const setUserContext = (userId: string) => {
   if (!isSentryEnabled()) {
     console.log('[Sentry Disabled] Set User Context');
     return;
   }
   Sentry.setUser({
     id: userId,
-    email: email,
-    username: username,
   });
 };
 
@@ -173,7 +201,7 @@ export const addContext = (name: string, context: Record<string, unknown>) => {
     console.log('[Sentry Disabled] Add Context');
     return;
   }
-  Sentry.setContext(name, context);
+  Sentry.setContext(name, safeDiagnosticData(context));
 };
 
 /**

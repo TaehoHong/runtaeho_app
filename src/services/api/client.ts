@@ -106,9 +106,6 @@ apiClient.interceptors.request.use(async (config) => {
   return config;
 });
 
-// Response는 FIFO이므로, "마지막에 실행"되게 하려면 가장 나중에 등록합니다.
-httpResponseLogging(apiClient);
-
 // Register before the first request: Axios snapshots this chain before running
 // async request interceptors, so registering during token lookup misses its 401.
 apiClient.interceptors.response.use(response => response, error => {
@@ -116,6 +113,9 @@ apiClient.interceptors.response.use(response => response, error => {
   const { tokenRefreshInterceptor } = require('~/shared/services/TokenRefreshInterceptor') as typeof import('~/shared/services/TokenRefreshInterceptor');
   return tokenRefreshInterceptor.handleResponseError(error);
 });
+
+// 인증 복구 후에도 실패한 요청만 보고한다.
+httpResponseLogging(apiClient);
 
 export default apiClient;
 

@@ -87,8 +87,9 @@ CMD=(npx eas update
   --non-interactive)
 
 if [[ $DRY_RUN -eq 1 ]]; then
-  info "실행 시 EAS $ENVIRONMENT 환경을 먼저 읽어 필수 변수를 검증한다."
+  info "실행 시 EAS $ENVIRONMENT 환경의 필수 변수와 SENTRY_AUTH_TOKEN을 검증한다."
   info "dry-run: ${CMD[*]}"
+  info "dry-run: 새 build/ota-* 폴더의 번들·소스맵을 생성하고 게시한 뒤 Sentry에 업로드한다."
   exit 0
 fi
 

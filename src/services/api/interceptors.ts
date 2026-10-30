@@ -1,13 +1,20 @@
 
 
-import { AxiosError, type AxiosInstance } from 'axios';
+import { AxiosError, isCancel, type AxiosInstance, type AxiosRequestConfig } from 'axios';
 import { API_CONFIG } from './config';
 import { reportError, addBreadcrumb } from '~/config/sentry';
+
+const getApiOperation = (config?: AxiosRequestConfig) => {
+  // Only known resource names are diagnostic labels; identifiers and query values never are.
+  const resource = config?.url?.match(/^\/(?:api\/v1\/)?(running|users|avatars|items|user-items|shoes|league|leagues|garmin|notifications|inquiries|auth|oauth|app)(?:\/|\?|$)/)?.[1] ?? 'api';
+  return `${config?.method?.toUpperCase() ?? 'REQUEST'} ${resource}`;
+};
 
 /**
  * 추가 Response Interceptor (로깅 전용)
  */
 export const httpResponseLogging = (client: AxiosInstance) => {
+  const reported = new WeakSet<Error>();
   client.interceptors.response.use(
     (response) => {
       // 응답 로깅 (개발 환경에서만)
@@ -32,17 +39,20 @@ export const httpResponseLogging = (client: AxiosInstance) => {
         console.log(`   Status: ${error.response?.status || 'Network Error'}`);
       }
 
-      // Sentry에 API 에러 리포팅 (특정 에러는 제외)
-      const shouldReportToSentry = true;
-        // error.response?.status !== 401 && // 인증 에러 제외 (토큰 갱신 중)
-        // error.response?.status !== 403 && // 권한 에러 제외
-        // error.message !== 'Network Error' && // 네트워크 에러 제외
-        // !error.message?.includes('timeout'); // 타임아웃 제외
+      const status = error.response?.status;
+      const expected = isCancel(error) ||
+        ['SessionSupersededError', 'RefreshTokenExpiredError'].includes(error.name) ||
+        error.code === 'ERR_NETWORK' || error.message === 'Network Error' ||
+        status === 400 || status === 422;
 
-      if (shouldReportToSentry) {
+      if (!expected && !reported.has(error)) {
+        // Nested auth retries can reject through this interceptor twice.
+        reported.add(error);
         // AxiosError에는 요청 헤더/본문이 포함된다. 원본은 호출자에게만 전달한다.
-        reportError(new Error('API request failed'), {
+        const operation = getApiOperation(error.config);
+        reportError(new Error(`API ${operation} failed (${status ?? 'transport'})`), {
           type: 'api-error',
+          operation,
           method: error.config?.method,
           status: error.response?.status,
         });
@@ -69,10 +79,11 @@ export const httpRequestLogging = (client: AxiosInstance) => {
 
     // Sentry Breadcrumb 추가
     addBreadcrumb(
-      `API Request: ${config.method?.toUpperCase()}`,
+      `API Request: ${getApiOperation(config)}`,
       'http',
       {
         method: config.method,
+        operation: getApiOperation(config),
       }
     );
 

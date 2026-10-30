@@ -103,7 +103,7 @@ export const useAuth = () => {
           haveRunningRecord: userData.haveRunningRecord, equippedItems, hairColor: userData.hairColor });
         useAuthStore.setState({ accessToken, ...(refreshToken ? { refreshToken } : {}),
           isLoggedIn: true, tokensRevoked: false, isLoading: false, error: null });
-        setUserContext(user.id.toString(), user.userAccounts[0]?.email ?? '', user.nickname);
+        setUserContext(user.id.toString());
       },
     });
   }, [setLoginData, convertEquippedItems]);

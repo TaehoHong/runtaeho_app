@@ -33,6 +33,34 @@ function fixture(t) {
   return { root, run, calls: () => fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : '' };
 }
 
+function stubOta(f) {
+  fs.writeFileSync(path.join(f.root, 'bin/npx'), `#!/bin/sh
+if [ "$2" = env:exec ]; then
+  export EXPO_PUBLIC_API_BASE_URL=https://example.invalid/api
+  export EXPO_PUBLIC_S3_BUCKET_URL=https://example.invalid/assets
+  export EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=ios-client
+  export EXPO_PUBLIC_GOOGLE_SERVER_CLIENT_ID=web-client
+  if [ "$NO_SENTRY_TOKEN" = 1 ]; then unset SENTRY_AUTH_TOKEN; else export SENTRY_AUTH_TOKEN=synthetic-upload-token; fi
+  exec /bin/sh -c "$4"
+fi
+printf '%s\\n' "$*" >> "$CALL_LOG"
+if [ "$2" = eas ] && [ "$3" = update ]; then
+  if [ "$FAIL_PUBLISH" = 1 ]; then exit 9; fi
+  while [ "$#" -gt 0 ]; do
+    if [ "$1" = --input-dir ]; then output="$2"; break; fi
+    shift
+  done
+  if [ -n "$output" ]; then
+    mkdir -p "$output"
+    printf 'artifact=%s\\n' "$output" >> "$CALL_LOG"
+    printf 'bundle' > "$output/app.hbc"
+    if [ "$NO_MAPS" != 1 ]; then printf '{"debugId":"synthetic-debug-id"}' > "$output/app.hbc.map"; fi
+  fi
+fi
+if [ "$2" = sentry-expo-upload-sourcemaps ] && [ -n "$UPLOAD_EXIT" ]; then exit "$UPLOAD_EXIT"; fi
+`, { mode: 0o755 });
+}
+
 function stubSigning(f) {
   fs.writeFileSync(path.join(f.root, 'bin/python3'), `#!/bin/sh
 if [ "$1" = scripts/sign-ios.py ]; then
@@ -453,21 +481,54 @@ test('Android upload refuses a signature verifier failure before EAS', (t) => {
 
 test('OTA environment wrapper validates remote values and quotes shell metacharacters', (t) => {
   const f = fixture(t);
-  fs.writeFileSync(path.join(f.root, 'bin/npx'), `#!/bin/sh
-if [ "$2" = env:exec ]; then
-  export EXPO_PUBLIC_API_BASE_URL=https://example.invalid/api
-  export EXPO_PUBLIC_S3_BUCKET_URL=https://example.invalid/assets
-  export EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=ios-client
-  export EXPO_PUBLIC_GOOGLE_SERVER_CLIENT_ID=web-client
-  exec /bin/sh -c "$4"
-fi
-printf '%s\\n' "$@" >> "$CALL_LOG"
-`, { mode: 0o755 });
+  stubOta(f);
   const message = "quote ' $(touch injected) `touch injected` ; &";
   const result = f.run('node', ['scripts/publish-ota.cjs', 'production', 'production', 'all', message]);
   assert.equal(result.status, 0, result.stderr);
   assert.ok(f.calls().includes(message));
   assert.equal(fs.existsSync(path.join(f.root, 'injected')), false);
+});
+
+test('OTA uploads the exact published artifact and retries upload without republishing', (t) => {
+  const f = fixture(t);
+  stubOta(f);
+  const failed = f.run('node', ['scripts/publish-ota.cjs', 'production', 'production', 'android', 'audit'], { UPLOAD_EXIT: '7' });
+  assert.equal(failed.status, 7);
+  assert.match(failed.stderr, /게시.*성공.*소스맵.*실패/);
+  const artifact = f.calls().match(/^artifact=(.+)$/m)?.[1];
+  assert.ok(artifact);
+  assert.ok(f.calls().includes(`sentry-expo-upload-sourcemaps ${artifact}`));
+  const retried = f.run('node', ['scripts/publish-ota.cjs', 'production', 'production', '--upload-only', artifact]);
+  assert.equal(retried.status, 0, retried.stdout + retried.stderr);
+  assert.equal(f.calls().match(/--no-install eas update/g)?.length, 1);
+  assert.equal(f.calls().match(/sentry-expo-upload-sourcemaps/g)?.length, 2);
+  assert.doesNotMatch(failed.stdout + failed.stderr + f.calls(), /synthetic-upload-token/);
+});
+
+test('OTA does not publish without its upload credential', (t) => {
+  const f = fixture(t);
+  stubOta(f);
+  const result = f.run('node', ['scripts/publish-ota.cjs', 'production', 'production', 'all', 'audit'], { NO_SENTRY_TOKEN: '1' });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /SENTRY_AUTH_TOKEN/);
+  assert.equal(f.calls(), '');
+});
+
+test('OTA does not upload after publication fails', (t) => {
+  const f = fixture(t);
+  stubOta(f);
+  const failed = f.run('node', ['scripts/publish-ota.cjs', 'production', 'production', 'all', 'audit'], { FAIL_PUBLISH: '1' });
+  assert.equal(failed.status, 9);
+  assert.doesNotMatch(f.calls(), /sentry-expo-upload-sourcemaps/);
+});
+
+test('OTA does not claim success without source maps', (t) => {
+  const f = fixture(t);
+  stubOta(f);
+  const missing = f.run('node', ['scripts/publish-ota.cjs', 'production', 'production', 'all', 'audit'], { NO_MAPS: '1' });
+  assert.notEqual(missing.status, 0);
+  assert.match(missing.stderr, /소스맵/);
+  assert.doesNotMatch(f.calls(), /sentry-expo-upload-sourcemaps/);
 });
 
 test('OTA missing remote config cannot fall back to local shell values', (t) => {

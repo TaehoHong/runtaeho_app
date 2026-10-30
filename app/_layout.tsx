@@ -1,4 +1,6 @@
 import { Stack } from 'expo-router/stack';
+import { useNavigationContainerRef } from 'expo-router';
+import { useEffect } from 'react';
 import { AdsProvider } from '~/features/ads/AdsProvider';
 import { NotificationProvider } from '~/features/notifications/NotificationProvider';
 import { LanguageProvider } from '~/i18n/LanguageProvider';
@@ -10,7 +12,7 @@ import { AppStateProvider } from '~/providers/AppStateProvider';
 import { UpdateProvider } from '~/features/updates';
 import { ForceUpdateProvider } from '~/features/forceUpdate';
 import { GlobalUnityHost } from '~/features/unity/components/GlobalUnityHost';
-import { initializeSentry, Sentry } from '~/config/sentry';
+import { initializeSentry, registerSentryNavigationContainer, Sentry } from '~/config/sentry';
 import { ErrorBoundary } from '~/shared/components/ErrorBoundary';
 import { GREY } from '~/shared/styles';
 import { useShareEntryTransitionStore } from '~/features/share/stores/shareEntryTransitionStore';
@@ -27,6 +29,11 @@ if (__DEV__) {
 const isSentryEnabled = (process.env.EXPO_PUBLIC_ENV || 'production') !== 'local';
 
 function RootLayout() {
+  const navigationRef = useNavigationContainerRef();
+  useEffect(() => {
+    registerSentryNavigationContainer(navigationRef);
+  }, [navigationRef]);
+
   // 권한 요청은 AuthProvider에서 로그인 후 한 번만 실행 (중복 제거)
   const isShareEntryTransitionActive = useShareEntryTransitionStore(
     (state) => state.isEntryTransitionActive

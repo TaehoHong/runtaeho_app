@@ -1,5 +1,7 @@
 import { t, useAppLanguage } from '~/i18n';
 import { Alert } from 'react-native';
+import { reportError } from '~/config/sentry';
+import { isAxiosError } from 'axios';
 
 /**
  * 에러 레벨 정의
@@ -128,6 +130,16 @@ export class ErrorService {
    * 에러 로깅
    */
   private logError(errorInfo: ErrorInfo): void {
+    // API failures are already reported safely by the terminal response interceptor.
+    if ((errorInfo.level === ErrorLevel.ERROR || errorInfo.level === ErrorLevel.CRITICAL) &&
+        !isAxiosError(errorInfo.originalError)) {
+      reportError(errorInfo.originalError instanceof Error ? errorInfo.originalError : new Error('App operation failed'), {
+        type: errorInfo.type,
+        operation: errorInfo.context?.errorBoundary ? 'ui.render' : 'app.operation',
+        errorBoundary: Boolean(errorInfo.context?.errorBoundary),
+      });
+    }
+
     // 에러 히스토리에 추가
     this.errorHistory.unshift(errorInfo);
     if (this.errorHistory.length > this.maxHistorySize) {

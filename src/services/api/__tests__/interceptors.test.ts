@@ -1,4 +1,4 @@
-import axios, { AxiosError, AxiosHeaders } from 'axios';
+import axios, { AxiosError, AxiosHeaders, CanceledError } from 'axios';
 import { addBreadcrumb, reportError } from '~/config/sentry';
 import { httpRequestLogging, httpResponseLogging } from '../interceptors';
 
@@ -34,12 +34,36 @@ describe('API diagnostics privacy', () => {
     } });
     httpRequestLogging(client);
     httpResponseLogging(client);
-    await expect(client.get('/private-user', { headers: { Authorization: 'private-token' } })).rejects.toMatchObject({ message: 'private-error' });
+    await expect(client.get('/running/private-user?token=private-query', { headers: { Authorization: 'private-token' } })).rejects.toMatchObject({ message: 'private-error' });
     const reported = jest.mocked(reportError).mock.calls[0]?.[0];
     const context = jest.mocked(reportError).mock.calls[0]?.[1];
     expect(reported).not.toBe(original);
-    expect(reported?.message).toBe('API request failed');
-    expect(context).toEqual({ type: 'api-error', method: 'get', status: 500 });
+    expect(reported?.message).toBe('API GET running failed (500)');
+    expect(context).toEqual({ type: 'api-error', operation: 'GET running', method: 'get', status: 500 });
     expect(JSON.stringify([reported, context, log.mock.calls, jest.mocked(addBreadcrumb).mock.calls])).not.toContain('private-');
+  });
+
+  it.each([
+    new CanceledError('cancelled'),
+    new AxiosError('Network Error', 'ERR_NETWORK'),
+    Object.assign(new Error('superseded'), { name: 'SessionSupersededError' }),
+  ])('does not report expected cancellation, session replacement or disconnection: $name', async error => {
+    const client = axios.create({ adapter: async () => { throw error; } });
+    httpResponseLogging(client);
+    await expect(client.get('/running')).rejects.toBe(error);
+    expect(reportError).not.toHaveBeenCalled();
+  });
+
+  it('does not report input validation but still reports unexpected permission failures', async () => {
+    const client = axios.create({ adapter: async config => {
+      throw new AxiosError('HTTP failure', 'ERR_BAD_REQUEST', config, undefined, {
+        config, status: config.url === '/validation' ? 400 : 403, statusText: '', headers: new AxiosHeaders(), data: {},
+      });
+    } });
+    httpResponseLogging(client);
+    await expect(client.get('/validation')).rejects.toMatchObject({ response: { status: 400 } });
+    expect(reportError).not.toHaveBeenCalled();
+    await expect(client.get('/permission')).rejects.toMatchObject({ response: { status: 403 } });
+    expect(reportError).toHaveBeenCalledTimes(1);
   });
 });
