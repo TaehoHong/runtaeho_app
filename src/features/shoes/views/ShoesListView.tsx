@@ -1,15 +1,19 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppLanguage, useAppTranslation } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   ActivityIndicator,
+  Animated,
   Modal,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SwipeListView } from 'react-native-swipe-list-view';
 import { TopScreenSafeAreaView } from '~/shared/components';
 import { Text } from '~/shared/components/typography';
@@ -25,6 +29,8 @@ import { StoredShoesListView } from './StoredShoesListView';
 /**
  * 신발 목록 화면
  */
+const SWIPE_ACTIONS_WIDTH = 183; // 세 버튼과 두 간격
+
 interface ShoesListViewProps {
   onClose?: () => void;
 }
@@ -43,6 +49,7 @@ export const ShoesListView: React.FC<ShoesListViewProps> = ({ onClose }) => {
 
   // UI 전용 로컬 상태
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [openShoeKey, setOpenShoeKey] = useState<string | null>(null);
   const swipeListRef = useRef<SwipeListView<ShoeViewModel>>(null);
   const [selectedShoe, setSelectedShoe] = useState<ShoeViewModel | null>(null);
   const [showStorageModal, setShowStorageModal] = useState(false);
@@ -53,8 +60,18 @@ export const ShoesListView: React.FC<ShoesListViewProps> = ({ onClose }) => {
 
   console.log('👟 [ShoesListView] 렌더링, 신발 개수:', shoeViewModels.length);
 
+  useEffect(() => {
+    if (isLoading) setOpenShoeKey(null);
+  }, [isLoading]);
+
+  useFocusEffect(useCallback(() => {
+    setOpenShoeKey(null);
+    swipeListRef.current?.closeAllOpenRows();
+  }, []));
+
   // 열린 스와이프 행 닫기
   const closeOpenRows = () => {
+    setOpenShoeKey(null);
     swipeListRef.current?.closeAllOpenRows();
   };
 
@@ -149,7 +166,7 @@ export const ShoesListView: React.FC<ShoesListViewProps> = ({ onClose }) => {
             </>
           }
           renderItem={({ item }) => (
-            <ShoeCard shoe={item} onPress={() => handleSelectShoe(item)} />
+            <ShoeCard shoe={item} isOpen={openShoeKey === `shoe-${item.id}`} onPress={() => handleSelectShoe(item)} />
           )}
           renderHiddenItem={({ item }) => (
             <HiddenActionButtons
@@ -166,7 +183,10 @@ export const ShoesListView: React.FC<ShoesListViewProps> = ({ onClose }) => {
             activeShoes.length === 0 ? styles.emptyListContent : styles.listContent
           }
           showsVerticalScrollIndicator={false}
-          rightOpenValue={-183} // 버튼 3개(57*3) + 간격 2개(6*2) = 183
+          rightOpenValue={-SWIPE_ACTIONS_WIDTH}
+          onRowOpen={(key) => setOpenShoeKey(String(key))}
+          onRowClose={(key) => setOpenShoeKey((current) => current === String(key) ? null : current)}
+          recalculateHiddenLayout
           disableRightSwipe
           closeOnRowPress
           closeOnScroll
@@ -251,7 +271,7 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ onClose, onAddPress }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   return (
     <View style={styles.header}>
       {onClose ? (
@@ -278,13 +298,13 @@ interface MainShoeCardProps {
 }
 
 const MainShoeCard: React.FC<MainShoeCardProps> = ({ shoe }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   return (
     <View style={styles.mainShoeCard}>
       {/* 이미지 영역 */}
       <View style={styles.mainShoeImageContainer}>
         <Icon name="shoe" size={41} />
-        <Text style={styles.mainShoeImagePlaceholder}>{t("Image Coming Soon")}</Text>
+        <Text style={styles.mainShoeImagePlaceholder} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>{t("Image Coming Soon")}</Text>
       </View>
 
       {/* 정보 영역 */}
@@ -311,7 +331,7 @@ interface SectionHeaderProps {
 }
 
 const SectionHeader: React.FC<SectionHeaderProps> = ({ onManageStoragePress }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   return (
     <View style={styles.sectionHeader}>
       <Text style={styles.sectionTitle}>{t("보유 신발 목록")}</Text>
@@ -328,24 +348,36 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({ onManageStoragePress }) =
 interface ShoeCardProps {
   shoe: ShoeViewModel;
   onPress: () => void;
+  isOpen: boolean;
+  swipeAnimatedValue?: Animated.Value;
 }
 
-const ShoeCard: React.FC<ShoeCardProps> = ({ shoe, onPress }) => {
-  useAppLanguage();
+const ShoeCard: React.FC<ShoeCardProps> = ({ shoe, onPress, isOpen, swipeAnimatedValue }) => {
+  const t = useAppTranslation();
+  const { width } = useWindowDimensions();
   return (
     <TouchableOpacity style={styles.shoeItemContent} onPress={onPress} activeOpacity={1.0}>
-      <View style={styles.shoeItemImageContainer}>
-        <Icon name="shoe" size={24} />
-      </View>
+      <Animated.View style={[styles.shoeItemInner, {
+        width: width - 64 - (isOpen ? SWIPE_ACTIONS_WIDTH : 0),
+        transform: [{ translateX: swipeAnimatedValue?.interpolate({
+          inputRange: [-SWIPE_ACTIONS_WIDTH, 0], outputRange: [SWIPE_ACTIONS_WIDTH, 0], extrapolate: 'clamp',
+        }) ?? 0 }],
+      }]}>
+      {!isOpen && (
+        <View style={styles.shoeItemImageContainer}>
+          <Icon name="shoe" size={24} />
+        </View>
+      )}
       <View style={styles.shoeItemInfo}>
-        <Text style={styles.shoeItemName}>{shoe.displayName}</Text>
+        <Text style={styles.shoeItemName} numberOfLines={2} ellipsizeMode="tail" adjustsFontSizeToFit={isOpen} minimumFontScale={0.5}>{shoe.displayName}</Text>
         <View style={styles.shoeItemDistance}>
-          <Text style={styles.shoeItemDistanceLabel}>{t("누적 거리")}</Text>
-          <Text style={styles.shoeItemDistanceValue}>
+          <Text style={styles.shoeItemDistanceLabel} numberOfLines={1}>{t("누적 거리")}</Text>
+          <Text style={styles.shoeItemDistanceValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>
             {RunningStatusFormat.distance(shoe.totalDistance, { fractionDigits: 1 })}
           </Text>
         </View>
       </View>
+      </Animated.View>
     </TouchableOpacity>
   );
 };
@@ -354,19 +386,27 @@ const ShoeCard: React.FC<ShoeCardProps> = ({ shoe, onPress }) => {
  * 숨겨진 액션 버튼들 (스와이프 시 노출)
  */
 interface HiddenActionButtonsProps {
+  swipeAnimatedValue?: Animated.Value;
   onSetMain: () => void;
   onStorage: () => void;
   onDelete: () => void;
 }
 
 const HiddenActionButtons: React.FC<HiddenActionButtonsProps> = ({
+  swipeAnimatedValue,
   onSetMain,
   onStorage,
   onDelete,
 }) => {
   useAppLanguage();
   return (
-    <View style={styles.hiddenActionsContainer}>
+    <Animated.View style={[styles.hiddenActionsContainer, {
+      opacity: swipeAnimatedValue?.interpolate({
+        inputRange: [-1, 0],
+        outputRange: [1, 0],
+        extrapolate: 'clamp',
+      }) ?? 0,
+    }]}>
       <TouchableOpacity style={styles.actionButtonMain} onPress={onSetMain}>
         <Icon name="confirm" size={24} />
       </TouchableOpacity>
@@ -378,7 +418,7 @@ const HiddenActionButtons: React.FC<HiddenActionButtonsProps> = ({
       <TouchableOpacity style={styles.actionButtonDelete} onPress={onDelete}>
         <Icon name="treshcan" size={24} />
       </TouchableOpacity>
-    </View>
+    </Animated.View>
   );
 };
 
@@ -388,7 +428,7 @@ const HiddenActionButtons: React.FC<HiddenActionButtonsProps> = ({
  * Figma: "보유한 신발이 없어요. 상단 버튼을 통해 신발을 추가해보세요!"
  */
 const EmptyState: React.FC = () => {
-  useAppLanguage();
+  const t = useAppTranslation();
   return (
     <View style={styles.emptyState}>
       <Text style={styles.emptyStateText}>{t("보유한 신발이 없어요.")}{'\n'}{t("상단 버튼을 통해 신발을 추가해보세요!")}</Text>
@@ -410,7 +450,7 @@ const LoadingState: React.FC = () => {
 
 /**
  * 보관 확인 모달
- * Figma: "Adidas Ultraboost 22 를 신발 보관함에 보관했어요!"
+ * 확인 후 보관하며, 취소 시 신발 상태를 유지한다.
  */
 interface StorageConfirmModalProps {
   visible: boolean;
@@ -425,7 +465,10 @@ const StorageConfirmModal: React.FC<StorageConfirmModalProps> = ({
   onConfirm,
   onCancel,
 }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
+  const { fontScale } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const stackButtons = fontScale > 1.3;
   return (
     <Modal
       visible={visible}
@@ -433,13 +476,26 @@ const StorageConfirmModal: React.FC<StorageConfirmModalProps> = ({
       animationType="fade"
       onRequestClose={onCancel}
     >
-      <View style={styles.modalOverlay}>
+      <View style={[styles.modalOverlay, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <View style={styles.modalContainer}>
-          <Text style={styles.modalMessage}>
-            {shoeName}{t(" 를")}{'\n'}{t("신발 보관함에 보관했어요!")}</Text>
-          <TouchableOpacity style={styles.modalButton} onPress={onConfirm}>
-            <Text style={styles.modalButtonText}>{t("확인")}</Text>
-          </TouchableOpacity>
+          <ScrollView style={styles.modalBody} contentContainerStyle={styles.modalMessageContent} bounces={false}>
+            <Text style={[styles.modalMessage, styles.modalMessageCompact]}>{shoeName}</Text>
+            <Text style={[styles.modalMessage, styles.modalMessageCompact]} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7} lineBreakStrategyIOS="standard">{t("신발 보관함에 보관할까요?")}</Text>
+          </ScrollView>
+          <View style={[styles.modalButtons, stackButtons && styles.modalButtonsStacked]}>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.modalButtonFlex, styles.modalButtonCancel, stackButtons && styles.modalButtonStacked]}
+              onPress={onCancel}
+            >
+              <Text style={styles.modalButtonCancelText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{t("취소")}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.modalButtonFlex, stackButtons && styles.modalButtonStacked]}
+              onPress={onConfirm}
+            >
+              <Text style={styles.modalButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{t("확인")}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </Modal>
@@ -463,7 +519,10 @@ const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
   onConfirm,
   onCancel,
 }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
+  const { fontScale } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const stackButtons = fontScale > 1.3;
   return (
     <Modal
       visible={visible}
@@ -471,21 +530,23 @@ const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
       animationType="fade"
       onRequestClose={onCancel}
     >
-      <View style={styles.modalOverlay}>
+      <View style={[styles.modalOverlay, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <View style={styles.modalContainer}>
-          <Text style={styles.modalMessage}>{t("신발을 삭제하면 복구할 수 없어요!")}{'\n'}{t("해당 신발을 영구 삭제 하시겠어요?")}</Text>
-          <View style={styles.modalButtons}>
+          <ScrollView style={styles.modalBody} bounces={false}>
+            <Text style={styles.modalMessage} lineBreakStrategyIOS="hangul-word">{shoeName}{'\n'}{t("신발을 삭제하면 복구할 수 없어요!")}{'\n'}{t("해당 신발을 영구 삭제 하시겠어요?")}</Text>
+          </ScrollView>
+          <View style={[styles.modalButtons, stackButtons && styles.modalButtonsStacked]}>
             <TouchableOpacity
-              style={[styles.modalButton, styles.modalButtonCancel]}
+              style={[styles.modalButton, styles.modalButtonFlex, styles.modalButtonCancel, stackButtons && styles.modalButtonStacked]}
               onPress={onCancel}
             >
-              <Text style={styles.modalButtonCancelText}>{t("취소")}</Text>
+              <Text style={styles.modalButtonCancelText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{t("취소")}</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.modalButton, styles.modalButtonDelete]}
+              style={[styles.modalButton, styles.modalButtonFlex, styles.modalButtonDelete, stackButtons && styles.modalButtonStacked]}
               onPress={onConfirm}
             >
-              <Text style={styles.modalButtonText}>{t("삭제")}</Text>
+              <Text style={styles.modalButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{t("삭제")}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -509,7 +570,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 16,
-    height: 56,
+    minHeight: 56,
   },
   backButton: {
     width: 24,
@@ -518,6 +579,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   headerTitle: {
+    flex: 1,
+    textAlign: 'center',
     fontSize: 16,
     fontWeight: '500',
     color: GREY[900],
@@ -544,7 +607,9 @@ const styles = StyleSheet.create({
   },
   mainShoeImageContainer: {
     width: 130,
-    height: 81,
+    minHeight: 81,
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
     backgroundColor: GREY[50],
     borderRadius: 8,
     justifyContent: 'center',
@@ -552,6 +617,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   mainShoeImagePlaceholder: {
+    maxWidth: '100%',
     fontSize: 10,
     fontWeight: '400',
     color: GREY[700],
@@ -580,6 +646,7 @@ const styles = StyleSheet.create({
   },
   mainShoeDistance: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 4,
     marginTop: 0,
@@ -604,6 +671,8 @@ const styles = StyleSheet.create({
   // ===== 섹션 헤더 =====
   sectionHeader: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
@@ -627,21 +696,25 @@ const styles = StyleSheet.create({
 
   // ===== 신발 리스트 아이템 =====
   shoeItemContent: {
-    flexDirection: 'row',
+    overflow: 'hidden',
     paddingHorizontal: 12,
     paddingVertical: 12,
     gap: 12,
     backgroundColor: GREY.WHITE,
-    height: 76,
+    minHeight: 76,
     marginBottom: 8,
     marginHorizontal: 20,
     borderRadius: 8,
+  },
+  shoeItemInner: {
+    flexDirection: 'row',
+    gap: 12,
   },
   hiddenActionsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    height: 76,
+    flex: 1,
     marginBottom: 8,
     marginRight: 20,
     gap: 6,
@@ -668,10 +741,13 @@ const styles = StyleSheet.create({
   },
   shoeItemDistance: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 4,
   },
   shoeItemDistanceLabel: {
+    flexShrink: 0,
+    maxWidth: '100%',
     fontSize: 10,
     fontWeight: '500',
     color: GREY[300],
@@ -680,6 +756,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
   },
   shoeItemDistanceValue: {
+    flexShrink: 1,
     fontSize: 10,
     fontWeight: '500',
     color: GREY[300],
@@ -691,7 +768,7 @@ const styles = StyleSheet.create({
   // ===== 액션 버튼 =====
   actionButtonMain: {
     width: 57,
-    height: 76,
+    height: '100%',
     backgroundColor: PRIMARY[600],
     borderRadius: 8,
     justifyContent: 'center',
@@ -699,7 +776,7 @@ const styles = StyleSheet.create({
   },
   actionButtonStorage: {
     width: 57,
-    height: 76,
+    height: '100%',
     backgroundColor: GREY[600],
     borderRadius: 8,
     justifyContent: 'center',
@@ -707,7 +784,7 @@ const styles = StyleSheet.create({
   },
   actionButtonDelete: {
     width: 57,
-    height: 76,
+    height: '100%',
     backgroundColor: RED[400],
     borderRadius: 8,
     justifyContent: 'center',
@@ -759,7 +836,16 @@ const styles = StyleSheet.create({
     padding: 20,
     marginHorizontal: 26,
     width: 324,
+    maxHeight: '100%',
     gap: 16,
+  },
+  modalBody: {
+    width: '100%',
+    flexGrow: 0,
+    flexShrink: 1,
+  },
+  modalMessageContent: {
+    paddingVertical: 12,
   },
   modalMessage: {
     fontSize: 14,
@@ -770,18 +856,29 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     paddingVertical: 12,
   },
+  modalMessageCompact: {
+    paddingVertical: 0,
+  },
   modalButtons: {
     flexDirection: 'row',
     gap: 8,
   },
+  modalButtonsStacked: {
+    flexDirection: 'column',
+  },
   modalButton: {
-    flex: 1,
     alignItems: "center",
     borderRadius: 8,
     backgroundColor: PRIMARY[600],
     justifyContent: "center",
     paddingHorizontal: 16,
     paddingVertical: 14
+  },
+  modalButtonFlex: {
+    flex: 1,
+  },
+  modalButtonStacked: {
+    flex: 0,
   },
   modalButtonCancel: {
     backgroundColor: GREY[50],

@@ -3,7 +3,7 @@ import { AppState, StyleSheet, View } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { Text } from '~/shared/components/typography';
 import { GREY } from '~/shared/styles';
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 import { useAds } from './AdsProvider';
 
 export function AdBanner({ visible = true }: { visible?: boolean }) {
@@ -17,7 +17,7 @@ function ActiveBanner({ sdk, bannerId, visible }: {
   bannerId: string;
   visible: boolean;
 }) {
-  useAppLanguage();
+  const t = useAppTranslation();
   const focused = useIsFocused();
   const [foreground, setForeground] = useState(AppState.currentState === 'active');
   const active = focused && foreground && visible;

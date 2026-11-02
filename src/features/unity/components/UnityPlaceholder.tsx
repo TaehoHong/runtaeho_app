@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppLanguage, useAppTranslation } from '~/i18n';
 /**
  * UnityPlaceholder
  * Unity View 로딩 중 표시되는 플레이스홀더 컴포넌트
@@ -77,7 +77,7 @@ const silhouetteStyles = StyleSheet.create({
  * 플레이스홀더 메인 컴포넌트
  */
 export const UnityPlaceholder: React.FC<UnityPlaceholderProps> = ({ variant }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   const backgroundColor = variant === 'avatar' ? GREY.WHITE : GREY[100];
   const showText = variant === 'running';
   const showSpinner = variant === 'league';

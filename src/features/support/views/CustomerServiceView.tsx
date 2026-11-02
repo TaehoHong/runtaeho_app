@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -26,7 +26,7 @@ interface MenuItem {
  * 1:1 문의, FAQ, 공지사항 등 고객 지원 메뉴
  */
 export const CustomerServiceView: React.FC = () => {
-  useAppLanguage();
+  const t = useAppTranslation();
   const router = useRouter();
 
   /**

@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 import React from 'react';
 import { StyleSheet, View, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { NativeText as Text } from '~/shared/components/typography';
@@ -20,7 +20,7 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
   onCancel,
   isLoading = false,
 }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   return (
     <View style={styles.container}>
       {/* 취소 버튼 - X 아이콘 + 텍스트 */}

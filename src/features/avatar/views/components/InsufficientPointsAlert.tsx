@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 /**
  * 포인트 부족 알림 모달
  * SRP: 포인트 부족 안내 UI만 담당
@@ -14,7 +14,7 @@ interface Props {
 }
 
 export const InsufficientPointsAlert: React.FC<Props> = ({ onClose }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   return (
     <Modal
       visible

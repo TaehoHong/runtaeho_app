@@ -1,5 +1,6 @@
 import React from 'react';
-import { render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { useUnityStore } from '~/stores/unity/unityStore';
 
 const mockDispatchViewManagerCommand = jest.fn();
 const mockGetViewManagerConfig = jest.fn(() => ({
@@ -55,6 +56,7 @@ describe('UnityView reattach command', () => {
     jest.clearAllMocks();
     mockSyncReadyState.mockResolvedValue(true);
     mockResetGameObjectReady.mockResolvedValue(undefined);
+    useUnityStore.getState().resetUnityState();
   });
 
   it('dispatches native reattach command when token changes', async () => {
@@ -65,6 +67,17 @@ describe('UnityView reattach command', () => {
     renderer.rerender(<UnityView reattachToken={1} />);
     await waitFor(() => expect(mockDispatchViewManagerCommand).toHaveBeenCalledWith(101, 4, []));
     expect(mockGetViewManagerConfig).toHaveBeenCalledWith('RunTaehoUnityView');
+    renderer.unmount();
+  });
+
+  it('retains the mounted native surface visibility after account state is reset', async () => {
+    const renderer = render(<UnityView testID="native-surface" reattachToken={0} />);
+    await waitFor(() => expect(mockSyncReadyState).toHaveBeenCalled());
+    fireEvent(renderer.getByTestId('native-surface'), 'unityReady', { nativeEvent: { ready: true } });
+    expect(useUnityStore.getState().isSurfaceVisible).toBe(true);
+    act(() => useUnityStore.getState().resetUnityState());
+    await waitFor(() => expect(useUnityStore.getState().isSurfaceVisible).toBe(true));
+    expect(mockDispatchViewManagerCommand).not.toHaveBeenCalled();
     renderer.unmount();
   });
 });

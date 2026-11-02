@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
@@ -11,7 +11,7 @@ import { PRIMARY, GREY } from '~/shared/styles';
  * 피그마 디자인: 261x165 카드 → 클릭 시 모달 오픈
  */
 export const AddShoeCard: React.FC = () => {
-  useAppLanguage();
+  const t = useAppTranslation();
   const handlePress = () => {
     router.push('/shoes/add-shoe');
   };

@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { t, useAppTranslation } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -20,7 +20,7 @@ interface ComingSoonViewProps {
 export const ComingSoonView: React.FC<ComingSoonViewProps> = ({
   title = t("설정"),
 }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   const router = useRouter();
 
   const handleBack = () => {

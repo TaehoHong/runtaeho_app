@@ -17,10 +17,6 @@ import React
 @objc(RNUnityBridge)
 class RNUnityBridge: RCTEventEmitter {
 
-    // MARK: - Singleton for state management
-
-    @objc static var shared: RNUnityBridge?
-
     // MARK: - State (Single Source of Truth)
 
     private var _isCharactorReady: Bool = false
@@ -73,8 +69,6 @@ class RNUnityBridge: RCTEventEmitter {
 
     override init() {
         super.init()
-        RNUnityBridge.shared = self
-
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleCharactorReady),
@@ -115,7 +109,6 @@ class RNUnityBridge: RCTEventEmitter {
     deinit {
         avatarTimeoutTimer?.cancel()
         NotificationCenter.default.removeObserver(self)
-        RNUnityBridge.shared = nil
     }
 
     // MARK: - RCTEventEmitter Listener Management

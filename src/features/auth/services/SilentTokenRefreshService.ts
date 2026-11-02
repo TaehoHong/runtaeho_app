@@ -1,5 +1,6 @@
 import { API_CONFIG } from '~/services/api/config';
 import { tokenStorage } from '~/utils/storage';
+import { UI_QA_ENABLED, assertQaTokenIsLocal } from '~/qa/config';
 
 export interface TokenPair {
   accessToken: string;
@@ -26,6 +27,11 @@ export class SilentTokenRefreshService {
     // One flight must never switch to another account's token between retries.
     const token = refreshToken ?? await tokenStorage.getRefreshToken();
     if (!token) throw new Error('RefreshTokenNotFound');
+    assertQaTokenIsLocal(UI_QA_ENABLED, token);
+    if (UI_QA_ENABLED) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      return require('~/qa/fixtures').qaTokens();
+    }
     for (let attempt = 1; attempt <= this.MAX_RETRY_COUNT; attempt++) {
       try {
         return await this.refreshTokens(token);

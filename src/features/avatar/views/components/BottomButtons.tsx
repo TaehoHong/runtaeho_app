@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 /**
  * 하단 버튼 (취소 / 확인 or 구매)
  * SRP: 하단 액션 버튼만 담당
@@ -26,7 +26,7 @@ export const BottomButtons: React.FC<Props> = ({
   onConfirm,
   isLoading,
 }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   return (
     <View style={styles.footer}>
       {shouldShowPurchase && (

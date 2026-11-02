@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useAppStore, ViewState } from '~/stores/app/appStore';
@@ -10,7 +10,7 @@ import * as Font from 'expo-font'
  * 인증 상태에 따라 로그인/메인 화면으로 분기
  */
 export default function Index() {
-  useAppLanguage();
+  const t = useAppTranslation();
   console.log('🚀 [APP] 앱 메인 진입점 시작');
 
   const viewState = useAppStore((state) => state.viewState);

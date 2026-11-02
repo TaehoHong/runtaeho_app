@@ -8,7 +8,7 @@ export default function LeagueLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="result" />
-      <Stack.Screen name="result-detail" />
+      <Stack.Screen name="result-detail" options={{ animation: 'none', contentStyle: { backgroundColor: 'transparent' } }} />
     </Stack>
   );
 }

@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 import { StyleSheet, View, TouchableOpacity } from 'react-native';
 import { NativeText as Text } from '~/shared/components/typography';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,7 +19,7 @@ interface LeagueResultDetailViewProps {
 }
 
 export const LeagueResultDetailView = ({ result, participantId }: LeagueResultDetailViewProps) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   // 결과 확인 완료 API (캐시 무효화 포함)
   const confirmMutation = useConfirmResult(participantId);
 
@@ -113,7 +113,7 @@ export const LeagueResultDetailView = ({ result, participantId }: LeagueResultDe
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: GREY[50],
+    backgroundColor: 'transparent',
   },
   contentContainer: {
     flex: 1,

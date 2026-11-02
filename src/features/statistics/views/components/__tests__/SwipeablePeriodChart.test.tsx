@@ -183,4 +183,22 @@ describe('SwipeablePeriodChart', () => {
     expect(currentChart.getByText('22일~28일')).toBeTruthy();
     expect(screen.getAllByTestId('period-chart-svg')).toHaveLength(2);
   });
+  it('updates the chart and swipe page when the window narrows without remounting', () => {
+    const original = Dimensions.get('window');
+    const onSwipePeriodChange = jest.fn();
+    render(<SwipeablePeriodChart data={[chartDataPoint]} period={Period.MONTH} isEmpty={false}
+      referenceDate={new Date('2026-05-01T00:00:00+09:00')} onSwipePeriodChange={onSwipePeriodChange} />);
+    try {
+      act(() => { Dimensions.set({ window: { ...original, width: 393 } }); });
+      expect(screen.getAllByTestId('period-chart-svg')[1]).toHaveProp('width', 353);
+      fireEvent(screen.UNSAFE_getByType(ScrollView), 'momentumScrollEnd', {
+        nativeEvent: { contentOffset: { x: 786 } },
+      });
+      act(() => jest.runAllTimers());
+      expect(onSwipePeriodChange).toHaveBeenCalledWith(PeriodDirection.NEXT);
+    } finally {
+      act(() => { Dimensions.set({ window: original }); });
+    }
+  });
+
 });

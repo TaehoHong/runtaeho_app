@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -17,7 +17,7 @@ import { GREY } from '~/shared/styles';
  * 약관 상세 화면 (WebView)
  */
 export const TermsDetailView: React.FC = () => {
-  useAppLanguage();
+  const t = useAppTranslation();
   const router = useRouter();
   const params = useLocalSearchParams<{ url: string; title: string }>();
   const [isLoading, setIsLoading] = useState(true);

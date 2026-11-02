@@ -30,11 +30,19 @@ const SURFACE_VISIBILITY_FAILSAFE_MS = 400;
 export const UnityView: React.FC<UnityViewProps> = (props) => {
   const { onUnityReady, onUnityError, reattachToken, style, ...restProps } = props;
   const setSurfaceVisibleInStore = useUnityStore((state) => state.setSurfaceVisible);
+  const storedSurfaceVisible = useUnityStore((state) => state.isSurfaceVisible);
   const viewRef = useRef(null);
   const [surfaceVisible, setSurfaceVisible] = useState(false);
   const readyEventReceivedRef = useRef(false);
   const visibilityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastReattachTokenRef = useRef(reattachToken ?? 0);
+
+  // Account reset does not unmount this native surface. Keep its mounted state authoritative.
+  useEffect(() => {
+    if (storedSurfaceVisible !== surfaceVisible) {
+      setSurfaceVisibleInStore(surfaceVisible);
+    }
+  }, [setSurfaceVisibleInStore, storedSurfaceVisible, surfaceVisible]);
 
   const clearVisibilityTimer = useCallback(() => {
     if (visibilityTimerRef.current) {

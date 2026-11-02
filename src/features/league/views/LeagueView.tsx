@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 /**
  * League Main Screen
  * 리그 메인 화면
@@ -28,7 +28,7 @@ import { MyRankCard } from './components/MyRankCard';
 import { RankingSection } from './components/RankingSection';
 
 export const LeagueView = () => {
-  useAppLanguage();
+  const t = useAppTranslation();
   useLeagueResultNavigation();
 
   // 이전 리그 순위 (애니메이션용) - running-finished에서 설정됨

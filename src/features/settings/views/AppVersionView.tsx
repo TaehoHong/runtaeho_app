@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import * as Application from 'expo-application';
 import Constants from 'expo-constants';
@@ -17,7 +17,7 @@ const APP_ICON = require('../../../../assets/images/icon.png');
  * 앱 버전 정보 화면
  */
 export const AppVersionView: React.FC = () => {
-  useAppLanguage();
+  const t = useAppTranslation();
   const router = useRouter();
 
   // 앱 버전 정보

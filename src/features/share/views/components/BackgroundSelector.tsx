@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { t, useAppTranslation } from '~/i18n';
 import React, { useState, useCallback } from 'react';
 import { StyleSheet, View, ScrollView, TouchableOpacity } from 'react-native';
 import { NativeText as Text } from '~/shared/components/typography';
@@ -21,7 +21,7 @@ export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
   selectedBackground,
   onSelect,
 }) => {
-  useAppLanguage();
+  const translate = useAppTranslation();
   // 사용자 사진 목록 (최근 선택한 사진들)
   const [userPhotos, setUserPhotos] = useState<BackgroundOption[]>([]);
 
@@ -60,10 +60,10 @@ export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
       allowsEditing: true,
     },
     messages: {
-      cameraRequest: t("배경 사진 촬영을 위해 카메라 권한이 필요합니다."),
-      cameraDenied: t("카메라 권한이 거부되었습니다. 설정에서 권한을 허용해주세요."),
-      galleryRequest: t("배경 사진 선택을 위해 갤러리 권한이 필요합니다."),
-      galleryDenied: t("갤러리 권한이 거부되었습니다. 설정에서 권한을 허용해주세요."),
+      cameraRequest: translate("배경 사진 촬영을 위해 카메라 권한이 필요합니다."),
+      cameraDenied: translate("카메라 권한이 거부되었습니다. 설정에서 권한을 허용해주세요."),
+      galleryRequest: translate("배경 사진 선택을 위해 갤러리 권한이 필요합니다."),
+      galleryDenied: translate("갤러리 권한이 거부되었습니다. 설정에서 권한을 허용해주세요."),
     },
     onSuccess: (result) => {
       if (result.uri) {
@@ -92,9 +92,9 @@ export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
     // 접근성 레이블 생성
     const getAccessibilityLabel = (): string => {
       if (option.type === 'photo') {
-        return t("사용자 사진 배경 선택");
+        return translate("사용자 사진 배경 선택");
       }
-      return t("{{value0}} 배경 선택", { value0: option.name });
+      return translate("{{value0}} 배경 선택", { value0: option.name });
     };
 
     return (
@@ -146,7 +146,7 @@ export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
 
   return (
     <View style={styles.sectionCard}>
-      <Text style={styles.title}>{t("배경")}</Text>
+      <Text style={styles.title}>{translate("배경")}</Text>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -158,12 +158,12 @@ export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
           onPress={handleAddPhoto}
           activeOpacity={0.7}
           accessible={true}
-          accessibilityLabel={t("사진 추가")}
+          accessibilityLabel={translate("사진 추가")}
           accessibilityRole="button"
         >
           <View style={styles.addPhotoContent}>
             <Ionicons name="add" size={24} color={GREY[500]} />
-            <Text style={styles.addPhotoText}>{t("사진")}</Text>
+            <Text style={styles.addPhotoText}>{translate("사진")}</Text>
           </View>
         </TouchableOpacity>
 

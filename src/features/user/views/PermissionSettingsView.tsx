@@ -1,10 +1,11 @@
 import { getRunningRejectionMessage } from '~/features/running/services/runningRejection';
 import { SessionSupersededError } from '~/utils/storage/errors';
-import { t, useAppLanguage } from '~/i18n';
+import { t, useAppLanguage, useAppTranslation } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, AppState, Platform, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
+import { Alert, AppState, Platform, ScrollView, StyleSheet, Switch, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { healthImportBridge } from '~/features/healthImport/native/HealthImportBridge';
 import { healthImportService, HealthImportPartialSyncError } from '~/features/healthImport/services/healthImportService';
 import { showHealthImportRejections } from '~/features/healthImport/services/showHealthImportRejections';
@@ -22,27 +23,28 @@ type PermissionState = {
 
 type StatusVariant = 'enabled' | 'disabled' | 'warning';
 
-const getHealthPermissionStatusView = (status: HealthPermissionStatus): {
+const getHealthPermissionStatusView = (status: HealthPermissionStatus, translate: typeof t): {
   label: string;
   variant: StatusVariant;
 } => {
   if (status === 'unavailable') {
-    return { label: t("지원 안 함"), variant: 'disabled' };
+    return { label: translate("지원 안 함"), variant: 'disabled' };
   }
 
   if (Platform.OS === 'ios') {
-    return { label: t("건강 앱에서 확인"), variant: 'disabled' };
+    return { label: translate("건강 앱에서 확인"), variant: 'disabled' };
   }
 
   if (status === 'granted') {
-    return { label: t("허용됨"), variant: 'enabled' };
+    return { label: translate("허용됨"), variant: 'enabled' };
   }
 
-  return { label: t("권한 필요"), variant: 'warning' };
+  return { label: translate("권한 필요"), variant: 'warning' };
 };
 
 export const PermissionSettingsView: React.FC = () => {
   useAppLanguage();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const [permissions, setPermissions] = useState<PermissionState>({
     locationGranted: false,
@@ -182,7 +184,11 @@ export const PermissionSettingsView: React.FC = () => {
         <View style={styles.headerRight} />
       </View>
 
-      <View style={styles.content}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, { paddingBottom: Platform.OS === 'ios' ? Math.max(insets.bottom, 16) : 16 }]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.infoSection}>
           <Text style={styles.infoTitle}>{t("기기 권한 상태")}</Text>
           <Text style={styles.infoDescription}>{t("OS 설정에서 허용된 권한을 기준으로 표시돼요")}</Text>
@@ -206,8 +212,8 @@ export const PermissionSettingsView: React.FC = () => {
           />
         </View>
 
-        <Text style={styles.note}>{t("위치 권한과 Health OS 권한 상태를 눌러 기기 설정을 확인할 수 있습니다.")}</Text>
-      </View>
+        <Text style={styles.note} textBreakStrategy="balanced">{t("위치 권한과 Health OS 권한 상태를 눌러 기기 설정을 확인할 수 있습니다.")}</Text>
+      </ScrollView>
     </TopScreenSafeAreaView>
   );
 };
@@ -226,9 +232,9 @@ const PermissionRow: React.FC<PermissionRowProps> = ({
   statusLabel,
   statusVariant,
   onPress,
-}) => { useAppLanguage(); return (
-  <TouchableOpacity style={styles.permissionRow} onPress={onPress} activeOpacity={0.7}>
-    <View style={styles.permissionText}>
+}) => { useAppLanguage(); const { fontScale } = useWindowDimensions(); const stacked = fontScale > 1.3; return (
+  <TouchableOpacity style={[styles.permissionRow, stacked && styles.permissionRowStacked]} onPress={onPress} activeOpacity={0.7}>
+    <View style={[styles.permissionText, stacked && styles.permissionTextStacked]}>
       <Text style={styles.permissionTitle}>{title}</Text>
       <Text style={styles.permissionDescription}>{description}</Text>
     </View>
@@ -254,8 +260,10 @@ const HealthPermissionSection: React.FC<HealthPermissionSectionProps> = ({
   onToggleAppEnabled,
   onPressPermission,
 }) => {
-  useAppLanguage();
-  const statusView = getHealthPermissionStatusView(permissionStatus);
+  const t = useAppTranslation();
+  const { fontScale } = useWindowDimensions();
+  const stacked = fontScale > 1.3;
+  const statusView = getHealthPermissionStatusView(permissionStatus, t);
 
   return (
     <View style={styles.healthSection}>
@@ -281,11 +289,11 @@ const HealthPermissionSection: React.FC<HealthPermissionSectionProps> = ({
 
       <TouchableOpacity
         testID="health-os-permission-row"
-        style={styles.healthStatusRow}
+        style={[styles.healthStatusRow, stacked && styles.permissionRowStacked]}
         onPress={onPressPermission}
         activeOpacity={0.7}
       >
-        <View style={styles.permissionText}>
+        <View style={[styles.permissionText, stacked && styles.permissionTextStacked]}>
           <Text style={styles.healthSubTitle}>{t("OS 권한 상태")}</Text>
           <Text style={styles.permissionDescription}>{t("건강 앱 권한 기준")}</Text>
         </View>
@@ -305,7 +313,7 @@ type StatusBadgeProps = {
 
 const StatusBadge: React.FC<StatusBadgeProps> = ({ label, variant }) => { useAppLanguage(); return (
   <View style={[styles.statusBadge, getStatusBadgeStyle(variant)]}>
-    <Text style={[styles.statusText, getStatusTextStyle(variant)]}>{label}</Text>
+    <Text style={[styles.statusText, getStatusTextStyle(variant)]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{label}</Text>
   </View>
 ); };
 
@@ -346,8 +354,11 @@ const styles = StyleSheet.create({
   headerRight: {
     width: 32,
   },
-  content: {
+  scroll: {
     flex: 1,
+  },
+  content: {
+    flexGrow: 1,
     paddingTop: 16,
     paddingHorizontal: 20,
     gap: 16,
@@ -386,6 +397,14 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 6,
   },
+  permissionRowStacked: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    paddingVertical: 16,
+  },
+  permissionTextStacked: {
+    flex: 0,
+  },
   permissionTitle: {
     fontSize: 15,
     fontWeight: '500',
@@ -407,6 +426,7 @@ const styles = StyleSheet.create({
   permissionAction: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-end',
     gap: 8,
   },
   healthSection: {
@@ -428,8 +448,10 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   statusBadge: {
+    flexShrink: 1,
     minWidth: 64,
-    height: 28,
+    minHeight: 28,
+    paddingVertical: 6,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 14,
@@ -445,6 +467,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF3F2',
   },
   statusText: {
+    maxWidth: '100%',
     fontSize: 12,
     fontWeight: '600',
     fontFamily: 'Pretendard',

@@ -67,6 +67,7 @@ describe('useAuthSignIn', () => {
   });
 
   it('AUTH-SIGNIN-002 shows no alert when login is cancelled', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     useAuthStore.setState({ isLoggedIn: true, accessToken: 'existing-a', refreshToken: 'refresh-a' });
     const generation = useAuthStore.getState().sessionGeneration;
     getAuthorizationCodeMock.mockRejectedValue(AuthError.cancelled());
@@ -78,6 +79,7 @@ describe('useAuthSignIn', () => {
 
     expect(mockCompleteLogin).not.toHaveBeenCalled();
     expect(Alert.alert).not.toHaveBeenCalled();
+    expect(errorSpy).not.toHaveBeenCalled();
     expect(useAuthStore.getState().accessToken).toBe('existing-a');
     expect(useAuthStore.getState().sessionGeneration).toBe(generation);
     expect(result.current.isLoading).toBe(false);
@@ -115,6 +117,20 @@ describe('useAuthSignIn', () => {
     expect(getTokenMock).toHaveBeenCalledTimes(1);
     expect(getTokenMock).toHaveBeenCalledWith(AuthProviderType.GOOGLE, 'oauth-code');
     expect(mockCompleteLogin).toHaveBeenCalledTimes(1);
+  });
+
+  it('retains the selected provider while OAuth is pending and clears it after cancellation', async () => {
+    let cancel!: (error: AuthError) => void;
+    getAuthorizationCodeMock.mockReturnValueOnce(new Promise((_, reject) => { cancel = reject; }));
+    const { result } = renderHook(() => useAuthSignIn());
+    let login!: Promise<void>;
+    await act(async () => { login = result.current.signInWithApple(); });
+    expect(result.current.isLoading).toBe(true);
+    expect(result.current.pendingProvider).toBe(AuthProviderType.APPLE);
+    await act(async () => { cancel(AuthError.cancelled()); await login; });
+    expect(result.current.pendingProvider).toBeNull();
+    expect(result.current.isLoading).toBe(false);
+    expect(Alert.alert).not.toHaveBeenCalled();
   });
 
 });

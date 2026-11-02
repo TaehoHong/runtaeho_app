@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppLanguage, useAppTranslation } from '~/i18n';
 import { AdBanner } from '~/features/ads/AdBanner';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -19,7 +19,7 @@ import type { User } from '../models';
  * 프로필 카드 + 메인 메뉴 + 설정 메뉴 + 로그아웃
  */
 export const MyInfoView: React.FC = () => {
-  useAppLanguage();
+  const t = useAppTranslation();
   // useAuth Hook 사용 (현업 표준 패턴)
   const { user: currentUser, totalPoint } = useAuth();
   const router = useRouter();
@@ -45,7 +45,9 @@ export const MyInfoView: React.FC = () => {
         />
         
         {/* 메뉴 설정 카드 */}
-        <MenuItem title={t('알림함')} onPress={() => router.push('/user/notifications')} testID="myinfo-notifications" />
+        <View style={styles.menuSettingsSection}>
+          <MenuItem title={t('알림함')} onPress={() => router.push('/user/notifications')} testID="myinfo-notifications" />
+        </View>
         <MenuSettingsCard />
         <AdBanner visible={!showPointModal && !showShoesModal} />
       </ScrollView>
@@ -68,7 +70,7 @@ interface ProfileCardProps {
 
 
 const ProfileCard: React.FC<ProfileCardProps> = ({ user, totalPoint, onPointPress }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   const router = useRouter();
 
   // 프로필 이미지 source 결정
@@ -102,9 +104,9 @@ const ProfileCard: React.FC<ProfileCardProps> = ({ user, totalPoint, onPointPres
                     <Icon name="point" size={24} />
                     <Text style={[styles.pointLabelText, styles.pointColor]}>{t("포인트")}</Text>
                 </View>
-                  <TouchableOpacity onPress={onPointPress} testID="myinfo-point-history-open">
+                  <TouchableOpacity style={styles.pointValueButton} onPress={onPointPress} testID="myinfo-point-history-open">
                   <View style={[styles.pointValue, styles.rowCentered]}>
-                      <Text style={[styles.pointValueText, styles.pointColor]}>{ totalPoint || 0 } P</Text>
+                      <Text style={[styles.pointValueText, styles.pointColor]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{ totalPoint || 0 } P</Text>
                       <Icon style={styles.chevronIcon} name="chevron" size={16} />
                   </View>
                 </TouchableOpacity>
@@ -123,7 +125,7 @@ interface MainMenuCardProps {
 }
 
 const MainMenuCard: React.FC<MainMenuCardProps> = ({ onShoesPress, onAvatarPress }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   return (
     <View style={[styles.mainMenuCard, styles.rowCentered]}>
       <TouchableOpacity
@@ -131,7 +133,7 @@ const MainMenuCard: React.FC<MainMenuCardProps> = ({ onShoesPress, onAvatarPress
         onPress={onShoesPress}
       >
         <Icon name="pixel_shoes" size={24} />
-        <Text style={styles.menuItemLabel}>{t("내 신발")}</Text>
+        <Text style={styles.menuItemLabel} lineBreakStrategyIOS="standard">{t("내 신발")}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -139,7 +141,7 @@ const MainMenuCard: React.FC<MainMenuCardProps> = ({ onShoesPress, onAvatarPress
         onPress={onAvatarPress}
       >
         <Icon name="avatar" size={24} />
-        <Text style={styles.menuItemLabel}>{t("아바타")}</Text>
+        <Text style={styles.menuItemLabel} lineBreakStrategyIOS="standard">{t("아바타")}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -182,7 +184,7 @@ interface MenuSettingsCardProps {
  * 메뉴 설정 카드
  */
 const MenuSettingsCard: React.FC<MenuSettingsCardProps> = ({ items }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   const router = useRouter();
 
   const defaultMenuItems: MenuItemProps[] = [
@@ -249,11 +251,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#fff',
     justifyContent: 'center',
-    paddingHorizontal: 0,
+    paddingHorizontal: 12,
     paddingVertical: 14,
     gap: 8,
   },
   menuItemLabel: {
+    flexShrink: 1,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '500',
@@ -354,7 +357,8 @@ const styles = StyleSheet.create({
       alignSelf: "stretch"
   },
   pointRow: {
-      gap: 168,
+      gap: 8,
+      justifyContent: 'space-between',
       alignSelf: "stretch"
   },
   pointLabel: {
@@ -369,11 +373,15 @@ const styles = StyleSheet.create({
       fontWeight: "500",
       textAlign: "left"
   },
+  pointValueButton: {
+      flexShrink: 1,
+      minWidth: 0,
+  },
   pointValue: {
       gap: 4
   },
   pointValueText: {
-      width: 58,
+      flexShrink: 1,
       fontSize: 14,
       textAlign: "right",
       fontWeight: "600",

@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 /**
  * ShareButton Component
  * 러닝 기록 공유 버튼
@@ -18,7 +18,7 @@ interface ShareButtonProps {
 }
 
 export const ShareButton: React.FC<ShareButtonProps> = ({ onPress, disabled = false }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   return (
     <TouchableOpacity
       style={[styles.button, disabled && styles.buttonDisabled]}

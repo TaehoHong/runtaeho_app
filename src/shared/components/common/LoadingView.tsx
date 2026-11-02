@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 import React, { useEffect } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { Text } from '~/shared/components/typography';
@@ -11,7 +11,7 @@ interface LoadingViewProps {
  * iOS LoadingView 대응
  */
 export const LoadingView: React.FC<LoadingViewProps> = ({ onAppear }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   useEffect(() => {
     console.log('⏳ [LoadingView] 로딩 화면 나타남');
     onAppear?.();

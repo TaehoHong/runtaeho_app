@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, AppState, Image, Pressable, ScrollView, Style
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { t, useAppLanguage } from '~/i18n';
+import { t, useAppTranslation } from '~/i18n';
 import { TopScreenSafeAreaView } from '~/shared/components';
 import { Text } from '~/shared/components/typography';
 import { GREY } from '~/shared/styles';
@@ -21,7 +21,7 @@ export function ActivityConnectionView() {
 }
 
 function ActivityConnectionScreen({ snapshot }: { snapshot: SessionSnapshot }) {
-  useAppLanguage();
+  const t = useAppTranslation();
   const router = useRouter();
   return (
     <TopScreenSafeAreaView style={styles.container}>

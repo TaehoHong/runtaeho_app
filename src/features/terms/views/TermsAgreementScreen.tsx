@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { t, useAppTranslation } from '~/i18n';
 /**
  * 약관 동의 화면
  */
@@ -20,7 +20,7 @@ import { Colors } from '~/shared/styles';
 import { TermsDetailModal } from './TermsDetailModal';
 
 export const TermsAgreementScreen: React.FC = () => {
-  useAppLanguage();
+  const translate = useAppTranslation();
   const {
     termsData,
     isLoading,
@@ -73,7 +73,7 @@ export const TermsAgreementScreen: React.FC = () => {
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={Colors.PRIMARY[600]} />
             <Text style={styles.loadingText}>
-              {isSubmitting ? t("약관 동의 처리 중...") : t("약관을 불러오는 중...")}
+              {isSubmitting ? translate("약관 동의 처리 중...") : translate("약관을 불러오는 중...")}
             </Text>
           </View>
         </SafeAreaView>
@@ -87,9 +87,9 @@ export const TermsAgreementScreen: React.FC = () => {
       <SafeAreaProvider>
         <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error || t("약관을 불러올 수 없습니다.")}</Text>
+          <Text style={styles.errorText}>{error || translate("약관을 불러올 수 없습니다.")}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={fetchTermsContent}>
-            <Text style={styles.retryButtonText}>{t("다시 시도")}</Text>
+            <Text style={styles.retryButtonText}>{translate("다시 시도")}</Text>
           </TouchableOpacity>
         </View>
         </SafeAreaView>
@@ -108,8 +108,8 @@ export const TermsAgreementScreen: React.FC = () => {
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
         {/* 헤더 */}
         <View style={styles.header}>
-          <Text style={styles.title}>{t("RunTaeho 시작하기")}</Text>
-          <Text style={styles.subtitle}>{t("아래 약관에 동의해주세요")}</Text>
+          <Text style={styles.title}>{translate("RunTaeho 시작하기")}</Text>
+          <Text style={styles.subtitle}>{translate("아래 약관에 동의해주세요")}</Text>
         </View>
 
         {/* 전체 동의 */}
@@ -122,7 +122,7 @@ export const TermsAgreementScreen: React.FC = () => {
             <View style={[styles.checkbox, isAllAgreed && styles.checkboxChecked]}>
               {isAllAgreed && <Text style={styles.checkmark}>✓</Text>}
             </View>
-            <Text style={styles.allAgreeText}>{t("전체 동의")}</Text>
+            <Text style={styles.allAgreeText}>{translate("전체 동의")}</Text>
           </View>
         </TouchableOpacity>
 
@@ -140,13 +140,13 @@ export const TermsAgreementScreen: React.FC = () => {
                 {agreements.terms && <Text style={styles.checkmark}>✓</Text>}
               </View>
               <Text style={styles.termsLabel}>
-                <Text style={styles.required}>{t("(필수)")}</Text>{t(" 서비스 이용약관")}</Text>
+                <Text style={styles.required}>{translate("(필수)")}</Text>{translate(" 서비스 이용약관")}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => openTermsModal(serviceTerm.link, t("서비스 이용약관"))}
               activeOpacity={0.7}
             >
-              <Text style={styles.viewDetail}>{t("자세히 보기 >")}</Text>
+              <Text style={styles.viewDetail}>{translate("자세히 보기 >")}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -163,13 +163,13 @@ export const TermsAgreementScreen: React.FC = () => {
                 {agreements.privacy && <Text style={styles.checkmark}>✓</Text>}
               </View>
               <Text style={styles.termsLabel}>
-                <Text style={styles.required}>{t("(필수)")}</Text>{t(" 개인정보 처리방침")}</Text>
+                <Text style={styles.required}>{translate("(필수)")}</Text>{translate(" 개인정보 처리방침")}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => openTermsModal(privateTerm.link, t("개인정보 처리방침"))}
               activeOpacity={0.7}
             >
-              <Text style={styles.viewDetail}>{t("자세히 보기 >")}</Text>
+              <Text style={styles.viewDetail}>{translate("자세히 보기 >")}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -186,13 +186,13 @@ export const TermsAgreementScreen: React.FC = () => {
                 {agreements.location && <Text style={styles.checkmark}>✓</Text>}
               </View>
               <Text style={styles.termsLabel}>
-                <Text style={styles.required}>{t("(필수)")}</Text>{t(" 위치기반서비스 이용약관")}</Text>
+                <Text style={styles.required}>{translate("(필수)")}</Text>{translate(" 위치기반서비스 이용약관")}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => openTermsModal(locationTerm.link, t("위치기반서비스 이용약관"))}
               activeOpacity={0.7}
             >
-              <Text style={styles.viewDetail}>{t("자세히 보기 >")}</Text>
+              <Text style={styles.viewDetail}>{translate("자세히 보기 >")}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -220,7 +220,7 @@ export const TermsAgreementScreen: React.FC = () => {
           {isSubmitting ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.submitButtonText}>{t("동의하고 시작하기")}</Text>
+            <Text style={styles.submitButtonText}>{translate("동의하고 시작하기")}</Text>
           )}
         </TouchableOpacity>
       </View>

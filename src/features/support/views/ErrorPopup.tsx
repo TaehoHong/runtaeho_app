@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 import React from 'react';
 import { Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,7 +16,7 @@ export const ErrorPopup: React.FC<ErrorPopupProps> = ({
   onClose,
   onInquiry,
 }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   return (
     <Modal
       visible={visible}

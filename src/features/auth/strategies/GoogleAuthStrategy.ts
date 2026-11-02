@@ -53,6 +53,10 @@ export class GoogleAuthStrategy implements AuthProviderStrategy {
       await GoogleSignin.hasPlayServices();
       const userInfo = await GoogleSignin.signIn();
 
+      if (userInfo.type === 'cancelled') {
+        throw AuthError.cancelled();
+      }
+
       if (userInfo.data?.serverAuthCode) {
         console.log('Google Sign-In 성공');
 

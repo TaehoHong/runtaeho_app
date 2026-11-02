@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 import React from 'react';
 import {
   TouchableOpacity,
@@ -19,7 +19,7 @@ export const StartButton: React.FC<StartButtonProps> = ({
   haveRunningRecord,
   disabled = false
 }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   return (
     <LinearGradient
       colors={[PRIMARY[600], '#77FFAD', '#C4FF84']}
@@ -29,10 +29,10 @@ export const StartButton: React.FC<StartButtonProps> = ({
       style={styles.gradientBorder}
     >
       <TouchableOpacity style={styles.button} onPress={onPress} disabled={disabled} accessibilityState={{ disabled }}>
-        <Text style={styles.subText}>
+        <Text style={styles.subText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>
           {haveRunningRecord ? t("다시 달려볼까요?") : t("한번 달려볼까요?")}
         </Text>
-        <Text style={styles.mainText}>{t("START !")}</Text>
+        <Text style={styles.mainText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>{t("START !")}</Text>
       </TouchableOpacity>
     </LinearGradient>
   );
@@ -41,7 +41,8 @@ export const StartButton: React.FC<StartButtonProps> = ({
 const styles = StyleSheet.create({
   gradientBorder: {
     width: 335,
-    height: 102,
+    maxWidth: '100%',
+    minHeight: 102,
     borderRadius: 8,
     padding: 2,
   },
@@ -52,6 +53,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
+    paddingVertical: 12,
   },
   subText: {
     fontFamily: 'Pretendard',

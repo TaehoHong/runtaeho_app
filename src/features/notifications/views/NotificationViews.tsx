@@ -6,7 +6,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { TopScreenSafeAreaView } from '~/shared/components';
 import { Text } from '~/shared/components/typography';
 import { GREY, PRIMARY } from '~/shared/styles';
-import { t, useAppLanguage } from '~/i18n';
+import { t, useAppLanguage, useAppTranslation } from '~/i18n';
 import { useUserStore } from '~/stores/user/userStore';
 import { getSessionSnapshot, isSessionCurrent } from '~/features/auth/stores/authStore';
 import { queryKeys } from '~/services/queryClient';
@@ -16,24 +16,27 @@ import { useScreenLifetime } from '~/shared/hooks/useScreenLifetime';
 import { leagueService } from '~/features/league/services/leagueService';
 
 function Header({ title, settings = false }: { title: string; settings?: boolean }) {
+  const translate = useAppTranslation();
   return <View style={styles.header}>
-    <TouchableOpacity accessibilityLabel={t('뒤로')} accessibilityRole="button" onPress={() => router.back()} style={styles.icon}>
+    <TouchableOpacity accessibilityLabel={translate('뒤로')} accessibilityRole="button" onPress={() => router.back()} style={styles.icon}>
       <Ionicons name="chevron-back" size={24} color={GREY[900]} />
     </TouchableOpacity>
     <Text style={styles.headerTitle}>{title}</Text>
-    {settings ? <TouchableOpacity accessibilityLabel={t('알림 설정')} accessibilityRole="button" style={styles.icon}
+    {settings ? <TouchableOpacity accessibilityLabel={translate('알림 설정')} accessibilityRole="button" style={styles.icon}
       onPress={() => router.push('/user/notification-settings')}><Ionicons name="settings-outline" size={22} color={GREY[900]} /></TouchableOpacity> : <View style={styles.icon} />}
   </View>;
 }
 
 function Retry({ onPress }: { onPress: () => void }) {
+  const translate = useAppTranslation();
   return <View style={styles.message}>
-    <Text>{t('알림을 불러오지 못했어요.')}</Text>
-    <TouchableOpacity onPress={onPress} accessibilityRole="button" style={styles.button}><Text>{t('다시 시도')}</Text></TouchableOpacity>
+    <Text>{translate('알림을 불러오지 못했어요.')}</Text>
+    <TouchableOpacity onPress={onPress} accessibilityRole="button" style={styles.button}><Text>{translate('다시 시도')}</Text></TouchableOpacity>
   </View>;
 }
 
 export function NotificationInboxView({ type }: { type?: 'NOTICE' }) {
+  const translate = useAppTranslation();
   const language = useAppLanguage();
   const userId = useUserStore(state => state.currentUser?.id);
   const query = useInfiniteQuery({
@@ -46,7 +49,7 @@ export function NotificationInboxView({ type }: { type?: 'NOTICE' }) {
   });
   const items = query.data?.pages.flatMap(page => page.content) ?? [];
   return <TopScreenSafeAreaView style={styles.container}>
-    <Header title={type === 'NOTICE' ? t('공지사항') : t('알림함')} settings />
+    <Header title={type === 'NOTICE' ? translate('공지사항') : translate('알림함')} settings />
     {query.isPending ? <ActivityIndicator style={styles.message} /> : query.isError && items.length === 0 ?
       <Retry onPress={() => { void query.refetch(); }} /> :
       <FlatList data={items} keyExtractor={item => String(item.id)} refreshing={query.isRefetching}
@@ -54,17 +57,18 @@ export function NotificationInboxView({ type }: { type?: 'NOTICE' }) {
         onEndReached={() => { if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage(); }}
         renderItem={({ item }) => <TouchableOpacity accessibilityRole="button" style={[styles.item, !item.readDatetime && styles.unread]}
           onPress={() => router.push({ pathname: '/user/notification', params: { id: String(item.id) } })}>
-          <View style={styles.row}><Text style={styles.title}>{item.title}</Text>{!item.readDatetime && <Text style={styles.badge}>{t('읽지 않음')}</Text>}</View>
+          <View style={styles.row}><Text style={styles.title}>{item.title}</Text>{!item.readDatetime && <Text style={styles.badge}>{translate('읽지 않음')}</Text>}</View>
           <Text style={styles.body} numberOfLines={2}>{item.body}</Text>
           <Text style={styles.date}>{new Date(item.createdDatetime).toLocaleString(language)}</Text>
         </TouchableOpacity>}
-        ListEmptyComponent={<Text style={styles.message}>{t('아직 받은 알림이 없어요.')}</Text>}
+        ListEmptyComponent={<Text style={styles.message}>{translate('아직 받은 알림이 없어요.')}</Text>}
         ListFooterComponent={query.isFetchNextPageError ? <Retry onPress={() => { void query.fetchNextPage(); }} /> :
-          query.isFetchingNextPage ? <ActivityIndicator /> : <Text style={styles.note}>{t('알림은 90일 동안 보관돼요.')}</Text>} />}
+          query.isFetchingNextPage ? <ActivityIndicator /> : <Text style={styles.note}>{translate('알림은 90일 동안 보관돼요.')}</Text>} />}
   </TopScreenSafeAreaView>;
 }
 
 export function NotificationDetailView() {
+  const translate = useAppTranslation();
   const captureLifetime = useScreenLifetime();
   const { id: rawId } = useLocalSearchParams<{ id: string }>();
   const id = Number(rawId);
@@ -96,18 +100,18 @@ export function NotificationDetailView() {
     }
   } });
   return <TopScreenSafeAreaView style={styles.container}>
-    <Header title={t('알림')} />
+    <Header title={translate('알림')} />
     {query.isError || !Number.isSafeInteger(id) || id <= 0 ? <View style={styles.message}>
-      <Text>{t('알림을 찾을 수 없거나 보관 기간이 지났어요.')}</Text>
+      <Text>{translate('알림을 찾을 수 없거나 보관 기간이 지났어요.')}</Text>
       <Retry onPress={() => { void query.refetch(); }} />
     </View> : query.isPending ? <ActivityIndicator style={styles.message} /> : <ScrollView contentContainerStyle={styles.content}>
       <Text style={styles.title}>{query.data.title}</Text>
       <Text style={styles.date}>{new Date(query.data.createdDatetime).toLocaleString(language)}</Text>
       <Text style={styles.body}>{query.data.body}</Text>
       {query.data.type === 'LEAGUE_RESULT' && <TouchableOpacity style={styles.button} disabled={openLeague.isPending}
-        onPress={() => openLeague.mutate()}><Text>{t('결과 확인')}</Text></TouchableOpacity>}
+        onPress={() => openLeague.mutate()}><Text>{translate('결과 확인')}</Text></TouchableOpacity>}
       {query.data.type === 'RUNNING_REMINDER' && <TouchableOpacity style={styles.button} onPress={() => router.push('/(tabs)/running')}>
-        <Text>{t('러닝하러 가기')}</Text></TouchableOpacity>}
+        <Text>{translate('러닝하러 가기')}</Text></TouchableOpacity>}
     </ScrollView>}
   </TopScreenSafeAreaView>;
 }

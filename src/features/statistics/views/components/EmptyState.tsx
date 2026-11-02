@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 /**
  * Empty State Component
  * Figma: 38:5436 (101, 610, 172x16)
@@ -15,13 +15,11 @@ interface EmptyStateProps {
   message?: string;
 }
 
-export const EmptyState: React.FC<EmptyStateProps> = ({
-  message = t("러닝을 시작하면 기록이 생겨요!"),
-}) => {
-  useAppLanguage();
+export const EmptyState: React.FC<EmptyStateProps> = ({ message }) => {
+  const t = useAppTranslation();
   return (
     <View style={styles.container}>
-      <Text style={styles.message}>{message}</Text>
+      <Text style={styles.message}>{message === undefined ? t("러닝을 시작하면 기록이 생겨요!") : message}</Text>
     </View>
   );
 };

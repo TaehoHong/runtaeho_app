@@ -97,7 +97,8 @@ function RootLayout() {
                     <Stack.Screen
                       name="league"
                       options={{
-                        headerShown: false
+                        headerShown: false,
+                        contentStyle: { backgroundColor: 'transparent' },
                       }}
                     />
                     <Stack.Screen

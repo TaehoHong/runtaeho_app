@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppLanguage, useAppTranslation } from '~/i18n';
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { PRIMARY, GREY } from '~/shared/styles';
 import {
@@ -190,7 +190,7 @@ export const ShoeSelectionCard: React.FC<ShoeSelectionCardProps> = ({
   isMain,
   onPress,
 }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
       <View style={[styles.shoeCard, isActive && styles.shoeCardActive]}>

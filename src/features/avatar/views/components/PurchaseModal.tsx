@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 /**
  * 구매 확인 모달
  * SRP: 구매 확인 UI만 담당
@@ -43,7 +43,7 @@ export const PurchaseModal: React.FC<Props> = ({
   onCancel,
   isLoading,
 }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   function getItemImage(item: Item): ImageSourcePropType | undefined {
     return resolveAvatarItemImage(item, hairColor);
   }

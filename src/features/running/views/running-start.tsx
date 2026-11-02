@@ -1,7 +1,9 @@
 import { getSessionSnapshot, isSessionCurrent } from '~/features/auth/stores/authStore';
 import { AdBanner } from '~/features/ads/AdBanner';
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getMainTabBarScrollContentPaddingBottom } from '~/shared/utils/safeAreaPolicy';
 import { useUserStore, useAppStore, RunningState } from '~/stores';
 import { StartButton } from './components/start-button';
 import { useRunning } from '../contexts';
@@ -17,6 +19,7 @@ export const RunningStartView: React.FC = () => {
 
   const { startRunning, isStarting } = useRunning();
   const [showPermissionModal, setShowPermissionModal] = useState(false);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     console.log('[RunningStartView] haveRunningRecord: ', haveRunningRecord);
@@ -51,26 +54,38 @@ export const RunningStartView: React.FC = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <>
+    <ScrollView
+      style={styles.scrollView}
+      contentContainerStyle={[
+        styles.container,
+        { paddingBottom: getMainTabBarScrollContentPaddingBottom(insets.bottom) },
+      ]}
+    >
       <AdBanner visible={!isStarting && !showPermissionModal} />
       <StartButton
         disabled={isStarting}
         onPress={handleStartRunning}
         haveRunningRecord={haveRunningRecord}
       />
+    </ScrollView>
       <PermissionRequestModal
         visible={showPermissionModal}
         onClose={handlePermissionModalClose}
       />
-    </View>
+    </>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  scrollView: {
     flex: 1,
+  },
+  container: {
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 20,
+    paddingTop: 16,
   },
 });

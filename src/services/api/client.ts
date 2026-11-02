@@ -3,6 +3,13 @@ import { getSessionSnapshot, isSessionCurrent, useAuthStore, type SessionSnapsho
 import { SessionSupersededError } from '~/utils/storage/errors';
 import { API_CONFIG } from './config';
 import { httpRequestLogging, httpResponseLogging } from './interceptors';
+import { UI_QA_ENABLED, assertQaTokenIsLocal } from '~/qa/config';
+
+if (UI_QA_ENABLED) {
+  // Also isolate direct axios calls such as the unauthenticated version check.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  axios.defaults.adapter = require('~/qa/fixtures').qaAdapter;
+}
 
 /**
  * Axios API Client
@@ -80,6 +87,9 @@ httpRequestLogging(apiClient);
 
 // 토큰 자동 추가 및 사전 갱신 인터셉터
 apiClient.interceptors.request.use(async (config) => {
+  assertQaTokenIsLocal(UI_QA_ENABLED, useAuthStore.getState().accessToken);
+  const authorization = config.headers.get('Authorization')?.toString();
+  assertQaTokenIsLocal(UI_QA_ENABLED, authorization?.replace(/^Bearer /, ''));
   if (config.sessionSnapshot && !isSessionCurrent(config.sessionSnapshot)) throw new SessionSupersededError();
   const needsAuth = config.headers?.['x-requires-auth'] !== 'false'; // 기본: 필요, 옵션으로 끔
 
@@ -99,6 +109,7 @@ apiClient.interceptors.request.use(async (config) => {
     const token = useAuthStore.getState().accessToken;
 
     if (token) {
+      assertQaTokenIsLocal(UI_QA_ENABLED, token);
       config.headers.Authorization = `Bearer ${token}`;
     }
   }

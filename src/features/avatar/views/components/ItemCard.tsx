@@ -9,7 +9,7 @@ import type { Item } from '~/features/avatar';
 import { GRID_LAYOUT, ITEM_OPACITY, ItemStatus } from '~/features/avatar';
 import { resolveAvatarItemImage } from '~/features/avatar/utils/avatarItemImageResolver';
 import { GREY, PRIMARY } from '~/shared/styles';
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 import { getNumberFontStyle } from '~/shared/components/typography/fontUtils';
 
 interface Props {
@@ -25,7 +25,7 @@ const totalColumnSpacing = GRID_LAYOUT.ITEM_SPACING * (GRID_LAYOUT.NUM_COLUMNS -
 const cardWidth = (screenWidth - totalHorizontalPadding - totalColumnSpacing) / GRID_LAYOUT.NUM_COLUMNS;
 
 export const AvatarItemCard: React.FC<Props> = ({ item, hairColor, isSelected, onPress }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   const itemImage = resolveAvatarItemImage(item, hairColor);
   // 테두리 색상 결정
   const borderColor = isSelected? PRIMARY[500] : GREY[250];

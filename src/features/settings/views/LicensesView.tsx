@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
@@ -62,7 +62,7 @@ const LICENSES: LicenseInfo[] = [
  * 오픈소스 라이선스 화면
  */
 export const LicensesView: React.FC = () => {
-  useAppLanguage();
+  const t = useAppTranslation();
   const router = useRouter();
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
 

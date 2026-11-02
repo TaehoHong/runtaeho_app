@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { UpdateStatus } from '../../models/UpdateState';
@@ -13,7 +13,7 @@ interface UpdateBannerProps {
 }
 
 export function UpdateBanner({ visible = true }: UpdateBannerProps) {
-  useAppLanguage();
+  const t = useAppTranslation();
   const { status, progress, availableManifest } = useUpdateStore();
   const { downloadUpdate, applyUpdate, isDownloading, isReady } = useUpdateDownload();
 

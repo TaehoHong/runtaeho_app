@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 /**
  * 연결 계정 관리 화면
  * Figma: #4_마이페이지_서비스_연결계정관리
@@ -19,7 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
  * 연결 계정 관리 화면
  */
 export const AccountConnectionView: React.FC = () => {
-  useAppLanguage();
+  const t = useAppTranslation();
   const router = useRouter();
   const {
     isConnecting,
@@ -105,7 +105,7 @@ const AccountItem: React.FC<AccountItemProps> = ({
   onConnect,
   onDisconnect,
 }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   const buttonColor = getConnectionButtonColor(
     isConnected ? AccountConnectionStatus.CONNECTED : AccountConnectionStatus.NONE
   );

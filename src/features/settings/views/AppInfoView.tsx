@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { t, useAppTranslation } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import * as Application from 'expo-application';
 import * as Clipboard from 'expo-clipboard';
@@ -37,7 +37,7 @@ const APP_ICON = require('assets/images/icon.png');
  * - 문의하기
  */
 export const AppInfoView: React.FC = () => {
-  useAppLanguage();
+  const translate = useAppTranslation();
   const router = useRouter();
 
   // 앱 버전 정보
@@ -102,7 +102,7 @@ export const AppInfoView: React.FC = () => {
         <TouchableOpacity onPress={handleBack} style={styles.headerButton}>
           <Ionicons name="chevron-back" size={24} color={GREY[900]} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t("앱 정보")}</Text>
+        <Text style={styles.headerTitle}>{translate("앱 정보")}</Text>
         <View style={styles.headerButton} />
       </View>
 
@@ -113,7 +113,7 @@ export const AppInfoView: React.FC = () => {
             <Image source={APP_ICON} style={styles.appIcon} contentFit="cover" />
           </View>
           <Text style={styles.appName}>{appName}</Text>
-          <Text style={styles.appVersion}>{t("버전 ")}{appVersion} ({buildNumber})</Text>
+          <Text style={styles.appVersion}>{translate("버전 ")}{appVersion} ({buildNumber})</Text>
         </View>
 
         {/* 메뉴 카드 */}
@@ -122,7 +122,7 @@ export const AppInfoView: React.FC = () => {
           <TouchableOpacity style={styles.menuItem} onPress={handleContact}>
             <View style={styles.menuItemLeft}>
               <Ionicons name="mail-outline" size={20} color={GREY[700]} />
-              <Text style={styles.menuItemText}>{t("문의하기")}</Text>
+              <Text style={styles.menuItemText}>{translate("문의하기")}</Text>
             </View>
             <View style={styles.menuItemRight}>
               <Text style={styles.menuItemSubtext}>{SUPPORT_EMAIL}</Text>
@@ -136,7 +136,7 @@ export const AppInfoView: React.FC = () => {
           <TouchableOpacity style={styles.menuItem} onPress={handleOpenSourceLicenses}>
             <View style={styles.menuItemLeft}>
               <Ionicons name="document-text-outline" size={20} color={GREY[700]} />
-              <Text style={styles.menuItemText}>{t("오픈소스 라이선스")}</Text>
+              <Text style={styles.menuItemText}>{translate("오픈소스 라이선스")}</Text>
             </View>
             <Icon name="chevron" size={16} />
           </TouchableOpacity>

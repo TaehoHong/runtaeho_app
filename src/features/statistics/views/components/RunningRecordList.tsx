@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { t, useAppTranslation } from '~/i18n';
 /**
  * Running Record List Component (Infinite Scroll)
  */
@@ -21,7 +21,7 @@ export const RunningRecordList: React.FC<RunningRecordListProps> = ({
   endDate,
   emptyMessage = t("러닝을 시작하면 기록이 생겨요!"),
 }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   const {
     records,
     isLoading,

@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 /**
  * Swipeable Period Chart Component
  *
@@ -17,7 +17,7 @@ import { t, useAppLanguage } from '~/i18n';
 import React, { useRef, useCallback, useMemo, memo, useState, useEffect } from 'react';
 import {
   ScrollView,
-  Dimensions,
+  useWindowDimensions,
   StyleSheet,
   View,
   ActivityIndicator,
@@ -60,7 +60,6 @@ interface SwipeablePeriodChartProps {
   nextIsEmpty?: boolean;
 }
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
 const EMPTY_CHART_DATA: ChartDataPoint[] = [];
 const CHART_CARD_TOP = 16;
 const CHART_CARD_RIGHT = 20;
@@ -98,10 +97,15 @@ const SwipeablePeriodChartComponent: React.FC<SwipeablePeriodChartProps> = ({
   nextReferenceDate: nextRefDateProp,
   nextIsEmpty: nextIsEmptyProp,
 }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
+  const { width: screenWidth } = useWindowDimensions();
   const scrollViewRef = useRef<ScrollView>(null);
   const isScrollingRef = useRef(false);
   const [isChartOptionsVisible, setIsChartOptionsVisible] = useState(false);
+
+  useEffect(() => {
+    scrollViewRef.current?.scrollTo({ x: screenWidth, animated: false });
+  }, [screenWidth]);
 
   // 이전 차트 데이터 캐싱 (깜빡임 방지)
   // 새 데이터가 로딩되는 동안 이전 데이터를 계속 표시
@@ -171,7 +175,7 @@ const SwipeablePeriodChartComponent: React.FC<SwipeablePeriodChartProps> = ({
       if (isScrollingRef.current) return;
 
       const offsetX = event.nativeEvent.contentOffset.x;
-      const pageIndex = Math.round(offsetX / SCREEN_WIDTH);
+      const pageIndex = Math.round(offsetX / screenWidth);
 
       let direction: PeriodDirection | null = null;
       if (pageIndex === 0) {
@@ -203,7 +207,7 @@ const SwipeablePeriodChartComponent: React.FC<SwipeablePeriodChartProps> = ({
         }
 
         // 2. 스크롤을 중앙으로 리셋 (즉시, 애니메이션 없이)
-        scrollViewRef.current?.scrollTo({ x: SCREEN_WIDTH, animated: false });
+        scrollViewRef.current?.scrollTo({ x: screenWidth, animated: false });
 
         // 3. 다음 프레임에서 상태 업데이트
         // requestAnimationFrame을 사용하여 스크롤 리셋이 완료된 후 상태 업데이트
@@ -221,6 +225,7 @@ const SwipeablePeriodChartComponent: React.FC<SwipeablePeriodChartProps> = ({
     },
     [
       onSwipePeriodChange,
+      screenWidth,
       nextData,
       nextIsEmptyProp,
       nextRefDateProp,
@@ -254,11 +259,11 @@ const SwipeablePeriodChartComponent: React.FC<SwipeablePeriodChartProps> = ({
         onScrollBeginDrag={handleScrollBeginDrag}
         scrollEventThrottle={16}
         bounces={false}
-        contentOffset={{ x: SCREEN_WIDTH, y: 0 }}
+        contentOffset={{ x: screenWidth, y: 0 }}
         scrollEnabled={!isInitialLoading}
       >
         {/* 이전 기간 - 프리페치 데이터 사용 */}
-        <View style={styles.chartSlot}>
+        <View style={{ width: screenWidth }}>
           <PeriodChart
             data={prevData ?? []}
             comparisonData={prevComparisonData ?? EMPTY_CHART_DATA}
@@ -270,7 +275,7 @@ const SwipeablePeriodChartComponent: React.FC<SwipeablePeriodChartProps> = ({
         </View>
 
         {/* 현재 기간 - 캐시된 데이터 사용 */}
-        <View style={styles.chartSlot}>
+        <View style={{ width: screenWidth }}>
           <PeriodChart
             data={cachedChart.data}
             comparisonData={comparisonData ?? EMPTY_CHART_DATA}
@@ -283,7 +288,7 @@ const SwipeablePeriodChartComponent: React.FC<SwipeablePeriodChartProps> = ({
 
         {/* 다음 기간 - 프리페치 데이터 사용 (미래면 렌더링하지 않음) */}
         {canSwipeToNext && (
-          <View style={styles.chartSlot}>
+          <View style={{ width: screenWidth }}>
             <PeriodChart
               data={nextData ?? []}
               comparisonData={nextComparisonData ?? EMPTY_CHART_DATA}
@@ -435,9 +440,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: '700',
     color: GREY[900],
-  },
-  chartSlot: {
-    width: SCREEN_WIDTH,
   },
   loadingOverlay: {
     position: 'absolute',

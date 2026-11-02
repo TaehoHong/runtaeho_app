@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 import React, { useMemo } from 'react';
 import {
   Dimensions,
@@ -11,13 +11,14 @@ import { Text } from '~/shared/components/typography';
 import { Icon } from '~/shared/components/ui';
 import { GREY, PRIMARY } from '~/shared/styles';
 import { useAuthSignIn } from '../hooks/useAuthSignIn';
+import { AuthProviderType } from '../models/AuthType';
 import { useAutoUpdate, UpdateOverlay } from '~/features/updates';
 
 const DESIGN_WIDTH = 375;
 const DESIGN_HEIGHT = 812;
 
 export const Login: React.FC = () => {
-  useAppLanguage();
+  const t = useAppTranslation();
   console.log('🔐 [LOGIN] 로그인 화면 렌더링');
 
   // 화면 크기 기반 스케일 계산
@@ -36,7 +37,7 @@ export const Login: React.FC = () => {
     };
   }, []);
 
-  const { isLoading, signInWithGoogle, signInWithApple } = useAuthSignIn();
+  const { isLoading, pendingProvider, signInWithGoogle, signInWithApple } = useAuthSignIn();
 
   // OTA 자동 업데이트
   const {
@@ -138,8 +139,8 @@ export const Login: React.FC = () => {
             testID="login-google-button"
           >
             <Icon name="google" style={styles.buttonIcon} />
-            <Text style={styles.googleButtonText}>
-              {isLoading ? t("로그인 중...") : t("Google로 시작하기")}
+            <Text style={styles.googleButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+              {pendingProvider === AuthProviderType.GOOGLE ? t("로그인 중...") : t("Google로 시작하기")}
             </Text>
           </TouchableOpacity>
 
@@ -152,7 +153,9 @@ export const Login: React.FC = () => {
               testID="login-apple-button"
             >
               <Icon name="apple" style={styles.buttonIcon}/>
-              <Text style={styles.appleButtonText}>{t("Apple로 시작하기")}</Text>
+              <Text style={styles.appleButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                {pendingProvider === AuthProviderType.APPLE ? t("로그인 중...") : t("Apple로 시작하기")}
+              </Text>
             </TouchableOpacity>
           )}
 
@@ -258,7 +261,9 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   googleButton: {
-    height: 48, // Figma 기준
+    minHeight: 48, // 기본 높이 유지, 확대 글자는 자연 높이로 표시
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     width: '100%',
     borderRadius: 6, // Figma 기준
     backgroundColor: GREY.WHITE,
@@ -272,7 +277,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   appleButton: {
-    height: 48, // Figma 기준
+    minHeight: 48, // 기본 높이 유지, 확대 글자는 자연 높이로 표시
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     width: '100%',
     borderRadius: 6, // Figma 기준
     backgroundColor: '#000000',
@@ -293,11 +300,13 @@ const styles = StyleSheet.create({
     marginRight: 6, // Figma gap: 6px
   },
   googleButtonText: {
+    flexShrink: 1,
     fontFamily: 'Pretendard-Bold',
     color: '#2B2B2B',
     fontSize: 14, // Figma 기준
   },
   appleButtonText: {
+    flexShrink: 1,
     fontFamily: 'Pretendard-Bold',
     color: GREY.WHITE,
     fontSize: 14, // Figma 기준

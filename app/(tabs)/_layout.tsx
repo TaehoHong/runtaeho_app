@@ -1,10 +1,15 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
+import { Label } from '@react-navigation/elements';
+import { useTheme } from '@react-navigation/native';
 import { Tabs } from 'expo-router';
+import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppStore } from '~/stores/app/appStore';
 import { Icon } from '~/shared/components/ui';
 import { getMainTabBarBottomPadding, getMainTabBarHeight } from '~/shared/utils/safeAreaPolicy';
 import { isTabBarVisible } from '~/shared/utils/tabBarVisibility';
+
+const tabBarLabelStyle = { fontSize: 12, fontWeight: '500' as const };
 
 /**
  * 메인 탭 네비게이션 레이아웃
@@ -12,7 +17,8 @@ import { isTabBarVisible } from '~/shared/utils/tabBarVisibility';
  * 러닝 상태에 따라 탭바 표시/숨김 제어
  */
 export default function TabLayout() {
-  useAppLanguage();
+  const t = useAppTranslation();
+  const { fonts } = useTheme();
   const runningState = useAppStore((state) => state.runningState);
   const viewState = useAppStore((state) => state.viewState);
   const insets = useSafeAreaInsets();
@@ -55,10 +61,15 @@ export default function TabLayout() {
         },
         tabBarActiveTintColor: '#45DA31',
         tabBarInactiveTintColor: '#B4B4B4',
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '500',
-        },
+        tabBarLabelStyle,
+        ...(Platform.OS === 'android' ? { tabBarLabel: ({ children, color }: { children: string; color: string }) => (
+          <Label
+            tintColor={color}
+            adjustsFontSizeToFit
+            minimumFontScale={0.7}
+            style={[fonts.medium, tabBarLabelStyle, { maxWidth: '100%' }]}
+          >{children}</Label>
+        ) } : {}),
         // iOS와 동일한 애니메이션 효과
         animation: 'none',
       }}

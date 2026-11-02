@@ -1,5 +1,7 @@
 import React from 'react';
 import { screen } from '@testing-library/react-native';
+import { Platform } from 'react-native';
+import { AuthProviderType } from '~/features/auth/models/AuthType';
 import { Login } from '~/features/auth/views/login';
 import { renderWithProviders } from '~/test-utils/renderWithProviders';
 import { resetAllStores } from '~/test-utils/resetState';
@@ -44,4 +46,29 @@ describe('Login view', () => {
     expect(screen.getByTestId('login-google-button')).toBeTruthy();
     expect(mockUseAutoUpdate).toHaveBeenCalledWith({ autoStart: true });
   });
+
+  it.each([AuthProviderType.APPLE, AuthProviderType.GOOGLE])(
+    'shows pending state only on the selected %s button', pendingProvider => {
+      const originalOS = Platform.OS;
+      Object.defineProperty(Platform, 'OS', { configurable: true, value: 'ios' });
+      try {
+        mockUseAuthSignIn.mockReturnValue({
+          isLoading: true,
+          pendingProvider,
+          signInWithGoogle: jest.fn(),
+          signInWithApple: jest.fn(),
+        });
+        renderWithProviders(<Login />);
+        const selected = pendingProvider === AuthProviderType.APPLE ? 'apple' : 'google';
+        const otherLabel = pendingProvider === AuthProviderType.APPLE
+          ? 'Google로 시작하기' : 'Apple로 시작하기';
+        expect(screen.getByTestId(`login-${selected}-button`)).toHaveTextContent('로그인 중...');
+        expect(screen.getByText(otherLabel)).toBeTruthy();
+        expect(screen.getByTestId('login-google-button')).toBeDisabled();
+        expect(screen.getByTestId('login-apple-button')).toBeDisabled();
+      } finally {
+        Object.defineProperty(Platform, 'OS', { configurable: true, value: originalOS });
+      }
+    }
+  );
 });

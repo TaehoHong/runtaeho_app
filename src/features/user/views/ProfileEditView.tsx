@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import type { ImagePickerAsset } from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -38,6 +38,7 @@ export const ProfileEditView: React.FC = () => {
   const [nickname, setNickname] = useState(currentUser?.nickname || '');
   const [selectedImage, setSelectedImage] = useState<ImagePickerAsset | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const savingRef = useRef(false);
 
   const currentProfileImage = currentUser?.profileImageURL;
 
@@ -84,6 +85,7 @@ export const ProfileEditView: React.FC = () => {
    * 변경 사항 저장
    */
   const handleSave = async () => {
+    if (savingRef.current) return;
     const nicknameChanged = nickname.trim() !== currentUser?.nickname;
     const imageChanged = selectedImage !== null;
 
@@ -101,6 +103,7 @@ export const ProfileEditView: React.FC = () => {
     const isScreenCurrent = captureLifetime();
     const session = getSessionSnapshot();
     const isCurrent = () => isScreenCurrent() && isSessionCurrent(session);
+    savingRef.current = true;
     setIsLoading(true);
     try {
       const updateParams: Parameters<typeof userService.updateProfile>[0] = {};
@@ -136,6 +139,7 @@ export const ProfileEditView: React.FC = () => {
       console.error('프로필 수정 실패:', error);
       Alert.alert(t("오류"), t("프로필 수정에 실패했습니다. 다시 시도해주세요."));
     } finally {
+      savingRef.current = false;
       setIsLoading(false);
     }
   };
@@ -144,7 +148,7 @@ export const ProfileEditView: React.FC = () => {
    * 뒤로가기 (변경사항 확인)
    */
   const handleBack = () => {
-    if (isLoading) {
+    if (savingRef.current) {
       router.back();
       return;
     }

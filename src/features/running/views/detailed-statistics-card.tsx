@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppLanguage, useAppTranslation } from '~/i18n';
 import React from 'react';
 import { GREY } from '~/shared/styles';
 import {
@@ -25,7 +25,7 @@ const StateItemCompactView: React.FC<StatItemProps> = ({ title, subtitle }) => {
   return (
     <View style={styles.statItem}>
       <Text style={styles.statSubtitle}>{subtitle}</Text>
-      <Text style={styles.statTitle}>{title}</Text>
+      <Text style={styles.statTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{title}</Text>
     </View>
   );
 };
@@ -35,7 +35,7 @@ export const DetailedStatisticsCard: React.FC<DetailedStatisticsCardProps> = ({
   durationSec,
   heartRate,
 }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   const { currentRecord } = useRunning();
   const resolvedDistance = distanceMeters ?? currentRecord?.distance;
   const resolvedDurationSec = durationSec ?? currentRecord?.durationSec;
@@ -104,6 +104,7 @@ const styles = StyleSheet.create({
     color: GREY[700],
   },
   statTitle: {
+    maxWidth: '100%',
     fontSize: 27,
     fontWeight: '600',
     color: '#000000',

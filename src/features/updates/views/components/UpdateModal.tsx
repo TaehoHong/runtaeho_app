@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 import React from 'react';
 import {
   View,
@@ -27,7 +27,7 @@ export function UpdateModal({
   onClose,
   mandatory = false,
 }: UpdateModalProps) {
-  useAppLanguage();
+  const t = useAppTranslation();
   const { progress, availableManifest } = useUpdateStore();
   const { downloadUpdate, applyUpdate, isDownloading, isReady, hasError, error } = useUpdateDownload();
 

@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 /**
  * Statistics Summary Card Component
  * Figma: Frame 637886 (20, 445, 335x70)
@@ -23,15 +23,15 @@ interface StatisticsSummaryCardProps {
   period: Period;
 }
 
-const getDistanceLabel = (period: Period) => {
+const getDistanceLabel = (period: Period, translate: ReturnType<typeof useAppTranslation>) => {
   switch (period) {
     case Period.WEEK:
-      return t("이번 주 총 거리");
+      return translate("이번 주 총 거리");
     case Period.YEAR:
-      return t("올해 총 거리");
+      return translate("올해 총 거리");
     case Period.MONTH:
     default:
-      return t("이번 달 총 거리");
+      return translate("이번 달 총 거리");
   }
 };
 
@@ -41,14 +41,14 @@ export const StatisticsSummaryCard: React.FC<StatisticsSummaryCardProps> = ({
   averagePace,
   period,
 }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   const distance = RunningStatusFormat.distanceParts(totalDistance);
   const pace = RunningStatusFormat.pace(averagePace);
 
   return (
     <View style={styles.container}>
       <View style={styles.accent} />
-      <Text style={styles.label}>{getDistanceLabel(period)}</Text>
+      <Text style={styles.label}>{getDistanceLabel(period, t)}</Text>
       <View
         style={styles.distanceRow}
         accessible

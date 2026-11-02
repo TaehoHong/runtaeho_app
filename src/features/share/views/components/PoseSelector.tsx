@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { t, useAppLanguage, useAppTranslation } from '~/i18n';
 
 
 import React, { useCallback } from 'react';
@@ -52,7 +52,7 @@ const PoseButton = React.memo<PoseButtonProps>(({
   disabled,
   onSelect,
 }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   // 포즈 선택 (UI 스레드 → JS 스레드)
   const selectPose = useCallback(() => {
     onSelect(option);
@@ -252,7 +252,7 @@ export const PoseSelector: React.FC<PoseSelectorProps> = ({
   sliderValue,
   onSliderChange,
 }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   return (
     <View style={styles.sectionCard}>
       <Text style={styles.title}>{t("포즈")}</Text>

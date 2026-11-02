@@ -49,14 +49,14 @@ export const formatToLocalDateTime = (date: Date): string => {
  * @param timestamp - Unix timestamp (초 단위)
  * @returns 한국어 날짜 문자열 (예: "2024년 1월 1일 09:30")
  */
-export const formatRecordDate = (timestamp: number): string => {
+export const formatRecordDate = (timestamp: number, translate: typeof t = t): string => {
   const date = new Date(timestamp * 1000);
   const year = date.getFullYear();
   const month = date.getMonth() + 1;
   const day = date.getDate();
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
-  return t("{{value0}}년 {{value1}}월 {{value2}}일 {{value3}}:{{value4}}", { value0: year, value1: month, value2: day, value3: hours, value4: minutes });
+  return translate("{{value0}}년 {{value1}}월 {{value2}}일 {{value3}}:{{value4}}", { value0: year, value1: month, value2: day, value3: hours, value4: minutes });
 };
 
 /**

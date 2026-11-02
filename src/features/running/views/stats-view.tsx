@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 import React from 'react';
 import { GREY } from '~/shared/styles';
 import {
@@ -31,7 +31,7 @@ interface StatsViewProps {
  * 정책: 센서 데이터 없으면 "--" 표시
  */
 export const StatsView: React.FC<StatsViewProps> = ({ paceType = 'average' }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   const { elapsedTime, stats } = useRunning();
 
   const heartRate = RunningStatusFormat.heartRate(stats.bpm);
@@ -46,19 +46,19 @@ export const StatsView: React.FC<StatsViewProps> = ({ paceType = 'average' }) =>
       {/* 심박 */}
       <View style={styles.statItem}>
         <Text style={styles.statLabel}>{t("심박")}</Text>
-        <Text style={styles.statValue}>{heartRate}</Text>
+        <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{heartRate}</Text>
       </View>
 
       {/* 페이스 */}
       <View style={styles.statItem}>
         <Text style={styles.statLabel}>{t("페이스")}</Text>
-        <Text style={styles.statValue}>{pace}</Text>
+        <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{pace}</Text>
       </View>
 
       {/* 러닝 시간 */}
       <View style={styles.statItem}>
         <Text style={styles.statLabel}>{t("러닝 시간")}</Text>
-        <Text style={styles.statValue}>{runningTime}</Text>
+        <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{runningTime}</Text>
       </View>
     </View>
   );
@@ -87,6 +87,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   statValue: {
+    maxWidth: '100%',
     fontSize: 27,
     fontWeight: '600',
     color: '#000000',

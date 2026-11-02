@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 import React from 'react';
 import { GREY } from '~/shared/styles';
 import {
@@ -18,7 +18,7 @@ interface MainDistanceCardProps {
  * "현재 누적 거리" + "00.0 km"
  */
 export const MainDistanceCard: React.FC<MainDistanceCardProps> = ({ distanceMeters }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   const { distance } = useRunning();
   const resolvedDistance = distanceMeters ?? distance;
 

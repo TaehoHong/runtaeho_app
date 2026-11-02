@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
@@ -29,7 +29,7 @@ export const TermsDetailModal: React.FC<TermsDetailModalProps> = ({
   title,
   onClose,
 }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 

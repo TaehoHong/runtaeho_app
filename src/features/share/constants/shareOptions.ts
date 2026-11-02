@@ -102,22 +102,22 @@ export const INITIAL_STAT_ELEMENTS: StatElementConfig[] = [
   {
     type: 'distance',
     visible: true,
-    transform: { x: 0, y: 45, scale: 1, rotation: 0 },
+    transform: { x: 0, y: -20, scale: 1, rotation: 0 },
   },
   {
     type: 'time',
     visible: true,
-    transform: { x: -60, y: 78, scale: 1, rotation: 0 },
+    transform: { x: -60, y: 53, scale: 1, rotation: 0 },
   },
   {
     type: 'pace',
     visible: true,
-    transform: { x: 60, y: 78, scale: 1, rotation: 0 },
+    transform: { x: 60, y: 53, scale: 1, rotation: 0 },
   },
   {
     type: 'map',
     visible: true,
-    transform: { x: 0, y: 106, scale: 1, rotation: 0 },
+    transform: { x: 0, y: -135, scale: 0.65, rotation: 0 },
   },
 ];
 

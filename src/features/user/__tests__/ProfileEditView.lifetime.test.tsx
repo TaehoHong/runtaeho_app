@@ -65,3 +65,25 @@ it('closing an unsaved draft still asks before discarding changes', () => {
   expect(mockUpdate).not.toHaveBeenCalled();
   alert.mockRestore();
 });
+
+it('handles save and close in the same render without a discard alert or duplicate save', async () => {
+  let finish!: (value: unknown) => void;
+  mockUpdate.mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  const form = render(<ProfileEditView />);
+  fireEvent.changeText(screen.getByPlaceholderText('닉네임을 입력하세요'), 'after');
+  const save = screen.getByText('저장');
+  const close = screen.UNSAFE_getAllByType(Ionicons).find(node => node.props.name === 'close')!;
+  act(() => {
+    fireEvent.press(save);
+    fireEvent.press(save);
+    fireEvent.press(close);
+  });
+  expect(mockUpdate).toHaveBeenCalledTimes(1);
+  expect(mockBack).toHaveBeenCalledTimes(1);
+  expect(alert).not.toHaveBeenCalled();
+  form.unmount();
+  await act(async () => { finish({}); });
+  expect(alert).not.toHaveBeenCalled();
+  alert.mockRestore();
+});

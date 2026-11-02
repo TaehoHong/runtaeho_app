@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 import React from 'react';
 import { PRIMARY, GREY } from '~/shared/styles';
 import { View, StyleSheet } from 'react-native';
@@ -20,7 +20,7 @@ export const PointInfoBar: React.FC<PointInfoBarProps> = ({
   earnedPoints,
   totalPoints,
 }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   return (
     <View style={[styles.container]}>
       {/* 획득 포인트 */}

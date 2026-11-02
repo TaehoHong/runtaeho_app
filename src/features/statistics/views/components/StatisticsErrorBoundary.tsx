@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 /**
  * Statistics Error Boundary
  * 통계 기능 전용 에러 바운더리
@@ -16,7 +16,7 @@ interface StatisticsErrorFallbackProps {
 const StatisticsErrorFallback: React.FC<StatisticsErrorFallbackProps> = ({
   error,
   onRetry
-}) => { useAppLanguage(); return (
+}) => { const t = useAppTranslation(); return (
   <View style={styles.container}>
     <Text style={styles.title}>{t("통계를 불러올 수 없습니다")}</Text>
     <Text style={styles.message}>{error?.message || t("잠시 후 다시 시도해주세요")}</Text>

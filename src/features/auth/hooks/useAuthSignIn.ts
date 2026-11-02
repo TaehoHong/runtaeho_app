@@ -21,7 +21,8 @@ import { useAuth } from './useAuth';
  */
 export const useAuthSignIn = () => {
   useAppLanguage();
-  const [isLoading, setIsLoading] = useState(false);
+  const [pendingProvider, setPendingProvider] = useState<AuthProviderType | null>(null);
+  const isLoading = pendingProvider !== null;
   const inFlight = useRef(false);
   const { completeLogin } = useAuth();
   const authService = AuthenticationService.shared;
@@ -81,7 +82,7 @@ export const useAuthSignIn = () => {
     inFlight.current = true;
 
     console.log(`🔐 [LOGIN] ${provider} 로그인 시도`);
-    setIsLoading(true);
+    setPendingProvider(provider);
 
     try {
       await waitForLogout();
@@ -114,7 +115,9 @@ export const useAuthSignIn = () => {
 
     } catch (error: any) {
       if (error instanceof SessionSupersededError) return;
-      console.error(`[Auth] sign-in failed`, { provider, category: error instanceof AuthError ? error.type : 'unknown' });
+      if (!(error instanceof AuthError && error.type === AuthErrorType.CANCELLED)) {
+        console.error(`[Auth] sign-in failed`, { provider, category: error instanceof AuthError ? error.type : 'unknown' });
+      }
 
       // AuthError 타입별 처리
       if (error instanceof AuthError) {
@@ -124,7 +127,7 @@ export const useAuthSignIn = () => {
       }
     } finally {
       inFlight.current = false;
-      setIsLoading(false);
+      setPendingProvider(null);
     }
   };
 
@@ -144,6 +147,7 @@ export const useAuthSignIn = () => {
 
   return {
     isLoading,
+    pendingProvider,
     signInWithGoogle,
     signInWithApple,
   };

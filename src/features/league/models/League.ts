@@ -149,28 +149,29 @@ export interface LeagueResult {
  */
 export const getResultMessage = (
   status: LeagueResultStatus,
-  tierName: string
+  tierName: string,
+  translate: typeof t = t
 ): { title: string; subtitle: string } => {
   switch (status) {
     case LeagueResultStatus.PROMOTED:
       return {
-        title: t("축하합니다!"),
-        subtitle: t("{{value0}} 리그로 승급했습니다", { value0: tierName }),
+        title: translate("축하합니다!"),
+        subtitle: translate("{{value0}} 리그로 승급했습니다", { value0: tierName }),
       };
     case LeagueResultStatus.MAINTAINED:
       return {
-        title: t("수고하셨습니다!"),
-        subtitle: t("{{value0}} 리그에 잔류합니다", { value0: tierName }),
+        title: translate("수고하셨습니다!"),
+        subtitle: translate("{{value0}} 리그에 잔류합니다", { value0: tierName }),
       };
     case LeagueResultStatus.RELEGATED:
       return {
-        title: t("아쉽습니다"),
-        subtitle: t("{{value0}} 리그로 강등되었습니다", { value0: tierName }),
+        title: translate("아쉽습니다"),
+        subtitle: translate("{{value0}} 리그로 강등되었습니다", { value0: tierName }),
       };
     case LeagueResultStatus.REBIRTH:
       return {
-        title: t("환생!"),
-        subtitle: t("다시 처음부터 시작합니다"),
+        title: translate("환생!"),
+        subtitle: translate("다시 처음부터 시작합니다"),
       };
   }
 };

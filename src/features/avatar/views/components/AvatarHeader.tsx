@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 /**
  * 아바타 헤더 컴포넌트
  * SRP: 헤더 UI만 담당
@@ -17,7 +17,7 @@ interface Props {
 }
 
 export const AvatarHeader: React.FC<Props> = ({ onClose, points }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
 
   return (
     <View style={styles.container}>

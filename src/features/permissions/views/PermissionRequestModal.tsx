@@ -9,7 +9,8 @@ import { t, useAppLanguage } from '~/i18n';
  */
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Modal } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { permissionManager } from '~/services/PermissionManager';
 import { PRIMARY, GREY } from '~/shared/styles';
 import { Icon } from '~/shared/components/ui';
@@ -22,6 +23,7 @@ interface PermissionRequestModalProps {
 export const PermissionRequestModal: React.FC<PermissionRequestModalProps> = ({ visible, onClose }) => {
   useAppLanguage();
   const [missingPermissions, setMissingPermissions] = useState<string>('');
+  const insets = useSafeAreaInsets();
 
   /**
    * 모달이 열릴 때마다 현재 권한 상태 확인
@@ -64,19 +66,21 @@ export const PermissionRequestModal: React.FC<PermissionRequestModalProps> = ({ 
       onRequestClose={onClose}
     >
       {/* 배경 딤 */}
-      <TouchableOpacity
-        style={styles.backdrop}
-        activeOpacity={1}
-        onPress={onClose}
-      >
-        {/* 모달 컨텐츠 */}
+      <View style={[styles.backdrop, { paddingTop: insets.top }]}>
         <TouchableOpacity
-          style={styles.modalContainer}
+          style={StyleSheet.absoluteFill}
           activeOpacity={1}
-          onPress={(e) => e.stopPropagation()}
+          onPress={onClose}
+          accessible={false}
+        />
+        {/* 모달 컨텐츠 */}
+        <View
+          style={[styles.modalContainer, { paddingBottom: Math.max(insets.bottom, 20) }]}
         >
           {/* 드래그 핸들 */}
           <View style={styles.dragHandle} />
+
+          <ScrollView testID="permission-request-body" style={styles.scrollBody} bounces={false}>
 
           {/* 헤더 */}
           <View style={styles.header}>
@@ -95,8 +99,8 @@ export const PermissionRequestModal: React.FC<PermissionRequestModalProps> = ({ 
                 <Icon name="point" size={28} tintColor={PRIMARY[600]} />
               </View>
               <View style={styles.permissionContent}>
-                <Text style={styles.permissionTitle}>{t("위치 권한")}</Text>
-                <Text style={styles.permissionDescription}>{t("러닝 경로 추적 및 거리 측정에 사용됩니다.")}</Text>
+                <Text style={styles.permissionTitle} lineBreakStrategyIOS="hangul-word">{t("위치 권한")}</Text>
+                <Text style={styles.permissionDescription} lineBreakStrategyIOS="hangul-word">{t("러닝 경로 추적 및 거리 측정에 사용됩니다.")}</Text>
               </View>
             </View>
 
@@ -106,11 +110,13 @@ export const PermissionRequestModal: React.FC<PermissionRequestModalProps> = ({ 
                 <Icon name="shoe" size={28} tintColor={PRIMARY[600]} />
               </View>
               <View style={styles.permissionContent}>
-                <Text style={styles.permissionTitle}>{t("동작 및 피트니스")}</Text>
-                <Text style={styles.permissionDescription}>{t("걸음 수 측정 및 활동량 분석에 사용됩니다.")}</Text>
+                <Text style={styles.permissionTitle} lineBreakStrategyIOS="hangul-word">{t("동작 및 피트니스")}</Text>
+                <Text style={styles.permissionDescription} lineBreakStrategyIOS="hangul-word">{t("걸음 수 측정 및 활동량 분석에 사용됩니다.")}</Text>
               </View>
             </View>
           </View>
+
+          </ScrollView>
 
           {/* 설정으로 이동 버튼 */}
           <TouchableOpacity
@@ -128,8 +134,8 @@ export const PermissionRequestModal: React.FC<PermissionRequestModalProps> = ({ 
           >
             <Text style={styles.skipButtonText}>{t("나중에 하기")}</Text>
           </TouchableOpacity>
-        </TouchableOpacity>
-      </TouchableOpacity>
+        </View>
+      </View>
     </Modal>
   );
 };
@@ -146,8 +152,10 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     paddingHorizontal: 20,
     paddingTop: 12,
-    paddingBottom: 40,
-    maxHeight: '60%', // 화면의 60% 높이
+    maxHeight: '90%',
+  },
+  scrollBody: {
+    flexShrink: 1,
   },
   dragHandle: {
     width: 40,
@@ -216,7 +224,8 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   button: {
-    height: 52,
+    minHeight: 52,
+    paddingVertical: 12,
     backgroundColor: PRIMARY[600],
     borderRadius: 12,
     justifyContent: 'center',
@@ -232,7 +241,8 @@ const styles = StyleSheet.create({
     color: GREY.WHITE,
   },
   skipButton: {
-    height: 44,
+    minHeight: 44,
+    paddingVertical: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 /**
  * MyRankCard Component
  * 내 순위 정보 카드
@@ -28,7 +28,7 @@ export const MyRankCard = ({
   promotionStatus,
   progressPosition,
 }: MyRankCardProps) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   // 강등이 없는 티어인지 확인 (BRONZE 등 최하위 티어)
   const hasNoRelegation = relegationCutRank > totalParticipants;
 
@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
     marginTop: 23,
     padding: 16,
     borderRadius: 8,
-    height: 140,
+    minHeight: 140,
   },
   row: {
     flexDirection: 'row',

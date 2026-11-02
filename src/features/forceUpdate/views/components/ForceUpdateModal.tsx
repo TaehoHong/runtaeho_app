@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 import React from 'react';
 import {
   View,
@@ -36,7 +36,7 @@ export function ForceUpdateModal({
   error,
   onRetry,
 }: ForceUpdateModalProps) {
-  useAppLanguage();
+  const t = useAppTranslation();
   /**
    * 앱스토어 열기
    */

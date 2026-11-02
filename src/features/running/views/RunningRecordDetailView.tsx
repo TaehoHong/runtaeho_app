@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppLanguage, useAppTranslation } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -9,6 +9,7 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import MapView, {
@@ -78,7 +79,7 @@ class MapRenderBoundary extends React.Component<
 }
 
 export const RunningRecordDetailView: React.FC = () => {
-  useAppLanguage();
+  const t = useAppTranslation();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ id?: string }>();
   const recordId = Number(params.id);
@@ -239,7 +240,7 @@ export const RunningRecordDetailView: React.FC = () => {
             <RouteMapHero locations={routeLocations} />
           </MapRenderBoundary>
           <View style={styles.routeContent}>
-            <Text style={styles.dateText}>{formatRecordDate(record.startTimestamp)}</Text>
+            <Text style={styles.dateText}>{formatRecordDate(record.startTimestamp, t)}</Text>
             <RecordHero record={record} variant="route" />
             <StatsGrid record={record} variant="route" />
             <ConnectedShoeCard
@@ -286,7 +287,7 @@ export const RunningRecordDetailView: React.FC = () => {
         contentContainerStyle={styles.noMapScrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.dateText}>{formatRecordDate(record.startTimestamp)}</Text>
+        <Text style={styles.dateText}>{formatRecordDate(record.startTimestamp, t)}</Text>
         <RecordHero record={record} variant="noMap" />
         <StatsGrid record={record} variant="noMap" />
         <ConnectedShoeCard
@@ -330,13 +331,13 @@ const Header: React.FC<HeaderProps> = ({ title, topInset, onBack, onShare }) => 
   <View
     style={[
       styles.header,
-      { height: topInset + HEADER_BAR_HEIGHT, paddingTop: topInset },
+      { minHeight: topInset + HEADER_BAR_HEIGHT, paddingTop: topInset },
     ]}
   >
     <TouchableOpacity onPress={onBack} style={styles.headerButton} activeOpacity={0.7}>
       <Ionicons name="chevron-back" size={28} color={GREY[900]} />
     </TouchableOpacity>
-    <Text style={styles.headerTitle}>{title}</Text>
+    <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{title}</Text>
     {onShare ? (
       <TouchableOpacity onPress={onShare} style={styles.headerButton} activeOpacity={0.7}>
         <Ionicons name="share-social-outline" size={24} color={GREY[900]} />
@@ -353,7 +354,7 @@ interface RecordHeroProps {
 }
 
 const RecordHero: React.FC<RecordHeroProps> = ({ record, variant }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   const distance = RunningStatusFormat.distanceParts(record.distance);
   let sourceLabel: string | null = null;
   switch (record.source) {
@@ -403,8 +404,8 @@ const RecordHero: React.FC<RecordHeroProps> = ({ record, variant }) => {
   return (
     <View style={[styles.recordHero, variant === 'route' ? styles.recordHeroRoute : styles.recordHeroNoMap]}>
       <View style={styles.distanceRow}>
-        <Text style={styles.distanceValue}>{distance.value}</Text>
-        <Text style={styles.distanceUnit}>{distance.unit}</Text>
+        <Text style={styles.distanceValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{distance.value}</Text>
+        <Text style={styles.distanceUnit} numberOfLines={1}>{distance.unit}</Text>
       </View>
       <Text style={styles.distanceCaption}>{t("오늘의 러닝 거리")}</Text>
       {sourceLabel ? <Text style={styles.distanceCaption}>{sourceLabel}</Text> : null}
@@ -420,29 +421,34 @@ interface StatsGridProps {
 }
 
 const StatsGrid: React.FC<StatsGridProps> = ({ record, variant }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
+  const { fontScale } = useWindowDimensions();
+  const isLargeText = fontScale > 1.3;
   const heartRate = RunningStatusFormat.heartRate(record.heartRate);
   const cadence = RunningStatusFormat.cadence(record.cadence);
   const calories = RunningStatusFormat.calories(record.calorie);
 
   return (
     <View style={[styles.statsGrid, variant === 'route' ? styles.statsGridRoute : styles.statsGridNoMap]}>
-      <View style={styles.metricTopRow}>
-        <MetricCard label={t("총 시간")} value={formatDurationMetric(record.durationSec)} />
+      <View style={[styles.metricTopRow, isLargeText && styles.metricRowStacked]}>
+        <MetricCard stacked={isLargeText} label={t("총 시간")} value={formatDurationMetric(record.durationSec)} />
         <MetricCard
+          stacked={isLargeText}
           label={t("평균 페이스")}
           value={formatPaceMetric(calculateAveragePace(record))}
           unit="/km"
           unitPlacement="below"
         />
-        <MetricCard label={t("칼로리")} value={calories} />
+        <MetricCard stacked={isLargeText} label={t("칼로리")} value={calories} />
       </View>
-      <View style={styles.metricBottomRow}>
+      <View style={[styles.metricBottomRow, isLargeText && styles.metricRowStacked]}>
         <MetricCard
+          stacked={isLargeText}
           label={t("평균 심박")}
           value={heartRate}
         />
         <MetricCard
+          stacked={isLargeText}
           label={t("케이던스")}
           value={cadence}
         />
@@ -464,7 +470,7 @@ const KilometerSplitsList: React.FC<KilometerSplitsListProps> = ({
   isLoading,
   isError,
 }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   const stateText = isError
     ? t("구간 기록을 불러오지 못했어요")
     : t("구간 기록이 없어요");
@@ -506,10 +512,10 @@ interface KilometerSplitRowProps {
   split: KilometerSplit;
 }
 
-const KilometerSplitRow: React.FC<KilometerSplitRowProps> = ({ split }) => { useAppLanguage(); return (
+const KilometerSplitRow: React.FC<KilometerSplitRowProps> = ({ split }) => { const t = useAppTranslation(); const { fontScale } = useWindowDimensions(); const stacked = fontScale > 1.3; return (
   <View style={styles.splitRow}>
-    <View style={styles.splitRowTop}>
-      <Text style={styles.splitLabel}>{formatSplitLabel(split)}</Text>
+    <View style={[styles.splitRowTop, stacked && styles.splitRowTopStacked]}>
+      <Text style={[styles.splitLabel, stacked && styles.splitLabelStacked]}>{formatSplitLabel(split, t)}</Text>
       <Text style={styles.splitPace}>{formatSplitPace(split.paceSecPerKm)}</Text>
     </View>
     <View style={styles.splitRowBottom}>
@@ -530,7 +536,8 @@ const ConnectedShoeCard: React.FC<ConnectedShoeCardProps> = ({
   variant,
   onPress,
 }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
+  const { fontScale } = useWindowDimensions();
   const connectedShoe = record.connectedShoe ?? null;
   const isConnected = connectedShoe !== null;
 
@@ -539,12 +546,13 @@ const ConnectedShoeCard: React.FC<ConnectedShoeCardProps> = ({
       style={[
         styles.connectedShoeCard,
         variant === 'route' ? styles.connectedShoeCardRoute : styles.connectedShoeCardNoMap,
+        fontScale > 1.3 && styles.connectedShoeCardStacked,
       ]}
     >
       <View style={styles.connectedShoeIconBox}>
         <Icon name="shoe" size={37} />
       </View>
-      <View style={styles.connectedShoeInfo}>
+      <View style={[styles.connectedShoeInfo, fontScale > 1.3 && styles.connectedShoeInfoStacked]}>
         {connectedShoe ? (
           <>
             <View style={styles.connectedShoeBrandRow}>
@@ -563,8 +571,8 @@ const ConnectedShoeCard: React.FC<ConnectedShoeCardProps> = ({
           </>
         ) : (
           <>
-            <Text style={styles.connectedShoeEmptyTitle}>{t("연결된 신발이 없어요")}</Text>
-            <Text style={styles.connectedShoeEmptySubtitle}>{t("러닝 기록에 신발을 연결해보세요")}</Text>
+            <Text style={styles.connectedShoeEmptyTitle} lineBreakStrategyIOS="hangul-word">{t("연결된 신발이 없어요")}</Text>
+            <Text style={styles.connectedShoeEmptySubtitle} lineBreakStrategyIOS="hangul-word">{t("러닝 기록에 신발을 연결해보세요")}</Text>
           </>
         )}
       </View>
@@ -613,7 +621,7 @@ const ShoeChangeBottomSheet: React.FC<ShoeChangeBottomSheetProps> = ({
   onSelectShoe,
   onSave,
 }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   const mainShoeId = shoes.find((shoe) => shoe.isMain)?.id ?? null;
   const canSave = selectedShoeId !== null && selectedShoeId !== currentShoeId && !isSaving;
 
@@ -696,6 +704,7 @@ const ShoeChangeBottomSheet: React.FC<ShoeChangeBottomSheetProps> = ({
 };
 
 interface MetricCardProps {
+  stacked: boolean;
   label: string;
   value: string;
   unit?: string | undefined;
@@ -703,16 +712,17 @@ interface MetricCardProps {
 }
 
 const MetricCard: React.FC<MetricCardProps> = ({
+  stacked,
   label,
   value,
   unit,
   unitPlacement = 'inline',
 }) => { useAppLanguage(); return (
-  <View style={styles.metricCard}>
+  <View style={[styles.metricCard, stacked && styles.metricCardStacked]}>
     <Text style={styles.metricLabel}>{label}</Text>
     {unitPlacement === 'below' ? (
       <View style={styles.metricStack}>
-        <Text style={styles.metricValue}>{value}</Text>
+        <Text style={styles.metricValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{value}</Text>
         {unit ? <Text style={styles.metricUnitBelow}>{unit}</Text> : null}
       </View>
     ) : (
@@ -722,7 +732,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
           unitPlacement === 'trailing' && styles.metricValueRowTrailing,
         ]}
       >
-        <Text style={styles.metricValue}>{value}</Text>
+        <Text style={styles.metricValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{value}</Text>
         {unit ? (
           <Text
             style={[
@@ -750,9 +760,9 @@ const formatSplitPace = (paceSecPerKm: number): string => {
   return RunningStatusFormat.paceFromSecondsPerKm(paceSecPerKm);
 };
 
-const formatSplitLabel = (split: KilometerSplit): string => {
+const formatSplitLabel = (split: KilometerSplit, translate: ReturnType<typeof useAppTranslation>): string => {
   if (split.isPartial) {
-    return t("마지막 {{value0}}", { value0: RunningStatusFormat.distance(split.distanceMeters) });
+    return translate("마지막 {{value0}}", { value0: RunningStatusFormat.distance(split.distanceMeters) });
   }
 
   return RunningStatusFormat.distance(split.splitNumber * 1000);
@@ -763,7 +773,7 @@ interface RouteMapHeroProps {
 }
 
 const RouteMapHero: React.FC<RouteMapHeroProps> = ({ locations }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   const coordinates = useMemo<LatLng[]>(() => getRouteCoordinates(locations), [locations]);
   const region = useMemo<Region | null>(() => getRouteRegion(locations), [locations]);
   const startCoordinate = coordinates[0];
@@ -779,6 +789,7 @@ const RouteMapHero: React.FC<RouteMapHeroProps> = ({ locations }) => {
         style={styles.map}
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
         initialRegion={region}
+        {...(Platform.OS === 'android' ? { region } : {})}
         mapType="standard"
         userInterfaceStyle="light"
         scrollEnabled={false}
@@ -847,6 +858,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
+    flexShrink: 1,
     fontSize: 16,
     lineHeight: 22,
     fontWeight: '600',
@@ -942,6 +954,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   distanceValue: {
+    flexShrink: 1,
     fontSize: 56,
     lineHeight: 64,
     fontWeight: '800',
@@ -973,14 +986,17 @@ const styles = StyleSheet.create({
     marginTop: 15,
   },
   metricTopRow: {
-    height: 91,
+    minHeight: 91,
     flexDirection: 'row',
     gap: 8,
   },
   metricBottomRow: {
-    height: 82,
+    minHeight: 82,
     flexDirection: 'row',
     gap: 8,
+  },
+  metricRowStacked: {
+    flexDirection: 'column',
   },
   metricCard: {
     flex: 1,
@@ -989,6 +1005,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 13,
     paddingTop: 14,
     paddingBottom: 10,
+  },
+  metricCardStacked: {
+    flex: 0,
   },
   metricLabel: {
     fontSize: 13,
@@ -1008,6 +1027,7 @@ const styles = StyleSheet.create({
     marginTop: 11,
   },
   metricValue: {
+    flexShrink: 1,
     fontSize: 26,
     lineHeight: 31,
     fontWeight: '800',
@@ -1078,6 +1098,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
   },
+  splitRowTopStacked: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+  },
   splitLabel: {
     flex: 1,
     minWidth: 0,
@@ -1085,6 +1109,9 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontWeight: '700',
     color: GREY[900],
+  },
+  splitLabelStacked: {
+    flex: 0,
   },
   splitPace: {
     fontSize: 16,
@@ -1123,14 +1150,20 @@ const styles = StyleSheet.create({
   },
   connectedShoeCard: {
     marginHorizontal: 16,
-    height: 112,
+    minHeight: 112,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: GREY[200],
     borderRadius: 8,
     backgroundColor: GREY.WHITE,
     paddingHorizontal: 14,
+    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  connectedShoeCardStacked: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 14,
   },
   connectedShoeCardRoute: {
     marginTop: 20,
@@ -1153,9 +1186,14 @@ const styles = StyleSheet.create({
     minWidth: 0,
     marginLeft: 14,
   },
+  connectedShoeInfoStacked: {
+    flex: 0,
+    marginLeft: 0,
+  },
   connectedShoeBrandRow: {
-    height: 20,
+    minHeight: 20,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
   },
   connectedShoeBrand: {
@@ -1165,9 +1203,10 @@ const styles = StyleSheet.create({
     color: GREY[500],
   },
   connectedShoeMainBadge: {
-    height: 20,
+    minHeight: 20,
     marginLeft: 10,
     paddingHorizontal: 8,
+    paddingVertical: 5,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1207,17 +1246,19 @@ const styles = StyleSheet.create({
     color: GREY[500],
   },
   connectedShoeAction: {
-    height: 32,
+    minHeight: 32,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: PRIMARY[50],
   },
   connectedShoeChangeAction: {
-    width: 50,
+    minWidth: 50,
   },
   connectedShoeSelectAction: {
-    width: 72,
+    minWidth: 72,
   },
   connectedShoeActionText: {
     fontSize: 12,
@@ -1349,8 +1390,9 @@ const styles = StyleSheet.create({
   routeMarkerLabel: {
     marginTop: 5,
     minWidth: 42,
-    height: 24,
+    minHeight: 24,
     paddingHorizontal: 8,
+    paddingVertical: 5,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',

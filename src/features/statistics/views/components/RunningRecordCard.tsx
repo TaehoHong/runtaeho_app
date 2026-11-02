@@ -1,11 +1,11 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppTranslation } from '~/i18n';
 /**
  * Running Record Card Component
  * 개별 러닝 기록 카드
  */
 
 import React, { memo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
 import type { RunningRecord } from '../../../running/models';
 import { formatDuration, calculateAveragePace } from '../../../running/models';
@@ -19,8 +19,10 @@ interface RunningRecordCardProps {
 }
 
 const RunningRecordCardComponent: React.FC<RunningRecordCardProps> = ({ record }) => {
-  useAppLanguage();
-  const dateString = formatRecordDate(record.startTimestamp);
+  const t = useAppTranslation();
+  const { fontScale } = useWindowDimensions();
+  const stacked = fontScale > 1.3;
+  const dateString = formatRecordDate(record.startTimestamp, t);
   const distance = RunningStatusFormat.distance(record.distance);
   const pace = calculateAveragePace(record);
   const paceFormatted = RunningStatusFormat.pace(pace);
@@ -42,19 +44,19 @@ const RunningRecordCardComponent: React.FC<RunningRecordCardProps> = ({ record }
         <Text style={styles.cardDate}>{dateString}</Text>
       </View>
 
-      <View style={styles.cardStats}>
-        <View style={styles.statBox}>
-          <Text style={styles.statValue}>{distance}</Text>
+      <View style={[styles.cardStats, stacked && styles.cardStatsStacked]}>
+        <View style={[styles.statBox, stacked && styles.statBoxStacked]}>
+          <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>{distance}</Text>
           <Text style={styles.statLabel}>{t("거리")}</Text>
         </View>
 
-        <View style={styles.statBox}>
-          <Text style={styles.statValue}>{paceFormatted}</Text>
+        <View style={[styles.statBox, stacked && styles.statBoxStacked]}>
+          <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>{paceFormatted}</Text>
           <Text style={styles.statLabel}>{t("페이스")}</Text>
         </View>
 
-        <View style={styles.statBox}>
-          <Text style={styles.statValue}>{duration}</Text>
+        <View style={[styles.statBox, stacked && styles.statBoxStacked]}>
+          <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>{duration}</Text>
           <Text style={styles.statLabel}>{t("총 시간")}</Text>
         </View>
       </View>
@@ -92,6 +94,13 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     gap: 6,
+  },
+  cardStatsStacked: {
+    flexDirection: 'column',
+    gap: 16,
+  },
+  statBoxStacked: {
+    flex: 0,
   },
   statValue: {
     fontSize: 16,

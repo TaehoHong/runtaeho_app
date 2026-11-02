@@ -237,7 +237,7 @@ export const SettingsView: React.FC = () => {
               </TouchableOpacity>
             ))}
             {saveLanguage.isPending && <Text accessibilityRole="alert">{t("저장 중...")}</Text>}
-            <TouchableOpacity style={[styles.alertButton, styles.cancelButton]}
+            <TouchableOpacity style={[styles.alertButton, styles.cancelButton, styles.languageCancelButton]}
               onPress={() => setShowLanguagePicker(false)} disabled={saveLanguage.isPending}>
               <Text style={styles.cancelButtonText}>{t("취소")}</Text>
             </TouchableOpacity>
@@ -407,6 +407,9 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     backgroundColor: GREY[100],
+  },
+  languageCancelButton: {
+    flex: 0,
   },
   cancelButtonText: {
     color: GREY[600],

@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppLanguage, useAppTranslation } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
@@ -23,7 +23,7 @@ interface PointHistoryViewProps {
 }
 
 export const PointHistoryView: React.FC<PointHistoryViewProps> = ({ onClose }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   const {
     selectedFilter,
     currentPoints,
@@ -113,7 +113,7 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ onClose }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   return (
     <View style={styles.header}>
       <TouchableOpacity onPress={onClose} style={styles.backButton} testID="point-history-close">
@@ -134,7 +134,7 @@ interface CurrentPointCardProps {
 }
 
 const CurrentPointCard: React.FC<CurrentPointCardProps> = ({ points }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   return (
     <View style={styles.pointCard}>
       <Text style={styles.pointCardLabel}>{t("현재 보유 포인트")}</Text>
@@ -156,7 +156,7 @@ interface FilterTabsProps {
 }
 
 const FilterTabs: React.FC<FilterTabsProps> = ({ selected, onSelect }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   const filters = [PointFilter.ALL, PointFilter.EARNED, PointFilter.SPENT];
 
   return (
@@ -173,7 +173,7 @@ const FilterTabs: React.FC<FilterTabsProps> = ({ selected, onSelect }) => {
             testID={`point-filter-${filter}`}
           >
             <Text style={[styles.filterTabText, isSelected && styles.filterTabTextSelected]}>
-              {config.displayName}
+              {config.getDisplayName(t)}
             </Text>
           </TouchableOpacity>
         );
@@ -210,7 +210,7 @@ const HistoryItem: React.FC<HistoryItemProps> = ({ history }) => {
  * Figma: "포인트 내역이 없습니다."
  */
 const EmptyState: React.FC = () => {
-  useAppLanguage();
+  const t = useAppTranslation();
   return (
     <View style={styles.emptyState}>
       <Text style={styles.emptyStateText}>{t("포인트 내역이 없습니다.")}</Text>

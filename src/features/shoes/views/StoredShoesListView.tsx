@@ -1,4 +1,4 @@
-import { t, useAppLanguage } from '~/i18n';
+import { useAppLanguage, useAppTranslation } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
@@ -155,7 +155,7 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ onClose }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   return (
     <View style={styles.header}>
       {onClose ? (
@@ -179,7 +179,7 @@ interface ShoeCardProps {
 }
 
 const ShoeCard: React.FC<ShoeCardProps> = ({ shoe }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   return (
     <View style={styles.shoeItemContent}>
       <View style={styles.shoeItemImageContainer}>
@@ -229,7 +229,7 @@ const HiddenActionButtons: React.FC<HiddenActionButtonsProps> = ({
  * 빈 상태
  */
 const EmptyState: React.FC = () => {
-  useAppLanguage();
+  const t = useAppTranslation();
   return (
     <View style={styles.emptyState}>
       <Text style={styles.emptyStateText}>{t("보관된 신발이 없어요.")}{'\n'}{t("신발을 보관하면 여기에 표시됩니다!")}</Text>
@@ -265,7 +265,7 @@ const TakeOutConfirmModal: React.FC<TakeOutConfirmModalProps> = ({
   onConfirm,
   onCancel,
 }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   return (
     <Modal
       visible={visible}
@@ -313,7 +313,7 @@ const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
   onConfirm,
   onCancel,
 }) => {
-  useAppLanguage();
+  const t = useAppTranslation();
   return (
     <Modal
       visible={visible}

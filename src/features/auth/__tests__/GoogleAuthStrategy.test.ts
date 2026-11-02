@@ -109,4 +109,13 @@ describe('GoogleAuthStrategy', () => {
 
     logSpy.mockRestore();
   });
+
+  it('maps a resolved SDK cancellation to the existing cancellation error', async () => {
+    hasPlayServicesMock.mockResolvedValue(true);
+    signInMock.mockResolvedValueOnce({ type: 'cancelled', data: null });
+
+    await expect(new GoogleAuthStrategy().getAuthorizationCode()).rejects.toMatchObject({
+      type: AuthErrorType.CANCELLED,
+    });
+  });
 });

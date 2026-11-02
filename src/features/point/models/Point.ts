@@ -23,15 +23,18 @@ export enum PointFilter {
  */
 export const PointFilterConfig = {
   [PointFilter.ALL]: {
-    get displayName() { return t("전체"); },
+    get displayName() { return this.getDisplayName(t); },
+    getDisplayName(translate: typeof t) { return translate("전체"); },
     value: 'all',
   },
   [PointFilter.EARNED]: {
-    get displayName() { return t("적립"); },
+    get displayName() { return this.getDisplayName(t); },
+    getDisplayName(translate: typeof t) { return translate("적립"); },
     value: 'earned',
   },
   [PointFilter.SPENT]: {
-    get displayName() { return t("사용"); },
+    get displayName() { return this.getDisplayName(t); },
+    getDisplayName(translate: typeof t) { return translate("사용"); },
     value: 'spent',
   },
 } as const;

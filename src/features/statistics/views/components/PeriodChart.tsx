@@ -10,7 +10,7 @@ import { useAppTranslation } from '~/i18n';
  */
 
 import React, { useCallback, useMemo } from 'react';
-import { StyleSheet, View, Dimensions } from 'react-native';
+import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import Svg, { Line, Path, Text as SvgText } from 'react-native-svg';
 import type { ChartDataPoint } from '../../models';
 import {
@@ -33,8 +33,6 @@ interface PeriodChartProps {
   referenceDate?: Date; // 기준 날짜 (스와이프 기간 전환용)
 }
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const CHART_WIDTH = SCREEN_WIDTH - 40; // 좌우 20px 마진
 const CHART_HEIGHT = 210;
 const CHART_PADDING = { top: 64, right: 38, bottom: 34, left: 35 };
 const X_AXIS_MARGIN = 10; // X축 양 끝 마진
@@ -100,6 +98,9 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
 }) => {
   const t = useAppTranslation();
   // 기간별 막대 너비 (Figma 디자인)
+  const { width: screenWidth } = useWindowDimensions();
+  const chartWidth = screenWidth - 40; // 좌우 20px 마진
+
   const barWidth = useMemo(() => {
     switch (period) {
       case Period.MONTH:
@@ -204,7 +205,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
   };
 
   // 차트 내부 크기
-  const chartInnerWidth = CHART_WIDTH - CHART_PADDING.left - CHART_PADDING.right;
+  const chartInnerWidth = chartWidth - CHART_PADDING.left - CHART_PADDING.right;
   const chartInnerHeight = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom;
 
   // Y축 그리드 라인 Y 좌표
@@ -371,7 +372,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
 
   return (
     <View style={styles.container}>
-      <Svg width={CHART_WIDTH} height={CHART_HEIGHT}>
+      <Svg width={chartWidth} height={CHART_HEIGHT}>
         {/* 기간 라벨 - 월/년 (좌측 상단) */}
         <SvgText
           x={TITLE_LEFT_X}
@@ -399,7 +400,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
         {/* 주차 라벨 (우측 상단) - Period.WEEK일 때만 표시 */}
         {periodLabel.right && (
           <SvgText
-            x={CHART_WIDTH - IN_CHART_OPTIONS_RESERVED_WIDTH}
+            x={chartWidth - IN_CHART_OPTIONS_RESERVED_WIDTH}
             y={32}
             fontSize={14}
             {...getNumberFontStyle('500')}
@@ -426,7 +427,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
 
         {isTrendComparisonVisible && (
           <SvgText
-            x={CHART_WIDTH - 4}
+            x={chartWidth - 4}
             y={CHART_PADDING.top - 8}
             fontSize={10}
             fontWeight="600"
@@ -439,7 +440,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
           cumulativeAxisLabels.map((label, index) => (
             <SvgText
               key={`cumulative-y-label-${index}`}
-              x={CHART_WIDTH - 4}
+              x={chartWidth - 4}
               y={getCumulativeYPosition(label) + 4}
               fontSize={10}
               {...getNumberFontStyle('500')}
@@ -456,7 +457,7 @@ const PeriodChartComponent: React.FC<PeriodChartProps> = ({
             key={`grid-${index}`}
             x1={CHART_PADDING.left}
             y1={getYPosition(label)}
-            x2={CHART_WIDTH - CHART_PADDING.right}
+            x2={chartWidth - CHART_PADDING.right}
             y2={getYPosition(label)}
             stroke={GREY[100]}
             strokeWidth={1}
