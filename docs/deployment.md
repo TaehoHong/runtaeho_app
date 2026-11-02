@@ -322,6 +322,11 @@ Google Play Console에서 만든 서비스 계정 JSON을 등록한다. `eas.jso
 `EXPO_PUBLIC_` 변수로 만들지 않는다. 기존 Sentry 조직·프로젝트를 유지하는 계정 전환에는
 앱 DSN 변경이 필요하지 않다.
 
+현재 모바일 프로젝트는 `runtaeho-i9/runtaeho`다. 조직·프로젝트를 바꿀 때는
+`app.config.js`의 Sentry plugin, 양 플랫폼 `sentry.properties`, 로컬 환경 파일과
+EAS 환경의 DSN·업로드 토큰을 함께 변경한다. 기존 설치 앱의 JS 수집 대상은 새 DSN을
+포함한 OTA를 적용한 뒤 바뀌며, 새 네이티브 빌드의 업로드 대상도 이 설정을 따른다.
+
 런타임의 `release`·`dist`는 Sentry SDK의 네이티브 빌드 감지를 사용한다. OTA에서는
 `expo-update-id`·`expo-runtime-version`·`expo-channel`·`expo-is-embedded-update` 태그로
 업데이트를 구분한다. 실제 오류의 소스 위치 복원은 해당 빌드·OTA에서 별도로 검증한다.

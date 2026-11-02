@@ -129,7 +129,7 @@ export default {
         {
           "url": "https://sentry.io/",
           "project": "runtaeho",
-          "organization": "runtaeho"
+          "organization": "runtaeho-i9"
         }
       ]
     ],
