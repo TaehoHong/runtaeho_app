@@ -20,6 +20,7 @@ export {
 
 // TextInput 컴포넌트
 export {
+  NativeTextInput,
   TextInput,
   TextInputThin,
   TextInputExtraLight,

@@ -2,7 +2,7 @@ import { useAppTranslation } from '~/i18n';
 import { Label } from '@react-navigation/elements';
 import { useTheme } from '@react-navigation/native';
 import { Tabs } from 'expo-router';
-import { Platform } from 'react-native';
+import { Platform, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppStore } from '~/stores/app/appStore';
 import { Icon } from '~/shared/components/ui';
@@ -22,8 +22,9 @@ export default function TabLayout() {
   const runningState = useAppStore((state) => state.runningState);
   const viewState = useAppStore((state) => state.viewState);
   const insets = useSafeAreaInsets();
+  const { fontScale } = useWindowDimensions();
   const tabBarBottomPadding = getMainTabBarBottomPadding(insets.bottom);
-  const tabBarHeight = getMainTabBarHeight(insets.bottom);
+  const tabBarHeight = getMainTabBarHeight(insets.bottom, fontScale);
 
   // iOS와 동일한 로직: 러닝 중이 아니고 로딩 완료 시에만 탭바 표시
   const shouldShowTabBar = isTabBarVisible(runningState, viewState);

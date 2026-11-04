@@ -10,7 +10,7 @@ import { useAppTranslation } from '~/i18n';
  */
 
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, useWindowDimensions } from 'react-native';
 import { Period } from '../../models';
 import { PRIMARY, GREY } from '~/shared/styles';
 import { RunningStatusFormat } from '~/shared/utils/formatters';
@@ -42,6 +42,8 @@ export const StatisticsSummaryCard: React.FC<StatisticsSummaryCardProps> = ({
   period,
 }) => {
   const t = useAppTranslation();
+  const { fontScale } = useWindowDimensions();
+  const isLargeText = fontScale > 1.3;
   const distance = RunningStatusFormat.distanceParts(totalDistance);
   const pace = RunningStatusFormat.pace(averagePace);
 
@@ -65,13 +67,13 @@ export const StatisticsSummaryCard: React.FC<StatisticsSummaryCardProps> = ({
         <Text style={styles.distanceUnit}>{distance.unit}</Text>
       </View>
 
-      <View style={styles.secondaryRow}>
-        <View style={styles.secondaryItem}>
+      <View style={[styles.secondaryRow, isLargeText && styles.secondaryRowStacked]}>
+        <View style={[styles.secondaryItem, isLargeText && styles.secondaryItemStacked]}>
           <Text style={styles.secondaryLabel}>{t("러닝")}</Text>
           <Text style={styles.secondaryValue}>{runCount}{t("회")}</Text>
         </View>
-        <View style={styles.divider} />
-        <View style={styles.secondaryItem}>
+        <View style={[styles.divider, isLargeText && styles.dividerStacked]} />
+        <View style={[styles.secondaryItem, isLargeText && styles.secondaryItemStacked]}>
           <Text style={styles.secondaryLabel}>{t("평균 페이스")}</Text>
           <Text style={styles.secondaryValue}>{pace}</Text>
         </View>
@@ -137,7 +139,16 @@ const styles = StyleSheet.create({
     borderTopColor: GREY[100],
   },
   secondaryItem: {
-    flex: 1,
+    flexGrow: 1,
+    width: 0,
+  },
+  secondaryRowStacked: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+  },
+  secondaryItemStacked: {
+    flexGrow: 0,
+    width: '100%',
   },
   secondaryLabel: {
     fontSize: 12,
@@ -157,5 +168,11 @@ const styles = StyleSheet.create({
     height: 30,
     marginHorizontal: 16,
     backgroundColor: GREY[100],
+  },
+  dividerStacked: {
+    width: '100%',
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: 0,
+    marginVertical: 16,
   },
 });

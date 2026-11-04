@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import {
   getBottomOffsetForPlatform,
   getMainTabBarHeight,
@@ -30,5 +31,22 @@ describe('safeAreaPolicy', () => {
   it('calculates scroll content padding to keep content above the main tab bar', () => {
     expect(getMainTabBarScrollContentPaddingBottom(34)).toBe(110);
     expect(getMainTabBarScrollContentPaddingBottom(0)).toBe(86);
+  });
+
+  it('reserves Android label growth consistently and preserves the iOS tab sizing policy', () => {
+    const originalPlatform = Platform.OS;
+    try {
+      Object.defineProperty(Platform, 'OS', { configurable: true, value: 'android' });
+      const growth = getMainTabBarHeight(24, 2) - getMainTabBarHeight(24, 1);
+      expect(growth).toBeGreaterThan(0);
+      expect(getMainTabBarScrollContentPaddingBottom(24, 2) - getMainTabBarScrollContentPaddingBottom(24, 1))
+        .toBe(growth);
+
+      Object.defineProperty(Platform, 'OS', { configurable: true, value: 'ios' });
+      expect(getMainTabBarHeight(34, 3)).toBe(getMainTabBarHeight(34, 1));
+      expect(getMainTabBarScrollContentPaddingBottom(34, 3)).toBe(getMainTabBarScrollContentPaddingBottom(34, 1));
+    } finally {
+      Object.defineProperty(Platform, 'OS', { configurable: true, value: originalPlatform });
+    }
   });
 });

@@ -1,11 +1,11 @@
 import { t, useAppLanguage } from '~/i18n';
 import React, { useRef, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useScreenLifetime } from '~/shared/hooks/useScreenLifetime';
 import { getSessionSnapshot, isSessionCurrent } from '~/features/auth/stores/authStore';
 import { TopScreenSafeAreaView } from '~/shared/components';
-import { Text } from '~/shared/components/typography';
+import { Text, NativeTextInput as TextInput } from '~/shared/components/typography';
 import { getAndroidFontStyle } from '~/shared/components/typography/fontUtils';
 import { PRIMARY, GREY, RED } from '~/shared/styles';
 import { useAddShoe } from '~/features/shoes/services';
@@ -109,7 +109,7 @@ export function AddShoeForm({ entry, onClose, onSuccess }: AddShoeFormProps) {
         </View>
 
         {/* 메인 컨텐츠 */}
-        <View style={styles.content}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {/* 브랜드 입력 */}
           <InputField
             label={t("브랜드")}
@@ -164,7 +164,7 @@ export function AddShoeForm({ entry, onClose, onSuccess }: AddShoeFormProps) {
               <Text style={styles.submitButtonText}>{t("신발 저장하기")}</Text>
             )}
           </TouchableOpacity>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </TopScreenSafeAreaView>
   );
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 16,
-    height: 56,
+    minHeight: 56,
     backgroundColor: GREY[50],
   },
   backButton: {
@@ -266,12 +266,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   input: {
-    height: 48,
+    minHeight: 48,
     backgroundColor: GREY.WHITE,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: GREY[200],
     paddingHorizontal: 16,
+    paddingVertical: 8,
     fontSize: 14,
     fontWeight: '400',
     color: GREY[900],
@@ -297,7 +298,8 @@ const styles = StyleSheet.create({
 
   // ===== 저장 버튼 =====
   submitButton: {
-    height: 56,
+    minHeight: 56,
+    paddingVertical: 16,
     backgroundColor: PRIMARY[600],
     borderRadius: 8,
     justifyContent: 'center',

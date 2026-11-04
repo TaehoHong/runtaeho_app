@@ -91,7 +91,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   statBox: {
-    flex: 1,
+    flexGrow: 1,
+    width: 0,
     alignItems: 'center',
     gap: 6,
   },
@@ -100,7 +101,8 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   statBoxStacked: {
-    flex: 0,
+    flexGrow: 0,
+    width: '100%',
   },
   statValue: {
     fontSize: 16,

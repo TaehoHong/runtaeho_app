@@ -1,0 +1,94 @@
+diff --git a/node_modules/react-native/Libraries/Components/TextInput/RCTTextInputViewConfig.js b/node_modules/react-native/Libraries/Components/TextInput/RCTTextInputViewConfig.js
+index 05bddcb..0018ccb 100644
+--- a/node_modules/react-native/Libraries/Components/TextInput/RCTTextInputViewConfig.js
++++ b/node_modules/react-native/Libraries/Components/TextInput/RCTTextInputViewConfig.js
+@@ -100,6 +100,7 @@ const RCTTextInputViewConfig: PartialViewConfigWithoutName = {
+       diff: require('../../Utilities/differ/sizesDiffer').default,
+     },
+     allowFontScaling: true,
++    fontSizeMultiplier: true,
+     fontStyle: true,
+     textTransform: true,
+     textAlign: true,
+diff --git a/node_modules/react-native/Libraries/Text/Text.js b/node_modules/react-native/Libraries/Text/Text.js
+index b08b8f3..ebe83fc 100644
+--- a/node_modules/react-native/Libraries/Text/Text.js
++++ b/node_modules/react-native/Libraries/Text/Text.js
+@@ -19,6 +19,7 @@ import usePressability from '../Pressability/usePressability';
+ import flattenStyle from '../StyleSheet/flattenStyle';
+ import processColor from '../StyleSheet/processColor';
+ import Platform from '../Utilities/Platform';
++import useWindowDimensions from '../Utilities/useWindowDimensions';
+ import TextAncestorContext from './TextAncestorContext';
+ import {NativeText, NativeVirtualText} from './TextNativeComponent';
+ import * as React from 'react';
+@@ -76,6 +77,9 @@ const TextImpl: component(
+   ref?: React.RefSetter<TextForwardRef>,
+   ...TextProps,
+ }) => {
++  const {fontScale} = useWindowDimensions();
++  // Invalidate Fabric's text attributes when the OS font scale changes.
++  const fontScaleProps = {fontSizeMultiplier: fontScale};
+   const _accessibilityLabel = ariaLabel ?? accessibilityLabel;
+ 
+   let _accessibilityState: ?TextProps['accessibilityState'] =
+@@ -177,6 +181,7 @@ const TextImpl: component(
+           ref={forwardedRef}
+           textProps={{
+             ...restProps,
++            ...fontScaleProps,
+             accessibilityLabel: _accessibilityLabel,
+             accessibilityState: _accessibilityState,
+             nativeID: _nativeID,
+@@ -208,6 +213,7 @@ const TextImpl: component(
+     return (
+       <NativeVirtualText
+         {...restProps}
++        {...fontScaleProps}
+         accessibilityLabel={_accessibilityLabel}
+         accessibilityState={_accessibilityState}
+         nativeID={_nativeID}
+@@ -247,6 +253,7 @@ const TextImpl: component(
+         ref={forwardedRef}
+         textProps={{
+           ...restProps,
++          ...fontScaleProps,
+           accessibilityLabel: _accessibilityLabel,
+           accessibilityState: _accessibilityState,
+           accessible: _accessible,
+@@ -280,6 +287,7 @@ const TextImpl: component(
+     nativeText = (
+       <NativeText
+         {...restProps}
++        {...fontScaleProps}
+         accessibilityLabel={_accessibilityLabel}
+         accessibilityState={_accessibilityState}
+         accessible={_accessible}
+diff --git a/node_modules/react-native/Libraries/Text/TextNativeComponent.js b/node_modules/react-native/Libraries/Text/TextNativeComponent.js
+index 709dd56..6a6c849 100644
+--- a/node_modules/react-native/Libraries/Text/TextNativeComponent.js
++++ b/node_modules/react-native/Libraries/Text/TextNativeComponent.js
+@@ -19,6 +19,7 @@ import createReactNativeComponentClass from '../Renderer/shims/createReactNative
+ 
+ export type NativeTextProps = $ReadOnly<{
+   ...TextProps,
++  fontSizeMultiplier?: ?number,
+   isHighlighted?: ?boolean,
+   selectionColor?: ?ProcessedColorValue,
+   onClick?: ?(event: GestureResponderEvent) => mixed,
+@@ -35,6 +36,7 @@ const textViewConfig = {
+     numberOfLines: true,
+     ellipsizeMode: true,
+     allowFontScaling: true,
++    fontSizeMultiplier: true,
+     dynamicTypeRamp: true,
+     maxFontSizeMultiplier: true,
+     disabled: true,
+@@ -61,6 +63,7 @@ const virtualTextViewConfig = {
+     isHighlighted: true,
+     isPressable: true,
+     maxFontSizeMultiplier: true,
++    fontSizeMultiplier: true,
+   },
+   uiViewClassName: 'RCTVirtualText',
+ };

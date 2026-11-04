@@ -11,15 +11,15 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useScreenLifetime } from '~/shared/hooks/useScreenLifetime';
 import { getSessionSnapshot, isSessionCurrent } from '~/features/auth/stores/authStore';
 import { useAuth } from '~/features/auth/hooks/useAuth';
-import { Text } from '~/shared/components/typography';
+import { Text, NativeTextInput as TextInput } from '~/shared/components/typography';
 import { getAndroidFontStyle } from '~/shared/components/typography/fontUtils';
 import { useMediaPicker } from '~/shared/hooks';
 import { GREY, PRIMARY } from '~/shared/styles';
@@ -31,6 +31,8 @@ import { userService } from '../services/userService';
  */
 export const ProfileEditView: React.FC = () => {
   useAppLanguage();
+  const { fontScale } = useWindowDimensions();
+  const isLargeText = fontScale > 1.3;
   const router = useRouter();
   const captureLifetime = useScreenLifetime();
   const { user: currentUser, refreshUserData } = useAuth();
@@ -168,6 +170,11 @@ export const ProfileEditView: React.FC = () => {
     }
   };
 
+  const title = (
+    <Text style={styles.headerTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}
+      lineBreakStrategyIOS="standard">{t("프로필 편집")}</Text>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -176,10 +183,11 @@ export const ProfileEditView: React.FC = () => {
       >
         {/* 헤더 */}
         <View style={styles.header}>
+          <View style={styles.headerActions}>
           <TouchableOpacity onPress={handleBack} style={styles.headerButton}>
             <Ionicons name="close" size={24} color={GREY[900]} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{t("프로필 편집")}</Text>
+          {!isLargeText && title}
           <TouchableOpacity
             onPress={handleSave}
             style={styles.headerButton}
@@ -191,6 +199,8 @@ export const ProfileEditView: React.FC = () => {
               <Text style={styles.saveButtonText}>{t("저장")}</Text>
             )}
           </TouchableOpacity>
+          </View>
+          {isLargeText && title}
         </View>
 
         <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
@@ -236,13 +246,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: GREY[100],
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
   },
   headerButton: {
     padding: 4,
@@ -250,6 +264,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
+    flexShrink: 1,
+    textAlign: 'center',
     fontSize: 17,
     fontWeight: '600',
     fontFamily: 'Pretendard',

@@ -12,7 +12,7 @@ import { t, useAppLanguage } from '~/i18n';
  */
 
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Period, PeriodDirection, calculateNextReferenceDate } from '../models';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -35,6 +35,7 @@ export const StatisticsView = () => {
   const [referenceDate, setReferenceDate] = useState<Date>(new Date());
   const [isTrendComparisonEnabled, setIsTrendComparisonEnabled] = useState(true);
   const insets = useSafeAreaInsets();
+  const { fontScale } = useWindowDimensions();
 
   const {
     summary,
@@ -202,7 +203,7 @@ export const StatisticsView = () => {
           style={styles.container}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: getMainTabBarScrollContentPaddingBottom(insets.bottom) },
+            { paddingBottom: getMainTabBarScrollContentPaddingBottom(insets.bottom, fontScale) },
           ]}
           refreshControl={
             <RefreshControl refreshing={isManualRefreshing} onRefresh={onManualRefresh} />

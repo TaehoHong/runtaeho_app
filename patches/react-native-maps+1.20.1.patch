@@ -1,0 +1,48 @@
+diff --git a/node_modules/react-native-maps/android/src/main/java/com/rnmaps/maps/MapMarker.java b/node_modules/react-native-maps/android/src/main/java/com/rnmaps/maps/MapMarker.java
+index b755f9b..2318f87 100644
+--- a/node_modules/react-native-maps/android/src/main/java/com/rnmaps/maps/MapMarker.java
++++ b/node_modules/react-native-maps/android/src/main/java/com/rnmaps/maps/MapMarker.java
+@@ -9,6 +9,7 @@ import android.graphics.drawable.Animatable;
+ import android.graphics.drawable.Drawable;
+ import android.net.Uri;
+ import android.view.View;
++import android.view.ViewGroup;
+ import android.widget.LinearLayout;
+ import android.animation.ObjectAnimator;
+ import android.util.Property;
+@@ -517,6 +518,22 @@ public class MapMarker extends MapFeature {
+ 
+   private Bitmap mLastBitmapCreated = null;
+ 
++  private void expandSnapshotSizeFromSubtree(View view, int offsetX, int offsetY, int[] bounds) {
++    int w = view.getWidth() > 0 ? view.getWidth() : view.getMeasuredWidth();
++    int h = view.getHeight() > 0 ? view.getHeight() : view.getMeasuredHeight();
++    bounds[0] = Math.max(bounds[0], offsetX + w);
++    bounds[1] = Math.max(bounds[1], offsetY + h);
++    if (view instanceof ViewGroup) {
++      ViewGroup group = (ViewGroup) view;
++      for (int i = 0; i < group.getChildCount(); i++) {
++        View child = group.getChildAt(i);
++        if (!(child instanceof MapCallout)) {
++          expandSnapshotSizeFromSubtree(child, offsetX + child.getLeft(), offsetY + child.getTop(), bounds);
++        }
++      }
++    }
++  }
++
+   private void clearDrawableCache() {
+     mLastBitmapCreated = null;
+   }
+@@ -524,6 +541,12 @@ public class MapMarker extends MapFeature {
+   private Bitmap createDrawable() {
+     int width = this.width <= 0 ? 100 : this.width;
+     int height = this.height <= 0 ? 100 : this.height;
++    if (hasCustomMarkerView) {
++      int[] bounds = new int[] {0, 0};
++      expandSnapshotSizeFromSubtree(this, 0, 0, bounds);
++      width = Math.max(width, bounds[0]);
++      height = Math.max(height, bounds[1]);
++    }
+     this.buildDrawingCache();
+ 
+     // Do not create the doublebuffer-bitmap each time. reuse it to save memory.

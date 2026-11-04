@@ -13,11 +13,15 @@ import { buildFullImageUrl } from '~/features/user/models/UserDataDto';
 
 interface RankItemProps {
   participant: LeagueParticipant;
+  expanded?: boolean;
+  rowHeight?: number;
 }
 
+export const RANK_ITEM_HEIGHT = 56;
+export const LARGE_RANK_LINE_HEIGHT = 20;
 
 
-export const RankItem = ({ participant }: RankItemProps) => {
+export const RankItem = ({ participant, expanded = false, rowHeight = RANK_ITEM_HEIGHT }: RankItemProps) => {
   const t = useAppTranslation();
   const isMe = participant.isMe;
   const displayName = isMe ? t("나") : (participant.nickname ?? t("익명"));
@@ -27,8 +31,8 @@ export const RankItem = ({ participant }: RankItemProps) => {
     ? { uri: fullImageUrl }  // 전체 URL로 변환 후 사용
     : require('assets/images/default-profile-image.png');  // 로컬 파일
 
-  return (
-    <View style={[styles.container, isMe && styles.containerMe]}>
+  const identity = (
+    <>
       {/* 순위 */}
       <Text style={[styles.rank, isMe && styles.textMe]}>
         {participant.rank}
@@ -45,12 +49,17 @@ export const RankItem = ({ participant }: RankItemProps) => {
       </View>
 
       {/* 이름 */}
-      <Text style={[styles.name, isMe && styles.textMe]}>
+      <Text style={[styles.name, isMe && styles.textMe, expanded && styles.expandedText]} numberOfLines={expanded ? 2 : undefined}>
         {displayName}
       </Text>
+    </>
+  );
 
+  return (
+    <View style={[styles.container, isMe && styles.containerMe, { height: rowHeight }, expanded && styles.containerExpanded]}>
+      {expanded ? <View style={styles.identityRow}>{identity}</View> : identity}
       {/* 거리 */}
-      <Text style={[styles.distance, isMe && styles.textMe]}>
+      <Text style={[styles.distance, isMe && styles.textMe, expanded && styles.expandedText]} numberOfLines={expanded ? 1 : undefined} adjustsFontSizeToFit={expanded}>
         {distanceFormatted}
       </Text>
     </View>
@@ -64,8 +73,24 @@ const styles = StyleSheet.create({
     backgroundColor: GREY.WHITE,
     paddingHorizontal: 10,
     paddingVertical: 12,
-    height: 56,
+    height: RANK_ITEM_HEIGHT,
     gap: 12,
+  },
+  containerExpanded: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    justifyContent: 'center',
+    gap: 8,
+    marginHorizontal: 20,
+  },
+  identityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  expandedText: {
+    lineHeight: LARGE_RANK_LINE_HEIGHT,
+    minWidth: 0,
   },
   containerMe: {
     backgroundColor: PRIMARY[50],

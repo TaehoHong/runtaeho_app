@@ -19,6 +19,7 @@ import expo.modules.ReactNativeHostWrapper
 import com.hongtaeho.app.watch.RNWatchSyncBridgePackage
 import com.hongtaeho.app.health.RNHealthImportBridgePackage
 import com.hongtaeho.app.unity.RNUnityBridgePackage
+import com.hongtaeho.app.typography.FontScaleTextInputPackage
 
 class MainApplication : Application(), ReactApplication {
 
@@ -27,6 +28,7 @@ class MainApplication : Application(), ReactApplication {
       object : DefaultReactNativeHost(this) {
         override fun getPackages(): List<ReactPackage> =
             PackageList(this).packages.apply {
+              add(0, FontScaleTextInputPackage())
               // Packages that cannot be autolinked yet can be added manually here, for example:
               // add(MyReactNativePackage())
 

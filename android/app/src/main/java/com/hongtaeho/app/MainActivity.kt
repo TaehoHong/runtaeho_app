@@ -3,11 +3,15 @@ import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build
 import android.os.Bundle
+import android.content.res.Configuration
+import com.facebook.react.uimanager.DisplayMetricsHolder
 
 import androidx.activity.result.ActivityResultLauncher
 import androidx.health.connect.client.PermissionController
 
 import com.facebook.react.ReactActivity
+import com.facebook.react.ReactApplication
+import com.facebook.react.bridge.LifecycleEventListener
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
 import com.facebook.react.defaults.DefaultReactActivityDelegate
@@ -23,6 +27,7 @@ interface HealthConnectPermissionRequester {
 }
 
 class MainActivity : ReactActivity(), HealthConnectPermissionRequester {
+  private var lastFontScale = 1f
   private lateinit var healthConnectPermissionLauncher: ActivityResultLauncher<Set<String>>
   private var pendingHealthPermissionCallback: HealthPermissionCallback? = null
 
@@ -35,12 +40,24 @@ class MainActivity : ReactActivity(), HealthConnectPermissionRequester {
     SplashScreenManager.registerOnActivity(this)
     // @generated end expo-splashscreen
     super.onCreate(null)
+    lastFontScale = resources.configuration.fontScale
     healthConnectPermissionLauncher = registerForActivityResult(
         PermissionController.createRequestPermissionResultContract()
     ) { grantedPermissions ->
         val callback = pendingHealthPermissionCallback ?: return@registerForActivityResult
         pendingHealthPermissionCallback = null
         callback.onSuccess(grantedPermissions)
+    }
+  }
+
+  override fun onConfigurationChanged(newConfig: Configuration) {
+    val fontScaleChanged = lastFontScale != newConfig.fontScale
+    lastFontScale = newConfig.fontScale
+    if (fontScaleChanged) DisplayMetricsHolder.initDisplayMetrics(this)
+    super.onConfigurationChanged(newConfig)
+    if (fontScaleChanged) {
+      val context = (application as ReactApplication).reactHost?.currentReactContext
+      (context?.getNativeModule("DeviceInfo") as? LifecycleEventListener)?.onHostResume()
     }
   }
 

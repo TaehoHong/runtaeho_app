@@ -12,15 +12,16 @@ import { TIER_IMAGES } from '~/shared/constants/images';
 
 interface LeagueHeaderProps {
   tierType: LeagueTierType;
+  expanded?: boolean;
 }
 
-export const LeagueHeader = ({ tierType }: LeagueHeaderProps) => {
+export const LeagueHeader = ({ tierType, expanded = false }: LeagueHeaderProps) => {
   const tierInfo = TIER_INFO[tierType];
   const tierImage = TIER_IMAGES[tierType];
 
   return (
-    <View style={styles.container}>
-      <View style={styles.tierInfo}>
+    <View style={[styles.container, expanded && styles.containerExpanded]}>
+      <View style={[styles.tierInfo, expanded && styles.tierInfoExpanded]}>
         {/* 티어 이미지 */}
         <View style={styles.tierImageContainer}>
           <Image
@@ -55,6 +56,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 12,
     padding: 10,
+  },
+  containerExpanded: {
+    height: 'auto',
+    minHeight: 120,
+  },
+  tierInfoExpanded: {
+    flex: 0,
   },
   tierImageContainer: {
     width: 99,

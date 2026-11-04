@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
   slidingBackground: {
     position: 'absolute',
     width: 80,
-    height: 34,
+    bottom: 0,
     backgroundColor: PRIMARY[600],
     borderRadius: 24,
     left: 0,
@@ -109,7 +109,8 @@ const styles = StyleSheet.create({
   },
   tab: {
     width: 80,
-    height: 34,
+    minHeight: 34,
+    paddingVertical: 8,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'transparent',

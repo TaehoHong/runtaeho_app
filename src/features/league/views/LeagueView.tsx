@@ -13,7 +13,7 @@ import { useAppTranslation } from '~/i18n';
 
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { NativeText as Text } from '~/shared/components/typography';
 import { TopScreenSafeAreaView } from '~/shared/components';
 import { GREY, PRIMARY } from '~/shared/styles';
@@ -29,6 +29,8 @@ import { RankingSection } from './components/RankingSection';
 
 export const LeagueView = () => {
   const t = useAppTranslation();
+  const { fontScale } = useWindowDimensions();
+  const expanded = fontScale > 1.3;
   useLeagueResultNavigation();
 
   // 이전 리그 순위 (애니메이션용) - running-finished에서 설정됨
@@ -104,10 +106,10 @@ export const LeagueView = () => {
 
     // 정상 데이터
     if (formattedData) {
-      return (
+      const summary = (
         <>
           {/* 상단: 티어 정보 */}
-          <LeagueHeader tierType={formattedData.tierType} />
+          <LeagueHeader tierType={formattedData.tierType} expanded={expanded} />
 
           {/* 내 순위 카드 */}
           <MyRankCard
@@ -118,14 +120,21 @@ export const LeagueView = () => {
             relegationCutRank={formattedData.relegationCutRank}
             promotionStatus={formattedData.promotionStatus}
             progressPosition={formattedData.progressPosition}
+            expanded={expanded}
           />
+        </>
+      );
 
+      return (
+        <>
+          {!expanded && summary}
           {/* 순위표 (스크롤 가능 영역) */}
           <RankingSection
             participants={formattedData.participants}
             previousRank={previousLeagueRank ?? undefined}
             isRefreshing={isRefreshing}
             onRefresh={handleRefresh}
+            pageHeader={expanded ? summary : undefined}
           />
         </>
       );

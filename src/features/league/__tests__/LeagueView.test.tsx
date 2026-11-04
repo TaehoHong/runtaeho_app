@@ -57,11 +57,11 @@ jest.mock('~/features/league/views/components/MyRankCard', () => ({
 }));
 
 jest.mock('~/features/league/views/components/RankingSection', () => ({
-  RankingSection: (props: unknown) => {
+  RankingSection: (props: { pageHeader?: React.ReactNode }) => {
     mockRankingSection(props);
     const React = require('react');
-    const { Text } = require('react-native');
-    return React.createElement(Text, null, 'ranking-section');
+    const { Text, View } = require('react-native');
+    return React.createElement(View, null, props.pageHeader, React.createElement(Text, null, 'ranking-section'));
   },
 }));
 

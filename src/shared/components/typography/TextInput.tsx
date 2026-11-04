@@ -1,6 +1,33 @@
-import React from 'react';
-import { TextInput as RNTextInput, type TextInputProps, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { TextInput as RNTextInput, type TextInputProps, StyleSheet, Platform, useWindowDimensions } from 'react-native';
 import { getFontFamily, getAndroidFontStyle, fontStyles } from './fontUtils';
+
+/** Match Android input frames to native content after live font changes. */
+export const NativeTextInput: React.FC<TextInputProps> = ({ style, onContentSizeChange, ...props }) => {
+  const [contentHeight, setContentHeight] = useState(0);
+  const { fontScale } = useWindowDimensions();
+  const fontScaleProps = Platform.OS === 'ios' ? { fontSizeMultiplier: fontScale } : null;
+  const flatStyle = StyleSheet.flatten(style);
+  const minimumHeight = flatStyle?.minHeight;
+  const height = flatStyle?.height;
+  return (
+    <RNTextInput
+      {...props}
+      {...fontScaleProps}
+      style={[
+        style,
+        Platform.OS === 'android' && contentHeight > 0 && (height == null || typeof height === 'number') && {
+          height: Math.max(contentHeight, typeof height === 'number' ? height : 0,
+            typeof minimumHeight === 'number' ? minimumHeight : 0),
+        },
+      ]}
+      onContentSizeChange={event => {
+        if (Platform.OS === 'android') setContentHeight(event.nativeEvent.contentSize.height);
+        onContentSizeChange?.(event);
+      }}
+    />
+  );
+};
 
 /**
  * Pretendard 폰트가 적용된 기본 TextInput 컴포넌트
@@ -12,7 +39,7 @@ export const TextInput: React.FC<TextInputProps> = ({ style, ...props }) => {
   const fontFamily = getFontFamily(fontWeight);
 
   return (
-    <RNTextInput
+    <NativeTextInput
       {...props}
       style={[
         fontStyles.default,

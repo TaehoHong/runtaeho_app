@@ -49,6 +49,7 @@ import { ShoeSnapCarousel } from './shoe-selection-area';
 
 const HEADER_BAR_HEIGHT = 52;
 const MAP_HERO_HEIGHT = 350;
+const ROUTE_MARKER_DOT_SIZE = 16;
 
 interface MapRenderBoundaryState {
   hasError: boolean;
@@ -815,29 +816,38 @@ const RouteMapHero: React.FC<RouteMapHeroProps> = ({ locations }) => {
           lineCap="round"
           lineJoin="round"
         />
-        <Marker coordinate={startCoordinate} anchor={{ x: 0.5, y: 0.18 }}>
-          <RouteMarker label={t("출발")} />
-        </Marker>
-        <Marker coordinate={endCoordinate} anchor={{ x: 0.5, y: 0.18 }}>
-          <RouteMarker label={t("도착")} />
-        </Marker>
+        <RouteMarker coordinate={startCoordinate} label={t("출발")} />
+        <RouteMarker coordinate={endCoordinate} label={t("도착")} />
       </MapView>
     </View>
   );
 };
 
 interface RouteMarkerProps {
+  coordinate: LatLng;
   label: string;
 }
 
-const RouteMarker: React.FC<RouteMarkerProps> = ({ label }) => { useAppLanguage(); return (
-  <View style={styles.routeMarker}>
-    <View style={styles.routeMarkerDot} />
-    <View style={styles.routeMarkerLabel}>
-      <Text style={styles.routeMarkerLabelText}>{label}</Text>
-    </View>
-  </View>
-); };
+const RouteMarker: React.FC<RouteMarkerProps> = ({ coordinate, label }) => {
+  useAppLanguage();
+  const [height, setHeight] = useState(0);
+  const anchorY = Platform.OS === 'android' && height > 0
+    ? ROUTE_MARKER_DOT_SIZE / 2 / height
+    : 0.18;
+  return (
+    <Marker coordinate={coordinate} anchor={{ x: 0.5, y: anchorY }}>
+      <View
+        style={styles.routeMarker}
+        onLayout={Platform.OS === 'android' ? event => setHeight(event.nativeEvent.layout.height) : undefined}
+      >
+        <View style={styles.routeMarkerDot} />
+        <View style={styles.routeMarkerLabel}>
+          <Text style={styles.routeMarkerLabelText}>{label}</Text>
+        </View>
+      </View>
+    </Marker>
+  );
+};
 
 const styles = StyleSheet.create({
   screen: {
@@ -999,7 +1009,8 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
   },
   metricCard: {
-    flex: 1,
+    flexGrow: 1,
+    width: 0,
     borderRadius: 7,
     backgroundColor: GREY.WHITE,
     paddingHorizontal: 13,
@@ -1007,7 +1018,8 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   metricCardStacked: {
-    flex: 0,
+    flexGrow: 0,
+    width: '100%',
   },
   metricLabel: {
     fontSize: 13,
@@ -1380,9 +1392,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   routeMarkerDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    width: ROUTE_MARKER_DOT_SIZE,
+    height: ROUTE_MARKER_DOT_SIZE,
+    borderRadius: ROUTE_MARKER_DOT_SIZE / 2,
     borderWidth: 3,
     borderColor: GREY.WHITE,
     backgroundColor: '#116B37',

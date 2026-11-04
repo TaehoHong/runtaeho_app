@@ -1,8 +1,10 @@
 import type { Edge } from 'react-native-safe-area-context';
+import { Platform } from 'react-native';
 
 const TOP_EDGES: Edge[] = ['top'];
 const TOP_AND_BOTTOM_EDGES: Edge[] = ['top', 'bottom'];
 const MAIN_TAB_BAR_BASE_HEIGHT = 60;
+const MAIN_TAB_BAR_LABEL_BASE_HEIGHT = 18;
 const MAIN_TAB_BAR_FALLBACK_BOTTOM_PADDING = 10;
 const MAIN_TAB_BAR_SCROLL_GAP = 16;
 
@@ -38,10 +40,13 @@ export const getMainTabBarBottomPadding = (bottomInset: number): number => {
  * app/(tabs)/_layout.tsx의 absolute 탭바 실제 높이.
  * 화면별 스크롤 하단 여백과 같은 기준을 써야 마지막 컨텐츠가 탭바에 가려지지 않는다.
  */
-export const getMainTabBarHeight = (bottomInset: number): number => {
-  return MAIN_TAB_BAR_BASE_HEIGHT + getMainTabBarBottomPadding(bottomInset);
+export const getMainTabBarHeight = (bottomInset: number, fontScale = 1): number => {
+  // iOS keeps its existing fixed-size tab labels and Large Content Viewer policy.
+  const labelScale = Platform.OS === 'android' ? fontScale : 1;
+  const labelExtraHeight = Math.ceil(MAIN_TAB_BAR_LABEL_BASE_HEIGHT * Math.max(0, labelScale - 1));
+  return MAIN_TAB_BAR_BASE_HEIGHT + labelExtraHeight + getMainTabBarBottomPadding(bottomInset);
 };
 
-export const getMainTabBarScrollContentPaddingBottom = (bottomInset: number): number => {
-  return getMainTabBarHeight(bottomInset) + MAIN_TAB_BAR_SCROLL_GAP;
+export const getMainTabBarScrollContentPaddingBottom = (bottomInset: number, fontScale = 1): number => {
+  return getMainTabBarHeight(bottomInset, fontScale) + MAIN_TAB_BAR_SCROLL_GAP;
 };

@@ -1,7 +1,7 @@
 import { getSessionSnapshot, isSessionCurrent } from '~/features/auth/stores/authStore';
 import { AdBanner } from '~/features/ads/AdBanner';
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getMainTabBarScrollContentPaddingBottom } from '~/shared/utils/safeAreaPolicy';
 import { useUserStore, useAppStore, RunningState } from '~/stores';
@@ -20,6 +20,7 @@ export const RunningStartView: React.FC = () => {
   const { startRunning, isStarting } = useRunning();
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const insets = useSafeAreaInsets();
+  const { fontScale } = useWindowDimensions();
 
   useEffect(() => {
     console.log('[RunningStartView] haveRunningRecord: ', haveRunningRecord);
@@ -59,7 +60,7 @@ export const RunningStartView: React.FC = () => {
       style={styles.scrollView}
       contentContainerStyle={[
         styles.container,
-        { paddingBottom: getMainTabBarScrollContentPaddingBottom(insets.bottom) },
+        { paddingBottom: getMainTabBarScrollContentPaddingBottom(insets.bottom, fontScale) },
       ]}
     >
       <AdBanner visible={!isStarting && !showPermissionModal} />

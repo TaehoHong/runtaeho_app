@@ -17,6 +17,7 @@ interface MyRankCardProps {
   relegationCutRank: number;
   promotionStatus: PromotionStatus;
   progressPosition: number; // 0~1 비율
+  expanded?: boolean;
 }
 
 export const MyRankCard = ({
@@ -27,6 +28,7 @@ export const MyRankCard = ({
   relegationCutRank,
   promotionStatus,
   progressPosition,
+  expanded = false,
 }: MyRankCardProps) => {
   const t = useAppTranslation();
   // 강등이 없는 티어인지 확인 (BRONZE 등 최하위 티어)
@@ -42,8 +44,8 @@ export const MyRankCard = ({
   return (
     <View style={styles.container}>
       {/* 내 순위 */}
-      <View style={styles.row}>
-        <View style={styles.rankSection}>
+      <View style={[styles.row, expanded && styles.rowExpanded]}>
+        <View style={[styles.rankSection, expanded && styles.rankSectionExpanded]}>
           <Text style={styles.label}>{t("내 순위")}</Text>
           <View style={styles.rankDisplay}>
             <Text style={styles.rankNumber}>{myRank}</Text>
@@ -53,9 +55,9 @@ export const MyRankCard = ({
         </View>
 
         {/* 주간 거리 */}
-        <View style={styles.distanceSection}>
+        <View style={[styles.distanceSection, expanded && styles.distanceSectionExpanded]}>
           <Text style={styles.label}>{t("주간 거리")}</Text>
-          <Text style={styles.distanceValue}>{myDistanceFormatted}</Text>
+          <Text style={styles.distanceValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{myDistanceFormatted}</Text>
         </View>
       </View>
 
@@ -88,7 +90,7 @@ export const MyRankCard = ({
         </View>
 
         {/* 레이블 */}
-        <View style={styles.progressLabels}>
+        <View style={[styles.progressLabels, expanded && styles.progressLabelsExpanded]}>
           <Text style={styles.promotionLabel}>{t("승격 (상위 30%)")}</Text>
           <Text style={styles.maintainLabel}>{t("유지")}</Text>
           {!hasNoRelegation && (
@@ -114,7 +116,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   rankSection: {
-    flex: 1,
+    flexGrow: 1,
+    width: 0,
+  },
+  rowExpanded: {
+    flexDirection: 'column',
+    gap: 16,
+  },
+  rankSectionExpanded: {
+    flexGrow: 0,
+    width: '100%',
+  },
+  distanceSectionExpanded: {
+    alignItems: 'flex-start',
+    width: '100%',
   },
   distanceSection: {
     alignItems: 'flex-end',
@@ -128,6 +143,7 @@ const styles = StyleSheet.create({
   },
   rankDisplay: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'baseline',
     gap: 4,
   },
@@ -205,6 +221,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 6,
+  },
+  progressLabelsExpanded: {
+    flexDirection: 'column',
+    gap: 6,
   },
   promotionLabel: {
     fontSize: 10,
