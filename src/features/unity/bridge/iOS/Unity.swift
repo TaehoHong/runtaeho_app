@@ -51,6 +51,7 @@ class Unity: ObservableObject  {
 
     /// Unity가 일시정지 상태인지 여부
     private(set) var isPaused = false
+    private var renderingEnabled = true
 
     /// View reattach가 안전한지 여부
     var isSafeToReattach: Bool {
@@ -202,8 +203,8 @@ class Unity: ObservableObject  {
             // ✅ 핵심 수정: completionBlock 밖에서 즉시 실행
             // 빈 CATransaction의 completionBlock은 호출 타이밍이 보장되지 않으므로
             // resume()과 상태 업데이트는 즉시 실행해야 함
-            self.resume()
             self.isAppActive = true
+            self.resume()
 
             // 큐에 쌓인 메시지 처리
             self.queueLock.lock()
@@ -357,6 +358,17 @@ class Unity: ObservableObject  {
         return layer.sublayers?.contains { hasMetalLayer(in: $0) } ?? false
     }
 
+    /// 표시 수명과 앱 활성 상태를 함께 적용한다.
+    func setRenderingEnabled(_ enabled: Bool) {
+        renderingEnabled = enabled
+        guard isAppActive else { return }
+        if enabled {
+            resume()
+        } else {
+            pause()
+        }
+    }
+
     /// Unity 일시정지
     func pause() {
         guard loaded && isFrameworkInitialized && !isPaused else { return }
@@ -368,7 +380,7 @@ class Unity: ObservableObject  {
 
     /// Unity 재개
     func resume() {
-        guard loaded && isFrameworkInitialized && isPaused else { return }
+        guard loaded && isFrameworkInitialized && isPaused && isAppActive && renderingEnabled else { return }
 
         print("[Unity] ▶️ Resuming Unity")
         _framework?.pause(false)
@@ -443,7 +455,7 @@ class Unity: ObservableObject  {
         }
 
         // 앱이 active인데 Unity가 paused면 불일치
-        if isAppActive && isPaused && loaded {
+        if isAppActive && renderingEnabled && isPaused && loaded {
             if elapsedSinceForeground <= foregroundValidationGraceInterval {
                 return .transient(reason: "foreground_grace_active_but_paused")
             }

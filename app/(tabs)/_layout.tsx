@@ -1,8 +1,7 @@
 import { useAppTranslation } from '~/i18n';
-import { Label } from '@react-navigation/elements';
-import { useTheme } from '@react-navigation/native';
+import { Label, useTheme } from 'expo-router/react-navigation';
 import { Tabs } from 'expo-router';
-import { Platform, useWindowDimensions } from 'react-native';
+import { Platform, useWindowDimensions, type ColorValue } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppStore } from '~/stores/app/appStore';
 import { Icon } from '~/shared/components/ui';
@@ -63,7 +62,7 @@ export default function TabLayout() {
         tabBarActiveTintColor: '#45DA31',
         tabBarInactiveTintColor: '#B4B4B4',
         tabBarLabelStyle,
-        ...(Platform.OS === 'android' ? { tabBarLabel: ({ children, color }: { children: string; color: string }) => (
+        ...(Platform.OS === 'android' ? { tabBarLabel: ({ children, color }: { children: string; color: ColorValue }) => (
           <Label
             tintColor={color}
             adjustsFontSizeToFit

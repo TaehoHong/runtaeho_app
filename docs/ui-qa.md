@@ -13,6 +13,8 @@ Metro의 `__DEV__`, 선택된 앱 manifest의 `extra.env=local`, `EXPO_PUBLIC_UI
 
 시나리오 초기 configuration의 서버 언어는 `ko`다. 언어를 바꾼 뒤 시나리오를 다시 초기화하면 한국어로 돌아올 수 있다. OS가 영어인 상태의 한국어 화면만으로 언어 미설정 사용자의 최초 fallback까지 검증했다고 판정하지 않는다.
 
+`EXPO_PUBLIC_UI_QA=1 EXPO_PUBLIC_UI_QA_UPDATES=1 npm start -- --localhost`는 같은 local QA gate 아래에서 업데이트 확인 응답만 2초 지연한 뒤 업데이트 없음으로 완료한다. 기존 로그인 화면의 업데이트 바·useAutoUpdate·AuthProvider를 사용한다. 먼저 populated로 합성 로그인한 뒤 앱을 완전히 종료하고 일반 실행하면 중간 QA 라우트 없이 로그인 화면의 확인 바→러닝 전환을 녹화할 수 있다. 실제 OTA 다운로드·적용·재시작을 검증하는 옵션은 아니다. 종료 후 두 flag를 제거한다.
+
 | scenario | 데이터와 제약 |
 | --- | --- |
 | populated | 기록·신발·알림·포인트·참여 중 리그 |

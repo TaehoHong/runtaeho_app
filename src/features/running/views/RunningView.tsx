@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import { AppState, BackHandler, Platform, StyleSheet, View } from 'react-native';
-import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from 'expo-router/react-navigation';
 import { GREY } from '~/shared/styles';
 import type { Item } from '~/features/avatar';
 import { UnityLoadingState } from '~/features/unity/components/UnityLoadingState';
@@ -473,7 +473,7 @@ const styles = StyleSheet.create({
   },
   // Loading 오버레이 - 전체 화면 덮기
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 100,
   },
 });

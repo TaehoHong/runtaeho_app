@@ -5,6 +5,8 @@ import ShareEditorPage from '../../../../app/share/editor';
 import { routerMock } from '~/test-utils/mocks/native';
 import { renderWithProviders } from '~/test-utils/renderWithProviders';
 
+jest.mock('~/features/unity/hooks/useUnityExitGuard', () => ({ useUnityExitGuard: jest.fn() }));
+
 const mockClearShareData = jest.fn();
 const mockEndEntryTransition = jest.fn();
 const mockBackHandlerRemove = jest.fn();

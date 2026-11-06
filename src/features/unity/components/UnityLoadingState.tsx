@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   placeholderContainer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
 });
 

@@ -6,6 +6,9 @@ import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
 import android.view.View
+import android.view.WindowManager
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import com.unity3d.player.UnityPlayer
 import com.unity3d.player.UnityPlayerForActivityOrService
 
@@ -35,12 +38,26 @@ object UnityHolder {
 
     /** Unity Player 가져오기 (없으면 생성) */
     fun getOrCreateUnityPlayer(activity: Activity): UnityPlayerForActivityOrService {
-        return _unityPlayer ?: synchronized(this) {
+        val player = _unityPlayer ?: synchronized(this) {
             _unityPlayer ?: UnityPlayerForActivityOrService(activity).also {
                 _unityPlayer = it
                 Log.d(TAG, "Unity Player created")
             }
         }
+        restoreHostStatusBar(activity)
+        return player
+    }
+
+    /** Embedded Unity must not leave the host Activity in fullscreen mode. */
+    fun restoreHostStatusBar(activity: Activity) {
+        val window = activity.window
+        window.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
+        WindowCompat.getInsetsController(window, window.decorView)
+            .apply {
+                // App screens keep their light backgrounds in both system themes.
+                isAppearanceLightStatusBars = true
+                show(WindowInsetsCompat.Type.statusBars())
+            }
     }
 
     /** Unity Player 인스턴스 가져오기 (없으면 null) */
@@ -72,6 +89,7 @@ object UnityHolder {
     /** 앱 활성 상태 */
     @Volatile
     private var _isAppActive: Boolean = true
+    private var renderingEnabled: Boolean = true
 
     /** 현재 UnityView attach owner 식별자 */
     @Volatile
@@ -405,6 +423,30 @@ object UnityHolder {
 
     // MARK: - Lifecycle Management
 
+    fun setRenderingEnabled(enabled: Boolean) {
+        renderingEnabled = enabled
+        if (!_isAppActive) return
+        val player = _unityPlayer ?: return
+        Log.d(TAG, "Rendering enabled: $enabled")
+        if (enabled) {
+            player.resume()
+            player.windowFocusChanged(true)
+            UnityPlayer.currentActivity?.let { restoreHostStatusBar(it) }
+        } else {
+            player.windowFocusChanged(false)
+            // A hidden foreground viewport must not wait seconds for Unity's render thread.
+            // The retained player finishes its queued pause without blocking this frame.
+            val pauseTimeout = UnityPlayerForActivityOrService.SynchronizationTimeout.Pause
+            val previousTimeout = pauseTimeout.timeout
+            pauseTimeout.timeout = 0
+            try {
+                player.pause()
+            } finally {
+                pauseTimeout.timeout = previousTimeout
+            }
+        }
+    }
+
     /**
      * 앱이 Pause 상태로 전환될 때 호출
      * Unity Player의 onPause()를 호출하여 렌더링을 중지함
@@ -441,16 +483,19 @@ object UnityHolder {
         val player = _unityPlayer
         if (player != null) {
             try {
-                player.onResume()  // Unity 렌더링 재개
+                if (renderingEnabled) {
+                    player.onResume()  // Hidden Unity stays paused until its viewport returns.
+                }
             } catch (e: Exception) {
                 Log.w(TAG, "onResume failed: ${e.message}", e)
             }
 
             try {
-                player.windowFocusChanged(true)
+                player.windowFocusChanged(renderingEnabled)
             } catch (e: Exception) {
                 Log.w(TAG, "windowFocusChanged(true) failed: ${e.message}", e)
             }
+            UnityPlayer.currentActivity?.let { restoreHostStatusBar(it) }
         }
 
         val recoveredOnResume = recoverReadyStateIfPossible("onResume")

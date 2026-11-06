@@ -6,7 +6,13 @@
   },
   "ads": {
     "enabled": false,
-    "ios": { "bannerId": "", "rewardedId": "" },
-    "android": { "bannerId": "", "rewardedId": "" }
+    "ios": {
+      "bannerId": "",
+      "rewardedId": ""
+    },
+    "android": {
+      "bannerId": "",
+      "rewardedId": ""
+    }
   }
 }

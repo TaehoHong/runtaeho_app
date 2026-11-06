@@ -11,6 +11,7 @@ import { UnityBridge } from '../bridge/UnityBridge';
 import { useUnityStore } from '~/stores/unity/unityStore';
 
 interface UnityViewProps extends ViewProps {
+  renderingEnabled?: boolean;
   // Unity Ready 이벤트
   onUnityReady?: (event: any) => void;
   // Unity Error 이벤트

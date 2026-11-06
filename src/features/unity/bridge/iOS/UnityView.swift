@@ -22,6 +22,15 @@ class RNUnityContainerView: UIView {
     @objc var onUnityReady: RCTDirectEventBlock?
     @objc var onUnityError: RCTDirectEventBlock?
     @objc var onCharacterStateChanged: RCTDirectEventBlock?
+    @objc var renderingEnabled = true {
+        didSet {
+            guard isUnityLoaded && UnityViewContainer.shared.currentAttachment === self else { return }
+            Unity.shared.setRenderingEnabled(renderingEnabled)
+            if renderingEnabled && pendingReattach {
+                safeReattachUnityView()
+            }
+        }
+    }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -157,6 +166,7 @@ class RNUnityContainerView: UIView {
         CATransaction.commit()
 
         self.isUnityLoaded = true
+        Unity.shared.setRenderingEnabled(renderingEnabled)
         self.setNeedsLayout()
 
         emitUnityReadyEvent(message: "Unity loaded successfully")
@@ -181,6 +191,7 @@ class RNUnityContainerView: UIView {
             self.unityView?.isHidden = false
             self.unityView?.layer.opacity = 1
             self.isUnityLoaded = true
+            Unity.shared.setRenderingEnabled(self.renderingEnabled)
             self.setNeedsLayout()
             self.layoutIfNeeded()
             self.emitUnityReadyEvent(message: "Unity reattached successfully", type: "reattach")

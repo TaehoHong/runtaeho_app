@@ -12,7 +12,7 @@ import { apiClient } from '~/services/api/client';
 import { LeagueResultStatus, LeagueTierType, type LeagueResult } from '../models';
 
 const mockFocusContext = React.createContext(true);
-jest.mock('@react-navigation/native', () => ({
+jest.mock('expo-router/react-navigation', () => ({
   useIsFocused: () => require('react').useContext(mockFocusContext),
   useFocusEffect: (effect: React.EffectCallback) => {
     const React = require('react');
@@ -22,7 +22,7 @@ jest.mock('@react-navigation/native', () => ({
 }));
 jest.mock('expo-router', () => ({
   useRouter: () => require('~/test-utils/mocks/native').routerMock,
-  useFocusEffect: (effect: React.EffectCallback) => require('@react-navigation/native').useFocusEffect(effect),
+  useFocusEffect: (effect: React.EffectCallback) => require('expo-router/react-navigation').useFocusEffect(effect),
 }));
 jest.mock('~/shared/services/TokenRefreshInterceptor', () => ({
   tokenRefreshInterceptor: {

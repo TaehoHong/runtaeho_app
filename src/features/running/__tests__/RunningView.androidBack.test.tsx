@@ -24,7 +24,7 @@ const readinessState = {
   isInitialAvatarSynced: false,
 };
 
-jest.mock('@react-navigation/native', () => ({
+jest.mock('expo-router/react-navigation', () => ({
   useFocusEffect: (...args: unknown[]) => mockUseFocusEffect(...args),
   useIsFocused: () => mockUseIsFocused(),
 }));

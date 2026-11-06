@@ -32,7 +32,7 @@ jest.mock('~/features/share/viewmodels/useShareEditor', () => ({
   useShareEditor: (...args: unknown[]) => mockUseShareEditor(...args),
 }));
 
-jest.mock('@react-navigation/native', () => ({
+jest.mock('expo-router/react-navigation', () => ({
   useFocusEffect: (...args: unknown[]) => mockUseFocusEffect(...args),
 }));
 

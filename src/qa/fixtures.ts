@@ -198,7 +198,7 @@ function resolve(method: string, path: string, params: Record<string, any>, body
     const connection: GarminConnection = { available: false, status: 'DISCONNECTED', connectedAt: null, lastReceivedAt: null, lastImportedAt: null, lastImportedCount: 0, permissionGranted: false };
     return connection;
   }
-  if (path === '/terms') return { terms: ['SERVICE', 'PRIVATE', 'LOCATION'].map((type, index) => ({ id: index + 1, type, isRequired: true, link: 'about:blank' })) };
+  if (path === '/terms') return { terms: ['SERVICE', 'PRIVATE', 'LOCATION'].map((type, index) => ({ id: index + 1, type, isRequired: true, link: `https://example.com/?qaTerm=${type}` })) };
   if (path === '/users/agreement') { scenario = 'populated'; return null; }
   if (path === '/inquiries') return { trackingNo: 'LOCAL-UI-QA-0001' };
   throw new Error(`Unhandled UI fixture: ${method.toUpperCase()} ${path}`);

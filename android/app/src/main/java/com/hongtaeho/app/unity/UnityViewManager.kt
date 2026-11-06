@@ -45,11 +45,10 @@ class UnityViewManager(
 
     // MARK: - Props
 
-    // Props는 필요에 따라 추가 가능
-    // @ReactProp(name = "someProp")
-    // fun setSomeProp(view: UnityView, value: String?) {
-    //     // handle prop
-    // }
+    @ReactProp(name = "renderingEnabled", defaultBoolean = true)
+    fun setRenderingEnabled(view: UnityView, enabled: Boolean) {
+        view.setRenderingEnabled(enabled)
+    }
 
     // MARK: - Events
 

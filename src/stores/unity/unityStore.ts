@@ -34,6 +34,19 @@ export interface RenderedUnityViewport {
   frame: UnityViewportFrame;
 }
 
+interface UnityViewportExit {
+  routeKey: string;
+  viewport: UnityViewport;
+  releaseRequested: boolean;
+}
+
+export interface UnityExitSnapshot {
+  uri: string | null;
+  sourceRootRouteKey: string;
+  onReady: () => void;
+  onDestinationReady: () => void;
+}
+
 export type UnitySessionStatus =
   | 'cold'
   | 'booting'
@@ -117,6 +130,8 @@ interface UnityState {
   lastInteraction: string | null;
   activeViewport: UnityViewport | null;
   renderedViewport: RenderedUnityViewport | null;
+  pendingViewportExit: UnityViewportExit | null;
+  exitSnapshot: UnityExitSnapshot | null;
   sessionStatus: UnitySessionStatus;
   reattachToken: number;
   lastUnityReadyEvent: UnityReadyEventSnapshot | null;
@@ -136,6 +151,9 @@ interface UnityState {
   setSurfaceVisible: (isVisible: boolean) => void;
   setActiveViewport: (viewport: UnityViewport) => void;
   clearActiveViewport: (owner?: UnityViewport['owner']) => void;
+  beginViewportExit: (owner: UnityViewport['owner'], routeKey: string) => void;
+  completeViewportExit: (routeKey: string) => void;
+  setExitSnapshot: (snapshot: UnityExitSnapshot | null) => void;
   setRenderedViewport: (viewport: RenderedUnityViewport | null) => void;
   resetUnityState: () => void;
 
@@ -178,6 +196,8 @@ const initialState = {
   lastInteraction: null,
   activeViewport: null,
   renderedViewport: null,
+  pendingViewportExit: null as UnityViewportExit | null,
+  exitSnapshot: null as UnityExitSnapshot | null,
   sessionStatus: 'cold' as UnitySessionStatus,
   reattachToken: 0,
   lastUnityReadyEvent: null,
@@ -254,12 +274,18 @@ export const useUnityStore = create<UnityState>((set) => ({
       if (
         state.isUnityViewVisible
         && areActiveViewportsEqual(state.activeViewport, activeViewport)
+        && !state.pendingViewportExit?.releaseRequested
       ) {
         return state;
       }
 
       return {
         activeViewport,
+        pendingViewportExit: state.pendingViewportExit
+          && !state.pendingViewportExit.releaseRequested
+          && state.pendingViewportExit.viewport.owner === activeViewport.owner
+          ? { ...state.pendingViewportExit, viewport: activeViewport }
+          : null,
         isUnityViewVisible: true,
         lastInteraction: new Date().toISOString(),
       };
@@ -275,13 +301,51 @@ export const useUnityStore = create<UnityState>((set) => ({
         return state;
       }
 
+      // React cleanup can run before the outgoing native screen disappears.
+      if (owner && state.pendingViewportExit?.viewport === state.activeViewport) {
+        return {
+          pendingViewportExit: { ...state.pendingViewportExit, releaseRequested: true },
+        };
+      }
+
       return {
         activeViewport: null,
         renderedViewport: null,
+        pendingViewportExit: null,
         isUnityViewVisible: false,
         lastInteraction: new Date().toISOString(),
       };
     }),
+
+  beginViewportExit: (owner, routeKey) =>
+    set((state) => {
+      if (!state.activeViewport || state.activeViewport.owner !== owner) {
+        return state;
+      }
+      return {
+        pendingViewportExit: { routeKey, viewport: state.activeViewport, releaseRequested: false },
+      };
+    }),
+
+  completeViewportExit: (routeKey) =>
+    set((state) => {
+      const exit = state.pendingViewportExit;
+      if (!exit || exit.routeKey !== routeKey) {
+        return state;
+      }
+      if (!exit.releaseRequested || state.activeViewport !== exit.viewport) {
+        return { pendingViewportExit: null };
+      }
+      return {
+        activeViewport: null,
+        renderedViewport: null,
+        pendingViewportExit: null,
+        isUnityViewVisible: false,
+        lastInteraction: new Date().toISOString(),
+      };
+    }),
+
+  setExitSnapshot: (exitSnapshot) => set({ exitSnapshot }),
 
   setRenderedViewport: (renderedViewport) =>
     set((state) => {

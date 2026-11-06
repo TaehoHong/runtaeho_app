@@ -4,6 +4,8 @@ import AvatarPage from '../../../../app/user/avatar';
 import { routerMock } from '~/test-utils/mocks/native';
 import { renderWithProviders } from '~/test-utils/renderWithProviders';
 
+jest.mock('~/features/unity/hooks/useUnityExitGuard', () => ({ useUnityExitGuard: jest.fn() }));
+
 jest.mock('~/features/avatar/views', () => {
   const React = require('react');
   const { TouchableOpacity, View } = require('react-native');

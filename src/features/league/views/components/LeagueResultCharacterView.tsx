@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router/react-navigation';
 import { View, StyleSheet } from 'react-native';
 import { UnityLoadingState } from '~/features/unity/components/UnityLoadingState';
 import { useUnityStore } from '~/stores/unity/unityStore';

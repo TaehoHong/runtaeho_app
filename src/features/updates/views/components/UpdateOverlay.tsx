@@ -205,7 +205,7 @@ export function UpdateOverlay({
 const styles = StyleSheet.create({
   // 진행 중 상태 오버레이 (투명 배경, 하단 배치)
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'transparent',
     justifyContent: 'flex-end',
     alignItems: 'center',
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
 
   // 에러 상태 오버레이 (기존 스타일 유지)
   errorOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',

@@ -15,6 +15,7 @@
 RCT_EXPORT_VIEW_PROPERTY(onUnityReady, RCTDirectEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onUnityError, RCTDirectEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onCharacterStateChanged, RCTDirectEventBlock)
+RCT_EXPORT_VIEW_PROPERTY(renderingEnabled, BOOL)
 
 // Commands
 RCT_EXTERN_METHOD(sendMessageToUnity:(nonnull NSNumber *)node objectName:(NSString *)objectName methodName:(NSString *)methodName parameter:(NSString *)parameter)

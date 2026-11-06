@@ -24,7 +24,7 @@ export function NotificationProvider() {
 
   useEffect(() => {
     Notifications.setNotificationHandler({ handleNotification: async notification => {
-      const ownPush = notificationIdFromData(notification.request.content.data) !== null;
+      const ownPush = notificationIdFromData(notification.request.content.data ?? {}) !== null;
       const show = !ownPush || useAuthStore.getState().isLoggedIn;
       return { shouldShowBanner: show, shouldShowList: show, shouldPlaySound: show, shouldSetBadge: false };
     } });
@@ -55,7 +55,7 @@ export function NotificationProvider() {
     const identifier = response.notification.request.identifier;
     if (handled.current === identifier) return;
     handled.current = identifier;
-    const id = notificationIdFromData(response.notification.request.content.data);
+    const id = notificationIdFromData(response.notification.request.content.data ?? {});
     if (id !== null) router.push({ pathname: '/user/notification', params: { id: String(id) } });
     void Notifications.clearLastNotificationResponseAsync().catch(() => console.warn('[Notifications] Could not clear response'));
   }, [ready, response, generation]);

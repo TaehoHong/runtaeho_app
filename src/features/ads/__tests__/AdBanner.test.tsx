@@ -8,7 +8,7 @@ let mockReady = true;
 const mockBanner = jest.fn();
 const mockMount = jest.fn();
 const mockDrop = jest.fn();
-jest.mock('@react-navigation/native', () => ({ useIsFocused: () => mockFocused }));
+jest.mock('expo-router/react-navigation', () => ({ useIsFocused: () => mockFocused }));
 jest.mock('../AdsProvider', () => {
   const React = require('react');
   const { View } = require('react-native');

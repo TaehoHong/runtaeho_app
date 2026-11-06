@@ -775,6 +775,8 @@ interface RouteMapHeroProps {
 
 const RouteMapHero: React.FC<RouteMapHeroProps> = ({ locations }) => {
   const t = useAppTranslation();
+  const language = useAppLanguage();
+  const { fontScale } = useWindowDimensions();
   const coordinates = useMemo<LatLng[]>(() => getRouteCoordinates(locations), [locations]);
   const region = useMemo<Region | null>(() => getRouteRegion(locations), [locations]);
   const startCoordinate = coordinates[0];
@@ -787,6 +789,8 @@ const RouteMapHero: React.FC<RouteMapHeroProps> = ({ locations }) => {
   return (
     <View style={styles.mapHero}>
       <MapView
+        key={Platform.OS === 'android' ? `${language}-${fontScale}` : 'route-map'}
+        cacheEnabled={Platform.OS === 'android'}
         style={styles.map}
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
         initialRegion={region}
@@ -1283,7 +1287,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheetBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
   },
   sheetContainer: {
@@ -1386,7 +1390,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E7EEE6',
   },
   map: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   routeMarker: {
     alignItems: 'center',

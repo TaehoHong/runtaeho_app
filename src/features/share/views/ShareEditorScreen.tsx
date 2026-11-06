@@ -46,6 +46,14 @@ const PREVIEW_CORNER_RADIUS = 16;
 const EXPORT_CORNER_RADIUS = 0;
 
 export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningData }) => {
+  return (
+    <SafeAreaProvider>
+      <ShareEditorContent runningData={runningData} />
+    </SafeAreaProvider>
+  );
+};
+
+const ShareEditorContent: React.FC<ShareEditorScreenProps> = ({ runningData }) => {
   useAppLanguage();
   const endEntryTransition = useShareEntryTransitionStore((state) => state.endEntryTransition);
   const hasCompletedEntryTransitionRef = useRef(false);
@@ -160,7 +168,6 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
   }, [endEntryTransition]);
 
   return (
-    <SafeAreaProvider>
       <View
         style={styles.container}
         testID="share-editor-root"
@@ -316,7 +323,6 @@ export const ShareEditorScreen: React.FC<ShareEditorScreenProps> = ({ runningDat
           )}
         </GestureHandlerRootView>
       </View>
-    </SafeAreaProvider>
   );
 };
 
@@ -355,7 +361,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitleContainer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -398,7 +404,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   previewLoadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 16,
@@ -410,7 +416,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Pretendard-Regular',
   },
   exportSurface: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 10,
   },
   exportTopMask: {

@@ -21,7 +21,7 @@ let mockIsLoggedIn = false;
 let appStateHandler: ((nextAppState: AppStateStatus) => void) | null = null;
 const mockAppStateRemove = jest.fn();
 
-jest.mock('@react-navigation/native', () => ({
+jest.mock('expo-router/react-navigation', () => ({
   useFocusEffect: (...args: unknown[]) => mockUseFocusEffect(...args),
   useIsFocused: () => mockUseIsFocused(),
 }));

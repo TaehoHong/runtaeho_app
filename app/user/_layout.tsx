@@ -2,9 +2,18 @@
  * User 관련 화면 레이아웃
  */
 
-import { Stack } from 'expo-router';
+import { Stack, useNavigation, useSegments } from 'expo-router';
+import { useLayoutEffect } from 'react';
 
 export default function UserLayout() {
+  const navigation = useNavigation();
+  const segments = useSegments();
+  const isMotionScreen = segments.some(segment => segment === '(motion)');
+
+  useLayoutEffect(() => {
+    navigation.setOptions({ gestureEnabled: !isMotionScreen });
+  }, [isMotionScreen, navigation]);
+
   return (
     <Stack
       screenOptions={{
@@ -15,6 +24,7 @@ export default function UserLayout() {
         name="avatar"
         options={{
           headerShown: false,
+          animation: 'none',
           contentStyle: { backgroundColor: 'transparent' },
         }}
       />
@@ -32,27 +42,10 @@ export default function UserLayout() {
         }}
       />
       <Stack.Screen
-        name="terms-list"
+        name="(motion)"
         options={{
           headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="terms-detail"
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="app-info"
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="licenses"
-        options={{
-          headerShown: false,
+          gestureEnabled: false,
         }}
       />
     </Stack>

@@ -1,0 +1,10 @@
+--- a/Assets/02.Script/CharactorManager.cs
++++ b/Assets/02.Script/CharactorManager.cs
+@@ -79,4 +79,7 @@
+     private void Awake()
+     {
++#if UNITY_ANDROID || UNITY_IOS
++        Application.targetFrameRate = 60;
++#endif
+         instanceId = ++instanceCounter;
+         Log($"Awake() called on scene={gameObject.scene.name}, object={gameObject.name}, activeInHierarchy={gameObject.activeInHierarchy}");

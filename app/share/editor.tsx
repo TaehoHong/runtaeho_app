@@ -12,9 +12,11 @@ import { router } from 'expo-router';
 import { ShareEditorScreen } from '~/features/share';
 import { useShareEntryTransitionStore } from '~/features/share/stores/shareEntryTransitionStore';
 import { useShareStore } from '~/features/share/stores/shareStore';
+import { useUnityExitGuard } from '~/features/unity/hooks/useUnityExitGuard';
 
 export default function ShareEditorPage() {
   const shareData = useShareStore((state) => state.shareData);
+  useUnityExitGuard(!!shareData);
   const clearShareData = useShareStore((state) => state.clearShareData);
   const endEntryTransition = useShareEntryTransitionStore((state) => state.endEntryTransition);
 

@@ -1,4 +1,4 @@
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused } from 'expo-router/react-navigation';
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { RunningState, useAppStore } from '~/stores/app/appStore';

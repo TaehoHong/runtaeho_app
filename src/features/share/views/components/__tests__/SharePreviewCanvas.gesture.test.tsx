@@ -280,7 +280,8 @@ describe('SharePreviewCanvas gesture sync', () => {
     );
 
     const canvas = UNSAFE_getAllByProps({ collapsable: false })[0];
-    const style = StyleSheet.flatten(canvas.props.style);
+    expect(canvas).toBeDefined();
+    const style = StyleSheet.flatten(canvas!.props.style);
 
     expect(style.shadowColor).toBeUndefined();
     expect(style.shadowOffset).toBeUndefined();

@@ -1,14 +1,17 @@
 import * as Updates from 'expo-updates';
 import { UpdateCheckResult, UpdateManifest, UpdateProgress } from '../models/UpdateState';
+import { UI_QA_ENABLED } from '~/qa/config';
+
+const qaStartupUpdates = UI_QA_ENABLED && process.env.EXPO_PUBLIC_UI_QA_UPDATES === '1';
 
 /**
  * expo-updates가 활성화되어 있는지 확인
- * Development 빌드(expo-dev-client)에서는 비활성화됨
+ * Development 빌드에서는 비활성화하며, local QA 옵션은 확인 UI만 재현한다.
  */
 export function isUpdatesEnabled(): boolean {
   // __DEV__는 개발 모드에서 true
   // Updates.isEnabled는 expo-updates가 활성화되어 있을 때 true
-  return !__DEV__ && Updates.isEnabled;
+  return qaStartupUpdates || (!__DEV__ && Updates.isEnabled);
 }
 
 /**
@@ -42,6 +45,10 @@ function extractManifestInfo(manifest: unknown): UpdateManifest | null {
  * 업데이트 확인
  */
 export async function checkForUpdate(): Promise<UpdateCheckResult> {
+  if (qaStartupUpdates) {
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    return { isAvailable: false };
+  }
   if (!isUpdatesEnabled()) {
     console.log('[Updates] Updates not enabled in development mode');
     return { isAvailable: false };

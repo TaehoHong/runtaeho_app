@@ -6,6 +6,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
+import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
@@ -358,6 +359,70 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
                 promise.resolve(null)
             } catch (error: Exception) {
                 promise.reject("RESET_ERROR", "Unity reset failed", error)
+            }
+        }
+    }
+
+    @ReactMethod
+    fun captureTransitionScreen(promise: Promise) {
+        val activity = reactApplicationContext.currentActivity
+        if (activity == null) {
+            promise.reject("TRANSITION_CAPTURE_ERROR", "Current activity is null")
+            return
+        }
+        activity.runOnUiThread {
+            try {
+                val surface = resolveShareExportContext().unitySurfaceView
+                val unityBitmap = Bitmap.createBitmap(surface.width, surface.height, Bitmap.Config.ARGB_8888)
+                PixelCopy.request(surface, unityBitmap, { result ->
+                    if (result != PixelCopy.SUCCESS) {
+                        unityBitmap.recycleSafely()
+                        promise.reject("TRANSITION_CAPTURE_ERROR", "Unity PixelCopy result=$result")
+                        return@request
+                    }
+                    val drawable = BitmapDrawable(activity.resources, unityBitmap).apply {
+                        setBounds(0, 0, surface.width, surface.height)
+                    }
+                    val skippedDrawing = surface.willNotDraw()
+                    var screenBitmap: Bitmap? = null
+                    try {
+                        // A software hierarchy capture omits SurfaceView pixels. Substitute only
+                        // during this draw so RN overlays keep their original stacking order.
+                        surface.setWillNotDraw(false)
+                        surface.overlay.add(drawable)
+                        val decor = activity.window.decorView
+                        val capturedScreen = Bitmap.createBitmap(decor.width, decor.height, Bitmap.Config.ARGB_8888)
+                        screenBitmap = capturedScreen
+                        decor.draw(Canvas(capturedScreen))
+                        Thread({
+                            var file: File? = null
+                            try {
+                                val output = File.createTempFile("ReactNative-snapshot-image", ".png", reactApplicationContext.cacheDir)
+                                file = output
+                                FileOutputStream(output).use {
+                                    check(capturedScreen.compress(Bitmap.CompressFormat.PNG, 100, it))
+                                }
+                                promise.resolve(Uri.fromFile(output).toString())
+                            } catch (error: Exception) {
+                                file?.delete()
+                                promise.reject("TRANSITION_CAPTURE_ERROR", "Failed to save transition screen", error)
+                            } finally {
+                                capturedScreen.recycleSafely()
+                            }
+                        }, "UnityTransitionCapture").start()
+                        // The worker owns the completed bitmap after a successful start.
+                        screenBitmap = null
+                    } catch (error: Exception) {
+                        promise.reject("TRANSITION_CAPTURE_ERROR", "Failed to capture transition screen", error)
+                    } finally {
+                        surface.overlay.remove(drawable)
+                        surface.setWillNotDraw(skippedDrawing)
+                        screenBitmap?.recycleSafely()
+                        unityBitmap.recycleSafely()
+                    }
+                }, mainHandler)
+            } catch (error: Exception) {
+                promise.reject("TRANSITION_CAPTURE_ERROR", "Failed to prepare transition screen", error)
             }
         }
     }

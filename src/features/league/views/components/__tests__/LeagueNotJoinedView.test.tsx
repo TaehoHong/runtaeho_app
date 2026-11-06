@@ -4,7 +4,7 @@ import { Animated, AppState, type AppStateStatus } from 'react-native';
 import { LeagueNotJoinedView } from '../LeagueNotJoinedView';
 
 let mockFocused = true;
-jest.mock('@react-navigation/native', () => ({ useIsFocused: () => mockFocused }));
+jest.mock('expo-router/react-navigation', () => ({ useIsFocused: () => mockFocused }));
 
 describe('LeagueNotJoinedView activity lifetime', () => {
   const runningAnimations = new Set<Animated.CompositeAnimation>();

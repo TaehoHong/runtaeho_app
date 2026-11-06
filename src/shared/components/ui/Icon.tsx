@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import React from 'react';
-import { StyleSheet, type ImageStyle, type StyleProp } from 'react-native';
+import { StyleSheet, type ImageStyle, type ColorValue, type StyleProp } from 'react-native';
 import { ICONS, type IconName } from '~/shared/constants/images';
 
 /**
@@ -18,7 +18,7 @@ interface IconProps {
   /** 아이콘 크기 (width와 height 동일하게 적용) */
   size?: number;
   /** 아이콘 색상 (tintColor 적용) */
-  tintColor?: string;
+  tintColor?: ColorValue;
   /** 추가 스타일 */
   style?: StyleProp<ImageStyle>;
   /** contentFit 모드 (기본값: contain) */

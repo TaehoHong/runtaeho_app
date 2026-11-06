@@ -3,6 +3,7 @@ import { screen, waitFor } from '@testing-library/react-native';
 import type { EquippedItemsMap, Item } from '~/features/avatar';
 import { AvatarPreview } from '~/features/avatar/views/components/AvatarPreview';
 import { renderWithProviders } from '~/test-utils/renderWithProviders';
+import type { RenderedUnityViewport, UnityViewport } from '~/stores/unity/unityStore';
 
 const mockSyncAvatar = jest.fn<Promise<'applied' | 'empty' | 'failed'>, [Item[], string]>();
 const mockUseUnityBootstrap = jest.fn();
@@ -11,6 +12,8 @@ const mockSetActiveViewport = jest.fn();
 const mockClearActiveViewport = jest.fn();
 const mockUnityLoadingState = jest.fn();
 let mockIsSurfaceVisible = true;
+let mockActiveViewport: UnityViewport | null;
+let mockRenderedViewport: RenderedUnityViewport | null;
 const originalRequestAnimationFrame = global.requestAnimationFrame;
 
 jest.mock('~/features/unity/services/UnityService', () => ({
@@ -23,7 +26,7 @@ jest.mock('~/features/unity/hooks', () => ({
   useUnityBootstrap: (...args: unknown[]) => mockUseUnityBootstrap(...args),
 }));
 
-jest.mock('@react-navigation/native', () => ({
+jest.mock('expo-router/react-navigation', () => ({
   useFocusEffect: (...args: unknown[]) => mockUseFocusEffect(...args),
 }));
 
@@ -33,12 +36,16 @@ jest.mock('~/stores/unity/unityStore', () => ({
       setActiveViewport: typeof mockSetActiveViewport;
       clearActiveViewport: typeof mockClearActiveViewport;
       isSurfaceVisible: boolean;
+      activeViewport: UnityViewport | null;
+      renderedViewport: RenderedUnityViewport | null;
     }) => unknown
   ) =>
     selector({
       setActiveViewport: mockSetActiveViewport,
       clearActiveViewport: mockClearActiveViewport,
       isSurfaceVisible: mockIsSurfaceVisible,
+      activeViewport: mockActiveViewport,
+      renderedViewport: mockRenderedViewport,
     }),
 }));
 
@@ -71,6 +78,8 @@ describe('AvatarPreview initial sync', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockIsSurfaceVisible = true;
+    mockActiveViewport = { owner: 'avatar', frame: { x: 20, y: 100, width: 300, height: 300 } };
+    mockRenderedViewport = { ...mockActiveViewport };
     global.requestAnimationFrame = ((callback: FrameRequestCallback) => {
       callback(0);
       return 0;
@@ -124,5 +133,22 @@ describe('AvatarPreview initial sync', () => {
       mockUnityLoadingState.mock.calls[mockUnityLoadingState.mock.calls.length - 1]?.[0];
 
     expect(lastCall?.isLoading).toBe(true);
+  });
+
+  it('keeps the placeholder until this avatar viewport is rendered, even if Unity is already ready', () => {
+    mockActiveViewport = { owner: 'running', frame: { x: 0, y: 0, width: 400, height: 400 } };
+    mockRenderedViewport = { ...mockActiveViewport };
+    const props = { equippedItems: { 1: createHairItem(1) }, hairColor: '#000000' };
+    const { rerender } = renderWithProviders(<AvatarPreview {...props} />);
+    expect(mockUnityLoadingState.mock.lastCall?.[0].isLoading).toBe(true);
+
+    mockActiveViewport = { owner: 'avatar', frame: { x: 20, y: 100, width: 300, height: 300 } };
+    mockRenderedViewport = null;
+    rerender(<AvatarPreview {...props} />);
+    expect(mockUnityLoadingState.mock.lastCall?.[0].isLoading).toBe(true);
+
+    mockRenderedViewport = { ...mockActiveViewport };
+    rerender(<AvatarPreview {...props} />);
+    expect(mockUnityLoadingState.mock.lastCall?.[0].isLoading).toBe(false);
   });
 });

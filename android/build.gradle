@@ -6,7 +6,7 @@ buildscript {
     mavenCentral()
   }
   dependencies {
-    classpath('com.android.tools.build:gradle:8.13.2')
+    classpath('com.android.tools.build:gradle')
     classpath('com.facebook.react:react-native-gradle-plugin')
     classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')
     classpath('com.google.gms:google-services:4.4.4')
@@ -25,4 +25,9 @@ allprojects {
 }
 
 apply plugin: "expo-root-project"
+// RN 0.85 sets these on every project; nested Unity projects must own the properties.
+subprojects {
+  ext.set("newArchEnabled", "true")
+  ext.set("react.newArchEnabled", "true")
+}
 apply plugin: "com.facebook.react.rootproject"

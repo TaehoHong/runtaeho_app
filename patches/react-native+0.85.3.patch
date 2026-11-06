@@ -1,8 +1,7 @@
 diff --git a/node_modules/react-native/Libraries/Components/TextInput/RCTTextInputViewConfig.js b/node_modules/react-native/Libraries/Components/TextInput/RCTTextInputViewConfig.js
-index 05bddcb..0018ccb 100644
 --- a/node_modules/react-native/Libraries/Components/TextInput/RCTTextInputViewConfig.js
 +++ b/node_modules/react-native/Libraries/Components/TextInput/RCTTextInputViewConfig.js
-@@ -100,6 +100,7 @@ const RCTTextInputViewConfig: PartialViewConfigWithoutName = {
+@@ -101,6 +101,7 @@
        diff: require('../../Utilities/differ/sizesDiffer').default,
      },
      allowFontScaling: true,
@@ -11,72 +10,41 @@ index 05bddcb..0018ccb 100644
      textTransform: true,
      textAlign: true,
 diff --git a/node_modules/react-native/Libraries/Text/Text.js b/node_modules/react-native/Libraries/Text/Text.js
-index b08b8f3..ebe83fc 100644
 --- a/node_modules/react-native/Libraries/Text/Text.js
 +++ b/node_modules/react-native/Libraries/Text/Text.js
-@@ -19,6 +19,7 @@ import usePressability from '../Pressability/usePressability';
- import flattenStyle from '../StyleSheet/flattenStyle';
+@@ -21,6 +21,7 @@
  import processColor from '../StyleSheet/processColor';
+ import StyleSheet from '../StyleSheet/StyleSheet';
  import Platform from '../Utilities/Platform';
 +import useWindowDimensions from '../Utilities/useWindowDimensions';
  import TextAncestorContext from './TextAncestorContext';
- import {NativeText, NativeVirtualText} from './TextNativeComponent';
- import * as React from 'react';
-@@ -76,6 +77,9 @@ const TextImpl: component(
+ import {
+   NativeSelectableText,
+@@ -85,9 +86,12 @@
    ref?: React.RefSetter<TextForwardRef>,
    ...TextProps,
  }) => {
 +  const {fontScale} = useWindowDimensions();
+   const processedProps = restProps as {
+     ...NativeTextProps,
+   };
 +  // Invalidate Fabric's text attributes when the OS font scale changes.
-+  const fontScaleProps = {fontSizeMultiplier: fontScale};
++  processedProps.fontSizeMultiplier = fontScale;
    const _accessibilityLabel = ariaLabel ?? accessibilityLabel;
- 
    let _accessibilityState: ?TextProps['accessibilityState'] =
-@@ -177,6 +181,7 @@ const TextImpl: component(
-           ref={forwardedRef}
-           textProps={{
-             ...restProps,
-+            ...fontScaleProps,
-             accessibilityLabel: _accessibilityLabel,
-             accessibilityState: _accessibilityState,
-             nativeID: _nativeID,
-@@ -208,6 +213,7 @@ const TextImpl: component(
-     return (
-       <NativeVirtualText
-         {...restProps}
-+        {...fontScaleProps}
-         accessibilityLabel={_accessibilityLabel}
-         accessibilityState={_accessibilityState}
-         nativeID={_nativeID}
-@@ -247,6 +253,7 @@ const TextImpl: component(
-         ref={forwardedRef}
-         textProps={{
-           ...restProps,
-+          ...fontScaleProps,
-           accessibilityLabel: _accessibilityLabel,
-           accessibilityState: _accessibilityState,
-           accessible: _accessible,
-@@ -280,6 +287,7 @@ const TextImpl: component(
-     nativeText = (
-       <NativeText
-         {...restProps}
-+        {...fontScaleProps}
-         accessibilityLabel={_accessibilityLabel}
-         accessibilityState={_accessibilityState}
-         accessible={_accessible}
+     accessibilityState;
 diff --git a/node_modules/react-native/Libraries/Text/TextNativeComponent.js b/node_modules/react-native/Libraries/Text/TextNativeComponent.js
-index 709dd56..6a6c849 100644
 --- a/node_modules/react-native/Libraries/Text/TextNativeComponent.js
 +++ b/node_modules/react-native/Libraries/Text/TextNativeComponent.js
-@@ -19,6 +19,7 @@ import createReactNativeComponentClass from '../Renderer/shims/createReactNative
+@@ -20,6 +20,7 @@
  
- export type NativeTextProps = $ReadOnly<{
+ export type NativeTextProps = Readonly<{
    ...TextProps,
 +  fontSizeMultiplier?: ?number,
    isHighlighted?: ?boolean,
    selectionColor?: ?ProcessedColorValue,
-   onClick?: ?(event: GestureResponderEvent) => mixed,
-@@ -35,6 +36,7 @@ const textViewConfig = {
+   onClick?: ?(event: GestureResponderEvent) => unknown,
+@@ -36,6 +37,7 @@
      numberOfLines: true,
      ellipsizeMode: true,
      allowFontScaling: true,
@@ -84,11 +52,23 @@ index 709dd56..6a6c849 100644
      dynamicTypeRamp: true,
      maxFontSizeMultiplier: true,
      disabled: true,
-@@ -61,6 +63,7 @@ const virtualTextViewConfig = {
+@@ -62,6 +64,7 @@
      isHighlighted: true,
      isPressable: true,
      maxFontSizeMultiplier: true,
 +    fontSizeMultiplier: true,
    },
    uiViewClassName: 'RCTVirtualText',
- };
+ } as const;
+diff --git a/node_modules/react-native/ReactAndroid/hermes-engine/build.gradle.kts b/node_modules/react-native/ReactAndroid/hermes-engine/build.gradle.kts
+--- a/node_modules/react-native/ReactAndroid/hermes-engine/build.gradle.kts
++++ b/node_modules/react-native/ReactAndroid/hermes-engine/build.gradle.kts
+@@ -126,7 +126,7 @@
+         eachFile {
+           // We flatten the unzip as the tarball contains a `facebook-hermes-<SHA>`
+           // folder at the top level.
+-          if (this.path.startsWith("facebook-hermes-")) {
++          if (this.path.startsWith("facebook-hermes-") || this.path.startsWith("meta-hermes-")) {
+             this.path = this.path.substringAfter("/")
+           }
+         }

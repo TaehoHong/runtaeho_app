@@ -1,10 +1,11 @@
 import { Stack } from 'expo-router/stack';
 import { useNavigationContainerRef } from 'expo-router';
+import { DefaultTheme, ThemeProvider } from 'expo-router/react-navigation';
 import { useEffect } from 'react';
 import { AdsProvider } from '~/features/ads/AdsProvider';
 import { NotificationProvider } from '~/features/notifications/NotificationProvider';
 import { LanguageProvider } from '~/i18n/LanguageProvider';
-import { StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '~/services/queryClient';
 import { AuthProvider } from '~/providers/AuthProvider';
@@ -12,10 +13,12 @@ import { AppStateProvider } from '~/providers/AppStateProvider';
 import { UpdateProvider } from '~/features/updates';
 import { ForceUpdateProvider } from '~/features/forceUpdate';
 import { GlobalUnityHost } from '~/features/unity/components/GlobalUnityHost';
-import { initializeSentry, registerSentryNavigationContainer, Sentry } from '~/config/sentry';
+import { initializeSentry, isSentryEnabled, registerSentryNavigationContainer, Sentry } from '~/config/sentry';
 import { ErrorBoundary } from '~/shared/components/ErrorBoundary';
 import { GREY } from '~/shared/styles';
 import { useShareEntryTransitionStore } from '~/features/share/stores/shareEntryTransitionStore';
+import { useUnityStore } from '~/stores/unity/unityStore';
+import { releaseTransitionSnapshot } from '~/features/unity/services/transitionSnapshot';
 
 // Sentry 초기화
 initializeSentry();
@@ -25,11 +28,17 @@ if (__DEV__) {
   void import('~/services/api/interceptors');
 }
 
-// Sentry 활성화 여부 확인
-const isSentryEnabled = (process.env.EXPO_PUBLIC_ENV || 'production') !== 'local';
+const navigationTheme = {
+  ...DefaultTheme,
+  colors: { ...DefaultTheme.colors, background: 'transparent' },
+};
 
 function RootLayout() {
   const navigationRef = useNavigationContainerRef();
+  const exitSnapshot = useUnityStore((state) => state.exitSnapshot);
+  useEffect(() => () => {
+    if (exitSnapshot?.uri) releaseTransitionSnapshot(exitSnapshot.uri);
+  }, [exitSnapshot]);
   useEffect(() => {
     registerSentryNavigationContainer(navigationRef);
   }, [navigationRef]);
@@ -57,9 +66,25 @@ function RootLayout() {
                 showBanner={false}
                 autoDownload={false}
               >
+                <ThemeProvider value={navigationTheme}>
                 <View style={{ flex: 1, backgroundColor: GREY.WHITE }}>
                   <GlobalUnityHost />
-                  <Stack>
+                  <Stack screenListeners={({ navigation }) => ({
+                    transitionEnd: (event) => {
+                      const state = navigation.getState();
+                      const exit = useUnityStore.getState().pendingViewportExit;
+                      const snapshot = useUnityStore.getState().exitSnapshot;
+                      if (
+                        !event.data.closing
+                        && event.target === state.routes[state.index]?.key
+                      ) {
+                        if (exit) useUnityStore.getState().completeViewportExit(exit.routeKey);
+                        if (snapshot && snapshot.sourceRootRouteKey !== event.target) {
+                          snapshot.onDestinationReady();
+                        }
+                      }
+                    },
+                  })}>
                     <Stack.Screen
                       name="index"
                       options={{
@@ -89,8 +114,12 @@ function RootLayout() {
                     />
                     <Stack.Screen
                       name="user"
+                      listeners={({ route }) => ({
+                        beforeRemove: () => useUnityStore.getState().beginViewportExit('avatar', route.key),
+                      })}
                       options={{
                         headerShown: false,
+                        animation: 'none',
                         contentStyle: { backgroundColor: 'transparent' },
                       }}
                     />
@@ -103,6 +132,9 @@ function RootLayout() {
                     />
                     <Stack.Screen
                       name="share"
+                      listeners={({ route }) => ({
+                        beforeRemove: () => useUnityStore.getState().beginViewportExit('share', route.key),
+                      })}
                       options={{
                         headerShown: false,
                         animation: 'none',
@@ -113,6 +145,7 @@ function RootLayout() {
                       name="running-record-detail"
                       options={{
                         headerShown: false,
+                        animation: 'none',
                       }}
                     />
                   </Stack>
@@ -123,7 +156,33 @@ function RootLayout() {
                       testID="share-entry-transition-cover"
                     />
                   )}
+                  {exitSnapshot && (
+                    <View
+                      style={[
+                        styles.shareEntryTransitionCover,
+                        exitSnapshot.uri && styles.snapshotLoadingCover,
+                      ]}
+                      testID="unity-exit-transition-cover"
+                      onLayout={!exitSnapshot.uri ? exitSnapshot.onReady : undefined}
+                    >
+                      {exitSnapshot.uri && (
+                        <Image
+                          source={{ uri: exitSnapshot.uri }}
+                          style={StyleSheet.absoluteFill}
+                          resizeMode="stretch"
+                          fadeDuration={0}
+                          onLoad={exitSnapshot.onReady}
+                          onError={() => {
+                            if (useUnityStore.getState().exitSnapshot !== exitSnapshot) return;
+                            useUnityStore.getState().setExitSnapshot({ ...exitSnapshot, uri: null });
+                            requestAnimationFrame(exitSnapshot.onReady);
+                          }}
+                        />
+                      )}
+                    </View>
+                  )}
                 </View>
+                </ThemeProvider>
               </UpdateProvider>
             </AppStateProvider>
             </AdsProvider>
@@ -137,11 +196,14 @@ function RootLayout() {
 
 const styles = StyleSheet.create({
   shareEntryTransitionCover: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: GREY[50],
     zIndex: 10,
+  },
+  snapshotLoadingCover: {
+    backgroundColor: 'transparent',
   },
 });
 
 // Sentry가 활성화되어 있으면 wrap, 아니면 그냥 export
-export default isSentryEnabled ? Sentry.wrap(RootLayout) : RootLayout;
+export default isSentryEnabled() ? Sentry.wrap(RootLayout) : RootLayout;

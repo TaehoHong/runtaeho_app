@@ -15,7 +15,7 @@ const mockLeagueHeader = jest.fn();
 const mockMyRankCard = jest.fn();
 const mockRankingSection = jest.fn();
 
-jest.mock('@react-navigation/native', () => ({ useIsFocused: () => true }));
+jest.mock('expo-router/react-navigation', () => ({ useIsFocused: () => true }));
 
 jest.mock('~/features/league/hooks', () => ({
   useLeagueCheck: () => ({

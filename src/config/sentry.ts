@@ -1,7 +1,11 @@
 import * as Sentry from '@sentry/react-native';
 import * as Updates from 'expo-updates';
+import Constants from 'expo-constants';
 
 let navigationIntegration: ReturnType<typeof Sentry.reactNavigationIntegration> | undefined;
+
+// The selected profile is authoritative; Metro can retain an older virtual env.
+const getEnvironment = (): string => Constants.expoConfig?.extra?.env || process.env.EXPO_PUBLIC_ENV || 'production';
 
 const safeDiagnosticData = (data?: Record<string, unknown>) => Object.fromEntries(
   Object.entries(data ?? {}).filter(([key, value]) =>
@@ -25,11 +29,11 @@ export const registerSentryNavigationContainer = (ref: unknown) => {
  * Sentry 초기화 설정
  */
 export const initializeSentry = () => {
-  const environment = process.env.EXPO_PUBLIC_ENV || 'production';
+  const environment = getEnvironment();
 
   // local 환경에서는 Sentry 비활성화
   if (environment === 'local') {
-    console.log('Sentry가 비활성화되었습니다. (EXPO_PUBLIC_ENV=local)');
+    console.log('Sentry가 비활성화되었습니다. (profile=local)');
     return;
   }
 
@@ -123,8 +127,8 @@ export const initializeSentry = () => {
 /**
  * Sentry 활성화 여부 확인
  */
-const isSentryEnabled = (): boolean => {
-  const environment = process.env.EXPO_PUBLIC_ENV || 'production';
+export const isSentryEnabled = (): boolean => {
+  const environment = getEnvironment();
   return environment !== 'local' && Boolean(process.env.EXPO_PUBLIC_SENTRY_DSN);
 };
 

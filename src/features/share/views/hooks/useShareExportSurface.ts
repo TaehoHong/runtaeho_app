@@ -1,8 +1,9 @@
 import { doViewportFramesMatch as matchViewportFrames } from '~/features/unity/utils/viewportFrames';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router/react-navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import type { View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ViewBounds } from '../../services/shareService';
 import { isShareExportViewportSettled } from '../../viewmodels/shareUnitySurfaceReady';
 import type { UnityViewport, UnityViewportFrame } from '~/stores/unity/unityStore';
@@ -60,6 +61,7 @@ export const useShareExportSurface = ({
   previewRef,
   isLoading,
 }: UseShareExportSurfaceOptions): UseShareExportSurfaceValue => {
+  const insets = useSafeAreaInsets();
   const setActiveViewport = useUnityStore((state) => state.setActiveViewport);
   const clearActiveViewport = useUnityStore((state) => state.clearActiveViewport);
 
@@ -315,7 +317,7 @@ export const useShareExportSurface = ({
 
   useEffect(() => {
     syncPreviewViewport();
-  }, [isLoading, syncPreviewViewport]);
+  }, [isLoading, syncPreviewViewport, insets.top, insets.bottom, insets.left, insets.right]);
 
   useEffect(() => () => {
     previewViewportSyncTokenRef.current += 1;

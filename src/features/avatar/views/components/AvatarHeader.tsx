@@ -26,7 +26,9 @@ export const AvatarHeader: React.FC<Props> = ({ onClose, points }) => {
       </TouchableOpacity>
 
       {/* Title */}
-      <Text style={styles.title}>{t("아바타")}</Text>
+      <View pointerEvents="none" style={styles.titleContainer}>
+        <Text style={styles.title}>{t("아바타")}</Text>
+      </View>
 
       {/* Points */}
       <View style={styles.pointsContainer}>
@@ -56,11 +58,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     color: GREY[900],
+    textAlign: 'center',
+  },
+  titleContainer: {
     position: 'absolute',
     left: 0,
     right: 0,
-    textAlign: 'center',
-    pointerEvents: 'none',
   },
   pointsContainer: {
     flexDirection: 'row',

@@ -46,6 +46,7 @@ class UnityView(context: Context) : FrameLayout(context) {
     private var hasSentInitialUnityReadyEvent = false
     private var hasInitialized = false
     private var isDropped = false
+    private var renderingEnabled = true
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private var attachRequestToken = 0L
@@ -127,6 +128,7 @@ class UnityView(context: Context) : FrameLayout(context) {
 
                     player.onResume()  // 렌더링 재개
                     player.windowFocusChanged(true)  // Window Focus 부여 (렌더링 트리거)
+                    UnityHolder.restoreHostStatusBar(activity)
 
                     isUnityLoaded = true
                     Log.d(
@@ -453,6 +455,7 @@ class UnityView(context: Context) : FrameLayout(context) {
         )
 
         if (currentParent == this) {
+            UnityHolder.setRenderingEnabled(renderingEnabled)
             Log.d(TAG, "$ATTACH_TRACE_LOG attach skipped: already attached to target, reason=$reason")
             pendingReattach = false
             if (reason == "initialize" && !hasSentInitialUnityReadyEvent) {
@@ -498,6 +501,7 @@ class UnityView(context: Context) : FrameLayout(context) {
         requestLayout()
         ensureUnityViewLayout()
         pendingReattach = false
+        UnityHolder.setRenderingEnabled(renderingEnabled)
 
         Log.d(
             TAG,
@@ -763,6 +767,13 @@ class UnityView(context: Context) : FrameLayout(context) {
     /**
      * Unity 일시정지
      */
+    fun setRenderingEnabled(enabled: Boolean) {
+        renderingEnabled = enabled
+        if (UnityHolder.isUnityAttachOwner(attachOwnerId)) {
+            UnityHolder.setRenderingEnabled(enabled)
+        }
+    }
+
     fun pauseUnity() {
         Log.d(TAG, "Pausing Unity")
         unityPlayer?.pause()

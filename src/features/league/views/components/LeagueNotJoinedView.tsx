@@ -11,7 +11,7 @@ import { t, useAppLanguage } from '~/i18n';
 import { useEffect, useRef, useMemo, useState } from 'react';
 import { Animated, AppState, StyleSheet, View, Easing } from 'react-native';
 import { NativeText as Text } from '~/shared/components/typography';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused } from 'expo-router/react-navigation';
 import { Image } from 'expo-image';
 import { TIER_IMAGES } from '~/shared/constants/images';
 import { GREY } from '~/shared/styles';

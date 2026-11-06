@@ -1,5 +1,6 @@
 import { initializeSentry, reportError, setUserContext } from '../sentry';
 import * as Sentry from '@sentry/react-native';
+import Constants from 'expo-constants';
 
 jest.mock('expo-updates', () => ({ __esModule: true,
   updateId: 'synthetic-update', channel: 'production', runtimeVersion: '1.9.0', isEmbeddedLaunch: false,
@@ -8,6 +9,50 @@ jest.mock('expo-updates', () => ({ __esModule: true,
 jest.mock('@sentry/react-native', () => ({ init: jest.fn(), reactNavigationIntegration: jest.fn(), setUser: jest.fn(), captureException: jest.fn() }));
 
 afterEach(() => { jest.restoreAllMocks(); });
+
+it('keeps local telemetry disabled when Metro retains another environment', () => {
+  const original = { environment: process.env.EXPO_PUBLIC_ENV, dsn: process.env.EXPO_PUBLIC_SENTRY_DSN, extra: Constants.expoConfig?.extra };
+  process.env.EXPO_PUBLIC_ENV = 'development';
+  process.env.EXPO_PUBLIC_SENTRY_DSN = 'https://public@example.invalid/1';
+  Constants.expoConfig!.extra = { env: 'local' };
+  jest.mocked(Sentry.init).mockClear();
+  jest.mocked(Sentry.captureException).mockClear();
+  jest.mocked(Sentry.setUser).mockClear();
+  try {
+    initializeSentry();
+    reportError(new Error('local failure'));
+    setUserContext('synthetic-user');
+    expect(Sentry.init).not.toHaveBeenCalled();
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+    expect(Sentry.setUser).not.toHaveBeenCalled();
+  } finally {
+    if (original.extra === undefined) delete Constants.expoConfig!.extra;
+    else Constants.expoConfig!.extra = original.extra;
+    if (original.environment === undefined) delete process.env.EXPO_PUBLIC_ENV;
+    else process.env.EXPO_PUBLIC_ENV = original.environment;
+    if (original.dsn === undefined) delete process.env.EXPO_PUBLIC_SENTRY_DSN;
+    else process.env.EXPO_PUBLIC_SENTRY_DSN = original.dsn;
+  }
+});
+
+it('retains telemetry for the selected production profile despite a stale local env', () => {
+  const original = { environment: process.env.EXPO_PUBLIC_ENV, dsn: process.env.EXPO_PUBLIC_SENTRY_DSN, extra: Constants.expoConfig?.extra };
+  process.env.EXPO_PUBLIC_ENV = 'local';
+  process.env.EXPO_PUBLIC_SENTRY_DSN = 'https://public@example.invalid/1';
+  Constants.expoConfig!.extra = { env: 'production' };
+  jest.mocked(Sentry.init).mockClear();
+  try {
+    initializeSentry();
+    expect(Sentry.init).toHaveBeenCalledWith(expect.objectContaining({ environment: 'production', enabled: true }));
+  } finally {
+    if (original.extra === undefined) delete Constants.expoConfig!.extra;
+    else Constants.expoConfig!.extra = original.extra;
+    if (original.environment === undefined) delete process.env.EXPO_PUBLIC_ENV;
+    else process.env.EXPO_PUBLIC_ENV = original.environment;
+    if (original.dsn === undefined) delete process.env.EXPO_PUBLIC_SENTRY_DSN;
+    else process.env.EXPO_PUBLIC_SENTRY_DSN = original.dsn;
+  }
+});
 
 it('removes request secrets and excludes arbitrary console objects without logging events', async () => {
   const originalEnvironment = process.env.EXPO_PUBLIC_ENV;

@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useRef } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router/react-navigation';
 import { View, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { EquippedItemsMap, Item } from '~/features/avatar';
 import { UNITY_PREVIEW } from '~/features/avatar';
 import { UnityLoadingState } from '~/features/unity/components/UnityLoadingState';
 import { unityService } from '~/features/unity/services/UnityService';
 import { useUnityBootstrap } from '~/features/unity/hooks';
 import { useUnityStore } from '~/stores/unity/unityStore';
+import { doesViewportMeasurementMatch } from '~/features/unity/components/viewportMeasurementGuard';
 
 interface Props {
   equippedItems: EquippedItemsMap;
@@ -14,6 +16,7 @@ interface Props {
 }
 
 export const AvatarPreview: React.FC<Props> = ({ equippedItems, hairColor }) => {
+  const insets = useSafeAreaInsets();
   // ★ 이전 장착 아이템/색상 저장 (변경 감지용)
   const prevEquippedItemsRef = useRef<EquippedItemsMap>(equippedItems);
   const prevHairColorRef = useRef<string>(hairColor);
@@ -24,6 +27,10 @@ export const AvatarPreview: React.FC<Props> = ({ equippedItems, hairColor }) => 
   const setActiveViewport = useUnityStore((state) => state.setActiveViewport);
   const clearActiveViewport = useUnityStore((state) => state.clearActiveViewport);
   const isUnitySurfaceVisible = useUnityStore((state) => state.isSurfaceVisible);
+  const activeViewport = useUnityStore((state) => state.activeViewport);
+  const renderedViewport = useUnityStore((state) => state.renderedViewport);
+  const isAvatarViewportReady = activeViewport?.owner === 'avatar'
+    && doesViewportMeasurementMatch(renderedViewport, activeViewport);
 
   const getInitialAvatarPayload = useCallback(() => {
     const items = Object.values(equippedItems).filter((item): item is Item => !!item);
@@ -156,12 +163,12 @@ export const AvatarPreview: React.FC<Props> = ({ equippedItems, hairColor }) => 
     }
 
     syncUnityViewport();
-  }, [isUnityStarted, syncUnityViewport]);
+  }, [isUnityStarted, syncUnityViewport, insets.top, insets.bottom, insets.left, insets.right]);
 
   return (
     <View style={styles.container}>
       <UnityLoadingState
-        isLoading={!isInitialAvatarSynced || !isUnitySurfaceVisible}
+        isLoading={!isInitialAvatarSynced || !isUnitySurfaceVisible || !isAvatarViewportReady}
         variant="avatar"
         minDisplayTime={300}
       >

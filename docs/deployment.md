@@ -49,7 +49,27 @@ Apple Developer에 `.dev` App ID와 필요한
 Apple 로그인은 공유 백엔드의
 개발 client ID 처리도 별도로 확인한다. iOS Configuration 추가 후 `cd ios && pod install`이 필요하다.
 
-### iOS Unity 대상 선택
+### SDK 56 네이티브 호환 경계
+
+휴대폰은 Expo 56 / RN 0.85.3이며 iOS 최소 16.4, Xcode 26.4 이상을 사용한다.
+SDK 56의 Hermes V1·Worklets 메모리 회귀를 피하기 위해 두 OS 모두 classic Hermes를 사용한다.
+Android는 `hermesV1Enabled=false`와 RN composite source build, iOS는 Podfile의 RN source build·
+`RCT_HERMES_V1_ENABLED=0`을 함께 유지한다. RN0.85.3이 지정한 classic engine 0.16.0과
+RN-scoped `hermes-compiler` npm override 0.16.0은 한 쌍이다. RN 업데이트 시 native engine·compiler·
+bytecode 버전을 함께 확인한다. 기본 Hermes V1용 prebuilt RN 바이너리를 classic engine과 섞지 않는다.
+
+Android source build는 Unity export와 호환되는 기존 Gradle 8.14.3·JDK17 및 Android SDK의 command-line tools를 사용한다. RN 기본 CMake는 3.30.5다.
+AGP는 RN source와 같은 버전을 사용한다. Unity·Health·Watch·Typography native 패키지 등록을 보존한다.
+이 SDK 변경에는 새 native 빌드가 필요하며 기존 SDK54 바이너리에 새 JS만 OTA로 배포하지 않는다.
+버전·runtime·빌드번호는 아래 기존 스토어 릴리스 규칙으로 함께 관리한다.
+
+런타임 업그레이드와 별도로 기존 TypeScript5.9·ESLint config10 정책은 유지한다.
+TypeScript는 react-i18next16의 peer 범위 `^5`에 맞추며 두 개발 도구의 Expo 권장 버전 검사 제외는
+`package.json`의 `expo.install.exclude`에 명시한다. 나머지 runtime dependency는 Expo 56 권장 버전으로 검사한다.
+
+Unity 모바일 목표는 `../unity/RunTaehoUnity/Assets/02.Script/CharactorManager.cs`의 Awake에서 60fps로 설정한다. 목표와 실제 기기의 제출 FPS는 구분하며, 화면 밖 pause는 폰 native 표시 수명이 소유한다. Unity 입력 변경 시 Android·iOS Device·Simulator 각각 receipt를 갱신한다. Unity 소스는 폰 Git 저장소 밖의 기존 작업공간 입력이다. 이 작업의 60fps 변경은 [소스 패치](unity-target-frame-rate.patch)로 함께 보관한다. 외부 Unity 프로젝트 루트에서 적용하며, 이미 적용된 프로젝트에는 중복 적용하지 않는다.
+
+## iOS Unity 대상 선택
 
 Unity 소스·씬·에셋은 하나이며 실행 명령에 따라 export 결과만 선택한다.
 로컬 실행 전에는 iPhone 시뮬레이터를 켜고 별도 터미널에서 `npm start`를 실행한다.

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AppState, StyleSheet, View } from 'react-native';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused } from 'expo-router/react-navigation';
 import { Text } from '~/shared/components/typography';
 import { GREY } from '~/shared/styles';
 import { useAppTranslation } from '~/i18n';

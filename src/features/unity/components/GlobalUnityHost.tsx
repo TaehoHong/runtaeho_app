@@ -5,6 +5,7 @@ import { areWindowOriginsEqual, toHostLocalFrame, type WindowOrigin } from './gl
 import { doesViewportMeasurementMatch } from './viewportMeasurementGuard';
 import { useUnitySessionController } from '../hooks/useUnitySessionController';
 import { useUnityStore, type UnityViewport } from '~/stores/unity/unityStore';
+import { useAuthStore } from '~/features/auth/stores/authStore';
 
 const MIN_HOST_SIZE = 1;
 
@@ -14,6 +15,9 @@ const MIN_HOST_SIZE = 1;
  */
 export const GlobalUnityHost: React.FC = () => {
   const activeViewport = useUnityStore((state) => state.activeViewport);
+  const isGameObjectReady = useUnityStore((state) => state.isGameObjectReady);
+  const isAvatarReady = useUnityStore((state) => state.isAvatarReady);
+  const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const setRenderedViewport = useUnityStore((state) => state.setRenderedViewport);
   const { reattachToken, handleUnityReady, handleUnityError } = useUnitySessionController();
   const [hasMountedUnity, setHasMountedUnity] = useState(false);
@@ -141,6 +145,7 @@ export const GlobalUnityHost: React.FC = () => {
         <UnityView
           style={styles.unityView}
           reattachToken={reattachToken}
+          renderingEnabled={isLoggedIn && (!!activeViewport || !isGameObjectReady || !isAvatarReady)}
           onUnityReady={handleUnityReady}
           onUnityError={handleUnityError}
         />
@@ -151,7 +156,7 @@ export const GlobalUnityHost: React.FC = () => {
 
 const styles = StyleSheet.create({
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 0,
     pointerEvents: 'none',
   },

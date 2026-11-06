@@ -21,7 +21,6 @@ export default {
     icon: "./assets/images/icon.png",
     scheme: profile.scheme,
     userInterfaceStyle: "automatic",
-    newArchEnabled: true,
     assetBundlePatterns: ["**/*"],
     // EAS Update 설정
     updates: {
@@ -50,10 +49,7 @@ export default {
       adaptiveIcon: {
         foregroundImage: "./assets/images/icon.png"
       },
-      edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
-      // 개발 환경에서 HTTP (localhost) 요청 허용
-      usesCleartextTraffic: ENV !== 'production',
       package: profile.applicationId,
       googleServicesFile: './android/app/google-services.json',
       permissions: [

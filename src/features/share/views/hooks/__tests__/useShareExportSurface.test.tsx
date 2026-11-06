@@ -7,6 +7,11 @@ import { useShareExportSurface } from '../useShareExportSurface';
 const mockSetActiveViewport = jest.fn();
 const mockClearActiveViewport = jest.fn();
 const mockUseFocusEffect = jest.fn();
+let mockSafeAreaTop = 0;
+
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: mockSafeAreaTop, bottom: 0, left: 0, right: 0 }),
+}));
 
 const mockUnityStoreState = {
   setActiveViewport: mockSetActiveViewport,
@@ -14,7 +19,7 @@ const mockUnityStoreState = {
   renderedViewport: null,
 };
 
-jest.mock('@react-navigation/native', () => ({
+jest.mock('expo-router/react-navigation', () => ({
   useFocusEffect: (...args: unknown[]) => mockUseFocusEffect(...args),
 }));
 
@@ -82,6 +87,7 @@ describe('useShareExportSurface', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSafeAreaTop = 0;
     animationFrameQueue = new Map();
     nextAnimationFrameId = 1;
 
@@ -127,6 +133,23 @@ describe('useShareExportSurface', () => {
       borderRadius: 16,
       frame: { x: 16, y: 148, width: 398, height: 497.66668701171875 },
     });
+  });
+
+  it('remeasures an already settled viewport when a later safe-area update moves its ancestor', async () => {
+    let y = 56;
+    const previewRef = { current: {
+      measureInWindow: (callback: (x: number, y: number, width: number, height: number) => void) =>
+        callback(20, y, 353, 300),
+    } as View };
+    const { rerender } = renderHook(() => useShareExportSurface({ previewRef, isLoading: false }));
+    await flushAnimationFrames(6);
+    expect(mockSetActiveViewport.mock.lastCall?.[0].frame.y).toBe(56);
+
+    y = 115;
+    mockSafeAreaTop = 59;
+    rerender({});
+    await flushAnimationFrames(6);
+    expect(mockSetActiveViewport.mock.lastCall?.[0].frame.y).toBe(115);
   });
 
   it('waits for async measureInWindow callbacks before giving up on the preview viewport', async () => {
