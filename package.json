@@ -1,9 +1,9 @@
 {
   "name": "app",
   "main": "index.js",
-  "version": "1.10.0",
+  "version": "1.11.0",
   "config": {
-    "runtimeVersion": "1.10.0"
+    "runtimeVersion": "1.11.0"
   },
   "scripts": {
     "postinstall": "patch-package",

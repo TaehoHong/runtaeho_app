@@ -58,6 +58,10 @@ Android는 `hermesV1Enabled=false`와 RN composite source build, iOS는 Podfile�
 RN-scoped `hermes-compiler` npm override 0.16.0은 한 쌍이다. RN 업데이트 시 native engine·compiler·
 bytecode 버전을 함께 확인한다. 기본 Hermes V1용 prebuilt RN 바이너리를 classic engine과 섞지 않는다.
 
+Android의 `react.hermesCommand`도 RN에 속한 `hermes-compiler`에서 찾는다. SDK 56에는 이전
+`react-native/sdks/hermesc` 실행 파일이 없으며, 최상위의 다른 compiler 버전을 사용하면 native
+engine과 bytecode가 달라질 수 있다. Debug+Metro 실행 외에 실제 Release 번들 생성도 확인한다.
+
 Android source build는 Unity export와 호환되는 기존 Gradle 8.14.3·JDK17 및 Android SDK의 command-line tools를 사용한다. RN 기본 CMake는 3.30.5다.
 AGP는 RN source와 같은 버전을 사용한다. Unity·Health·Watch·Typography native 패키지 등록을 보존한다.
 이 SDK 변경에는 새 native 빌드가 필요하며 기존 SDK54 바이너리에 새 JS만 OTA로 배포하지 않는다.
