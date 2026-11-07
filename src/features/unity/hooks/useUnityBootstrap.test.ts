@@ -41,6 +41,8 @@ jest.mock('react-native-reanimated', () => {
     View: AnimatedView,
     useSharedValue: (initial: unknown) => ({ value: initial }),
     useAnimatedStyle: (updater: () => Record<string, unknown>) => updater(),
+    withRepeat: (value: unknown) => value,
+    cancelAnimation: () => {},
     withTiming: (
       toValue: unknown,
       _config?: unknown,
@@ -50,6 +52,7 @@ jest.mock('react-native-reanimated', () => {
       return toValue;
     },
     Easing: {
+      inOut: (value: unknown) => value,
       out: (value: unknown) => value,
       ease: () => 0,
     },
