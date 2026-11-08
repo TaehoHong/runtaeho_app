@@ -11,6 +11,9 @@ import { useUserStore } from '~/stores/user/userStore';
 import { routerMock } from '~/test-utils/mocks/native';
 import { resetAllStores } from '~/test-utils/resetState';
 import { tokenStorage } from '~/utils/storage';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from '~/services/queryClient';
+import { NotificationProvider } from '~/features/notifications/NotificationProvider';
 
 jest.mock('~/utils/storage', () => ({
   tokenStorage: {
@@ -28,6 +31,15 @@ jest.mock('~/shared/services/AppResetService', () => ({
 }));
 jest.mock('~/features/watchSync/useWatchSync', () => ({ useWatchSync: jest.fn() }));
 const mockSyncOfflineData = jest.fn();
+let mockNotificationResponse: object | null = null;
+jest.mock('~/features/notifications/services/pushRegistration', () => ({ syncPushRegistration: jest.fn(async () => false) }));
+jest.mock('expo-notifications', () => ({
+  useLastNotificationResponse: () => mockNotificationResponse,
+  DEFAULT_ACTION_IDENTIFIER: 'default',
+  setNotificationHandler: jest.fn(), clearLastNotificationResponseAsync: jest.fn(async () => undefined),
+  addNotificationReceivedListener: () => ({ remove: jest.fn() }),
+  addPushTokenListener: () => ({ remove: jest.fn() }),
+}));
 jest.mock('~/features/running/hooks/useOfflineSync', () => ({
   useOfflineSync: () => ({ syncOfflineData: mockSyncOfflineData }),
 }));
@@ -52,6 +64,7 @@ const expectRoute = async (path: string) => {
 describe('AuthProvider navigation', () => {
   beforeEach(() => {
     resetAllStores();
+    mockNotificationResponse = null;
     useAuthStore.setState({ tokensRevoked: false });
     useUpdateStore.getState().setAutoUpdateCompleted(true);
     mockTokenStorage.loadTokens.mockImplementation(async () => ({
@@ -115,6 +128,7 @@ describe('AuthProvider navigation', () => {
 
     act(() => { useAuthStore.getState().logout(); });
     await expectRoute('/auth/login');
+    expect(useAppStore.getState().authenticatedNavigationSession).toBeNull();
     await act(async () => { await auth.result.current.completeLogin(buildToken(true, 2), 'new-refresh'); });
     await expectRoute('/(tabs)/running');
     expect(mockGetUserData).toHaveBeenCalledTimes(2);
@@ -215,5 +229,43 @@ describe('AuthProvider navigation', () => {
     routerMock.replace.mockClear();
     act(() => { useUserStore.getState().setNickname('Updated nickname'); });
     expect(routerMock.replace).not.toHaveBeenCalled();
+  });
+
+  it('opens a pending push only after the current login, terms, OTA and initial route complete', async () => {
+    mockNotificationResponse = { actionIdentifier: 'default', notification: {
+      request: { identifier: 'login-push', content: { data: { notificationId: '42', recipientUserId: '1' } } },
+    } };
+    render(<QueryClientProvider client={queryClient}><AuthProvider><NotificationProvider /></AuthProvider></QueryClientProvider>);
+    const auth = renderHook(() => useAuth());
+    await expectRoute('/auth/login');
+    expect(routerMock.push).not.toHaveBeenCalled();
+
+    await act(async () => { await auth.result.current.completeLogin(buildToken(false), 'refresh'); });
+    await expectRoute('/auth/terms-agreement');
+    expect(routerMock.push).not.toHaveBeenCalled();
+    expect(useAppStore.getState().authenticatedNavigationSession).toBeNull();
+
+    act(() => { useUpdateStore.getState().setAutoUpdateCompleted(false); });
+    await act(async () => { await auth.result.current.completeLogin(buildToken(true, 2)); });
+    expect(routerMock.push).not.toHaveBeenCalled();
+
+    act(() => { useUpdateStore.getState().setAutoUpdateCompleted(true); });
+    await waitFor(() => expect(routerMock.push).toHaveBeenCalledWith({ pathname: '/user/notification', params: { id: '42' } }));
+    const replacementOrder = routerMock.replace.mock.invocationCallOrder.at(-1)!;
+    const notificationOrder = routerMock.push.mock.invocationCallOrder[0]!;
+    expect(replacementOrder).toBeLessThan(notificationOrder);
+    expect(routerMock.replace).toHaveBeenLastCalledWith('/(tabs)/running');
+    expect(routerMock.push).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears authenticated navigation readiness when the auth provider unmounts', async () => {
+    useAuthStore.setState({ isLoggedIn: true, accessToken: buildToken(true) });
+    const provider = renderProvider();
+    await expectRoute('/(tabs)/running');
+    expect(useAppStore.getState().authenticatedNavigationSession?.userId).toBe(1);
+
+    provider.unmount();
+
+    expect(useAppStore.getState().authenticatedNavigationSession).toBeNull();
   });
 });

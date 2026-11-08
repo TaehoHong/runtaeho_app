@@ -7,9 +7,9 @@
  * - 반드시 '확인' 버튼을 눌러야 함
  */
 
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { BackHandler } from 'react-native';
-import { useLocalSearchParams, Redirect, useNavigation } from 'expo-router';
+import { useLocalSearchParams, Redirect, useNavigation, useFocusEffect } from 'expo-router';
 import { LeagueResultView } from '~/features/league/views';
 import { parseLeagueResult } from '~/features/league/models/parseLeagueResult';
 
@@ -25,14 +25,14 @@ export default function LeagueResultScreen() {
   }, [navigation]);
 
   // 뒤로가기 블록 (Android 하드웨어 백버튼 차단)
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
       console.log('[LEAGUE_RESULT] 뒤로가기 차단됨');
       return true; // true 반환하면 기본 동작 차단
     });
 
     return () => backHandler.remove();
-  }, []);
+  }, []));
 
   const result = parseLeagueResult(params.resultData);
   if (!result) {

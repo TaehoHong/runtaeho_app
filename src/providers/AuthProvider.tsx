@@ -41,6 +41,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // OTA 자동 업데이트 완료 여부 확인
   const isAutoUpdateCompleted = useUpdateStore((state) => state.isAutoUpdateCompleted);
 
+  useEffect(() => () => { useAppStore.getState().setAuthenticatedNavigationSession(null); }, []);
+
   /**
    * 현재 세션의 저장된 인증 상태와 사용자 데이터 복원
    *
@@ -139,12 +141,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     // 네비게이션이 준비되지 않았으면 대기
     if (!isNavigationReady) {
+      useAppStore.getState().setAuthenticatedNavigationSession(null);
       console.log('⏳ [AuthProvider] 네비게이션 준비 대기 중...');
       return;
     }
 
     // OTA 자동 업데이트가 완료되지 않았으면 대기 (로그인 화면에서 업데이트 처리)
     if (!isAutoUpdateCompleted) {
+      useAppStore.getState().setAuthenticatedNavigationSession(null);
       console.log('⏳ [AuthProvider] OTA 업데이트 완료 대기 중... 로그인 화면 유지');
       // 로그인 화면으로 이동하여 업데이트 처리
       router.replace('/auth/login');
@@ -157,6 +161,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       if (isLoggedIn && didRestorePersistedState) {
         if (requiresTermsAgreement) {
+          useAppStore.getState().setAuthenticatedNavigationSession(null);
           // 약관 미동의 → 약관 동의 화면으로
           console.log('📄 [AuthProvider] 약관 미동의 → 약관 동의 화면으로 이동');
           router.replace('/auth/terms-agreement');
@@ -169,11 +174,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         // ✅ 네비게이션 성공 후 Loaded로 전환 (단일 책임: AuthProvider에서만 관리)
         useAppStore.getState().setViewState(ViewState.Loaded);
+        useAppStore.getState().setAuthenticatedNavigationSession(getSessionSnapshot());
         console.log('✅ [AuthProvider] 네비게이션 성공: /(tabs)/running - Loaded 상태로 전환');
 
         // ⚠️ 권한 요청은 RunningView에서 Unity 로딩 완료 후 실행
         // (권한 팝업이 앱을 inactive 상태로 만들어 Unity 초기화 실패 방지)
       } else {
+        useAppStore.getState().setAuthenticatedNavigationSession(null);
         console.log('❌ [AuthProvider] 로그아웃 상태 - 로그인 화면으로 이동');
         router.replace('/auth/login');
 
@@ -182,6 +189,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log('✅ [AuthProvider] 로그인 화면 이동 - Loaded 상태로 전환');
       }
     } catch {
+      useAppStore.getState().setAuthenticatedNavigationSession(null);
       console.warn('⚠️ [AuthProvider] 네비게이션 실패, 재시도 예약:');
       // 네비게이션 실패시 잠시 후 재시도
       setTimeout(() => {

@@ -2,7 +2,7 @@ import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
 import axios from 'axios';
 import { waitFor } from '@testing-library/react-native';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { apiClient } from '~/services/api/client';
 import { notificationService } from '../services/notificationService';
 import { detachPushRegistration, requestPushPermission, syncPushRegistration } from '../services/pushRegistration';
@@ -33,6 +33,7 @@ beforeEach(() => {
   disk.clear();
   mockState.generation = 1; mockState.userId = 7; mockState.isLoggedIn = true;
   mockState.accessToken = 'old-account-token';
+  AppState.currentState = 'active';
   jest.mocked(SecureStore.getItemAsync).mockImplementation(async key => disk.get(key) ?? null);
   jest.mocked(SecureStore.setItemAsync).mockImplementation(async (key, value) => { disk.set(key, value); });
   jest.mocked(SecureStore.deleteItemAsync).mockImplementation(async key => { disk.delete(key); });
@@ -42,7 +43,38 @@ beforeEach(() => {
   jest.mocked(apiClient.put).mockResolvedValue({ data: { id: 3, version: 4 } });
 });
 
-afterEach(async () => { await detachPushRegistration(); });
+afterEach(async () => { await detachPushRegistration(); jest.useRealTimers(); });
+
+it('retries a transient binding failure while the same session remains active', async () => {
+  jest.useFakeTimers();
+  jest.mocked(apiClient.put).mockRejectedValueOnce(new Error('offline'));
+  await expect(syncPushRegistration()).rejects.toThrow('offline');
+  await jest.advanceTimersByTimeAsync(30000);
+  expect(apiClient.put).toHaveBeenCalledTimes(2);
+  expect(apiClient.put).toHaveBeenLastCalledWith('/notifications/device', expect.objectContaining({ pushToken: 'ExpoPushToken[test]' }), expect.anything());
+});
+
+it('cancels a scheduled registration retry when logging out', async () => {
+  jest.useFakeTimers();
+  jest.mocked(apiClient.put).mockRejectedValueOnce(new Error('offline'));
+  await expect(syncPushRegistration()).rejects.toThrow('offline');
+  await detachPushRegistration();
+  mockState.generation++;
+  mockState.isLoggedIn = false;
+  await jest.advanceTimersByTimeAsync(30000);
+  expect(apiClient.put).toHaveBeenCalledTimes(1);
+});
+
+it('stops after three retries instead of retrying a persistent registration failure indefinitely', async () => {
+  jest.useFakeTimers();
+  jest.mocked(apiClient.put).mockRejectedValue(new Error('offline'));
+  await expect(syncPushRegistration()).rejects.toThrow('offline');
+  await jest.advanceTimersByTimeAsync(30000 + 60000 + 120000);
+  expect(apiClient.put).toHaveBeenCalledTimes(4);
+  await jest.advanceTimersByTimeAsync(600000);
+  expect(apiClient.put).toHaveBeenCalledTimes(4);
+  jest.mocked(apiClient.put).mockResolvedValue({ data: { id: 3, version: 4 } });
+});
 
 it('passive login sync never requests permission and sends no token when push is disabled', async () => {
   jest.mocked(notificationService.configuration).mockResolvedValue({ pushEnabled: false, leaguePushEnabled: true, reminderPushEnabled: true, noticePushEnabled: true, timezone: 'Asia/Seoul' });

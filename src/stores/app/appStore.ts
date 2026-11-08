@@ -5,6 +5,7 @@
  */
 
 import { create } from 'zustand';
+import type { SessionSnapshot } from '~/features/auth/stores/authStore';
   
 /**
  * ViewState Enum
@@ -31,12 +32,14 @@ export enum RunningState {
 interface AppState {
   // State
   viewState: ViewState;
+  authenticatedNavigationSession: SessionSnapshot | null;
   runningState: RunningState;
   previousLeagueRank: number | null; // 이전 리그 순위 (애니메이션용)
   leagueBeforeRunningEnd: { sessionId: number; rank: number } | null; // 완료 화면 확인 전까지 보관
 
   // Actions
   setViewState: (viewState: ViewState) => void;
+  setAuthenticatedNavigationSession: (session: SessionSnapshot | null) => void;
   setRunningState: (runningState: RunningState) => void;
   setPreviousLeagueRank: (rank: number | null) => void;
   setLeagueBeforeRunningEnd: (league: AppState['leagueBeforeRunningEnd']) => void;
@@ -48,6 +51,7 @@ interface AppState {
  */
 const initialState = {
   viewState: ViewState.Loading,
+  authenticatedNavigationSession: null as SessionSnapshot | null,
   runningState: RunningState.Stopped,
   previousLeagueRank: null as number | null,
   leagueBeforeRunningEnd: null as AppState['leagueBeforeRunningEnd'],
@@ -63,6 +67,7 @@ export const useAppStore = create<AppState>((set) => ({
 
   // Actions
   setViewState: (viewState) => set({ viewState }),
+  setAuthenticatedNavigationSession: (session) => set({ authenticatedNavigationSession: session }),
 
   setRunningState: (runningState) => set({ runningState }),
 

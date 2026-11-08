@@ -3,7 +3,7 @@ import * as Crypto from 'expo-crypto';
 import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { getCalendars } from 'expo-localization';
 import { apiClient } from '~/services/api/client';
 import { API_CONFIG } from '~/services/api/config';
@@ -19,6 +19,15 @@ let activeBinding: Binding | null = null;
 let syncRevision = 0;
 let latestDevicePushToken: Notifications.DevicePushToken | undefined;
 let revocationCredentials: { accessToken: string | null; userId: number | null } | null = null;
+let retryTimer: ReturnType<typeof setTimeout> | undefined;
+let retrySubscription: { remove(): void } | undefined;
+
+function cancelRegistrationRetry() {
+  if (retryTimer !== undefined) clearTimeout(retryTimer);
+  retryTimer = undefined;
+  retrySubscription?.remove();
+  retrySubscription = undefined;
+}
 
 export const currentTimezone = () => getCalendars()[0]?.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
 export const notificationsGranted = (permission: Notifications.NotificationPermissionsStatus) =>
@@ -47,7 +56,16 @@ export function requestPushPermission(): Promise<boolean> {
   return notificationPermission(true);
 }
 
-export async function syncPushRegistration(devicePushToken?: Notifications.DevicePushToken): Promise<boolean> {
+export function getPushPermission(): Promise<boolean> {
+  return notificationPermission();
+}
+
+export function syncPushRegistration(devicePushToken?: Notifications.DevicePushToken): Promise<boolean> {
+  cancelRegistrationRetry();
+  return syncRegistrationAttempt(devicePushToken, 0);
+}
+
+async function syncRegistrationAttempt(devicePushToken: Notifications.DevicePushToken | undefined, attempt: number): Promise<boolean> {
   const snapshot = getSessionSnapshot();
   const userId = snapshot.userId;
   const revision = ++syncRevision;
@@ -92,12 +110,24 @@ export async function syncPushRegistration(devicePushToken?: Notifications.Devic
     return await task;
   } catch (error) {
     if (!isCurrent()) return false;
+    if (attempt < 3 && AppState.currentState === 'active') {
+      retrySubscription = AppState.addEventListener('change', state => {
+        if (state !== 'active') cancelRegistrationRetry();
+      });
+      retryTimer = setTimeout(() => {
+        cancelRegistrationRetry();
+        if (isCurrent() && AppState.currentState === 'active') {
+          void syncRegistrationAttempt(undefined, attempt + 1).catch(() => console.warn('[Notifications] Registration retry failed'));
+        }
+      }, 30000 * 2 ** attempt);
+    }
     throw error;
   }
 }
 
 /** Capture credentials synchronously, before resetAllAppData revokes the app session. */
 export function detachPushRegistration(): Promise<void> {
+  cancelRegistrationRetry();
   if (Platform.OS === 'web') return Promise.resolve();
   const credentials = revocationCredentials ?? {
     accessToken: useAuthStore.getState().accessToken, userId: getSessionSnapshot().userId,

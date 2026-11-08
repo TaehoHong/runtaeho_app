@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { isAxiosError } from 'axios';
 import { ActivityIndicator, Alert, AppState, FlatList, Linking, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { type InfiniteData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { TopScreenSafeAreaView } from '~/shared/components';
 import { Text } from '~/shared/components/typography';
 import { GREY, PRIMARY } from '~/shared/styles';
@@ -10,8 +11,8 @@ import { t, useAppLanguage, useAppTranslation } from '~/i18n';
 import { useUserStore } from '~/stores/user/userStore';
 import { getSessionSnapshot, isSessionCurrent } from '~/features/auth/stores/authStore';
 import { queryKeys } from '~/services/queryClient';
-import { notificationService, type NotificationConfiguration } from '../services/notificationService';
-import { currentTimezone, requestPushPermission, syncPushRegistration } from '../services/pushRegistration';
+import { notificationService, type NotificationConfiguration, type NotificationPage } from '../services/notificationService';
+import { currentTimezone, getPushPermission, requestPushPermission, syncPushRegistration } from '../services/pushRegistration';
 import { useScreenLifetime } from '~/shared/hooks/useScreenLifetime';
 import { leagueService } from '~/features/league/services/leagueService';
 
@@ -47,12 +48,15 @@ export function NotificationInboxView({ type }: { type?: 'NOTICE' }) {
     enabled: userId !== undefined,
     staleTime: 0,
   });
+  const refetch = query.refetch;
+  useFocusEffect(useCallback(() => { if (userId !== undefined) void refetch(); }, [refetch, userId]));
   const items = query.data?.pages.flatMap(page => page.content) ?? [];
   return <TopScreenSafeAreaView style={styles.container}>
     <Header title={type === 'NOTICE' ? translate('공지사항') : translate('알림함')} settings />
     {query.isPending ? <ActivityIndicator style={styles.message} /> : query.isError && items.length === 0 ?
       <Retry onPress={() => { void query.refetch(); }} /> :
       <FlatList data={items} keyExtractor={item => String(item.id)} refreshing={query.isRefetching}
+        ListHeaderComponent={query.isRefetchError && items.length > 0 ? <Retry onPress={() => { void query.refetch(); }} /> : null}
         onRefresh={() => { void query.refetch(); }}
         onEndReached={() => { if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage(); }}
         renderItem={({ item }) => <TouchableOpacity accessibilityRole="button" style={[styles.item, !item.readDatetime && styles.unread]}
@@ -83,8 +87,20 @@ export function NotificationDetailView() {
     retry: false,
   });
   useEffect(() => {
-    if (query.data) void queryClient.invalidateQueries({ queryKey: ['notifications', 'inbox'] });
-  }, [query.data, queryClient]);
+    const item = query.data;
+    if (!item) return;
+    const snapshot = getSessionSnapshot();
+    const key = ['notifications', 'inbox', userId];
+    void queryClient.cancelQueries({ queryKey: key }).then(() => {
+      if (!isSessionCurrent(snapshot)) return;
+      queryClient.setQueriesData<InfiniteData<NotificationPage>>({ queryKey: key }, previous => previous && ({
+        ...previous,
+        pages: previous.pages.map(page => ({ ...page, content: page.content.map(row =>
+          row.id === item.id ? { ...row, readDatetime: item.readDatetime } : row) })),
+      }));
+      void queryClient.invalidateQueries({ queryKey: key });
+    });
+  }, [query.data, queryClient, userId]);
   const openLeague = useMutation({ mutationFn: async () => {
     const participantId = query.data?.leagueParticipantId;
     if (!participantId) return;
@@ -99,18 +115,19 @@ export function NotificationDetailView() {
       if (isCurrent()) Alert.alert(t('조회 실패'), t('리그 결과를 불러오지 못했어요.'));
     }
   } });
+  const unavailable = !Number.isSafeInteger(id) || id <= 0 || (isAxiosError(query.error) && query.error.response?.status === 404);
   return <TopScreenSafeAreaView style={styles.container}>
     <Header title={translate('알림')} />
-    {query.isError || !Number.isSafeInteger(id) || id <= 0 ? <View style={styles.message}>
+    {unavailable ? <View style={styles.message}>
       <Text>{translate('알림을 찾을 수 없거나 보관 기간이 지났어요.')}</Text>
-      <Retry onPress={() => { void query.refetch(); }} />
-    </View> : query.isPending ? <ActivityIndicator style={styles.message} /> : <ScrollView contentContainerStyle={styles.content}>
+      <TouchableOpacity accessibilityRole="button" style={styles.button} onPress={() => router.dismissTo('/user/notifications')}><Text>{translate('알림함')}</Text></TouchableOpacity>
+    </View> : query.isError ? <Retry onPress={() => { void query.refetch(); }} /> : query.isPending ? <ActivityIndicator style={styles.message} /> : <ScrollView contentContainerStyle={styles.content}>
       <Text style={styles.title}>{query.data.title}</Text>
       <Text style={styles.date}>{new Date(query.data.createdDatetime).toLocaleString(language)}</Text>
       <Text style={styles.body}>{query.data.body}</Text>
-      {query.data.type === 'LEAGUE_RESULT' && <TouchableOpacity style={styles.button} disabled={openLeague.isPending}
+      {query.data.type === 'LEAGUE_RESULT' && <TouchableOpacity accessibilityRole="button" accessibilityState={{ disabled: openLeague.isPending, busy: openLeague.isPending }} style={styles.button} disabled={openLeague.isPending}
         onPress={() => openLeague.mutate()}><Text>{translate('결과 확인')}</Text></TouchableOpacity>}
-      {query.data.type === 'RUNNING_REMINDER' && <TouchableOpacity style={styles.button} onPress={() => router.push('/(tabs)/running')}>
+      {query.data.type === 'RUNNING_REMINDER' && <TouchableOpacity accessibilityRole="button" style={styles.button} onPress={() => router.dismissTo('/(tabs)/running')}>
         <Text>{translate('러닝하러 가기')}</Text></TouchableOpacity>}
     </ScrollView>}
   </TopScreenSafeAreaView>;
@@ -118,31 +135,48 @@ export function NotificationDetailView() {
 
 export function NotificationSettingsView() {
   const captureLifetime = useScreenLifetime();
-  useAppLanguage();
+  const t = useAppTranslation();
   const userId = useUserStore(state => state.currentUser?.id);
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: queryKeys.notifications.configuration(userId), queryFn: notificationService.configuration, enabled: userId !== undefined, staleTime: 0 });
   const refetch = query.refetch;
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
+  const refreshPermission = useCallback(() => {
+    const snapshot = getSessionSnapshot();
+    const isScreenCurrent = captureLifetime();
+    void getPushPermission().then(granted => {
+      if (isScreenCurrent() && isSessionCurrent(snapshot)) setPermissionGranted(granted);
+    }).catch(() => { /* Leave an unknown permission state until the next focus or foreground read. */ });
+  }, [captureLifetime]);
+  useFocusEffect(useCallback(() => { refreshPermission(); }, [refreshPermission]));
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', state => { if (state === 'active') void refetch(); });
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active') { void refetch(); refreshPermission(); }
+    });
     return () => subscription.remove();
-  }, [refetch]);
+  }, [refetch, refreshPermission]);
   const save = async (field: 'pushEnabled' | 'leaguePushEnabled' | 'reminderPushEnabled' | 'noticePushEnabled', enabled: boolean) => {
-    if (!query.data || saving) return;
+    if (!query.data || savingRef.current) return;
     const snapshot = getSessionSnapshot();
     const isScreenCurrent = captureLifetime();
     const isCurrent = () => isScreenCurrent() && isSessionCurrent(snapshot);
+    savingRef.current = true;
     setSaving(true);
     try {
-      if (field === 'pushEnabled' && enabled && !await requestPushPermission()) {
-        if (isCurrent()) Alert.alert(t('알림 권한이 필요해요'), t('기기 설정에서 알림을 허용해주세요.'), [
-          { text: t('취소'), style: 'cancel' }, { text: t('설정 열기'), onPress: () => { if (isCurrent()) void Linking.openSettings(); } },
-        ]);
-        return;
+      if (field === 'pushEnabled' && enabled) {
+        const granted = await requestPushPermission();
+        if (isCurrent()) setPermissionGranted(granted);
+        if (!granted) {
+          if (isCurrent()) Alert.alert(t('알림 권한이 필요해요'), t('기기 설정에서 알림을 허용해주세요.'), [
+            { text: t('취소'), style: 'cancel' }, { text: t('설정 열기'), onPress: () => { if (isCurrent()) void Linking.openSettings(); } },
+          ]);
+          return;
+        }
       }
       if (!isSessionCurrent(snapshot)) return;
-      const value: NotificationConfiguration = { ...query.data, [field]: enabled, timezone: currentTimezone() };
+      const value: Partial<NotificationConfiguration> = { [field]: enabled, timezone: currentTimezone() };
       const saved = await notificationService.configure(value);
       if (!isSessionCurrent(snapshot)) return;
       // Foreground reads can start during the save; retire them before committing its result.
@@ -154,7 +188,7 @@ export function NotificationSettingsView() {
       });
     } catch {
       if (isCurrent()) Alert.alert(t('설정 변경 실패'), t('알림 설정을 저장하지 못했어요. 다시 시도해주세요.'));
-    } finally { setSaving(false); }
+    } finally { savingRef.current = false; setSaving(false); }
   };
   const rows = [
     ['pushEnabled', t('푸시 알림')], ['leaguePushEnabled', t('리그 결과')],
@@ -164,6 +198,7 @@ export function NotificationSettingsView() {
     <Header title={t('알림 설정')} />
     {query.isPending ? <ActivityIndicator style={styles.message} /> : query.isError ? <Retry onPress={() => { void query.refetch(); }} /> :
       <ScrollView contentContainerStyle={styles.content}>
+        {query.data.pushEnabled && permissionGranted === false && <Text accessibilityRole="alert" style={styles.body}>{t('이 기기의 알림이 차단돼 있어요. 기기 설정에서 허용해주세요.')}</Text>}
         {rows.map(([field, label]) => <View key={field} style={styles.row}>
           <Text style={styles.title}>{label}</Text>
           <Switch accessibilityLabel={label} value={query.data[field]} onValueChange={enabled => { void save(field, enabled); }}
@@ -172,7 +207,7 @@ export function NotificationSettingsView() {
         </View>)}
         <Text style={styles.body}>{t('푸시를 꺼도 알림함에는 저장돼요.')}</Text>
         <Text style={styles.body}>{t('러닝 리마인더는 마지막 러닝 완료 후 48시간과 72시간에 한 번씩 알려드려요.')}</Text>
-        <TouchableOpacity style={styles.button} onPress={() => { void Linking.openSettings(); }}><Text>{t('기기 알림 설정')}</Text></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" style={styles.button} onPress={() => { void Linking.openSettings(); }}><Text>{t('기기 알림 설정')}</Text></TouchableOpacity>
       </ScrollView>}
   </TopScreenSafeAreaView>;
 }
@@ -188,9 +223,9 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   title: { fontSize: 16, fontWeight: '600', color: GREY[900], flexShrink: 1 },
   body: { fontSize: 14, lineHeight: 22, color: GREY[700] },
-  date: { fontSize: 12, color: GREY[500] },
-  badge: { fontSize: 12, color: PRIMARY[700] },
+  date: { fontSize: 12, color: GREY[700] },
+  badge: { fontSize: 12, color: GREY[700] },
   message: { padding: 24, alignItems: 'center', gap: 16, color: GREY[600] },
   button: { padding: 16, backgroundColor: PRIMARY[50], borderRadius: 8, alignItems: 'center' },
-  note: { padding: 20, fontSize: 12, color: GREY[500], textAlign: 'center' },
+  note: { padding: 20, fontSize: 12, color: GREY[700], textAlign: 'center' },
 });

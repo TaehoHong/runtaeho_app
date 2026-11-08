@@ -44,9 +44,9 @@ export const notificationService = {
     if (!isSessionCurrent(snapshot)) throw new SessionSupersededError();
     return data;
   },
-  async configure(value: NotificationConfiguration): Promise<NotificationConfiguration> {
+  async configure(value: Partial<NotificationConfiguration>): Promise<NotificationConfiguration> {
     const snapshot = getSessionSnapshot();
-    const { data } = await apiClient.put<NotificationConfiguration>(`${base}/configuration`, value, { sessionSnapshot: snapshot });
+    const { data } = await apiClient.patch<NotificationConfiguration>(`${base}/configuration`, value, { sessionSnapshot: snapshot });
     if (!isSessionCurrent(snapshot)) throw new SessionSupersededError();
     return data;
   },

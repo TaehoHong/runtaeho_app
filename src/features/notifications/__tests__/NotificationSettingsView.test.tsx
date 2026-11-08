@@ -10,12 +10,12 @@ import { useUserStore } from '~/stores/user/userStore';
 import { createUser } from '~/features/user/models/User';
 import { NotificationSettingsView } from '../views/NotificationViews';
 import type { NotificationConfiguration } from '../services/notificationService';
-import { requestPushPermission, syncPushRegistration } from '../services/pushRegistration';
+import { getPushPermission, requestPushPermission, syncPushRegistration } from '../services/pushRegistration';
 
 jest.mock('expo-router', () => ({ router: { push: jest.fn(), back: jest.fn() }, useFocusEffect: (effect: () => void) => require('react').useEffect(effect, []) }));
 jest.mock('~/shared/components', () => ({ TopScreenSafeAreaView: require('react-native').View }));
 jest.mock('~/shared/components/typography', () => ({ Text: require('react-native').Text }));
-jest.mock('../services/pushRegistration', () => ({ requestPushPermission: jest.fn(), syncPushRegistration: jest.fn(), currentTimezone: () => 'Asia/Seoul' }));
+jest.mock('../services/pushRegistration', () => ({ getPushPermission: jest.fn(), requestPushPermission: jest.fn(), syncPushRegistration: jest.fn(), currentTimezone: () => 'Asia/Seoul' }));
 jest.mock('~/shared/services/TokenRefreshInterceptor', () => ({
   tokenRefreshInterceptor: {
     validateAndRefreshIfNeeded: jest.fn().mockResolvedValue(undefined),
@@ -33,7 +33,8 @@ const initial: NotificationConfiguration = {
   noticePushEnabled: true, timezone: 'Asia/Seoul',
 };
 const requests: InternalAxiosRequestConfig[] = [];
-const writes: NotificationConfiguration[] = [];
+const writes: Partial<NotificationConfiguration>[] = [];
+let serverConfiguration: NotificationConfiguration;
 const originalAdapter = apiClient.defaults.adapter;
 let read: ReturnType<typeof deferred<NotificationConfiguration>> | undefined;
 let write: ReturnType<typeof deferred<NotificationConfiguration>> | undefined;
@@ -54,10 +55,12 @@ beforeEach(() => {
   read = undefined;
   write = undefined;
   failWrite = false;
+  serverConfiguration = { ...initial };
   useAuthStore.setState({ isLoggedIn: true, tokensRevoked: false, accessToken: 'test-token', sessionGeneration: 1 });
   useUserStore.setState({ currentUser: createUser({ id: 7, nickname: 'Runner' }) });
   jest.mocked(syncPushRegistration).mockResolvedValue(true);
   jest.mocked(requestPushPermission).mockResolvedValue(true);
+  jest.mocked(getPushPermission).mockResolvedValue(true);
   appStateSpy = jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, listener) => {
     appStateChanged = listener;
     return { remove: jest.fn() };
@@ -66,11 +69,12 @@ beforeEach(() => {
   apiClient.defaults.adapter = async config => {
     requests.push(config);
     let data: NotificationConfiguration;
-    if (config.method === 'put') {
-      const value = JSON.parse(config.data) as NotificationConfiguration;
+    if (config.method === 'put' || config.method === 'patch') {
+      const value = JSON.parse(config.data) as Partial<NotificationConfiguration>;
       writes.push(value);
       if (failWrite) throw new Error('offline');
-      data = write ? await write.promise : value;
+      data = write ? await write.promise : { ...serverConfiguration, ...value };
+      serverConfiguration = data;
     } else {
       data = read ? await read.promise : initial;
     }
@@ -107,7 +111,7 @@ it('keeps the saved choice and next payload when foreground reads finish after t
   write = deferred<NotificationConfiguration>();
   fireEvent(screen.getByLabelText('러닝 리마인더'), 'valueChange', false);
   await waitFor(() => expect(writes).toHaveLength(2));
-  expect(writes[1]).toEqual({ ...initial, leaguePushEnabled: false, reminderPushEnabled: false });
+  expect(writes[1]).toEqual({ reminderPushEnabled: false, timezone: 'Asia/Seoul' });
 
   // NotificationProvider can also invalidate configuration while the PUT is pending.
   const duringSave = deferred<NotificationConfiguration>();
@@ -121,7 +125,7 @@ it('keeps the saved choice and next payload when foreground reads finish after t
   write = undefined;
   fireEvent(screen.getByLabelText('운영 공지'), 'valueChange', false);
   await waitFor(() => expect(writes).toHaveLength(3));
-  expect(writes[2]).toEqual({ ...initial, leaguePushEnabled: false, reminderPushEnabled: false, noticePushEnabled: false });
+  expect(writes[2]).toEqual({ noticePushEnabled: false, timezone: 'Asia/Seoul' });
   await waitFor(() => expect(screen.getByLabelText('리그 결과').props.value).toBe(false));
   expect(screen.getByLabelText('러닝 리마인더').props.value).toBe(false);
   expect(syncPushRegistration).toHaveBeenCalled();
@@ -138,7 +142,7 @@ it('keeps the previous choice after a failed save and allows saving it again', a
   failWrite = false;
   fireEvent(screen.getByLabelText('리그 결과'), 'valueChange', false);
   await waitFor(() => expect(screen.getByLabelText('리그 결과').props.value).toBe(false));
-  expect(writes[1]).toEqual({ ...initial, leaguePushEnabled: false });
+  expect(writes[1]).toEqual({ leaguePushEnabled: false, timezone: 'Asia/Seoul' });
 });
 
 it('does not apply a pending save after the same user starts a new session', async () => {
@@ -168,7 +172,7 @@ it('saves an enabled preference and releases the switches while push registratio
 
   fireEvent(screen.getByLabelText('푸시 알림'), 'valueChange', true);
 
-  await waitFor(() => expect(writes).toEqual([{ ...initial, pushEnabled: true }]));
+  await waitFor(() => expect(writes).toEqual([{ pushEnabled: true, timezone: 'Asia/Seoul' }]));
   await waitFor(() => expect(screen.getByLabelText('푸시 알림').props.disabled).toBe(false));
   expect(screen.getByLabelText('푸시 알림').props.value).toBe(true);
   expect(alert).not.toHaveBeenCalled();
@@ -183,7 +187,7 @@ it('keeps a successful save and reports registration failure separately', async 
 
   fireEvent(screen.getByLabelText('푸시 알림'), 'valueChange', true);
 
-  await waitFor(() => expect(writes).toEqual([{ ...initial, pushEnabled: true }]));
+  await waitFor(() => expect(writes).toEqual([{ pushEnabled: true, timezone: 'Asia/Seoul' }]));
   await waitFor(() => expect(alert).toHaveBeenCalledWith('푸시 알림 등록 실패', expect.any(String)));
   expect(screen.getByLabelText('푸시 알림').props.value).toBe(true);
   expect(screen.getByLabelText('푸시 알림').props.disabled).toBe(false);
@@ -227,11 +231,31 @@ it('keeps the committed preference without showing a late registration alert aft
   jest.mocked(syncPushRegistration).mockReturnValue(new Promise((_resolve, reject) => { failRegistration = reject; }));
   fireEvent(screen.getByLabelText('리그 결과'), 'valueChange', false);
   await waitFor(() => expect(screen.getByLabelText('리그 결과').props.disabled).toBe(false));
-  expect(writes).toEqual([{ ...initial, leaguePushEnabled: false }]);
+  expect(writes).toEqual([{ leaguePushEnabled: false, timezone: 'Asia/Seoul' }]);
   screen.unmount();
 
   await act(async () => { failRegistration(new Error('registration unavailable')); });
 
   expect(screen.client.getQueryData(queryKeys.notifications.configuration(7))).toEqual({ ...initial, leaguePushEnabled: false });
   expect(alert).not.toHaveBeenCalled();
+});
+
+it('changes only the selected preference and preserves an opt-out saved by another device', async () => {
+  const screen = setup();
+  await waitFor(() => expect(screen.getByLabelText('리그 결과').props.value).toBe(true));
+  serverConfiguration = { ...initial, leaguePushEnabled: false };
+  fireEvent(screen.getByLabelText('운영 공지'), 'valueChange', false);
+  await waitFor(() => expect(screen.getByLabelText('운영 공지').props.value).toBe(false));
+  expect(writes).toEqual([{ noticePushEnabled: false, timezone: 'Asia/Seoul' }]);
+  expect(screen.getByLabelText('리그 결과').props.value).toBe(false);
+});
+
+it('shows device permission revocation without changing the saved preference', async () => {
+  const screen = setup();
+  await waitFor(() => expect(screen.getByLabelText('푸시 알림').props.value).toBe(true));
+  jest.mocked(getPushPermission).mockResolvedValue(false);
+  act(() => appStateChanged('active'));
+  await screen.findByText('이 기기의 알림이 차단돼 있어요. 기기 설정에서 허용해주세요.');
+  expect(screen.getByLabelText('푸시 알림').props.value).toBe(true);
+  expect(writes).toEqual([]);
 });
