@@ -191,7 +191,7 @@
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "야외 러닝 거리와 경로를 기록합니다.";
 				INFOPLIST_KEY_WKApplication = YES;
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.runtaeho.runtaeho;
-				MARKETING_VERSION = 1.11.0;
+				MARKETING_VERSION = 1.12.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.runtaeho.runtaeho.watchkitapp;
 				PRODUCT_NAME = RunTaehoWatch;
 				SDKROOT = watchos;
@@ -271,7 +271,7 @@
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "야외 러닝 거리와 경로를 기록합니다.";
 				INFOPLIST_KEY_WKApplication = YES;
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.runtaeho.runtaeho.dev;
-				MARKETING_VERSION = 1.11.0;
+				MARKETING_VERSION = 1.12.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.runtaeho.runtaeho.dev.watchkitapp;
 				PRODUCT_NAME = RunTaehoWatch;
 				SDKROOT = watchos;
@@ -350,7 +350,7 @@
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "야외 러닝 거리와 경로를 기록합니다.";
 				INFOPLIST_KEY_WKApplication = YES;
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.runtaeho.runtaeho.dev;
-				MARKETING_VERSION = 1.11.0;
+				MARKETING_VERSION = 1.12.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.runtaeho.runtaeho.dev.watchkitapp;
 				PRODUCT_NAME = RunTaehoWatch;
 				SDKROOT = watchos;
