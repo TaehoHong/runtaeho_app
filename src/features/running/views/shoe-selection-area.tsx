@@ -34,6 +34,7 @@ export interface ShoeSnapCarouselProps {
   selectedShoeId: number | null;
   mainShoeId?: number | null;
   onShoeSelect?: (shoeId: number) => void;
+  variant?: 'default' | 'recordDetail';
 }
 
 export const ShoeSelectionArea: React.FC<ShoeSelectionAreaProps> = ({
@@ -107,6 +108,7 @@ export const ShoeSnapCarousel: React.FC<ShoeSnapCarouselProps> = ({
   selectedShoeId,
   mainShoeId = null,
   onShoeSelect,
+  variant = 'default',
 }) => {
   useAppLanguage();
   const scrollViewRef = useRef<ScrollView>(null);
@@ -170,6 +172,7 @@ export const ShoeSnapCarousel: React.FC<ShoeSnapCarouselProps> = ({
             isActive={shoe.id === selectedShoeId}
             isMain={shoe.id === mainShoeId}
             onPress={() => handleCardPress(index)}
+            variant={variant}
           />
         </View>
       ))}
@@ -182,6 +185,7 @@ interface ShoeSelectionCardProps {
   isActive: boolean;
   isMain: boolean;
   onPress: () => void;
+  variant?: ShoeSnapCarouselProps['variant'];
 }
 
 export const ShoeSelectionCard: React.FC<ShoeSelectionCardProps> = ({
@@ -189,26 +193,28 @@ export const ShoeSelectionCard: React.FC<ShoeSelectionCardProps> = ({
   isActive,
   isMain,
   onPress,
+  variant = 'default',
 }) => {
   const t = useAppTranslation();
+  const isRecordDetail = variant === 'recordDetail';
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
       <View style={[styles.shoeCard, isActive && styles.shoeCardActive]}>
         {/* 신발 이미지 */}
         {/* <View style={styles.verticalGuide}/> */}
-        <View style={styles.shoeImageContainer}>
+        <View style={[styles.shoeImageContainer, isRecordDetail && styles.detailImageContainer]}>
           <Icon name="shoe" size={64}/>
-          <Text style={styles.shoeImageText}>{t("Image Coming Soon")}</Text>
+          {!isRecordDetail && <Text style={styles.shoeImageText}>{t("Image Coming Soon")}</Text>}
         </View>
 
         {/* 신발 정보 */}
         <View style={styles.shoeInfo}>
           {/* 브랜드명과 "현재 착용" 배지 */}
           <View style={styles.shoeHeader}>
-            <Text style={styles.shoeBrand}>{shoe.brand}</Text>
+            <Text style={[styles.shoeBrand, isRecordDetail && styles.detailSecondary]}>{shoe.brand}</Text>
             {isMain && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{t("현재 착용")}</Text>
+              <View style={[styles.badge, isRecordDetail && styles.detailBadge]}>
+                <Text style={[styles.badgeText, isRecordDetail && styles.detailBadgeText]}>{t("현재 착용")}</Text>
               </View>
             )}
           </View>
@@ -217,7 +223,7 @@ export const ShoeSelectionCard: React.FC<ShoeSelectionCardProps> = ({
           <Text style={styles.shoeModel}>{shoe.model}</Text>
 
           {/* 누적 거리 (meters → km 변환) */}
-          <Text style={styles.shoeDistance}>{t("누적 거리 ")}{RunningStatusFormat.distance(shoe.totalDistance, { fractionDigits: 1 })}
+          <Text style={[styles.shoeDistance, isRecordDetail && styles.detailSecondary]}>{t("누적 거리 ")}{RunningStatusFormat.distance(shoe.totalDistance, { fractionDigits: 1 })}
           </Text>
         </View>
       </View>
@@ -226,6 +232,24 @@ export const ShoeSelectionCard: React.FC<ShoeSelectionCardProps> = ({
 };
 
 const styles = StyleSheet.create({
+  detailImageContainer: {
+    height: 126,
+  },
+  detailSecondary: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#657067',
+    fontWeight: '500',
+  },
+  detailBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  detailBadgeText: {
+    fontSize: 11,
+    lineHeight: 16,
+    color: PRIMARY[950],
+  },
   container: {
     paddingVertical: 12,
   },

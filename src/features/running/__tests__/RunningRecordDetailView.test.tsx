@@ -153,6 +153,18 @@ describe('RunningRecordDetailView', () => {
     }));
   });
 
+  it('keeps legacy workout averages out of kilometer sensor rows', () => {
+    mockUseGetRunningRecord.mockReturnValue({ data: { ...baseRecord, source: 'APPLE_WATCH', heartRate: 145, cadence: 172 } });
+    mockUseGetRunningRecordItems.mockReturnValue({ isSuccess: true, data: [{
+      distance: 2000, durationSec: 600, heartRate: 145, cadence: 172,
+      minHeartRate: 0, maxHeartRate: 0, orderIndex: 0, startTimeStamp: 0, endTimeStamp: 600, gpsPoints: [],
+    }] });
+    renderWithProviders(<RunningRecordDetailView />);
+    expect(screen.getByLabelText(/1.00 km.*평균 심박 --.*케이던스 --/)).toBeTruthy();
+    expect(screen.getByLabelText(/2.00 km.*평균 심박 --.*케이던스 --/)).toBeTruthy();
+    expect(screen.getByLabelText('평균 심박 145 bpm')).toBeTruthy();
+  });
+
   it.each([
     { variant: 'route manual', items: routeItems, recordingMethod: 'MANUAL', pointExclusionReason: 'MANUAL_ENTRY', message: '수동 입력 기록이라 포인트·리그에 반영되지 않았어요.' },
     { variant: 'no-route manual', items: [], recordingMethod: 'MANUAL', pointExclusionReason: 'MANUAL_ENTRY', message: '수동 입력 기록이라 포인트·리그에 반영되지 않았어요.' },
@@ -177,7 +189,6 @@ describe('RunningRecordDetailView', () => {
   });
 
   it.each([
-    { source: 'LIVE', label: '앱 기록' },
     { source: 'GARMIN', label: '가민 직접 연동' },
     { source: 'APPLE_WATCH', label: 'Apple Watch' },
     { source: 'WEAR_OS', label: 'Wear OS' },
@@ -285,11 +296,12 @@ describe('RunningRecordDetailView', () => {
     { variant: 'route', items: routeItems },
     { variant: 'no route', items: [] },
   ])('keeps legacy $variant details working when provenance fields are absent', ({ items }) => {
+    mockUseGetRunningRecord.mockReturnValue({ data: { ...baseRecord, source: 'LIVE' } });
     mockUseGetRunningRecordItems.mockReturnValue({ isSuccess: true, data: items });
 
     renderWithProviders(<RunningRecordDetailView />);
 
-    expect(screen.getByText('오늘의 러닝 거리')).toBeTruthy();
+    expect(screen.queryByText('오늘의 러닝 거리')).toBeNull();
     expect(screen.getByText('총 시간')).toBeTruthy();
     expect(screen.queryByText(/건강 연동|가민 직접 연동|앱 기록|Apple Watch|Wear OS/)).toBeNull();
     expect(screen.queryByText('측정 방식 확인 불가')).toBeNull();
@@ -359,12 +371,13 @@ describe('RunningRecordDetailView', () => {
 
     expect(screen.getByText('구간 기록')).toBeTruthy();
     expect(screen.getByText('1.00 km')).toBeTruthy();
-    expect(screen.getByText('마지막 0.36 km')).toBeTruthy();
-    expect(screen.getAllByText('5\'00"/km')).toHaveLength(2);
+    expect(screen.getByText('0.36 km')).toBeTruthy();
+    expect(screen.queryByText('마지막 0.36 km')).toBeNull();
+    expect(screen.getAllByLabelText(/\/km, 평균 심박/)).toHaveLength(2);
     expect(screen.queryByText('5:00')).toBeNull();
     expect(screen.queryByText('1:48')).toBeNull();
-    expect(screen.getByText('144 bpm')).toBeTruthy();
-    expect(screen.getByText('164 spm')).toBeTruthy();
+    expect(screen.getByLabelText(/1.00 km.*5'00"\/km.*144 bpm.*164 spm/)).toBeTruthy();
+    expect(screen.getByLabelText(/0.36 km.*5'00"\/km.*--.*--/)).toBeTruthy();
     expect(screen.getAllByText('--').length).toBeGreaterThanOrEqual(2);
 
     const rendered = JSON.stringify(result.toJSON());

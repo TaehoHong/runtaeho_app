@@ -20,6 +20,7 @@
 | 공유 기능 | 소유 구현/원본 | 사용·경계 |
 | --- | --- | --- |
 | Android 기록·저장·전송 | [watchsync-android](../../shared/watchsync-android/src/main/java/com/runtaeho/watchsync) / [Wear sourceSets](../app/build.gradle) / [폰 sourceSets](../../android/app/build.gradle) | 같은 공통 소스를 폰과 워치가 함께 컴파일 |
+| 구간 센서 | [WatchRecords.captureInterval](../../shared/watchsync-android/src/main/java/com/runtaeho/watchsync/WatchRecords.kt) / [RunService](../app/src/main/java/com/runtaeho/wear/RunService.kt) | 누적 거리·활동 시간과 센서 sum/count의 구간 변화량을 items로 보존한다. 이전 체크포인트에는 상세를 만들어 넣지 않으며, 같은 전송/ACK 경로를 사용한다. host 회귀는 구간마다 다른 센서 값과 재시작 보관을 확인한다. |
 | 폰 중계 | [폰 네이티브 bridge](../../android/app/src/main/java/com/hongtaeho/app/watch) / [syncWatchRecords](../../src/features/watchSync/watchSyncService.ts) / [전송 계약](../../src/features/watchSync/README.md) | 워치 기록·폰 보관·인증 서버 업로드 |
 | 공개 프로필 | [app-profiles.json](../../scripts/app-profiles.json) | 앱 ID·프로필·서명 정합의 공통 입력 |
 

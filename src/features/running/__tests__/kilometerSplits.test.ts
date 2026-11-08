@@ -17,6 +17,14 @@ const buildItem = (
 });
 
 describe('buildKilometerSplits', () => {
+  it('includes measured stationary time and sensors before the kilometer boundary', () => {
+    const splits = buildKilometerSplits([
+      buildItem({ distance: 0, durationSec: 60, heartRate: 120, cadence: 0, orderIndex: 0 }),
+      buildItem({ distance: 1000, durationSec: 240, heartRate: 150, cadence: 180, orderIndex: 1 }),
+    ]);
+    expect(splits[0]).toEqual(expect.objectContaining({ durationSec: 300, paceSecPerKm: 300, heartRate: 144, cadence: 180 }));
+  });
+
   it('splits segment items into kilometer rows and keeps the final remainder', () => {
     const splits = buildKilometerSplits([
       buildItem({ distance: 600, durationSec: 180, heartRate: 140, cadence: 160 }),

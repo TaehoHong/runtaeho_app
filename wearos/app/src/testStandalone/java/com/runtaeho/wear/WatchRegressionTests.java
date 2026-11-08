@@ -12,6 +12,16 @@ public final class WatchRegressionTests {
     private static final String ID = "95eb5600-38e0-489b-bf44-8bdf27187bee";
     private static int passed;
     public static void main(String[] args) throws Exception {
+        JSONObject intervals = new JSONObject().put("startTimestamp", 1000).put("items", new JSONArray())
+            .put("durationMs", 150000).put("distance", 500).put("lastMeasuredTime", 1150000)
+            .put("heartRateSum", 260.0).put("heartRateCount", 2).put("cadenceSum", 320.0).put("cadenceCount", 2);
+        WatchRecords.INSTANCE.captureInterval(intervals, false);
+        intervals.put("durationMs", 300000).put("distance", 1000).put("lastMeasuredTime", 1300000)
+            .put("heartRateSum", 560.0).put("heartRateCount", 4).put("cadenceSum", 680.0).put("cadenceCount", 4);
+        WatchRecords.INSTANCE.captureInterval(intervals, true);
+        check(intervals.getJSONArray("items").getJSONObject(0).getInt("heartRate") == 130, "first interval keeps measured heart rate");
+        check(intervals.getJSONArray("items").getJSONObject(1).getInt("heartRate") == 150, "second interval excludes earlier heart samples");
+        check(intervals.getJSONArray("items").getJSONObject(1).getInt("cadence") == 180, "second interval excludes earlier cadence samples");
         check(ActiveTime.milliseconds(12000, 100000, 105000, true) == 17000, "active extrapolates checkpoint");
         check(ActiveTime.milliseconds(12000, 100000, 900000, false) == 12000, "pause/recovery excludes gap");
         check(ActiveTime.milliseconds(12000, 100000, 95000, true) == 12000, "clock rollback cannot subtract recorded time");

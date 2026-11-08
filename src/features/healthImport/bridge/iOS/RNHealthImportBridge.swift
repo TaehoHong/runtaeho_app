@@ -68,6 +68,7 @@ class RNHealthImportBridge: NSObject {
         if let heartRateType = HKObjectType.quantityType(forIdentifier: .heartRate) {
             readTypes.insert(heartRateType)
         }
+        readTypes.insert(HKQuantityType(.stepCount))
         if #available(iOS 11.0, *), (options["includeRoute"] as? Bool) == true {
             readTypes.insert(HKSeriesType.workoutRoute())
         }
@@ -312,6 +313,7 @@ class RNHealthImportBridge: NSObject {
         var routeResult = RouteReadResult(points: [], status: "notAvailable")
         let lock = NSLock()
         var heartRateResult: Result<Double?, Error> = .success(nil)
+        var intervalResult: Result<[[String: Any]], Error> = .success([])
 
         logHealthImport("HKWorkout response item", [
             "index": index,
@@ -328,6 +330,11 @@ class RNHealthImportBridge: NSObject {
         }
 
         group.enter()
+        readWorkoutIntervals(workout) { result in
+            lock.lock(); intervalResult = result; lock.unlock(); group.leave()
+        }
+
+        group.enter()
         readAverageHeartRate(startDate: workout.startDate, endDate: workout.endDate, workoutIndex: index) { result in
             lock.lock()
             heartRateResult = result
@@ -339,6 +346,7 @@ class RNHealthImportBridge: NSObject {
             lock.lock()
             let completedRoute = routeResult
             let completedHeartRate = heartRateResult
+            let completedIntervals = intervalResult
             lock.unlock()
             let averageHeartRate: Double?
             switch completedHeartRate {
@@ -382,8 +390,92 @@ class RNHealthImportBridge: NSObject {
             if let averageHeartRate = averageHeartRate {
                 record["heartRate"] = Int(averageHeartRate.rounded())
             }
+            switch completedIntervals {
+            case .failure(let error): completion(.failure(error)); return
+            case .success(let items):
+                if !items.isEmpty {
+                    var routeIndex = 0
+                    record["items"] = items.enumerated().map { index, value -> [String: Any] in
+                        var item = value
+                        let end = (value["endTimestamp"] as? Double ?? 0) * 1000
+                        var points: [[String: Any]] = []
+                        while routeIndex < completedRoute.points.count {
+                            let point = completedRoute.points[routeIndex]
+                            let time = (point["timestampMs"] as? NSNumber)?.doubleValue ?? 0
+                            if time >= end && index != items.count - 1 { break }
+                            points.append(point); routeIndex += 1
+                        }
+                        item["gpsPoints"] = points
+                        return item
+                    }
+                }
+            }
 
             completion(.success(record))
+        }
+    }
+
+    private func readWorkoutIntervals(_ workout: HKWorkout, completion: @escaping (Result<[[String: Any]], Error>) -> Void) {
+        let group = DispatchGroup(), lock = NSLock()
+        var values: [String: [Int: Double]] = [:]
+        var failure: Error?
+        for (name, identifier, unit, options) in [
+            ("distance", HKQuantityTypeIdentifier.distanceWalkingRunning, HKUnit.meter(), HKStatisticsOptions.cumulativeSum),
+            ("steps", HKQuantityTypeIdentifier.stepCount, HKUnit.count(), HKStatisticsOptions.cumulativeSum),
+            ("heartRate", HKQuantityTypeIdentifier.heartRate, heartRateUnit, HKStatisticsOptions.discreteAverage)
+        ] {
+            group.enter()
+            let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                HKQuery.predicateForSamples(withStart: workout.startDate, end: workout.endDate),
+                HKQuery.predicateForObjects(from: workout)
+            ])
+            let query = HKStatisticsCollectionQuery(quantityType: HKQuantityType(identifier), quantitySamplePredicate: predicate,
+                options: options, anchorDate: workout.startDate, intervalComponents: DateComponents(minute: 1))
+            query.initialResultsHandler = { _, collection, error in
+                var buckets: [Int: Double] = [:]
+                collection?.enumerateStatistics(from: workout.startDate, to: workout.endDate) { statistic, _ in
+                    let quantity = options == .cumulativeSum ? statistic.sumQuantity() : statistic.averageQuantity()
+                    if let value = quantity?.doubleValue(for: unit), value.isFinite, value >= 0 {
+                        buckets[Int(statistic.startDate.timeIntervalSince(workout.startDate) / 60)] = value
+                    }
+                }
+                lock.lock(); values[name] = buckets; if let error { failure = error }; lock.unlock()
+                group.leave()
+            }
+            healthStore.execute(query)
+        }
+        group.notify(queue: .global(qos: .userInitiated)) {
+            if let failure { completion(.failure(failure)); return }
+            guard values["distance"]?.values.contains(where: { $0 > 0 }) == true else { completion(.success([])); return }
+            var items: [[String: Any]] = [], meters = 0.0, previousMeters = 0, activeTotal = 0.0, previousActive = 0
+            for index in 0..<Int(ceil(workout.endDate.timeIntervalSince(workout.startDate) / 60)) {
+                let start = workout.startDate.addingTimeInterval(Double(index) * 60)
+                let end = min(start.addingTimeInterval(60), workout.endDate)
+                var cursor = workout.startDate, paused = false, active = 0.0
+                for event in (workout.workoutEvents ?? []).filter({ $0.type == .pause || $0.type == .resume }).sorted(by: { $0.dateInterval.start < $1.dateInterval.start }) {
+                    let date = min(event.dateInterval.start, end)
+                    if !paused { active += max(0, date.timeIntervalSince(max(cursor, start))) }
+                    cursor = date; paused = event.type == .pause
+                    if date >= end { break }
+                }
+                if !paused { active += max(0, end.timeIntervalSince(max(cursor, start))) }
+                meters += values["distance"]?[index] ?? 0
+                activeTotal += active
+                let roundedMeters = Int(meters.rounded()), roundedActive = Int(activeTotal)
+                let seconds = roundedActive - previousActive
+                if seconds == 0 && roundedMeters > previousMeters { completion(.success([])); return }
+                if seconds >= 0 {
+                    items.append(["distance": roundedMeters - previousMeters, "durationSec": seconds,
+                        "heartRate": Int((values["heartRate"]?[index] ?? 0).rounded()),
+                        "cadence": min(255, Int(((values["steps"]?[index] ?? 0) * 60 / Double(seconds)).rounded())),
+                        "minHeartRate": 0, "maxHeartRate": 0, "orderIndex": items.count,
+                        "startTimestamp": floor(start.timeIntervalSince1970), "endTimestamp": floor(end.timeIntervalSince1970)])
+                    previousMeters = roundedMeters; previousActive = roundedActive
+                }
+            }
+            let total = Int((workout.totalDistance?.doubleValue(for: .meter()) ?? 0).rounded())
+            let complete = abs(previousMeters - total) <= 1 && previousActive == Int(workout.duration)
+            completion(.success(complete ? items : []))
         }
     }
 

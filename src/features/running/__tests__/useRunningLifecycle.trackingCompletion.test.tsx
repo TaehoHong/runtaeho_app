@@ -65,7 +65,7 @@ function useTrackingRun() {
   const paceSnapshotsRef = useRef<PaceSnapshot[]>([]);
   const activeElapsedRef = useRef<() => number>(() => 0);
   const readActiveElapsedMs = useCallback(() => activeElapsedRef.current(), []);
-  const segments = useRunningSegments({ statsRef, getActiveElapsedMs: readActiveElapsedMs });
+  const segments = useRunningSegments({ statsRef, getActiveElapsedMs: readActiveElapsedMs, getStepCount: () => 0 });
   const gps = useGpsTracking({
     statsRef, segmentStartTimeRef: segments.segmentStartTimeRef,
     onSegmentCreate: segments.createSegment,

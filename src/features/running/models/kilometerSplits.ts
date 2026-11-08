@@ -82,7 +82,12 @@ export const buildKilometerSplits = (
   const orderedItems = [...items].sort((a, b) => a.orderIndex - b.orderIndex);
 
   orderedItems.forEach((item) => {
-    if (item.distance <= 0 || item.durationSec <= 0) {
+    if (item.distance < 0 || item.durationSec <= 0) {
+      return;
+    }
+    if (item.distance === 0) {
+      accumulator.durationSec += item.durationSec;
+      addSensorContribution(accumulator, item, item.durationSec);
       return;
     }
 

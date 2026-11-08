@@ -120,8 +120,11 @@ export const RunningRecordDetailView: React.FC = () => {
       return [];
     }
 
-    return buildKilometerSplits(itemsQuery.data);
-  }, [itemsQuery.data, itemsQuery.isSuccess]);
+    const items = itemsQuery.data;
+    const summaryOnly = ['HEALTH', 'GARMIN', 'APPLE_WATCH', 'WEAR_OS'].includes(recordQuery.data?.source ?? '') &&
+      items.length === 1 && (items[0]?.distance ?? 0) > 1000;
+    return buildKilometerSplits(summaryOnly ? items.map(item => ({ ...item, heartRate: 0, cadence: 0 })) : items);
+  }, [itemsQuery.data, itemsQuery.isSuccess, recordQuery.data?.source]);
 
   const showFailure = !isValidRecordId || recordQuery.isError;
   const record = recordQuery.data;
@@ -328,19 +331,19 @@ interface HeaderProps {
   onShare?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ title, topInset, onBack, onShare }) => { useAppLanguage(); return (
+const Header: React.FC<HeaderProps> = ({ title, topInset, onBack, onShare }) => { const t = useAppTranslation(); return (
   <View
     style={[
       styles.header,
       { minHeight: topInset + HEADER_BAR_HEIGHT, paddingTop: topInset },
     ]}
   >
-    <TouchableOpacity onPress={onBack} style={styles.headerButton} activeOpacity={0.7}>
+    <TouchableOpacity onPress={onBack} style={styles.headerButton} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t("이전 화면으로")}>
       <Ionicons name="chevron-back" size={28} color={GREY[900]} />
     </TouchableOpacity>
     <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{title}</Text>
     {onShare ? (
-      <TouchableOpacity onPress={onShare} style={styles.headerButton} activeOpacity={0.7}>
+      <TouchableOpacity onPress={onShare} style={styles.headerButton} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t("공유")}>
         <Ionicons name="share-social-outline" size={24} color={GREY[900]} />
       </TouchableOpacity>
     ) : (
@@ -359,7 +362,7 @@ const RecordHero: React.FC<RecordHeroProps> = ({ record, variant }) => {
   const distance = RunningStatusFormat.distanceParts(record.distance);
   let sourceLabel: string | null = null;
   switch (record.source) {
-    case 'LIVE': sourceLabel = t("앱 기록"); break;
+    case 'LIVE': break;
     case 'HEALTH': {
       const appName = record.sourceAppName?.trim();
       sourceLabel = appName ? t("건강 연동 · {{appName}}", { appName }) : t("건강 연동");
@@ -408,7 +411,6 @@ const RecordHero: React.FC<RecordHeroProps> = ({ record, variant }) => {
         <Text style={styles.distanceValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{distance.value}</Text>
         <Text style={styles.distanceUnit} numberOfLines={1}>{distance.unit}</Text>
       </View>
-      <Text style={styles.distanceCaption}>{t("오늘의 러닝 거리")}</Text>
       {sourceLabel ? <Text style={styles.distanceCaption}>{sourceLabel}</Text> : null}
       {recordingMethodLabel ? <Text style={styles.splitMeta}>{recordingMethodLabel}</Text> : null}
       {exclusionReason ? <Text style={styles.distanceCaption}>{exclusionReason}</Text> : null}
@@ -425,9 +427,9 @@ const StatsGrid: React.FC<StatsGridProps> = ({ record, variant }) => {
   const t = useAppTranslation();
   const { fontScale } = useWindowDimensions();
   const isLargeText = fontScale > 1.3;
-  const heartRate = RunningStatusFormat.heartRate(record.heartRate);
-  const cadence = RunningStatusFormat.cadence(record.cadence);
-  const calories = RunningStatusFormat.calories(record.calorie);
+  const heartRate = RunningStatusFormat.heartRate(record.heartRate, { includeUnit: false });
+  const cadence = RunningStatusFormat.cadence(record.cadence, { includeUnit: false });
+  const calories = RunningStatusFormat.calories(record.calorie, { includeUnit: false });
 
   return (
     <View style={[styles.statsGrid, variant === 'route' ? styles.statsGridRoute : styles.statsGridNoMap]}>
@@ -440,18 +442,20 @@ const StatsGrid: React.FC<StatsGridProps> = ({ record, variant }) => {
           unit="/km"
           unitPlacement="below"
         />
-        <MetricCard stacked={isLargeText} label={t("칼로리")} value={calories} />
+        <MetricCard stacked={isLargeText} label={t("칼로리")} value={calories} unit="kcal" />
       </View>
       <View style={[styles.metricBottomRow, isLargeText && styles.metricRowStacked]}>
         <MetricCard
           stacked={isLargeText}
           label={t("평균 심박")}
           value={heartRate}
+          unit="bpm"
         />
         <MetricCard
           stacked={isLargeText}
           label={t("케이던스")}
           value={cadence}
+          unit="spm"
         />
       </View>
     </View>
@@ -513,18 +517,37 @@ interface KilometerSplitRowProps {
   split: KilometerSplit;
 }
 
-const KilometerSplitRow: React.FC<KilometerSplitRowProps> = ({ split }) => { const t = useAppTranslation(); const { fontScale } = useWindowDimensions(); const stacked = fontScale > 1.3; return (
-  <View style={styles.splitRow}>
-    <View style={[styles.splitRowTop, stacked && styles.splitRowTopStacked]}>
-      <Text style={[styles.splitLabel, stacked && styles.splitLabelStacked]}>{formatSplitLabel(split, t)}</Text>
-      <Text style={styles.splitPace}>{formatSplitPace(split.paceSecPerKm)}</Text>
+const KilometerSplitRow: React.FC<KilometerSplitRowProps> = ({ split }) => {
+  const t = useAppTranslation();
+  const { fontScale } = useWindowDimensions();
+  const expanded = fontScale > 1.3;
+  const distance = formatSplitLabel(split);
+
+  return (
+    <View
+      style={[styles.splitRow, expanded && styles.splitRowExpanded]}
+      accessible
+      accessibilityLabel={`${distance}, ${t("평균 페이스")} ${RunningStatusFormat.paceFromSecondsPerKm(split.paceSecPerKm)}, ${t("평균 심박")} ${RunningStatusFormat.heartRate(split.heartRate)}, ${t("케이던스")} ${RunningStatusFormat.cadence(split.cadence)}`}
+    >
+      <View style={[styles.splitCell, styles.splitDistanceCell, expanded && styles.splitCellExpanded]}>
+        <Ionicons name="git-branch-outline" size={14} color="#657067" accessible={false} />
+        <Text style={styles.splitLabel}>{distance}</Text>
+      </View>
+      <View style={[styles.splitCell, styles.splitPaceCell, expanded && styles.splitCellExpanded]}>
+        <Ionicons name="timer-outline" size={14} color="#657067" accessible={false} />
+        <Text style={styles.splitPace}>{formatSplitPace(split.paceSecPerKm)}</Text>
+      </View>
+      <View style={[styles.splitCell, styles.splitSensorCell, expanded && styles.splitCellExpanded]}>
+        <Ionicons name="heart-outline" size={14} color="#657067" accessible={false} />
+        <Text style={styles.splitSensor}>{RunningStatusFormat.heartRate(split.heartRate, { includeUnit: false })}</Text>
+      </View>
+      <View style={[styles.splitCell, styles.splitSensorCell, expanded && styles.splitCellExpanded]}>
+        <Ionicons name="footsteps-outline" size={14} color="#657067" accessible={false} />
+        <Text style={styles.splitSensor}>{RunningStatusFormat.cadence(split.cadence, { includeUnit: false })}</Text>
+      </View>
     </View>
-    <View style={styles.splitRowBottom}>
-      <Text style={styles.splitMeta}>{RunningStatusFormat.heartRate(split.heartRate)}</Text>
-      <Text style={styles.splitMeta}>{RunningStatusFormat.cadence(split.cadence)}</Text>
-    </View>
-  </View>
-); };
+  );
+};
 
 interface ConnectedShoeCardProps {
   record: RunningRecord;
@@ -584,6 +607,7 @@ const ConnectedShoeCard: React.FC<ConnectedShoeCardProps> = ({
         ]}
         onPress={onPress}
         activeOpacity={0.8}
+        accessibilityRole="button"
       >
         <Text style={styles.connectedShoeActionText}>
           {isConnected ? t("변경") : t("신발 선택")}
@@ -653,6 +677,8 @@ const ShoeChangeBottomSheet: React.FC<ShoeChangeBottomSheetProps> = ({
               onPress={onClose}
               activeOpacity={0.7}
               disabled={isSaving}
+              accessibilityRole="button"
+              accessibilityLabel={t("닫기")}
             >
               <Ionicons name="close" size={22} color={GREY[700]} />
             </TouchableOpacity>
@@ -676,6 +702,7 @@ const ShoeChangeBottomSheet: React.FC<ShoeChangeBottomSheetProps> = ({
               selectedShoeId={selectedShoeId}
               mainShoeId={mainShoeId}
               onShoeSelect={onSelectShoe}
+              variant="recordDetail"
             />
           )}
 
@@ -718,13 +745,13 @@ const MetricCard: React.FC<MetricCardProps> = ({
   value,
   unit,
   unitPlacement = 'inline',
-}) => { useAppLanguage(); return (
-  <View style={[styles.metricCard, stacked && styles.metricCardStacked]}>
+}) => { useAppLanguage(); const displayUnit = value === '--' ? undefined : unit; return (
+  <View style={[styles.metricCard, stacked && styles.metricCardStacked]} accessible accessibilityLabel={`${label} ${value}${displayUnit ? ` ${displayUnit}` : ''}`}>
     <Text style={styles.metricLabel}>{label}</Text>
     {unitPlacement === 'below' ? (
       <View style={styles.metricStack}>
         <Text style={styles.metricValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{value}</Text>
-        {unit ? <Text style={styles.metricUnitBelow}>{unit}</Text> : null}
+        {displayUnit ? <Text style={styles.metricUnitBelow}>{displayUnit}</Text> : null}
       </View>
     ) : (
       <View
@@ -734,14 +761,14 @@ const MetricCard: React.FC<MetricCardProps> = ({
         ]}
       >
         <Text style={styles.metricValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{value}</Text>
-        {unit ? (
+        {displayUnit ? (
           <Text
             style={[
               styles.metricUnit,
               unitPlacement === 'trailing' && styles.metricUnitTrailing,
             ]}
           >
-            {unit}
+            {displayUnit}
           </Text>
         ) : null}
       </View>
@@ -758,12 +785,12 @@ const formatPaceMetric = (paceMinPerKm: number): string => {
 };
 
 const formatSplitPace = (paceSecPerKm: number): string => {
-  return RunningStatusFormat.paceFromSecondsPerKm(paceSecPerKm);
+  return RunningStatusFormat.paceFromSecondsPerKm(paceSecPerKm, { includeUnit: false });
 };
 
-const formatSplitLabel = (split: KilometerSplit, translate: ReturnType<typeof useAppTranslation>): string => {
+const formatSplitLabel = (split: KilometerSplit): string => {
   if (split.isPartial) {
-    return translate("마지막 {{value0}}", { value0: RunningStatusFormat.distance(split.distanceMeters) });
+    return RunningStatusFormat.distance(split.distanceMeters);
   }
 
   return RunningStatusFormat.distance(split.splitNumber * 1000);
@@ -866,8 +893,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F7F8F6',
   },
   headerButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1050,11 +1077,11 @@ const styles = StyleSheet.create({
     color: '#102318',
   },
   metricUnit: {
-    marginLeft: 4,
-    marginBottom: 3,
+    marginLeft: 3,
+    marginBottom: 2,
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#657067',
   },
   metricUnitBelow: {
@@ -1097,49 +1124,62 @@ const styles = StyleSheet.create({
     color: '#657067',
   },
   splitRows: {
-    gap: 8,
+    gap: 4,
   },
   splitRow: {
-    minHeight: 68,
+    minHeight: 40,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: GREY[200],
     borderRadius: 8,
     backgroundColor: GREY.WHITE,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  splitRowTop: {
+    paddingHorizontal: 8,
+    paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
+    gap: 6,
   },
-  splitRowTopStacked: {
-    flexDirection: 'column',
-    alignItems: 'stretch',
+  splitRowExpanded: {
+    flexWrap: 'wrap',
+  },
+  splitCell: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 4,
+  },
+  splitDistanceCell: {
+    width: 0,
+    flexGrow: 1,
+    justifyContent: 'flex-start',
+  },
+  splitPaceCell: {
+    width: 66,
+  },
+  splitSensorCell: {
+    width: 44,
+  },
+  splitCellExpanded: {
+    width: '48%',
+    flexGrow: 0,
+    justifyContent: 'flex-start',
   },
   splitLabel: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: 15,
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '600',
+    color: GREY[900],
+  },
+  splitPace: {
+    fontSize: 14,
     lineHeight: 20,
     fontWeight: '700',
     color: GREY[900],
   },
-  splitLabelStacked: {
-    flex: 0,
-  },
-  splitPace: {
-    fontSize: 16,
-    lineHeight: 21,
-    fontWeight: '800',
-    color: GREY[900],
-  },
-  splitRowBottom: {
-    marginTop: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+  splitSensor: {
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '500',
+    color: '#657067',
   },
   splitMeta: {
     fontSize: 12,
@@ -1188,7 +1228,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   connectedShoeIconBox: {
-    width: 64,
+    width: 58,
     height: 64,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: GREY[200],
@@ -1213,40 +1253,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   connectedShoeBrand: {
-    fontSize: 10,
-    lineHeight: 12,
+    fontSize: 12,
+    lineHeight: 18,
     fontWeight: '500',
-    color: GREY[500],
+    color: '#657067',
   },
   connectedShoeMainBadge: {
     minHeight: 20,
-    marginLeft: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
+    marginLeft: 7,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: PRIMARY[50],
   },
   connectedShoeMainBadgeText: {
-    fontSize: 8,
-    lineHeight: 10,
+    fontSize: 11,
+    lineHeight: 16,
     fontWeight: '500',
-    color: PRIMARY[800],
+    color: PRIMARY[950],
   },
   connectedShoeModel: {
-    marginTop: 6,
+    marginTop: 4,
     fontSize: 14,
-    lineHeight: 17,
+    lineHeight: 19,
     fontWeight: '600',
     color: GREY[900],
   },
   connectedShoeDistance: {
-    marginTop: 8,
-    fontSize: 10,
-    lineHeight: 12,
+    marginTop: 6,
+    fontSize: 12,
+    lineHeight: 17,
     fontWeight: '500',
-    color: GREY[300],
+    color: '#657067',
   },
   connectedShoeEmptyTitle: {
     fontSize: 14,
@@ -1256,13 +1296,13 @@ const styles = StyleSheet.create({
   },
   connectedShoeEmptySubtitle: {
     marginTop: 9,
-    fontSize: 11,
-    lineHeight: 13,
+    fontSize: 12,
+    lineHeight: 17,
     fontWeight: '500',
-    color: GREY[500],
+    color: '#657067',
   },
   connectedShoeAction: {
-    minHeight: 32,
+    minHeight: 44,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
@@ -1280,7 +1320,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 15,
     fontWeight: '600',
-    color: PRIMARY[800],
+    color: PRIMARY[950],
   },
   sheetOverlay: {
     flex: 1,
@@ -1332,9 +1372,9 @@ const styles = StyleSheet.create({
     color: GREY[600],
   },
   sheetCloseButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: GREY[50],
@@ -1381,7 +1421,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
     fontWeight: '700',
-    color: GREY.WHITE,
+    color: '#102318',
   },
   mapHero: {
     height: MAP_HERO_HEIGHT,

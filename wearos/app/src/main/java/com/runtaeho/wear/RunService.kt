@@ -85,7 +85,7 @@ class RunService : Service(), ExerciseUpdateCallback {
                 run = JSONObject().put("schemaVersion", 1).put("sessionId", UUID.randomUUID().toString())
                     .put("ownerUserId", owner).put("source", "WEAR_OS").put("startTimestamp", now / 1000)
                     .put("durationMs", 0).put("bootEpochMs", now - SystemClock.elapsedRealtime()).put("checkpointTime", now).put("state", "STARTING")
-                    .put("gpsPoints", JSONArray()).put("gpsEnabled", gps && DataType.LOCATION in types)
+                    .put("gpsPoints", JSONArray()).put("items", JSONArray()).put("gpsEnabled", gps && DataType.LOCATION in types)
                     .put("heartRateSum", 0.0).put("heartRateCount", 0).put("lastHeartTime", -1L)
                     .put("cadenceSum", 0.0).put("cadenceCount", 0).put("lastCadenceTime", -1L)
                 save()
@@ -198,10 +198,13 @@ class RunService : Service(), ExerciseUpdateCallback {
                         .put("accuracy", accuracy?.takeIf { it.isFinite() && it >= 0 } ?: JSONObject.NULL))
                 }
             }
-            save()
             if (state.isEnded) {
                 record.put("endTimestamp", System.currentTimeMillis() / 1000)
+                WatchRecords.captureInterval(record, true)
                 finalizeRun()
+            } else {
+                WatchRecords.captureInterval(record, state.isPaused)
+                save()
             }
         } catch (_: Exception) { error("기록 저장 실패. 앱을 종료하지 말고 저장 공간을 확인해 주세요") }
     }
@@ -212,12 +215,14 @@ class RunService : Service(), ExerciseUpdateCallback {
             archiveUnmeasured("거리 측정값이 없어 전송할 수 없습니다. 기록은 워치에 보관됩니다")
             return
         }
+        WatchRecords.captureInterval(record, true)
         val payload = JSONObject().put("schemaVersion", 1).put("sessionId", record.getString("sessionId"))
             .put("ownerUserId", record.getLong("ownerUserId")).put("source", "WEAR_OS")
             .put("startTimestamp", record.getLong("startTimestamp")).put("endTimestamp", record.getLong("endTimestamp"))
             .put("distance", record.getDouble("distance").toInt()).put("durationSec", record.getLong("durationMs") / 1000)
             .put("cadence", average(record, "cadence")).put("heartRate", average(record, "heartRate"))
             .put("calorie", record.optInt("calorie")).put("gpsPoints", record.getJSONArray("gpsPoints"))
+            .put("items", record.optJSONArray("items"))
         if (!WatchRecords.validTimeline(payload)) {
             store.archiveClockError(record)
             run = null

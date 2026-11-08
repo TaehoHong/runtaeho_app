@@ -59,6 +59,7 @@ final class RunRecorder: NSObject, ObservableObject, HKWorkoutSessionDelegate, H
   @discardableResult private func persist() -> Bool {
     guard var value = record else { return false }
     let now = Date()
+    if value.activeSince != nil { value.captureSegment(at: now) }
     if value.activeSince != nil { value.pause(at: now); value.activeSince = now }
     do { try JSONEncoder().encode(value).write(to: checkpoint, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication]); record = value; return true }
     catch { errorMessage = "기록 저장 실패. 저장 공간을 확인하세요."; return false }
@@ -86,6 +87,7 @@ final class RunRecorder: NSObject, ObservableObject, HKWorkoutSessionDelegate, H
           self.route = HKWorkoutRouteBuilder(healthStore: self.health, device: .local())
           let now = Date()
           self.record = RunCheckpoint(ownerUserId: owner, startTimestamp: Int(now.timeIntervalSince1970), activeSince: now)
+          self.record?.items = []
           guard self.persist() else { self.record = nil; return }
           workout.startActivity(with: now)
           builder.beginCollection(withStart: now) { success, _ in if !success { DispatchQueue.main.async { self.errorMessage = "운동 측정 시작 실패" } } }
@@ -121,6 +123,7 @@ final class RunRecorder: NSObject, ObservableObject, HKWorkoutSessionDelegate, H
           return
         }
         self.liveCadence = WatchLiveSample.cadence(stepsPerSecond: cadence, timestamp: data.endDate)
+        self.record?.addSensor(cadence: cadence * 60, at: data.endDate)
       }
     }
   }
@@ -133,21 +136,22 @@ final class RunRecorder: NSObject, ObservableObject, HKWorkoutSessionDelegate, H
   func finish() {
     guard !finishing, record != nil else { return }
     finishing = true
-    clearLiveMetrics()
     let endedAt = Date()
+    clearLiveMetrics()
     record?.pause(at: endedAt); record?.endTimestamp = Int(endedAt.timeIntervalSince1970)
     guard persist() else { finishing = false; return }
     location.stopUpdatingLocation()
     let completedBuilder = builder
     let completedRoute = route
     workout?.end()
-    guard let completedBuilder else { finalizeRecord(); return }
+    guard let completedBuilder else { record?.captureSegment(at: endedAt, force: true); finalizeRecord(); return }
     completedBuilder.endCollection(withEnd: endedAt) { success, _ in
       DispatchQueue.main.async {
         guard success else { self.finishing = false; self.errorMessage = "운동 종료 실패. 다시 종료하세요."; return }
         self.updateMetrics(completedBuilder)
         self.record?.activeSeconds = completedBuilder.elapsedTime(at: endedAt)
         self.record?.durationSec = max(0, Int(completedBuilder.elapsedTime(at: endedAt)))
+        self.record?.captureSegment(at: endedAt, force: true)
         guard let id = self.record?.sessionId, self.finalizeRecord() else { return }
         completedBuilder.addMetadata(["com.runtaeho.watchSessionId": id]) { success, _ in
           guard success else { DispatchQueue.main.async { self.errorMessage = "건강 기록 저장 실패. 러닝 기록은 동기화 대기 중입니다." }; return }
@@ -204,6 +208,7 @@ final class RunRecorder: NSObject, ObservableObject, HKWorkoutSessionDelegate, H
         self.clearLiveMetrics()
         self.record?.pause(at: date)
         if let builder = self.builder { self.record?.activeSeconds = builder.elapsedTime(at: date); self.record?.durationSec = max(0, Int(builder.elapsedTime(at: date))) }
+        self.record?.captureSegment(at: date, force: true)
         self.location.stopUpdatingLocation()
       }
       if toState == .running && !self.finishing { if self.record?.activeSince == nil { self.record?.activeSince = date }; self.startLiveMetrics(at: date); self.location.startUpdatingLocation() }
@@ -223,6 +228,7 @@ final class RunRecorder: NSObject, ObservableObject, HKWorkoutSessionDelegate, H
     if let stat = builder.statistics(for: HKQuantityType(.heartRate)), let latest = stat.mostRecentQuantity(),
       let interval = stat.mostRecentQuantityDateInterval(), interval.end >= liveStartedAt {
       liveHeartRate = WatchLiveSample(value: latest.doubleValue(for: .count().unitDivided(by: .minute())), timestamp: interval.end)
+      record?.addSensor(heartRate: latest.doubleValue(for: .count().unitDivided(by: .minute())), at: interval.end)
     }
     if let quantity = builder.statistics(for: HKQuantityType(.activeEnergyBurned))?.sumQuantity() {
       let calories = quantity.doubleValue(for: .kilocalorie())

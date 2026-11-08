@@ -1,4 +1,5 @@
 import type { NativeModule } from 'react-native';
+import type { HealthImportBatchItem } from '../healthImport/types';
 
 export interface CompletedRunningRequest {
   schemaVersion: 1;
@@ -13,6 +14,7 @@ export interface CompletedRunningRequest {
   heartRate: number;
   calorie: number;
   gpsPoints: { latitude: number; longitude: number; timestampMs: number; speed: number; altitude: number; accuracy: number | null }[];
+  items?: HealthImportBatchItem[];
 }
 export type WatchSyncOutcome = 'success' | 'blocked-auth' | 'retry';
 export interface WatchSyncAttempt {

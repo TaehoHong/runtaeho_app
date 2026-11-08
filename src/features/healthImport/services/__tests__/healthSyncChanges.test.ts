@@ -60,6 +60,20 @@ const validationFailure = (code = 'RUNNING_INVALID_GPS') => ({
 });
 
 describe('Health change cursor synchronization', () => {
+  it('uploads interval sensor values instead of copying workout averages into every split', async () => {
+    const intervals = [
+      { distance: 400, durationSec: 50, heartRate: 130, cadence: 160, minHeartRate: 0, maxHeartRate: 0,
+        orderIndex: 0, startTimestamp: 100, endTimestamp: 150, gpsPoints: [] },
+      { distance: 400, durationSec: 50, heartRate: 150, cadence: 180, minHeartRate: 0, maxHeartRate: 0,
+        orderIndex: 1, startTimestamp: 150, endTimestamp: 200, gpsPoints: [] },
+    ];
+    readChanges.mockResolvedValue(page({ workouts: [{ ...workout('intervals'), heartRate: 140, cadence: 170, items: intervals }] }));
+    await healthImportService.sync();
+    const request = api.post.mock.calls[0]![1] as HealthImportBatchRequest;
+    expect(request.records[0]!.items).toEqual(intervals);
+    expect(request.records[0]!.heartRate).toBe(140);
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     disk.clear();

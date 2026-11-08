@@ -28,6 +28,7 @@ export interface HealthRunningWorkout {
   heartRate?: number | null;
   gpsPoints?: HealthGpsPoint[];
   routeStatus?: HealthRouteStatus;
+  items?: HealthImportBatchItem[];
 }
 
 export interface HealthRunningWorkoutChanges {

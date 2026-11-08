@@ -39,6 +39,15 @@ Google Cloud의 개발 Android OAuth에는 이 키의 SHA-1 하나를 등록한�
 API 주소는 같은 공유 서버이며 서버 분리 시 개발 주소만 바꾼다. 스크립트는 환경 파일을 수정하지 않는다.
 OTA의 EAS 원격 변수 환경은 기존대로 `staging → preview`, `production → production`을 사용한다.
 
+Android Maps 키는 선택 환경의 `.env.development.local` / `.env.production.local` 또는
+빌드 환경의 `EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY` / `GOOGLE_MAPS_ANDROID_API_KEY`로 제공한다.
+운영 빌드는 개발 `.local` 파일을 읽지 않는다. `android/app/build.gradle`의
+`validateGoogleMapsApiKey`가 빈 키로 네이티브 빌드가 성공하는 것을 차단한다.
+`node ../scripts/app-profile.cjs run production ./gradlew :app:processProductionReleaseManifestForPackage`
+를 `android/`에서 실행해 최종 package manifest의 키 존재를 값 출력 없이 확인한다.
+기존 AAB에는 새 키가 소급 반영되지 않으며 네이티브 재빌드가 필요하다. 실제 배포 기기의
+지도 타일과 Google Cloud의 패키지·Play 앱 서명 인증서 제한은 기기에서 확인한다.
+
 개발 산출물은 `build/development/`에 저장되며 `--profile development`로 배포한다.
 개발 빌드도 기본적으로 커밋 상태를 확인한다. 작업 중인 변경을 포함하려면
 `npm run build:dev:android -- --allow-dirty`처럼 명시한다.

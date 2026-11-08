@@ -34,4 +34,11 @@ describe('RunningStatusFormat', () => {
     expect(RunningStatusFormat.points(65, { signed: true })).toBe('+65 P');
     expect(RunningStatusFormat.points(12340, { useGrouping: true })).toBe('12,340 P');
   });
+
+  it.each(['heartRate', 'cadence', 'calories'] as const)('formats %s without its unit while preserving rounding and missing data', (metric) => {
+    expect(RunningStatusFormat[metric](145.6, { includeUnit: false })).toBe('146');
+    expect(RunningStatusFormat[metric](null, { includeUnit: false })).toBe('--');
+    expect(RunningStatusFormat[metric](0, { includeUnit: false })).toBe('--');
+    expect(RunningStatusFormat[metric](NaN, { includeUnit: false })).toBe('--');
+  });
 });

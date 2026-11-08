@@ -18,11 +18,13 @@ import type { RunningStats, UseRunningSegmentsReturn } from './types';
 interface UseRunningSegmentsProps {
   statsRef: React.MutableRefObject<RunningStats>;
   getActiveElapsedMs?: () => number;
+  getStepCount: () => number;
 }
 
 export const useRunningSegments = ({
   statsRef,
   getActiveElapsedMs,
+  getStepCount,
 }: UseRunningSegmentsProps): UseRunningSegmentsReturn => {
   // Segment state
   const [currentSegmentItems, setCurrentSegmentItems] = useState<RunningRecordItem[]>([]);
@@ -35,6 +37,7 @@ export const useRunningSegments = ({
   const segmentDistanceRef = useRef(0);
   const segmentLocationsRef = useRef<Location[]>([]);
   const segmentActiveStartRef = useRef<number | null>(null);
+  const segmentStepsRef = useRef(0);
 
   const setSegmentDistance = useCallback<React.Dispatch<React.SetStateAction<number>>>((value) => {
     segmentDistanceRef.current = typeof value === 'function' ? value(segmentDistanceRef.current) : value;
@@ -57,13 +60,15 @@ export const useRunningSegments = ({
         ? Math.max(0, activeNow - segmentActiveStartRef.current) / 1000
         : (now - startTime) / 1000; // seconds
       const currentStats = statsRef.current;
+      const steps = getStepCount();
+      const segmentSteps = Math.max(0, steps - segmentStepsRef.current);
 
       const currentItems = segmentItemsRef.current;
       const segmentId = currentItems.length + 1;
       const newSegment = createRunningRecordItem({
         id: segmentId,
         distance,
-        cadence: currentStats.cadence ?? null,
+        cadence: segmentSteps > 0 && segmentDuration > 0 ? Math.min(255, Math.round(segmentSteps * 60 / segmentDuration)) : null,
         heartRate: currentStats.bpm ?? null,
         calories: Math.round((currentStats.calories || 0) / segmentId),
         orderIndex: segmentId - 1,
@@ -80,10 +85,11 @@ export const useRunningSegments = ({
       // 다음 세그먼트를 위한 초기화
       segmentStartTimeRef.current = now;
       segmentActiveStartRef.current = activeNow ?? null;
+      segmentStepsRef.current = steps;
       setSegmentDistance(0);
       setSegmentLocations([]);
     },
-    [statsRef, getActiveElapsedMs, setSegmentDistance, setSegmentLocations]
+    [statsRef, getActiveElapsedMs, getStepCount, setSegmentDistance, setSegmentLocations]
   );
 
   /**
@@ -107,13 +113,14 @@ export const useRunningSegments = ({
   const initializeSegmentTracking = useCallback(() => {
     const now = Date.now();
     segmentActiveStartRef.current = getActiveElapsedMs?.() ?? null;
+    segmentStepsRef.current = getStepCount();
     segmentStartTimeRef.current = now;
     setSegmentDistance(0);
     setSegmentLocations([]);
     setCurrentSegmentItems([]);
     segmentItemsRef.current = [];
     console.log('[useRunningSegments] Segment tracking initialized');
-  }, [getActiveElapsedMs, setSegmentDistance, setSegmentLocations]);
+  }, [getActiveElapsedMs, getStepCount, setSegmentDistance, setSegmentLocations]);
 
   /**
    * 거리 업데이트 처리 및 세그먼트 생성 여부 판단

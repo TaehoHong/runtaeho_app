@@ -5,7 +5,7 @@ interface DistanceFormatOptions {
   includeUnit?: boolean;
 }
 
-interface PaceFormatOptions {
+interface UnitFormatOptions {
   includeUnit?: boolean;
 }
 
@@ -80,7 +80,7 @@ export const RunningStatusFormat = {
     return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
   },
 
-  pace(paceMinPerKm: NullableNumber, options: PaceFormatOptions = {}): string {
+  pace(paceMinPerKm: NullableNumber, options: UnitFormatOptions = {}): string {
     const { includeUnit = true } = options;
     const finitePace = toFiniteNumber(paceMinPerKm);
 
@@ -94,7 +94,7 @@ export const RunningStatusFormat = {
   paceFromMetersAndSeconds(
     distanceMeters: NullableNumber,
     durationSeconds: NullableNumber,
-    options: PaceFormatOptions = {}
+    options: UnitFormatOptions = {}
   ): string {
     const distance = toFiniteNumber(distanceMeters);
     const duration = toFiniteNumber(durationSeconds);
@@ -106,7 +106,7 @@ export const RunningStatusFormat = {
     return formatPaceSeconds(Math.round((duration / distance) * 1000), options.includeUnit !== false);
   },
 
-  paceFromSecondsPerKm(paceSecPerKm: NullableNumber, options: PaceFormatOptions = {}): string {
+  paceFromSecondsPerKm(paceSecPerKm: NullableNumber, options: UnitFormatOptions = {}): string {
     const totalSeconds = toPositiveRoundedInteger(paceSecPerKm);
     const includeUnit = options.includeUnit !== false;
 
@@ -115,19 +115,19 @@ export const RunningStatusFormat = {
       : formatPaceSeconds(totalSeconds, includeUnit);
   },
 
-  heartRate(value: NullableNumber): string {
+  heartRate(value: NullableNumber, options: UnitFormatOptions = {}): string {
     const roundedValue = toPositiveRoundedInteger(value);
-    return roundedValue === null ? EMPTY_VALUE : `${roundedValue} bpm`;
+    return roundedValue === null ? EMPTY_VALUE : options.includeUnit === false ? String(roundedValue) : `${roundedValue} bpm`;
   },
 
-  cadence(value: NullableNumber): string {
+  cadence(value: NullableNumber, options: UnitFormatOptions = {}): string {
     const roundedValue = toPositiveRoundedInteger(value);
-    return roundedValue === null ? EMPTY_VALUE : `${roundedValue} spm`;
+    return roundedValue === null ? EMPTY_VALUE : options.includeUnit === false ? String(roundedValue) : `${roundedValue} spm`;
   },
 
-  calories(value: NullableNumber): string {
+  calories(value: NullableNumber, options: UnitFormatOptions = {}): string {
     const roundedValue = toPositiveRoundedInteger(value);
-    return roundedValue === null ? EMPTY_VALUE : `${roundedValue} kcal`;
+    return roundedValue === null ? EMPTY_VALUE : options.includeUnit === false ? String(roundedValue) : `${roundedValue} kcal`;
   },
 
   speedKmh(value: NullableNumber): string {

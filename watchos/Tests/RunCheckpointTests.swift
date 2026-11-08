@@ -59,5 +59,21 @@ struct RunCheckpointTests {
     assert(restored.elapsed(at: start.addingTimeInterval(10000)) == 15)
     assert(restored.activeSince == nil)
     print("RunCheckpointTests: pause/resume timing, durable UUID/owner and paused recovery passed")
+    var segmented = RunCheckpoint(ownerUserId: 7, startTimestamp: 1000, activeSince: start)
+    segmented.items = []; segmented.distanceMeasured = true
+    segmented.addSensor(heartRate: 130, cadence: 160, at: start.addingTimeInterval(1))
+    segmented.distance = 500
+    segmented.captureSegment(at: start.addingTimeInterval(150))
+    segmented.addSensor(heartRate: 150, cadence: 180, at: start.addingTimeInterval(151))
+    segmented.distance = 1000
+    segmented.captureSegment(at: start.addingTimeInterval(300), force: true)
+    assert(segmented.items?.map { $0.heartRate } == [130, 150])
+    assert(segmented.items?.map { $0.cadence } == [160, 180])
+    let recovered = try JSONDecoder().decode(RunCheckpoint.self, from: JSONEncoder().encode(segmented))
+    assert(recovered.items?.map { $0.distance } == [500, 500])
+    segmented.pause(at: start.addingTimeInterval(300)); segmented.endTimestamp = 1300
+    let segmentWire = try JSONSerialization.jsonObject(with: segmented.completedData()) as! [String: Any]
+    assert((segmentWire["items"] as? [[String: Any]])?.count == 2)
+    assert(segmentWire["segmentSamples"] == nil && segmentWire["segmentDuration"] == nil)
   }
 }

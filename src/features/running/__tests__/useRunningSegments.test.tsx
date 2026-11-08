@@ -26,13 +26,31 @@ const createLocation = (offset = 0): Location => ({
 });
 
 describe('useRunningSegments', () => {
+  it('stores cadence from steps within each active segment, not the cumulative average', () => {
+    const now = jest.spyOn(Date, 'now').mockReturnValue(100000);
+    let activeMs = 0;
+    let steps = 0;
+    const { result } = renderHook(() => useRunningSegments({
+      statsRef: createStatsRef(), getActiveElapsedMs: () => activeMs, getStepCount: () => steps,
+    }));
+    act(() => result.current.initializeSegmentTracking());
+    activeMs = 60000; steps = 120;
+    now.mockReturnValue(160000);
+    act(() => result.current.createSegment(200, [], 100000));
+    activeMs = 90000; steps = 220;
+    now.mockReturnValue(250000);
+    act(() => result.current.createSegment(100, [], 160000));
+    expect(result.current.currentSegmentItems.map(item => item.cadence)).toEqual([120, 200]);
+    now.mockRestore();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   it('RUN-SEG-001 creates a segment when threshold distance is reached', () => {
     const statsRef = createStatsRef();
-    const { result } = renderHook(() => useRunningSegments({ statsRef }));
+    const { result } = renderHook(() => useRunningSegments({ statsRef, getStepCount: () => 0 }));
 
     act(() => {
       result.current.initializeSegmentTracking();
@@ -47,13 +65,13 @@ describe('useRunningSegments', () => {
     expect(result.current.currentSegmentItems[0]?.distance).toBe(12);
     expect(result.current.segmentDistance).toBe(0);
     expect(result.current.segmentLocations).toHaveLength(0);
-    expect(result.current.currentSegmentItems[0]?.cadence).toBe(170);
+    expect(result.current.currentSegmentItems[0]?.cadence).toBeNull();
     expect(result.current.currentSegmentItems[0]?.heartRate).toBe(150);
   });
 
   it('RUN-SEG-002 does not create a segment for non-positive distance delta', () => {
     const statsRef = createStatsRef();
-    const { result } = renderHook(() => useRunningSegments({ statsRef }));
+    const { result } = renderHook(() => useRunningSegments({ statsRef, getStepCount: () => 0 }));
 
     act(() => {
       result.current.initializeSegmentTracking();
@@ -71,7 +89,7 @@ describe('useRunningSegments', () => {
 
   it('RUN-SEG-003 finalizes remaining segment and resets all segment state', () => {
     const statsRef = createStatsRef();
-    const { result } = renderHook(() => useRunningSegments({ statsRef }));
+    const { result } = renderHook(() => useRunningSegments({ statsRef, getStepCount: () => 0 }));
 
     act(() => {
       result.current.initializeSegmentTracking();
@@ -102,7 +120,7 @@ describe('useRunningSegments', () => {
     const now = jest.spyOn(Date, 'now').mockReturnValue(100000);
     let activeMs = 0;
     const location = createLocation();
-    const { result } = renderHook(() => useRunningSegments({ statsRef: createStatsRef(), getActiveElapsedMs: () => activeMs }));
+    const { result } = renderHook(() => useRunningSegments({ statsRef: createStatsRef(), getActiveElapsedMs: () => activeMs, getStepCount: () => 0 }));
     act(() => result.current.initializeSegmentTracking());
     now.mockReturnValue(170000);
     activeMs = 10000;

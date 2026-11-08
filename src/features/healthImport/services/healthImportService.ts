@@ -155,18 +155,22 @@ const toBatchRecord = (workout: HealthRunningWorkout): HealthImportBatchRecord =
     calorie: normalizeNumber(workout.calorie),
     startTimestamp,
     endTimestamp,
-    items: gpsPoints.length > 0 ? [{
+    items: workout.items?.map((item, orderIndex) => ({
+      ...item, orderIndex,
+      distance: Math.round(item.distance), durationSec: Math.floor(item.durationSec),
+      cadence: normalizeCadence(item.cadence), heartRate: normalizeNumber(item.heartRate),
+    })) ?? (gpsPoints.length > 0 ? [{
       distance,
       durationSec,
-      cadence: normalizeCadence(workout.cadence),
-      heartRate: normalizeNumber(workout.heartRate),
-      minHeartRate: normalizeNumber(workout.heartRate),
-      maxHeartRate: normalizeNumber(workout.heartRate),
+      cadence: 0,
+      heartRate: 0,
+      minHeartRate: 0,
+      maxHeartRate: 0,
       orderIndex: 0,
       startTimestamp,
       endTimestamp,
       gpsPoints,
-    }] : [],
+    }] : []),
   };
 };
 

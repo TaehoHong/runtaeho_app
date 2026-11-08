@@ -7,6 +7,15 @@ apply plugin: "com.google.gms.google-services"
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 def appProfiles = new groovy.json.JsonSlurper().parse(new File(projectRoot, 'scripts/app-profiles.json'))
 def profileScript = new File(projectRoot, 'scripts/app-profile.cjs').absolutePath
+def mapsApiKey = (findProperty('GOOGLE_MAPS_ANDROID_API_KEY')
+    ?: System.getenv('EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY')
+    ?: System.getenv('GOOGLE_MAPS_ANDROID_API_KEY') ?: '').toString().trim()
+tasks.register('validateGoogleMapsApiKey') {
+    doLast {
+        if (!mapsApiKey) throw new GradleException('Google Maps Android API key is missing. Configure the selected profile environment before building.')
+    }
+}
+tasks.named('preBuild').configure { dependsOn('validateGoogleMapsApiKey') }
 def developmentSigning = new Properties()
 def developmentSigningFile = new File(projectRoot, '../credentials/android-development.properties')
 if (developmentSigningFile.exists()) {
@@ -115,10 +124,7 @@ android {
         versionCode 72
         versionName "1.11.0"
         manifestPlaceholders = [
-            GOOGLE_MAPS_ANDROID_API_KEY: findProperty("GOOGLE_MAPS_ANDROID_API_KEY")
-                ?: System.getenv("EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY")
-                ?: System.getenv("GOOGLE_MAPS_ANDROID_API_KEY")
-                ?: ""
+            GOOGLE_MAPS_ANDROID_API_KEY: mapsApiKey
         ]
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""

@@ -17,6 +17,7 @@ import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.StepsCadenceRecord
 import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.request.AggregateRequest
+import androidx.health.connect.client.request.AggregateGroupByDurationRequest
 import androidx.health.connect.client.request.ChangesTokenRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
@@ -34,6 +35,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import java.time.Instant
+import java.time.Duration
 import kotlin.math.roundToInt
 
 class RNHealthImportBridgeModule(
@@ -367,6 +369,51 @@ class RNHealthImportBridgeModule(
         putInt("cadence", cadence.roundToInt())
         putInt("heartRate", heartRate.roundToInt())
         putArray("gpsPoints", gpsPoints.points)
+        val intervals = client.aggregateGroupByDuration(AggregateGroupByDurationRequest(
+            metrics = setOf(DistanceRecord.DISTANCE_TOTAL, HeartRateRecord.BPM_AVG, StepsCadenceRecord.RATE_AVG),
+            timeRangeFilter = TimeRangeFilter.between(session.startTime, session.endTime),
+            dataOriginFilter = setOf(session.metadata.dataOrigin),
+            timeRangeSlicer = Duration.ofMinutes(1)
+        ))
+        val items = Arguments.createArray()
+        var totalMeters = 0.0
+        var previousRoundedMeters = 0
+        var routeIndex = 0
+        val byIndex = intervals.associateBy { Duration.between(session.startTime, it.startTime).seconds / 60 }
+        var windowStart = session.startTime
+        while (windowStart < session.endTime) {
+            val windowEnd = minOf(windowStart.plusSeconds(60), session.endTime)
+            val interval = byIndex[Duration.between(session.startTime, windowStart).seconds / 60]
+            val meters = interval?.result?.get(DistanceRecord.DISTANCE_TOTAL)?.inMeters ?: 0.0
+            totalMeters += meters
+            val roundedMeters = totalMeters.roundToInt()
+            val seconds = windowEnd.epochSecond - windowStart.epochSecond
+            if (seconds > 0) {
+                items.pushMap(Arguments.createMap().apply {
+                    putInt("distance", roundedMeters - previousRoundedMeters)
+                    putDouble("durationSec", seconds.toDouble())
+                    putInt("heartRate", interval?.result?.get(HeartRateRecord.BPM_AVG)?.toInt() ?: 0)
+                    putInt("cadence", interval?.result?.get(StepsCadenceRecord.RATE_AVG)?.roundToInt() ?: 0)
+                    putInt("minHeartRate", 0); putInt("maxHeartRate", 0)
+                    putInt("orderIndex", items.size())
+                    putDouble("startTimestamp", windowStart.epochSecond.toDouble())
+                    putDouble("endTimestamp", windowEnd.epochSecond.toDouble())
+                    putArray("gpsPoints", Arguments.createArray().apply {
+                        while (routeIndex < gpsPoints.points.size()) {
+                            val point = gpsPoints.points.getMap(routeIndex) ?: break
+                            val timestamp = point.getDouble("timestampMs")
+                            if (timestamp >= windowEnd.toEpochMilli() && windowEnd != session.endTime) break
+                            pushMap(Arguments.makeNativeMap(point.toHashMap()))
+                            routeIndex++
+                        }
+                    })
+                })
+                previousRoundedMeters = roundedMeters
+            }
+            windowStart = windowEnd
+        }
+        // With no interval distance, preserve the route without pretending the summary is a split.
+        if (previousRoundedMeters > 0 && kotlin.math.abs(previousRoundedMeters - distance.roundToInt()) <= 1) putArray("items", items)
         putString("routeStatus", gpsPoints.status)
     }
 

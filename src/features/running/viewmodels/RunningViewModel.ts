@@ -55,6 +55,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
 
   const activeElapsedRef = useRef<() => number>(() => 0);
   const readActiveElapsedMs = useCallback(() => activeElapsedRef.current(), []);
+  const readStepCount = useCallback(() => pedometerService.getCurrentSteps(), []);
 
   // ============================================
   // 2. Segments Hook - 10m 세그먼트 관리
@@ -69,7 +70,7 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     resetSegments,
     setSegmentDistance,
     setSegmentLocations,
-  } = useRunningSegments({ statsRef, getActiveElapsedMs: readActiveElapsedMs });
+  } = useRunningSegments({ statsRef, getActiveElapsedMs: readActiveElapsedMs, getStepCount: readStepCount });
 
   // ============================================
   // 3. GPS Tracking Hook - GPS 추적

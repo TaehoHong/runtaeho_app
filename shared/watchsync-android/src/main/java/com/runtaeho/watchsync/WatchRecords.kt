@@ -4,6 +4,39 @@ import org.json.JSONObject
 import java.util.UUID
 
 object WatchRecords {
+    /** Snapshot measured deltas; older checkpoints without items remain summary-only. */
+    fun captureInterval(record: JSONObject, force: Boolean) {
+        val items = record.optJSONArray("items") ?: return
+        if (!record.has("distance")) return
+        val duration = record.getLong("durationMs") / 1000
+        val seconds = duration - record.optLong("segmentDuration")
+        val distance = record.getDouble("distance").toInt()
+        val meters = distance - record.optInt("segmentDistance")
+        if (meters < 0 || seconds < 0 || !force && seconds < 10) return
+        val end = record.optLong("endTimestamp", record.getLong("lastMeasuredTime") / 1000)
+        if (seconds == 0L) {
+            if (items.length() == 0) return
+            val last = items.getJSONObject(items.length() - 1)
+            last.put("distance", last.getInt("distance") + meters).put("endTimestamp", end)
+        } else {
+            fun average(metric: String): Int {
+                val count = record.optInt(metric + "Count") - record.optInt("segment" + metric + "Count")
+                val sum = record.optDouble(metric + "Sum", 0.0) - record.optDouble("segment" + metric + "Sum", 0.0)
+                return if (count > 0) kotlin.math.round(sum / count).toInt().coerceIn(0, 255) else 0
+            }
+            items.put(JSONObject().put("distance", meters).put("durationSec", seconds)
+                .put("heartRate", average("heartRate")).put("cadence", average("cadence"))
+                .put("minHeartRate", 0).put("maxHeartRate", 0).put("orderIndex", items.length())
+                .put("startTimestamp", if (items.length() > 0) items.getJSONObject(items.length() - 1).getLong("endTimestamp") else record.getLong("startTimestamp"))
+                .put("endTimestamp", end).put("gpsPoints", org.json.JSONArray()))
+        }
+        record.put("segmentDuration", duration).put("segmentDistance", distance)
+        for (metric in listOf("heartRate", "cadence")) {
+            record.put("segment" + metric + "Count", record.optInt(metric + "Count"))
+                .put("segment" + metric + "Sum", record.optDouble(metric + "Sum", 0.0))
+        }
+    }
+
     fun validRecord(record: JSONObject): Boolean = try {
         integer(record, "schemaVersion", 1, 1) && record.getString("source") == "WEAR_OS" &&
             UUID.fromString(record.getString("sessionId")).toString() == record.getString("sessionId") &&

@@ -26,6 +26,12 @@ existing authenticated `apiClient` to POST `/api/v1/running/completed-records`:
     latitude: number, longitude: number, timestampMs: number,
     speed: number, altitude: number, accuracy: number | null
   }]
+  // Optional for schemaVersion 1 compatibility. Missing sensors are 0, never workout averages.
+  items?: [{
+    distance: number, durationSec: number, cadence: number, heartRate: number,
+    minHeartRate: number, maxHeartRate: number, orderIndex: number,
+    startTimestamp: number, endTimestamp: number, gpsPoints: []
+  }]
 }
 ```
 
@@ -38,6 +44,21 @@ HTTP 200 for either status. Invalid input is 400, wrong owner 403, missing/inval
 authentication 401. The backend locks the user's configuration and accepts the
 first `(user, source, sessionId)` once; duplicates preserve the original record
 and do not repeat running completion rewards.
+
+Detailed items have sequential indices and non-overlapping timelines within the
+workout; their distance and active seconds sum to the workout totals. The backend
+accepts at most 10000 items and partitions the top-level route into those intervals
+in original order. The optional item route is not used by the completed endpoint.
+Older payloads without items remain accepted, but their one stored route item has
+unavailable sensors instead of copying the workout averages. Whole-workout metrics
+stay on the record. Apply the compatible backend before distributing new watches.
+
+Apple `RunCheckpoint` retains per-interval sensor samples, distance and active-time
+deltas through restart; `RunRecorder` closes intervals after at least ten active
+seconds and at pause/finish. Wear `WatchRecords.captureInterval` uses differences
+between cumulative sample sums/counts, distance and active duration, preserving
+the interval list in the same atomic checkpoint. Neither path substitutes the
+whole-workout average for a missing interval measurement.
 
 `NativeModules.RNWatchSyncBridge` exposes:
 
