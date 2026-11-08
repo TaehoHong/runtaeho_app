@@ -51,7 +51,11 @@ export function configureQaScenario(value: string): QaScenario {
     durationSec: 1800 + index * 100, steps: 5100 + index * 100, cadence: 172,
     heartRate: 145, calorie: 320, startTimestamp: now() - (index + 1) * 86400,
     endTimestamp: now() - (index + 1) * 86400 + 1800 + index * 100,
-    source: 'LIVE', shoeId: index % 2 === 0 ? 1 : null,
+    source: index === 0 ? 'GARMIN' : index === 1 ? 'HEALTH' : 'LIVE',
+    sourceAppId: index === 1 ? 'com.garmin.android.apps.connectmobile' : null,
+    sourceAppName: index === 1 ? 'Garmin Connect' : null,
+    recordingMethod: index < 2 ? 'RECORDED' : null,
+    shoeId: index % 2 === 0 ? 1 : null,
     connectedShoe: index % 2 === 0 ? shoes[0] ?? null : null,
   }));
   user = {

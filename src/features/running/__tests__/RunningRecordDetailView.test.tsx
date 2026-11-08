@@ -189,7 +189,7 @@ describe('RunningRecordDetailView', () => {
   });
 
   it.each([
-    { source: 'GARMIN', label: '가민 직접 연동' },
+    { source: 'GARMIN', label: 'Garmin' },
     { source: 'APPLE_WATCH', label: 'Apple Watch' },
     { source: 'WEAR_OS', label: 'Wear OS' },
   ] as const)('shows $source as its source without inferring a recording method', ({ source, label }) => {
@@ -224,7 +224,7 @@ describe('RunningRecordDetailView', () => {
     renderWithProviders(<RunningRecordDetailView />);
 
     expect(screen.getByText('포인트 지급 기준 시각 이전 기록이에요.')).toBeTruthy();
-    expect(screen.getByText('기기 측정')).toBeTruthy();
+    expect(screen.queryByText('기기 측정')).toBeNull();
     expect(screen.queryByText(/포인트·리그/)).toBeNull();
   });
 
@@ -258,7 +258,7 @@ describe('RunningRecordDetailView', () => {
 
     renderWithProviders(<RunningRecordDetailView />);
 
-    expect(screen.getByText('가민 직접 연동')).toBeTruthy();
+    expect(screen.getByText('Garmin')).toBeTruthy();
     expect(screen.queryByText('포인트 제외 사유 정보가 없어요.')).toBeNull();
     expect(screen.queryByText(/개인 기록으로 저장|포인트·리그에 반영|포인트 지급 기준/)).toBeNull();
   });
@@ -272,7 +272,7 @@ describe('RunningRecordDetailView', () => {
     renderWithProviders(<RunningRecordDetailView />);
 
     expect(screen.getByText('건강 연동')).toBeTruthy();
-    expect(screen.getByText('기기 측정')).toBeTruthy();
+    expect(screen.queryByText('기기 측정')).toBeNull();
     expect(screen.queryByText('포인트 제외 사유 정보가 없어요.')).toBeNull();
     expect(screen.queryByText(/개인 기록으로 저장|포인트·리그에 반영|포인트 지급 기준/)).toBeNull();
   });

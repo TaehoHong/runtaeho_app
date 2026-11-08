@@ -46,6 +46,7 @@ import {
   useUpdateRunningRecordShoe,
 } from '../services/runningQueries';
 import { ShoeSnapCarousel } from './shoe-selection-area';
+import { RunningRecordSource } from './components/RunningRecordSource';
 
 const HEADER_BAR_HEIGHT = 52;
 const MAP_HERO_HEIGHT = 350;
@@ -360,18 +361,7 @@ interface RecordHeroProps {
 const RecordHero: React.FC<RecordHeroProps> = ({ record, variant }) => {
   const t = useAppTranslation();
   const distance = RunningStatusFormat.distanceParts(record.distance);
-  let sourceLabel: string | null = null;
-  switch (record.source) {
-    case 'LIVE': break;
-    case 'HEALTH': {
-      const appName = record.sourceAppName?.trim();
-      sourceLabel = appName ? t("건강 연동 · {{appName}}", { appName }) : t("건강 연동");
-      break;
-    }
-    case 'GARMIN': sourceLabel = t("가민 직접 연동"); break;
-    case 'APPLE_WATCH': sourceLabel = t("Apple Watch"); break;
-    case 'WEAR_OS': sourceLabel = t("Wear OS"); break;
-  }
+  const { fontScale } = useWindowDimensions();
 
   let exclusionReason: string | null = null;
   if (record.acceptanceStatus !== 'PENDING' && record.pointAwarded !== true &&
@@ -396,7 +386,6 @@ const RecordHero: React.FC<RecordHeroProps> = ({ record, variant }) => {
 
   let recordingMethodLabel: string | null = null;
   switch (record.recordingMethod) {
-    case 'RECORDED': recordingMethodLabel = t("기기 측정"); break;
     case 'MANUAL':
       if (!exclusionReason || record.pointExclusionReason !== 'MANUAL_ENTRY') recordingMethodLabel = t("수동 입력");
       break;
@@ -405,13 +394,16 @@ const RecordHero: React.FC<RecordHeroProps> = ({ record, variant }) => {
       break;
   }
 
+  // 배율 복귀 시 거리와 출처의 네이티브 글자 측정값도 함께 갱신한다.
   return (
-    <View style={[styles.recordHero, variant === 'route' ? styles.recordHeroRoute : styles.recordHeroNoMap]}>
-      <View style={styles.distanceRow}>
-        <Text style={styles.distanceValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{distance.value}</Text>
-        <Text style={styles.distanceUnit} numberOfLines={1}>{distance.unit}</Text>
+    <View key={fontScale} style={[styles.recordHero, variant === 'route' ? styles.recordHeroRoute : styles.recordHeroNoMap]}>
+      <View style={[styles.recordHeroTopRow, fontScale > 1.3 && styles.recordHeroTopRowExpanded]}>
+        <View style={styles.distanceRow}>
+          <Text style={styles.distanceValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{distance.value}</Text>
+          <Text style={styles.distanceUnit} numberOfLines={1}>{distance.unit}</Text>
+        </View>
+        <RunningRecordSource record={record} variant="detail" />
       </View>
-      {sourceLabel ? <Text style={styles.distanceCaption}>{sourceLabel}</Text> : null}
       {recordingMethodLabel ? <Text style={styles.splitMeta}>{recordingMethodLabel}</Text> : null}
       {exclusionReason ? <Text style={styles.distanceCaption}>{exclusionReason}</Text> : null}
     </View>
@@ -990,9 +982,21 @@ const styles = StyleSheet.create({
   recordHeroNoMap: {
     marginTop: 28,
   },
+  recordHeroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  recordHeroTopRowExpanded: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+  },
   distanceRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
+    flexShrink: 1,
+    minWidth: 0,
   },
   distanceValue: {
     flexShrink: 1,
