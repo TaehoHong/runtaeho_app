@@ -26,10 +26,9 @@ export const CategoryTabs: React.FC<Props> = ({
         return (
           <TouchableOpacity
             key={category.type}
-            style={[
-              styles.tab,
-              isSelected && styles.tabSelected,
-            ]}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: isSelected }}
+            style={styles.tab}
             onPress={() => onSelectCategory(index)}
             activeOpacity={0.7}
           >
@@ -41,6 +40,7 @@ export const CategoryTabs: React.FC<Props> = ({
             >
               {category.displayName}
             </Text>
+            {isSelected && <View style={styles.indicator} />}
           </TouchableOpacity>
         );
       })}
@@ -51,39 +51,36 @@ export const CategoryTabs: React.FC<Props> = ({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    marginTop: 16,
-    marginHorizontal:68,
+    marginHorizontal: 20,
     backgroundColor: GREY[50],
-    borderRadius: 34,
-    padding: 0,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    borderBottomWidth: 1,
+    borderBottomColor: GREY[200],
   },
   tab: {
     flex: 1,
-    height: 34,
+    minHeight: 48,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'transparent',
     paddingVertical: 8,
   },
-  tabSelected: {
-    backgroundColor: PRIMARY[500],
-    borderRadius: 24,
+  indicator: {
+    position: 'absolute',
+    left: 32,
+    right: 32,
+    bottom: -1,
+    height: 3,
+    borderRadius: 3,
+    backgroundColor: PRIMARY[900],
   },
   tabText: {
-    fontSize: 14,
+    fontSize: 16,
+    lineHeight: 24,
     fontWeight: '500',
-    color: GREY[500],
+    color: GREY[700],
   },
   tabTextSelected: {
-    color: GREY[50],
-    fontWeight: '600',
+    color: GREY[900],
+    fontWeight: '700',
   },
 });

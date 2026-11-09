@@ -21,7 +21,7 @@ export const AvatarHeader: React.FC<Props> = ({ onClose, points }) => {
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity onPress={onClose} style={styles.backButton}>
+      <TouchableOpacity onPress={onClose} style={styles.backButton} accessibilityRole="button" accessibilityLabel={t('이전 화면으로')}>
         <Ionicons name="chevron-back" size={24} color={GREY[900]} />
       </TouchableOpacity>
 
@@ -49,8 +49,9 @@ const styles = StyleSheet.create({
     backgroundColor: GREY[50],
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 48,
+    height: 48,
+    marginLeft: -4,
     justifyContent: 'center',
     alignItems: 'center',
   },

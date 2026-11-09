@@ -4,13 +4,14 @@
  */
 
 import React from 'react';
-import { Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import type { Item } from '~/features/avatar';
-import { GRID_LAYOUT, ITEM_OPACITY, ItemStatus } from '~/features/avatar';
+import { GRID_LAYOUT, ItemStatus } from '~/features/avatar';
 import { resolveAvatarItemImage } from '~/features/avatar/utils/avatarItemImageResolver';
-import { GREY, PRIMARY } from '~/shared/styles';
+import { BLUE, GREY, PRIMARY } from '~/shared/styles';
 import { useAppTranslation } from '~/i18n';
 import { getNumberFontStyle } from '~/shared/components/typography/fontUtils';
+import { SelectionCheck } from './SelectionCheck';
 
 interface Props {
   item: Item;
@@ -19,27 +20,20 @@ interface Props {
   onPress: () => void;
 }
 
-const screenWidth = Dimensions.get('window').width;
 const totalHorizontalPadding = GRID_LAYOUT.HORIZONTAL_PADDING * 2;
 const totalColumnSpacing = GRID_LAYOUT.ITEM_SPACING * (GRID_LAYOUT.NUM_COLUMNS - 1);
-const cardWidth = (screenWidth - totalHorizontalPadding - totalColumnSpacing) / GRID_LAYOUT.NUM_COLUMNS;
 
 export const AvatarItemCard: React.FC<Props> = ({ item, hairColor, isSelected, onPress }) => {
   const t = useAppTranslation();
+  const { width } = useWindowDimensions();
+  const cardWidth = (width - totalHorizontalPadding - totalColumnSpacing) / GRID_LAYOUT.NUM_COLUMNS;
   const itemImage = resolveAvatarItemImage(item, hairColor);
-  // 테두리 색상 결정
-  const borderColor = isSelected? PRIMARY[500] : GREY[250];
-
-  // 투명도 결정
-  const opacity = item.status === ItemStatus.NOT_OWNED
-    ? ITEM_OPACITY.NOT_OWNED
-    : ITEM_OPACITY.OWNED;
-
-  const borderWidth = isSelected ? 2 : 1;
-
-  const backgroundColor = isSelected ? PRIMARY[50] : GREY.WHITE;
-  const label = item.status === ItemStatus.EQUIPPED ? t('착용 중')
-    : item.isOwned ? t('보유') : item.point === 0 ? t('무료') : `${item.point.toLocaleString()} P`;
+  const isEquipped = item.status === ItemStatus.EQUIPPED;
+  const isOwned = isEquipped || item.isOwned;
+  const borderColor = isEquipped ? BLUE.SECONDARY : isSelected ? PRIMARY[500] : GREY[250];
+  const backgroundColor = !isEquipped && isSelected ? PRIMARY[50] : GREY.WHITE;
+  const label = isEquipped ? t('착용 중')
+    : isOwned ? t('보유') : item.point === 0 ? t('무료') : `${item.point.toLocaleString()} P`;
 
   return (
     <TouchableOpacity
@@ -51,29 +45,31 @@ export const AvatarItemCard: React.FC<Props> = ({ item, hairColor, isSelected, o
       accessibilityState={{ selected: isSelected }}
     >
       <View
-        style={[
-          styles.card,
-          {
-            borderColor,
-            borderWidth,
-            backgroundColor,
-            opacity,
-          },
-        ]}
+        style={[styles.card, { backgroundColor }]}
       >
+        {isEquipped && <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.equippedTint]} />}
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.outline, { borderColor, borderWidth: isEquipped || isSelected ? 2 : 1 }]} />
         {itemImage && (
           <Image source={itemImage} style={styles.image} />
         )}
-
+        {isSelected && <SelectionCheck />}
       </View>
-      <Text style={styles.priceText}>{label}</Text>
+      <Text style={[styles.priceText, isOwned && styles.ownedText, isEquipped && styles.equippedText]}>{label}</Text>
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: GRID_LAYOUT.ITEM_SPACING,
+    minWidth: 0,
+  },
+  outline: {
+    borderRadius: 14,
+  },
+  equippedTint: {
+    borderRadius: 14,
+    backgroundColor: BLUE.SECONDARY,
+    opacity: 0.1,
   },
   card: {
     aspectRatio: 1,
@@ -89,9 +85,17 @@ const styles = StyleSheet.create({
   },
   priceText: {
     fontSize: 12,
-    ...getNumberFontStyle('600'),
-    color: GREY[900],
+    lineHeight: 18,
+    ...getNumberFontStyle('500'),
+    color: GREY[700],
     textAlign: 'center',
     marginTop: 6,
+  },
+  ownedText: {
+    color: GREY[900],
+    ...getNumberFontStyle('600'),
+  },
+  equippedText: {
+    ...getNumberFontStyle('700'),
   },
 });

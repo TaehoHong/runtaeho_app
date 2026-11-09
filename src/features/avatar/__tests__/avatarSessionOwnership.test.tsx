@@ -87,7 +87,7 @@ afterEach(() => {
 it.each([2, 1])('does not apply a deferred equip response to user %s in a new session', async nextUserId => {
   gate = { method: 'put', url: API_ENDPOINTS.AVATAR.UPDATE_EQUIPPED_ITEMS(1), response: deferred() };
   const { result, client } = setup(useAvatarViewModel);
-  await waitFor(() => expect(result.current.currentCategoryItems).toHaveLength(1));
+  await waitFor(() => expect(result.current.currentCategoryItems).toHaveLength(2));
   act(() => result.current.selectHairColor(HAIR_COLORS[1]));
   let save!: Promise<void>;
   act(() => { save = result.current.confirmChanges(); });
@@ -116,7 +116,7 @@ it.each([2, 1])('does not mark the new session user %s cache owned or send point
 it('does not copy a deferred point balance or send equip after the purchase session ends', async () => {
   gate = { method: 'get', url: API_ENDPOINTS.POINT.BASE, response: deferred() };
   const { result, client } = setup(useAvatarViewModel);
-  await waitFor(() => expect(result.current.currentCategoryItems).toHaveLength(1));
+  await waitFor(() => expect(result.current.currentCategoryItems).toHaveLength(2));
   act(() => result.current.selectItem(paidHair));
   let save!: Promise<void>;
   act(() => { save = result.current.confirmPurchase(); });

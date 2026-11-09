@@ -13,6 +13,11 @@ import { AvatarView } from '../views/AvatarView';
 import { renderWithProviders } from '~/test-utils/renderWithProviders';
 import { createUser } from '~/features/user/models/User';
 import { getSessionSnapshot } from '~/features/auth/stores/authStore';
+import { Alert } from 'react-native';
+
+jest.mock('expo-router/react-navigation', () => ({
+  useFocusEffect: (effect: () => void) => require('react').useEffect(effect, [effect]),
+}));
 
 jest.mock('../services/avatarService', () => ({
   avatarService: { getItems: jest.fn(), purchaseItems: jest.fn(), updateEquippedItems: jest.fn() },
@@ -59,22 +64,20 @@ beforeEach(() => {
   jest.mocked(pointService.getUserPoint).mockResolvedValue({ userId: 1, point: 500 });
 });
 
-it('defaults to owned items and keeps a try-on when changing the filter', async () => {
+it('shows all items in catalog order and separates the try-on from the equipped item', async () => {
   const { result } = setup();
-  await waitFor(() => expect(result.current.currentCategoryItems.map(item => item.id)).toEqual([1]));
-  act(() => result.current.selectOwnershipFilter('all'));
-  expect(result.current.currentCategoryItems.map(item => item.id)).toEqual([1, 2]);
+  await waitFor(() => expect(result.current.currentCategoryItems.map(item => item.id)).toEqual([1, 2]));
   act(() => result.current.selectItem(paidHair));
+  expect(result.current.currentCategoryItems[0]?.status).toBe(ItemStatus.EQUIPPED);
   expect(result.current.currentCategoryItems[1]?.status).toBe(ItemStatus.NOT_OWNED);
-  act(() => result.current.selectOwnershipFilter('owned'));
-  expect(result.current.currentCategoryItems.map(item => item.id)).toEqual([1]);
+  expect(result.current.currentCategoryItems.map(item => item.id)).toEqual([1, 2]);
   expect(result.current.previewItems[1]?.id).toBe(2);
   expect(result.current.totalPurchasePrice).toBe(1000);
 });
 
-it('purchases selections from both categories even when the owned filter hides them', async () => {
+it('purchases selections from both categories without reordering the catalog', async () => {
   const { result } = setup();
-  await waitFor(() => expect(result.current.currentCategoryItems).toHaveLength(1));
+  await waitFor(() => expect(result.current.currentCategoryItems).toHaveLength(2));
   act(() => {
     result.current.selectItem(paidHair);
     result.current.selectCategory(1);
@@ -88,6 +91,21 @@ it('purchases selections from both categories even when the owned filter hides t
   expect(useUserStore.getState().equippedItems[1]?.id).toBe(2);
   expect(useUserStore.getState().equippedItems[2]?.id).toBe(4);
   expect(result.current.hasChanges).toBe(false);
+  expect(result.current.currentCategoryItems.map(item => item.id)).toEqual([3, 4]);
+  expect(result.current.currentCategoryItems[1]?.status).toBe(ItemStatus.EQUIPPED);
+});
+
+it('appends later catalog pages without grouping by ownership', async () => {
+  const nextOwnedHair = { ...hair, id: 5, name: 'New_Hair_05' };
+  const nextPaidHair = { ...paidHair, id: 6, name: 'New_Hair_06' };
+  jest.mocked(avatarService.getItems).mockImplementation(async ({ cursor }) => cursor == null
+    ? { content: [paidHair, hair], cursor: 2, hasNext: true }
+    : { content: [nextOwnedHair, nextPaidHair], cursor: 6, hasNext: false });
+  const { result } = setup();
+  await waitFor(() => expect(result.current.currentCategoryItems.map(item => item.id)).toEqual([2, 1]));
+  await act(async () => { await result.current.fetchNextPage(); });
+  await waitFor(() => expect(result.current.currentCategoryItems.map(item => item.id)).toEqual([2, 1, 5, 6]));
+  expect(result.current.hasNextPage).toBe(false);
 });
 
 it('preserves selections when points are insufficient and restores the original preview on cancel', async () => {
@@ -160,20 +178,26 @@ it('allows spending the exact balance and excludes an item replaced by an owned 
   expect(result.current.showInsufficientPointsAlert).toBe(false);
 });
 
-it('shows a combined purchase confirmation through the screen filters and category tabs', async () => {
+it('keeps multi-part selections visible and opens their categories from the fixed summary before purchase', async () => {
   jest.useFakeTimers();
   const view = renderWithProviders(<AvatarView onClose={jest.fn()} />);
   try {
     await act(async () => { await jest.runOnlyPendingTimersAsync(); });
     expect(screen.getByText('착용 중')).toBeTruthy();
-    fireEvent.press(screen.getByRole('tab', { name: '전체' }));
+    expect(screen.queryByRole('tab', { name: '전체' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: '보유' })).toBeNull();
     fireEvent.press(screen.getByRole('button', { name: 'New_Hair_02, 1,000 P' }));
     fireEvent.press(screen.getByText('의상'));
     await act(async () => { await jest.runOnlyPendingTimersAsync(); });
     fireEvent.press(screen.getByRole('button', { name: 'New_Cloth_02, 1,000 P' }));
-    fireEvent.press(screen.getByRole('tab', { name: '보유' }));
-    expect(screen.queryByRole('button', { name: 'New_Cloth_02, 1,000 P' })).toBeNull();
-    expect(screen.getByText('총 구매 금액 · 2,000 P')).toBeTruthy();
+    expect(screen.getByText('선택 2개')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: '선택한 머리 수정' }));
+    await act(async () => { await jest.runOnlyPendingTimersAsync(); });
+    expect(screen.getByRole('button', { name: 'New_Hair_02, 1,000 P', selected: true })).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: '선택한 의상 수정' }));
+    await act(async () => { await jest.runOnlyPendingTimersAsync(); });
+    expect(screen.getByRole('button', { name: 'New_Cloth_02, 1,000 P', selected: true })).toBeTruthy();
+    expect(screen.getByText('2,000 P')).toBeTruthy();
     fireEvent.press(screen.getByText('구매 후 적용'));
     expect(screen.getByText('-2,000 P')).toBeTruthy();
     expect(screen.getByText('500 P')).toBeTruthy();
@@ -181,5 +205,26 @@ it('shows a combined purchase confirmation through the screen filters and catego
   } finally {
     view.unmount();
     jest.useRealTimers();
+  }
+});
+
+it('keeps an unapplied selection until the user confirms discarding it', async () => {
+  const onClose = jest.fn();
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  const view = renderWithProviders(<AvatarView onClose={onClose} />);
+  try {
+    await waitFor(() => expect(screen.getByRole('button', { name: 'New_Hair_02, 1,000 P' })).toBeTruthy());
+    fireEvent.press(screen.getByRole('button', { name: 'New_Hair_02, 1,000 P' }));
+    fireEvent.press(screen.getByRole('button', { name: '이전 화면으로' }));
+    expect(alert.mock.calls[0]?.[0]).toBe('변경사항을 버릴까요?');
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'New_Hair_02, 1,000 P', selected: true })).toBeTruthy();
+    act(() => alert.mock.calls[0]?.[2]?.find(button => button.text === '버리기')?.onPress?.());
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(avatarService.purchaseItems).not.toHaveBeenCalled();
+    expect(unityService.syncAvatar).toHaveBeenCalledWith([hair, cloth], '#000000', { waitForReady: true });
+  } finally {
+    view.unmount();
+    alert.mockRestore();
   }
 });

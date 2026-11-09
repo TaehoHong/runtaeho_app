@@ -8,6 +8,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { HAIR_COLORS, type HairColor } from '~/features/avatar/models/avatarConstants';
 import { GREY, PRIMARY } from '~/shared/styles';
+import { SelectionCheck } from './SelectionCheck';
 
 interface Props {
   selectedColor: string;  // HEX 형식
@@ -19,9 +20,13 @@ export const HairColorPicker: React.FC<Props> = ({
   onSelectColor,
 }) => {
   const t = useAppTranslation();
+  const currentColor = HAIR_COLORS.find(color => color.hex.toLowerCase() === selectedColor.toLowerCase());
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{t("헤어 색상")}</Text>
+      <View style={styles.labelRow}>
+        <Text style={styles.label}>{t("헤어 색상")}</Text>
+        <Text style={styles.colorName}>{currentColor?.name}</Text>
+      </View>
       <View style={styles.colorsContainer}>
         {HAIR_COLORS.map((color) => {
           const isSelected = color.hex.toLowerCase() === selectedColor.toLowerCase();
@@ -37,6 +42,7 @@ export const HairColorPicker: React.FC<Props> = ({
               ]}
               onPress={() => onSelectColor(color)}
               activeOpacity={0.7}
+              hitSlop={2}
             >
               <View
                 style={[
@@ -45,11 +51,7 @@ export const HairColorPicker: React.FC<Props> = ({
                   color.hex === '#FFFFFF' && styles.whiteColorBorder,
                 ]}
               />
-              {isSelected && (
-                <View style={styles.checkMark}>
-                  <Text style={styles.checkMarkText}>✓</Text>
-                </View>
-              )}
+              {isSelected && <SelectionCheck />}
             </TouchableOpacity>
           );
         })}
@@ -60,19 +62,30 @@ export const HairColorPicker: React.FC<Props> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 16,
+    marginBottom: 12,
     paddingHorizontal: 4,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   label: {
     fontSize: 14,
+    lineHeight: 20,
     fontWeight: '600',
+    color: GREY[900],
+  },
+  colorName: {
+    fontSize: 12,
     color: GREY[700],
-    marginBottom: 12,
   },
   colorsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    rowGap: 8,
+    gap: 8,
+    paddingVertical: 2,
     justifyContent: 'space-between',
     alignItems: 'center',
   },
@@ -96,21 +109,5 @@ const styles = StyleSheet.create({
   whiteColorBorder: {
     borderWidth: 1,
     borderColor: GREY[300],
-  },
-  checkMark: {
-    position: 'absolute',
-    bottom: -4,
-    right: -4,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: PRIMARY[500],
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkMarkText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: 'bold',
   },
 });

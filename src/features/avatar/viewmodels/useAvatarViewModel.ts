@@ -65,22 +65,19 @@ function toItemIds(equippedMap: EquippedItemsMap): readonly number[] {
 /**
  * ViewModel 반환 타입
  */
-export type OwnershipFilter = 'owned' | 'all';
-
 export interface AvatarViewModel {
   // State
-  readonly ownershipFilter: OwnershipFilter;
   readonly actionError: string | null;
   readonly isItemsLoading: boolean;
   readonly isItemsFetching: boolean;
   readonly itemsError: boolean;
   retryItems: () => void;
-  selectOwnershipFilter: (filter: OwnershipFilter) => void;
   readonly categories: typeof ITEM_CATEGORIES;
   readonly selectedCategoryIndex: number;
   readonly selectedCategory: number;
   readonly currentCategoryItems: readonly Item[];
   readonly previewItems: EquippedItemsMap;
+  readonly changedItems: readonly Item[];
   readonly totalPoint: number;
   readonly hasChanges: boolean;
   readonly shouldShowPurchaseButton: boolean;
@@ -146,7 +143,6 @@ export function useAvatarViewModel(): AvatarViewModel {
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [showInsufficientPointsAlert, setShowInsufficientPointsAlert] = useState(false);
 
-  const [ownershipFilter, setOwnershipFilter] = useState<OwnershipFilter>('owned');
   const [purchasedIds, setPurchasedIds] = useState<ReadonlySet<number>>(() => new Set());
   const [actionError, setActionError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -204,9 +200,8 @@ export function useAvatarViewModel(): AvatarViewModel {
         status: globalEquippedMap[item.itemType.id]?.id === item.id
           ? ItemStatus.EQUIPPED
           : isOwned(item) ? ItemStatus.OWNED : ItemStatus.NOT_OWNED,
-      }))
-      .filter(item => ownershipFilter === 'all' || item.isOwned);
-  }, [itemsData, selectedCategory, isOwned, globalEquippedMap, ownershipFilter]);
+      }));
+  }, [itemsData, selectedCategory, isOwned, globalEquippedMap]);
 
   // Unity 프리뷰용 아이템
   const previewItems = pendingEquippedItems;
@@ -218,21 +213,10 @@ export function useAvatarViewModel(): AvatarViewModel {
   const hasHairColorChanged = pendingHairColor.toLowerCase() !== globalHairColor.toLowerCase();
 
   // 변경 여부 확인 (아이템 + 헤어 색상)
-  const hasChanges = useMemo(() => {
-    // 헤어 색상 변경 확인
-    if (hasHairColorChanged) {
-      return true;
-    }
-
-    // 아이템 변경 확인
-    for (const [itemTypeId, item] of Object.entries(pendingEquippedItems)) {
-      const globalItem = globalEquippedMap[itemTypeId as unknown as number];
-      if (item?.id !== globalItem?.id) {
-        return true;
-      }
-    }
-    return false;
-  }, [pendingEquippedItems, globalEquippedMap, hasHairColorChanged]);
+  const changedItems = useMemo(() => Object.values(pendingEquippedItems).filter(
+    (item): item is Item => !!item && item.id !== globalEquippedMap[item.itemType.id]?.id
+  ), [pendingEquippedItems, globalEquippedMap]);
+  const hasChanges = hasHairColorChanged || changedItems.length > 0;
 
   // 구매해야 할 아이템
   const itemsToPurchase = useMemo(() => (
@@ -459,8 +443,6 @@ export function useAvatarViewModel(): AvatarViewModel {
   // ===================================
   return {
     // State
-    ownershipFilter,
-    selectOwnershipFilter: setOwnershipFilter,
     actionError,
     isItemsLoading,
     isItemsFetching,
@@ -471,6 +453,7 @@ export function useAvatarViewModel(): AvatarViewModel {
     selectedCategory,
     currentCategoryItems,
     previewItems,
+    changedItems,
     totalPoint,
     hasChanges,
     shouldShowPurchaseButton,

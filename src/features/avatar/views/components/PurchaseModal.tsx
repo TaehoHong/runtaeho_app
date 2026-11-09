@@ -140,7 +140,7 @@ export const PurchaseModal: React.FC<Props> = ({
                 activeOpacity={0.7}
               >
                 {isLoading ? (
-                  <ActivityIndicator color={GREY.WHITE} />
+                  <ActivityIndicator color={GREY[900]} />
                 ) : (
                   <Text style={styles.confirmButtonText}>{t('구매 후 적용')}</Text>
                 )}
@@ -302,6 +302,6 @@ const styles = StyleSheet.create({
   confirmButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: GREY.WHITE,
+    color: GREY[900],
   },
 });

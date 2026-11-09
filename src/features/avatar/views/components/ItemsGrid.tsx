@@ -15,6 +15,8 @@ interface Props {
   onSelectItem: (item: Item) => void;
   isItemSelected: (itemId: number) => boolean;
   onEndReached: () => void;
+  header?: React.ReactElement | null;
+  footer?: React.ReactElement | null;
 }
 
 export const ItemsGrid: React.FC<Props> = ({
@@ -23,6 +25,8 @@ export const ItemsGrid: React.FC<Props> = ({
   onSelectItem,
   isItemSelected,
   onEndReached,
+  header,
+  footer,
 }) => {
   return (
     <FlatList
@@ -39,9 +43,11 @@ export const ItemsGrid: React.FC<Props> = ({
       )}
       columnWrapperStyle={styles.row}
       contentContainerStyle={styles.content}
+      ListHeaderComponent={header}
+      ListFooterComponent={footer}
       onEndReached={onEndReached}
       onEndReachedThreshold={0.5}
-      scrollEnabled={false} // ScrollView 안에 있으므로 비활성화
+      showsVerticalScrollIndicator
       style={styles.grid}
     />
   );
@@ -49,13 +55,16 @@ export const ItemsGrid: React.FC<Props> = ({
 
 const styles = StyleSheet.create({
   grid: {
-    marginTop: 18,
+    flex: 1,
+    minHeight: 0,
   },
   content: {
-    paddingBottom: 10,
+    paddingHorizontal: GRID_LAYOUT.HORIZONTAL_PADDING,
+    paddingTop: 8,
+    paddingBottom: 20,
   },
   row: {
     justifyContent: 'space-between',
-    marginBottom: GRID_LAYOUT.ITEM_SPACING,
+    marginBottom: 16,
   },
 });

@@ -5,7 +5,9 @@ import { useAppTranslation } from '~/i18n';
  */
 
 import React from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { getCategoryDisplayName, type Item } from '~/features/avatar';
+import { resolveAvatarItemImage } from '~/features/avatar/utils/avatarItemImageResolver';
 import { BLUE, GREY, PRIMARY } from '~/shared/styles';
 import { getNumberFontStyle } from '~/shared/components/typography/fontUtils';
 
@@ -13,6 +15,9 @@ interface Props {
   hasChanges: boolean;
   shouldShowPurchase: boolean;
   totalPurchasePrice?: number;
+  selectedItems: readonly Item[];
+  hairColor: string;
+  onSelectItem: (item: Item) => void;
   onCancel: () => void;
   onConfirm: () => void;
   isLoading: boolean;
@@ -22,6 +27,9 @@ export const BottomButtons: React.FC<Props> = ({
   hasChanges,
   shouldShowPurchase,
   totalPurchasePrice = 0,
+  selectedItems,
+  hairColor,
+  onSelectItem,
   onCancel,
   onConfirm,
   isLoading,
@@ -29,9 +37,33 @@ export const BottomButtons: React.FC<Props> = ({
   const t = useAppTranslation();
   return (
     <View style={styles.footer}>
-      {shouldShowPurchase && (
-        <Text style={styles.totalPrice}>{t('총 구매 금액')} · <Text style={getNumberFontStyle(styles.totalPrice.fontWeight)}>{totalPurchasePrice.toLocaleString()} P</Text></Text>
-      )}
+      <View style={styles.summary}>
+        <View style={styles.selection}>
+          <Text style={styles.summaryLabel}>
+            {selectedItems.length ? t('선택 {{count}}개', { count: selectedItems.length })
+              : hasChanges ? t('색상 변경') : t('현재 착용')}
+          </Text>
+          {selectedItems.map(item => (
+            <TouchableOpacity
+              key={item.id}
+              accessibilityRole="button"
+              accessibilityLabel={t('선택한 {{category}} 수정', { category: getCategoryDisplayName(item.itemType.id) })}
+              style={styles.selectedItem}
+              disabled={isLoading}
+              onPress={() => onSelectItem(item)}
+            >
+              <Image source={resolveAvatarItemImage(item, hairColor)} style={styles.selectedImage} />
+            </TouchableOpacity>
+          ))}
+        </View>
+        <View style={styles.total}>
+          {shouldShowPurchase && <Text style={styles.summaryLabel}>{t('총 구매 금액')}</Text>}
+          <Text style={styles.totalPrice}>
+            {shouldShowPurchase ? `${totalPurchasePrice.toLocaleString()} P`
+              : hasChanges ? t('추가 비용 없음') : t('적용 완료')}
+          </Text>
+        </View>
+      </View>
       <View style={styles.container}>
         {/* Cancel Button */}
         <TouchableOpacity
@@ -41,6 +73,7 @@ export const BottomButtons: React.FC<Props> = ({
             !hasChanges && styles.buttonDisabled,
           ]}
           onPress={onCancel}
+          accessibilityRole="button"
           disabled={!hasChanges || isLoading}
           activeOpacity={0.7}
         >
@@ -49,7 +82,7 @@ export const BottomButtons: React.FC<Props> = ({
               styles.buttonText,
               !hasChanges && styles.buttonTextDisabled,
             ]}
-          >{t("취소")}</Text>
+          >{t('되돌리기')}</Text>
         </TouchableOpacity>
 
         {/* Confirm / Purchase Button */}
@@ -60,16 +93,18 @@ export const BottomButtons: React.FC<Props> = ({
             !hasChanges && styles.buttonDisabled,
           ]}
           onPress={onConfirm}
+          accessibilityRole="button"
+          accessibilityLabel={shouldShowPurchase ? t('구매 후 적용') : t('적용')}
+          accessibilityState={{ busy: isLoading }}
           disabled={!hasChanges || isLoading}
           activeOpacity={0.7}
         >
           {isLoading ? (
-            <ActivityIndicator color={GREY.WHITE} />
+            <ActivityIndicator color={GREY[900]} />
           ) : (
             <Text
               style={[
                 styles.buttonText,
-                styles.buttonTextWhite,
                 !hasChanges && styles.buttonTextDisabled,
               ]}
             >
@@ -85,26 +120,65 @@ export const BottomButtons: React.FC<Props> = ({
 const styles = StyleSheet.create({
   footer: {
     backgroundColor: GREY[50],
+    borderTopWidth: 1,
+    borderTopColor: GREY[200],
+  },
+  summary: {
+    paddingHorizontal: 20,
+    minHeight: 48,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    columnGap: 8,
+  },
+  selection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    minHeight: 48,
+  },
+  summaryLabel: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: GREY[700],
+  },
+  selectedItem: {
+    width: 48,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  selectedImage: {
+    width: 30,
+    height: 30,
+    resizeMode: 'contain',
+  },
+  total: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    marginLeft: 'auto',
+    gap: 8,
   },
   totalPrice: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
+    fontSize: 16,
+    lineHeight: 24,
+    ...getNumberFontStyle('700'),
     color: GREY[900],
-    fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'right',
   },
   container: {
     flexDirection: 'row',
     gap: 11,
     paddingHorizontal: 20,
     paddingTop: 12,
-    // paddingBottom: 6,
     backgroundColor: GREY[50],
   },
   button: {
     flex: 1,
-    height: 56,
+    minHeight: 56,
+    paddingVertical: 16,
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
@@ -113,7 +187,7 @@ const styles = StyleSheet.create({
     backgroundColor: GREY[200],
   },
   confirmButton: {
-    backgroundColor: PRIMARY[600],
+    backgroundColor: PRIMARY[500],
   },
   purchaseButton: {
     backgroundColor: BLUE.SECONDARY,
@@ -123,11 +197,9 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontSize: 16,
+    lineHeight: 24,
     fontWeight: '700',
     color: GREY[900],
-  },
-  buttonTextWhite: {
-    color: GREY.WHITE,
   },
   buttonTextDisabled: {
     color: GREY[500],
