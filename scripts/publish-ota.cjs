@@ -12,11 +12,12 @@ if ({ production: 'production', staging: 'preview' }[branch] !== environment ||
 }
 // env:exec는 셸 문자열을 받는다. 메시지는 명령으로 해석되지 않도록 인용한다.
 const quote = (value) => `'${value.replace(/'/g, "'\\''")}'`;
-function run(args, env = process.env) {
-  const result = spawnSync('npx', args, { env, stdio: 'inherit' });
+function runCommand(command, args, env = process.env) {
+  const result = spawnSync(command, args, { env, stdio: 'inherit' });
   if (result.error) console.error(result.error.message);
   return result.status ?? 1;
 }
+const run = (args, env) => runCommand('npx', args, env);
 const appMode = branch === 'production' ? 'production' : 'development';
 if (!execute) {
   const env = { ...process.env, EXPO_NO_DOTENV: '1' };
@@ -30,6 +31,19 @@ if (!execute) {
 } else {
   if (!process.env.SENTRY_AUTH_TOKEN?.trim()) {
     throw new Error('OTA 게시 전에 SENTRY_AUTH_TOKEN을 배포 환경에 설정한다.');
+  }
+  if (!uploadOnly) {
+    const versionFiles = ['package.json', 'package-lock.json'];
+    if (runCommand('node', ['scripts/version.js', 'check-ota', platform]) !== 0) process.exit(1);
+    if (runCommand('git', ['diff', '--quiet', 'HEAD', '--', ...versionFiles]) !== 0) {
+      throw new Error('OTA 버전 파일을 먼저 커밋한다.');
+    }
+    if (runCommand('node', ['scripts/version.js', 'bump-ota']) !== 0) process.exit(1);
+    const version = JSON.parse(fs.readFileSync('package.json', 'utf8')).version;
+    // EAS requireCommit을 유지하고 다른 staged 파일은 버전 커밋에 포함하지 않는다.
+    if (runCommand('git', ['commit', '--only', '-m', `chore: bump OTA app version to ${version}`, '--', ...versionFiles]) !== 0) {
+      throw new Error('OTA 버전 커밋에 실패했다. 변경된 버전 파일을 확인한다.');
+    }
   }
   fs.mkdirSync('build', { recursive: true });
   // Legacy EAS export treats "all" as including web, so publish mobile targets explicitly.

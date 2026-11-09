@@ -21,6 +21,7 @@ function fixture(t) {
   fs.copyFileSync(path.join(__dirname, '../eas.json'), path.join(root, 'eas.json'));
   const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '../package.json')));
   fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ version: '1.8.0', config: { runtimeVersion: '1.8.0' }, scripts: pkg.scripts }));
+  fs.writeFileSync(path.join(root, 'package-lock.json'), JSON.stringify({ version: '1.8.0', lockfileVersion: 3, packages: { '': { version: '1.8.0' } } }));
   fs.writeFileSync(path.join(root, 'ios/app/Supporting/Expo.plist'), '<key>EXUpdatesRuntimeVersion</key><string>1.8.0</string>');
   fs.writeFileSync(path.join(root, 'ios/app.xcodeproj/project.pbxproj'), 'MARKETING_VERSION = 1.8.0;\nCURRENT_PROJECT_VERSION = 1;');
   fs.writeFileSync(path.join(root, 'watchos/RunTaehoWatch.xcodeproj/project.pbxproj'), 'MARKETING_VERSION = 1.8.0;\nCURRENT_PROJECT_VERSION = 1;');
@@ -34,6 +35,7 @@ function fixture(t) {
 }
 
 function stubOta(f) {
+  fs.writeFileSync(path.join(f.root, 'android/app/src/main/AndroidManifest.xml'), 'expo.modules.updates.EXPO_RUNTIME_VERSION" android:value="1.8.0"');
   fs.writeFileSync(path.join(f.root, 'bin/npx'), `#!/bin/sh
 if [ "$2" = env:exec ]; then
   export EXPO_PUBLIC_API_BASE_URL=https://example.invalid/api
@@ -45,6 +47,7 @@ if [ "$2" = env:exec ]; then
 fi
 printf '%s\\n' "$*" >> "$CALL_LOG"
 if [ "$2" = eas ] && [ "$3" = update ]; then
+  printf 'app-version=%s\\n' "$(node -p 'require("./package.json").version')" >> "$CALL_LOG"
   if [ "$FAIL_PUBLISH" = 1 ]; then exit 9; fi
   while [ "$#" -gt 0 ]; do
     if [ "$1" = --input-dir ]; then output="$2"; break; fi
@@ -221,6 +224,72 @@ test('OTA release alias never changes app version before validation', (t) => {
   const f = fixture(t);
   f.run('npm', ['run', 'release:ota', '--', '-m', 'audit']);
   assert.equal(JSON.parse(fs.readFileSync(path.join(f.root, 'package.json'))).version, '1.8.0');
+});
+
+test('OTA patch bump updates the lockfile without changing native versions or runtime', (t) => {
+  const f = fixture(t);
+  const nativePaths = ['ios/app/Supporting/Expo.plist', 'ios/app.xcodeproj/project.pbxproj',
+    'watchos/RunTaehoWatch.xcodeproj/project.pbxproj', 'android/app/build.gradle', 'android/app/src/main/AndroidManifest.xml'];
+  const before = nativePaths.map(file => fs.readFileSync(path.join(f.root, file), 'utf8'));
+  const pkg = JSON.parse(fs.readFileSync(path.join(f.root, 'package.json')));
+  pkg.version = '1.8.9';
+  fs.writeFileSync(path.join(f.root, 'package.json'), JSON.stringify(pkg));
+  const result = f.run('node', ['scripts/version.js', 'bump-ota']);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  const next = JSON.parse(fs.readFileSync(path.join(f.root, 'package.json')));
+  const lock = JSON.parse(fs.readFileSync(path.join(f.root, 'package-lock.json')));
+  assert.equal(next.version, '1.8.10');
+  assert.equal(next.config.runtimeVersion, '1.8.0');
+  assert.equal(lock.version, next.version);
+  assert.equal(lock.packages[''].version, next.version);
+  assert.deepEqual(nativePaths.map(file => fs.readFileSync(path.join(f.root, file), 'utf8')), before);
+});
+
+test('version status accepts an OTA patch but rejects a native release mismatch', (t) => {
+  const f = fixture(t);
+  stubOta(f);
+  assert.equal(f.run('node', ['scripts/version.js', 'bump-ota']).status, 0);
+  const status = f.run('node', ['scripts/version.js', 'status']);
+  assert.equal(status.status, 0, status.stdout + status.stderr);
+  fs.writeFileSync(path.join(f.root, 'android/app/build.gradle'), 'versionName "1.9.0"\nversionCode 68');
+  assert.notEqual(f.run('node', ['scripts/version.js', 'status']).status, 0);
+});
+
+test('OTA dry-run keeps package files and Git unchanged without contacting EAS', (t) => {
+  const f = fixture(t);
+  const before = ['package.json', 'package-lock.json'].map(file => fs.readFileSync(path.join(f.root, file), 'utf8'));
+  fs.writeFileSync(path.join(f.root, 'bin/git'), '#!/bin/sh\nprintf "git %s\\n" "$*" >> "$CALL_LOG"\n', { mode: 0o755 });
+  const result = f.run('bash', ['scripts/deploy-ota.sh', '-p', 'ios', '-m', 'audit', '--dry-run']);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.deepEqual(['package.json', 'package-lock.json'].map(file => fs.readFileSync(path.join(f.root, file), 'utf8')), before);
+  assert.doesNotMatch(f.calls(), /git (add|commit)|eas /);
+});
+
+test('OTA dirty source fails before bumping or contacting EAS', (t) => {
+  const f = fixture(t);
+  fs.writeFileSync(path.join(f.root, 'bin/git'), '#!/bin/sh\nif [ "$1" = status ]; then echo " M package.json"; fi\n', { mode: 0o755 });
+  const result = f.run('bash', ['scripts/deploy-ota.sh', '-p', 'ios', '-m', 'audit']);
+  assert.notEqual(result.status, 0);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(f.root, 'package.json'))).version, '1.8.0');
+  assert.equal(f.calls(), '');
+});
+
+test('OTA creates a clean version-only commit before publishing both platforms', (t) => {
+  const f = fixture(t);
+  stubOta(f);
+  fs.rmSync(path.join(f.root, 'bin/git'));
+  fs.writeFileSync(path.join(f.root, '.gitignore'), '/calls\n/build/\n');
+  for (const args of [['init', '-q'], ['config', 'user.name', 'Deployment Test'],
+    ['config', 'user.email', 'deploy@example.invalid'], ['add', '.'], ['commit', '-qm', 'fixture']]) {
+    const result = f.run('git', args);
+    assert.equal(result.status, 0, result.stderr);
+  }
+  const result = f.run('bash', ['scripts/deploy-ota.sh', '-m', 'mobile release']);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.equal(f.run('git', ['log', '-1', '--format=%s']).stdout.trim(), 'chore: bump OTA app version to 1.8.1');
+  assert.deepEqual(f.run('git', ['show', '--format=', '--name-only', 'HEAD']).stdout.trim().split('\n'), ['package-lock.json', 'package.json']);
+  assert.equal(f.run('git', ['status', '--porcelain']).stdout, '');
+  assert.deepEqual([...f.calls().matchAll(/^app-version=(.+)$/gm)].map(match => match[1]), ['1.8.1', '1.8.1']);
 });
 
 test('iOS-only OTA validates only the selected platform', (t) => {
@@ -498,10 +567,12 @@ test('OTA uploads the exact published artifact and retries upload without republ
   const artifact = f.calls().match(/^artifact=(.+)$/m)?.[1];
   assert.ok(artifact);
   assert.ok(f.calls().includes(`sentry-expo-upload-sourcemaps ${artifact}`));
+  const version = fs.readFileSync(path.join(f.root, 'package.json'), 'utf8');
   const retried = f.run('node', ['scripts/publish-ota.cjs', 'production', 'production', '--upload-only', artifact]);
   assert.equal(retried.status, 0, retried.stdout + retried.stderr);
   assert.equal(f.calls().match(/--no-install eas update/g)?.length, 1);
   assert.equal(f.calls().match(/sentry-expo-upload-sourcemaps/g)?.length, 2);
+  assert.equal(fs.readFileSync(path.join(f.root, 'package.json'), 'utf8'), version);
   assert.doesNotMatch(failed.stdout + failed.stderr + f.calls(), /synthetic-upload-token/);
 });
 
@@ -518,6 +589,7 @@ test('OTA all publishes each mobile platform without invoking a web export', (t)
   assert.equal(artifacts.length, 2);
   assert.notEqual(artifacts[0], artifacts[1]);
   assert.equal(calls.match(/sentry-expo-upload-sourcemaps/g)?.length, 2);
+  assert.deepEqual([...calls.matchAll(/^app-version=(.+)$/gm)].map(match => match[1]), ['1.8.1', '1.8.1']);
 });
 
 test('OTA does not publish without its upload credential', (t) => {
@@ -527,6 +599,7 @@ test('OTA does not publish without its upload credential', (t) => {
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /SENTRY_AUTH_TOKEN/);
   assert.equal(f.calls(), '');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(f.root, 'package.json'))).version, '1.8.0');
 });
 
 test('OTA does not upload after publication fails', (t) => {
@@ -557,6 +630,7 @@ test('OTA missing remote config cannot fall back to local shell values', (t) => 
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /환경변수 누락/);
   assert.equal(f.calls(), '');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(f.root, 'package.json'))).version, '1.8.0');
 });
 
 test('failed native build resumes without bumping again or requiring an EAS login', (t) => {

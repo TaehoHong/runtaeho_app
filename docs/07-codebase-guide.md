@@ -61,6 +61,7 @@
 | 공개 프로필 | [app-profiles.json](../scripts/app-profiles.json) | 폰·두 워치 식별자/환경 연결 |
 | Garmin 인증 복귀 | [garminService.connect](../src/features/garmin/services/garminService.ts) / [복귀 계약 테스트](../src/features/garmin/__tests__/garminService.test.ts) | 공개 프로필의 등록 스킴으로 복귀 URL을 만들고 appScheme을 서버에 전달한다. state의 프로필 결합·복귀 URL·세션을 검증한 뒤 인증된 연결 상태를 다시 확인한다. 개발·운영 앱은 같은 서버를 사용하므로 서버 전체의 복귀 스킴을 하나로 고정하지 않는다. |
 | 로컬 빌드·배포 | [deploy-store.sh](../scripts/deploy-store.sh) / [sign-ios.py](../scripts/sign-ios.py) / [submit-store.sh](../scripts/submit-store.sh) | iOS 임시 키체인 서명·IPA 검증, Firebase·TestFlight·Play 업로드; 스토어 수동 설정은 오류로 안내 |
+| OTA 버전·발행 | [version.js](../scripts/version.js) / [deploy-ota.sh](../scripts/deploy-ota.sh) / [publish-ota.cjs](../scripts/publish-ota.cjs) / [배포 회귀](../scripts/deployment.test.cjs) | 원격 환경·인증 검증 뒤 package/lockfile patch를 한 번 증가시키고 두 파일만 커밋한다. all은 두 플랫폼에 같은 버전을 게시하며 native/runtime은 유지한다. dry-run·upload-only는 무변경. 게시 산출물의 소스맵을 Sentry에 업로드하며 실패한 업로드만 같은 산출물로 재시도한다. |
 
 ## Conventions and Canonical Examples
 

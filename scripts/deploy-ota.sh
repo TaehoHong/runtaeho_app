@@ -74,7 +74,7 @@ VERSION="$(node -p "require('./package.json').version")"
 echo ""
 info "브랜치      $BRANCH (environment: $ENVIRONMENT)"
 info "플랫폼      $PLATFORM"
-info "앱 버전     $VERSION"
+info "현재 앱 버전 $VERSION (게시 전에 patch 1 증가)"
 info "런타임      $RUNTIME  ← 이 런타임으로 설치된 빌드만 업데이트를 받는다"
 info "메시지      $MESSAGE"
 echo ""
@@ -88,6 +88,7 @@ CMD=(npx eas update
 
 if [[ $DRY_RUN -eq 1 ]]; then
   info "실행 시 EAS $ENVIRONMENT 환경의 필수 변수와 SENTRY_AUTH_TOKEN을 검증한다."
+  info "dry-run: 검증 후 package.json·package-lock.json의 patch를 한 번 올리고 두 파일만 커밋한다."
   info "dry-run: ${CMD[*]}"
   info "dry-run: 새 build/ota-* 폴더의 번들·소스맵을 생성하고 게시한 뒤 Sentry에 업로드한다."
   exit 0

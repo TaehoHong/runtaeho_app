@@ -382,8 +382,13 @@ EAS의 구형 export 경로에서는 `all`에 웹도 포함되므로 그대로 �
 1. 선택한 플랫폼의 로컬 네이티브 런타임과 OTA 런타임 정합 확인
 2. 커밋되지 않은 변경 확인
 3. `eas env:exec`로 원격 환경변수를 읽고 필수 설정·`SENTRY_AUTH_TOKEN` 검증 (공개 앱 설정의 누락을 로컬 `.env`/셸 값으로 보충하지 않음)
-4. `build/ota-*`의 새 산출물 폴더를 선택해 `eas update --branch <브랜치> --environment <환경> --platform <플랫폼> --input-dir <폴더> --emit-metadata` 실행
-5. 게시 성공 후 각 JS/Hermes 번들의 소스맵·Debug ID를 확인하고 동일 폴더를 Sentry에 업로드
+4. `scripts/version.js bump-ota`로 `package.json`·`package-lock.json`의 patch를 한 번 올리고 두 파일만 버전 커밋으로 기록 (자동 push는 하지 않음)
+5. `build/ota-*`의 새 산출물 폴더를 선택해 `eas update --branch <브랜치> --environment <환경> --platform <플랫폼> --input-dir <폴더> --emit-metadata` 실행
+6. 게시 성공 후 각 JS/Hermes 번들의 소스맵·Debug ID를 확인하고 동일 폴더를 Sentry에 업로드
+
+`-p all`의 두 플랫폼은 같은 patch와 소스 커밋을 사용한다. 플랫폼을 따로 게시하는 각 실행은
+새 patch를 사용한다. 예를 들어 앱 `1.12.0`의 다음 OTA는 `1.12.1`이며 runtime과 네이티브
+표시 버전·빌드번호는 유지한다. 앱의 버전 화면은 OTA manifest의 버전을 표시한다.
 
 업로더는 `@sentry/react-native`가 설치한 로컬 `sentry-expo-upload-sourcemaps` 실행 파일을
 `npx --no-install`로 사용한다. 게시 또는 업로드가 실패하면 전체 명령도 실패한다.
@@ -395,8 +400,11 @@ node scripts/publish-ota.cjs production production --upload-only /absolute/path/
 # staging은 staging preview --upload-only <폴더>
 ```
 
-`update:prod`, `update:staging`, `release:ota`도 이 경로를 사용한다. OTA 명령은 앱 버전을
-자동 변경하지 않는다. `--dry-run`은 네트워크 없이 로컬 검사와 실행 계획만 표시한다.
+`update:prod`, `update:staging`, `release:ota`도 이 경로를 사용한다. `--dry-run`은 네트워크나
+파일·Git 변경 없이 로컬 검사와 실행 계획만 표시한다. 런타임·원격 환경·인증 검증 실패 시에도
+버전은 바뀌지 않는다. 게시 시도 이후 실패하면 생성한 버전 커밋과 산출물을 보존한다.
+새 게시 시도는 다음 patch를 사용하며, `--upload-only`는 버전을 바꾸거나 다시 게시하지 않는다.
+배포 뒤 생성된 버전 커밋도 원격 저장소에 push한다.
 런타임 검사는 로컬 소스 기준이므로 실제 설치된 스토어 바이너리의 값도 확인해야 한다.
 네이티브/Unity 코드를 변경한 경우, 값이 같다는 이유만으로 OTA로 배포하지 않는다.
 
@@ -499,10 +507,15 @@ npm run version:bump-build -- android  # 한쪽만 (all | ios | android)
 
 | 값 | 의미 | 언제 올리나 |
 |---|---|---|
-| `version` | 스토어 표시 버전 | **새 스토어 릴리스마다 minor 증가·patch는 0** (`1.8.x → 1.9.0`) |
+| `package.json.version` | 앱 내부 표시 버전·OTA manifest 버전 | **OTA 게시마다 patch 증가** (`1.12.0 → 1.12.1`), 새 스토어 릴리스는 minor 증가·patch 0 |
+| 네이티브 `MARKETING_VERSION` / `versionName` | 설치 바이너리·스토어 표시 버전 | **새 스토어 릴리스마다 minor 증가·patch는 0** (`1.8.x → 1.9.0`), OTA에서는 유지 |
 | `runtimeVersion` | 네이티브 호환 경계 | **스토어 배포에서 새 `version`과 동일하게 동기화**, OTA에서는 유지 |
 | iOS `CURRENT_PROJECT_VERSION` | 빌드번호 | 업로드마다 (단조 증가) |
 | Android `versionCode` | 빌드번호 | 업로드마다 (단조 증가) |
+
+OTA의 package 버전과 네이티브 버전은 major/minor가 같고 package의 patch가 더 높을 수 있다.
+`version:status`는 이 차이를 정상으로 처리하며 네이티브 버전끼리의 불일치와 runtime 불일치는
+계속 실패로 보고한다. OTA를 위해 `version.js set`이나 `sync-runtime`을 실행하지 않는다.
 
 스토어 릴리스는 `npm run deploy:prod -- --version 1.9.0`처럼 새 minor 버전을 명시한다.
 `version:minor`만으로 네이티브 설정은 동기화되지 않으므로, 스토어 빌드는 `scripts/version.js`를 호출하는
