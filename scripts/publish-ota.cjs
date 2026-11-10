@@ -33,13 +33,15 @@ if (!execute) {
     throw new Error('OTA 게시 전에 SENTRY_AUTH_TOKEN을 배포 환경에 설정한다.');
   }
   if (!uploadOnly) {
-    const versionFiles = ['package.json', 'package-lock.json'];
+    const versionFiles = ['scripts/app-versions.json'];
     if (runCommand('node', ['scripts/version.js', 'check-ota', platform]) !== 0) process.exit(1);
     if (runCommand('git', ['diff', '--quiet', 'HEAD', '--', ...versionFiles]) !== 0) {
       throw new Error('OTA 버전 파일을 먼저 커밋한다.');
     }
-    if (runCommand('node', ['scripts/version.js', 'bump-ota']) !== 0) process.exit(1);
-    const version = JSON.parse(fs.readFileSync('package.json', 'utf8')).version;
+    if (runCommand('node', ['scripts/version.js', 'bump-ota', platform]) !== 0) process.exit(1);
+    const versions = JSON.parse(fs.readFileSync('scripts/app-versions.json', 'utf8'));
+    const version = (platform === 'all' ? ['ios', 'android'] : [platform])
+      .map(target => `${target} ${versions[target].version}`).join(', ');
     // EAS requireCommit을 유지하고 다른 staged 파일은 버전 커밋에 포함하지 않는다.
     if (runCommand('git', ['commit', '--only', '-m', `chore: bump OTA app version to ${version}`, '--', ...versionFiles]) !== 0) {
       throw new Error('OTA 버전 커밋에 실패했다. 변경된 버전 파일을 확인한다.');
@@ -49,9 +51,10 @@ if (!execute) {
   // Legacy EAS export treats "all" as including web, so publish mobile targets explicitly.
   const platforms = platform === 'all' ? ['ios', 'android'] : [platform];
   for (const target of platforms) {
+    const targetEnv = uploadOnly ? process.env : { ...process.env, RUNTAEHO_PLATFORM: target };
     const output = uploadOnly ? path.resolve(message) : fs.mkdtempSync(path.resolve('build/ota-'));
     const published = uploadOnly ? 0 : run(['--no-install', 'eas', 'update', '--branch', branch, '--environment', environment,
-      '--platform', target, '--message', message, '--input-dir', output, '--emit-metadata', '--non-interactive']);
+      '--platform', target, '--message', message, '--input-dir', output, '--emit-metadata', '--non-interactive'], targetEnv);
     if (published !== 0) {
       process.exitCode = published;
       break;
@@ -67,7 +70,7 @@ if (!execute) {
         const map = JSON.parse(fs.readFileSync(path.join(output, `${file}.map`), 'utf8'));
         if (!map.debugId && !map.debug_id) throw new Error('소스맵의 Sentry Debug ID가 누락되었다.');
       }
-      uploaded = run(['--no-install', 'sentry-expo-upload-sourcemaps', output]);
+      uploaded = run(['--no-install', 'sentry-expo-upload-sourcemaps', output], targetEnv);
     } catch (error) {
       console.error(error.message);
     }

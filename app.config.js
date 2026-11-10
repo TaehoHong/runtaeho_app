@@ -4,10 +4,14 @@ const ENV = process.env.EXPO_PUBLIC_ENV || 'local';
 const { getProfile } = require('./scripts/app-profile.cjs');
 const profile = getProfile(ENV);
 
-// Version configuration from local package.json
+// Platform app versions and OTA compatibility are independent of the npm package version.
 const packageJson = require('./package.json');
-const appVersion = packageJson.version;
-const runtimeVersion = packageJson.config.runtimeVersion;
+const appVersions = require('./scripts/app-versions.json');
+const targetPlatform = process.env.RUNTAEHO_PLATFORM;
+if (targetPlatform && !['ios', 'android'].includes(targetPlatform)) {
+  throw new Error('RUNTAEHO_PLATFORM은 ios 또는 android여야 한다.');
+}
+const appVersion = targetPlatform ? appVersions[targetPlatform].version : packageJson.version;
 const googleMapsAndroidApiKey =
   process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY ||
   process.env.GOOGLE_MAPS_ANDROID_API_KEY;
@@ -30,8 +34,9 @@ export default {
       url: "https://u.expo.dev/daaffe2d-52cf-427d-ad87-2b05cde55f58",
       requestHeaders: { 'expo-channel-name': profile.channel },
     },
-    runtimeVersion: runtimeVersion,
     ios: {
+      version: appVersions.ios.version,
+      runtimeVersion: appVersions.ios.runtimeVersion,
       icon: "./assets/images/icon.png",
       supportsTablet: true,
       bundleIdentifier: profile.applicationId,
@@ -46,6 +51,8 @@ export default {
       }
     },
     android: {
+      version: appVersions.android.version,
+      runtimeVersion: appVersions.android.runtimeVersion,
       adaptiveIcon: {
         foregroundImage: "./assets/images/icon.png"
       },

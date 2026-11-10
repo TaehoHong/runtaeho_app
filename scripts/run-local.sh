@@ -5,6 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 PLATFORM="${1:-}"
 case "$PLATFORM" in ios|android) ;; *) echo '사용법: run-local.sh ios|android' >&2; exit 1 ;; esac
+export RUNTAEHO_PLATFORM="$PLATFORM"
 PROFILE_EXPORTS="$(node scripts/app-profile.cjs shell local)"
 eval "$PROFILE_EXPORTS"
 APPLICATION_ID="$(node scripts/app-profile.cjs get local applicationId)"

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import Constants from 'expo-constants';
+import { systemInfoManager } from '~/shared/utils/SystemInfoManager';
 import { API_CONFIG } from '~/services/api/config';
 import type { Platform, VersionCheckResponse } from '../models/ForceUpdateState';
 import { FORCE_UPDATE_CONFIG, getCurrentPlatform } from '../constants';
@@ -12,7 +12,7 @@ import { FORCE_UPDATE_CONFIG, getCurrentPlatform } from '../constants';
  * 현재 앱 버전 가져오기
  */
 export function getAppVersion(): string {
-  return Constants.expoConfig?.version ?? '0.0.0';
+  return systemInfoManager.getAppVersion();
 }
 
 /**

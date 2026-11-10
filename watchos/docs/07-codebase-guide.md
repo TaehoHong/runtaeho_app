@@ -21,7 +21,7 @@
 | 공유 기능 | 소유 구현/원본 | 사용·경계 |
 | --- | --- | --- |
 | 폰 중계·서버 확인 | [RNWatchSyncBridge](../../ios/WatchSync/RNWatchSyncBridge.swift) / [syncWatchRecords](../../src/features/watchSync/watchSyncService.ts) / [연동 계약](../../src/features/watchSync/README.md) | 워치 보관·폰 보관·인증 업로드의 각 소유 경계 |
-| 프로필·버전 | [공개 프로필](../../scripts/app-profiles.json) / [버전 연계](../../scripts/version.js) / [폰 프로젝트 참조](../../ios/app.xcodeproj/project.pbxproj) | 독립 워치와 폰 참조·프로필/버전 정합 |
+| 프로필·버전 | [공개 프로필](../../scripts/app-profiles.json) / [버전 연계](../../scripts/version.js) / [폰 프로젝트 참조](../../ios/app.xcodeproj/project.pbxproj) | iOS 대상 버전·빌드번호 변경에만 Watch가 함께 갱신된다. Android 단독 릴리스는 Watch를 변경하지 않는다. |
 
 ## Conventions and Dependency Rules
 

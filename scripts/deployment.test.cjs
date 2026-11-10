@@ -19,9 +19,14 @@ function fixture(t) {
     }
   }
   fs.copyFileSync(path.join(__dirname, '../eas.json'), path.join(root, 'eas.json'));
+  fs.copyFileSync(path.join(__dirname, '../app.config.js'), path.join(root, 'app.config.js'));
   const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '../package.json')));
-  fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ version: '1.8.0', config: { runtimeVersion: '1.8.0' }, scripts: pkg.scripts }));
+  fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ version: '1.8.0', scripts: pkg.scripts }));
   fs.writeFileSync(path.join(root, 'package-lock.json'), JSON.stringify({ version: '1.8.0', lockfileVersion: 3, packages: { '': { version: '1.8.0' } } }));
+  fs.writeFileSync(path.join(root, 'scripts/app-versions.json'), JSON.stringify({
+    ios: { version: '1.8.0', runtimeVersion: '1.8.0' },
+    android: { version: '1.8.0', runtimeVersion: '1.8.0' },
+  }));
   fs.writeFileSync(path.join(root, 'ios/app/Supporting/Expo.plist'), '<key>EXUpdatesRuntimeVersion</key><string>1.8.0</string>');
   fs.writeFileSync(path.join(root, 'ios/app.xcodeproj/project.pbxproj'), 'MARKETING_VERSION = 1.8.0;\nCURRENT_PROJECT_VERSION = 1;');
   fs.writeFileSync(path.join(root, 'watchos/RunTaehoWatch.xcodeproj/project.pbxproj'), 'MARKETING_VERSION = 1.8.0;\nCURRENT_PROJECT_VERSION = 1;');
@@ -47,7 +52,8 @@ if [ "$2" = env:exec ]; then
 fi
 printf '%s\\n' "$*" >> "$CALL_LOG"
 if [ "$2" = eas ] && [ "$3" = update ]; then
-  printf 'app-version=%s\\n' "$(node -p 'require("./package.json").version')" >> "$CALL_LOG"
+  printf 'app-version=%s\\n' "$(node scripts/version.js get "$RUNTAEHO_PLATFORM" version)" >> "$CALL_LOG"
+  printf 'app-runtime=%s\\n' "$(node scripts/version.js get "$RUNTAEHO_PLATFORM" runtimeVersion)" >> "$CALL_LOG"
   if [ "$FAIL_PUBLISH" = 1 ]; then exit 9; fi
   while [ "$#" -gt 0 ]; do
     if [ "$1" = --input-dir ]; then output="$2"; break; fi
@@ -226,22 +232,25 @@ test('OTA release alias never changes app version before validation', (t) => {
   assert.equal(JSON.parse(fs.readFileSync(path.join(f.root, 'package.json'))).version, '1.8.0');
 });
 
-test('OTA patch bump updates the lockfile without changing native versions or runtime', (t) => {
+test('OTA patch bump changes platform versions without changing npm metadata or native runtimes', (t) => {
   const f = fixture(t);
   const nativePaths = ['ios/app/Supporting/Expo.plist', 'ios/app.xcodeproj/project.pbxproj',
     'watchos/RunTaehoWatch.xcodeproj/project.pbxproj', 'android/app/build.gradle', 'android/app/src/main/AndroidManifest.xml'];
   const before = nativePaths.map(file => fs.readFileSync(path.join(f.root, file), 'utf8'));
-  const pkg = JSON.parse(fs.readFileSync(path.join(f.root, 'package.json')));
-  pkg.version = '1.8.9';
-  fs.writeFileSync(path.join(f.root, 'package.json'), JSON.stringify(pkg));
+  const versionsFile = path.join(f.root, 'scripts/app-versions.json');
+  const versions = JSON.parse(fs.readFileSync(versionsFile));
+  versions.ios.version = '1.8.9';
+  fs.writeFileSync(versionsFile, JSON.stringify(versions));
+  const packageBefore = fs.readFileSync(path.join(f.root, 'package.json'), 'utf8');
+  const lockBefore = fs.readFileSync(path.join(f.root, 'package-lock.json'), 'utf8');
   const result = f.run('node', ['scripts/version.js', 'bump-ota']);
   assert.equal(result.status, 0, result.stdout + result.stderr);
-  const next = JSON.parse(fs.readFileSync(path.join(f.root, 'package.json')));
-  const lock = JSON.parse(fs.readFileSync(path.join(f.root, 'package-lock.json')));
-  assert.equal(next.version, '1.8.10');
-  assert.equal(next.config.runtimeVersion, '1.8.0');
-  assert.equal(lock.version, next.version);
-  assert.equal(lock.packages[''].version, next.version);
+  assert.deepEqual(JSON.parse(fs.readFileSync(versionsFile)), {
+    ios: { version: '1.8.10', runtimeVersion: '1.8.0' },
+    android: { version: '1.8.1', runtimeVersion: '1.8.0' },
+  });
+  assert.equal(fs.readFileSync(path.join(f.root, 'package.json'), 'utf8'), packageBefore);
+  assert.equal(fs.readFileSync(path.join(f.root, 'package-lock.json'), 'utf8'), lockBefore);
   assert.deepEqual(nativePaths.map(file => fs.readFileSync(path.join(f.root, file), 'utf8')), before);
 });
 
@@ -255,14 +264,25 @@ test('version status accepts an OTA patch but rejects a native release mismatch'
   assert.notEqual(f.run('node', ['scripts/version.js', 'status']).status, 0);
 });
 
-test('OTA dry-run keeps package files and Git unchanged without contacting EAS', (t) => {
+test('OTA dry-run keeps version files and Git unchanged without contacting EAS', (t) => {
   const f = fixture(t);
-  const before = ['package.json', 'package-lock.json'].map(file => fs.readFileSync(path.join(f.root, file), 'utf8'));
+  const before = ['scripts/app-versions.json', 'package.json', 'package-lock.json'].map(file => fs.readFileSync(path.join(f.root, file), 'utf8'));
   fs.writeFileSync(path.join(f.root, 'bin/git'), '#!/bin/sh\nprintf "git %s\\n" "$*" >> "$CALL_LOG"\n', { mode: 0o755 });
   const result = f.run('bash', ['scripts/deploy-ota.sh', '-p', 'ios', '-m', 'audit', '--dry-run']);
   assert.equal(result.status, 0, result.stdout + result.stderr);
-  assert.deepEqual(['package.json', 'package-lock.json'].map(file => fs.readFileSync(path.join(f.root, file), 'utf8')), before);
+  assert.deepEqual(['scripts/app-versions.json', 'package.json', 'package-lock.json'].map(file => fs.readFileSync(path.join(f.root, file), 'utf8')), before);
   assert.doesNotMatch(f.calls(), /git (add|commit)|eas /);
+});
+
+test('combined OTA dry-run shows the same platform-scoped commands as publishing', (t) => {
+  const f = fixture(t);
+  stubOta(f);
+  const result = f.run('bash', ['scripts/deploy-ota.sh', '-p', 'all', '-m', 'audit', '--dry-run']);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /RUNTAEHO_PLATFORM=ios .*--platform ios /);
+  assert.match(result.stdout, /RUNTAEHO_PLATFORM=android .*--platform android /);
+  assert.doesNotMatch(result.stdout, /--platform all /);
+  assert.equal(f.calls(), '');
 });
 
 test('OTA dirty source fails before bumping or contacting EAS', (t) => {
@@ -286,8 +306,8 @@ test('OTA creates a clean version-only commit before publishing both platforms',
   }
   const result = f.run('bash', ['scripts/deploy-ota.sh', '-m', 'mobile release']);
   assert.equal(result.status, 0, result.stdout + result.stderr);
-  assert.equal(f.run('git', ['log', '-1', '--format=%s']).stdout.trim(), 'chore: bump OTA app version to 1.8.1');
-  assert.deepEqual(f.run('git', ['show', '--format=', '--name-only', 'HEAD']).stdout.trim().split('\n'), ['package-lock.json', 'package.json']);
+  assert.equal(f.run('git', ['log', '-1', '--format=%s']).stdout.trim(), 'chore: bump OTA app version to ios 1.8.1, android 1.8.1');
+  assert.deepEqual(f.run('git', ['show', '--format=', '--name-only', 'HEAD']).stdout.trim().split('\n'), ['scripts/app-versions.json']);
   assert.equal(f.run('git', ['status', '--porcelain']).stdout, '');
   assert.deepEqual([...f.calls().matchAll(/^app-version=(.+)$/gm)].map(match => match[1]), ['1.8.1', '1.8.1']);
 });
@@ -592,6 +612,38 @@ test('OTA all publishes each mobile platform without invoking a web export', (t)
   assert.deepEqual([...calls.matchAll(/^app-version=(.+)$/gm)].map(match => match[1]), ['1.8.1', '1.8.1']);
 });
 
+test('OTA all publishes divergent iOS and Android versions with their own runtimes', (t) => {
+  const f = fixture(t);
+  stubOta(f);
+  fs.writeFileSync(path.join(f.root, 'scripts/app-versions.json'), JSON.stringify({
+    ios: { version: '1.8.2', runtimeVersion: '1.8.0' },
+    android: { version: '1.9.0', runtimeVersion: '1.9.0' },
+  }));
+  fs.writeFileSync(path.join(f.root, 'android/app/build.gradle'), 'versionName "1.9.0"\nversionCode 69');
+  fs.writeFileSync(path.join(f.root, 'android/app/src/main/AndroidManifest.xml'), 'expo.modules.updates.EXPO_RUNTIME_VERSION" android:value="1.9.0"');
+  const result = f.run('node', ['scripts/publish-ota.cjs', 'production', 'production', 'all', 'independent release']);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.deepEqual([...f.calls().matchAll(/^app-version=(.+)$/gm)].map(match => match[1]), ['1.8.3', '1.9.1']);
+  assert.deepEqual([...f.calls().matchAll(/^app-runtime=(.+)$/gm)].map(match => match[1]), ['1.8.0', '1.9.0']);
+});
+
+test('iOS-only OTA publishes without changing the Android release', (t) => {
+  const f = fixture(t);
+  stubOta(f);
+  const versionsFile = path.join(f.root, 'scripts/app-versions.json');
+  const versions = JSON.parse(fs.readFileSync(versionsFile));
+  versions.android = { version: '1.9.0', runtimeVersion: '1.9.0' };
+  fs.writeFileSync(versionsFile, JSON.stringify(versions));
+  const result = f.run('node', ['scripts/publish-ota.cjs', 'production', 'production', 'ios', 'ios release']);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.deepEqual(JSON.parse(fs.readFileSync(versionsFile)), {
+    ios: { version: '1.8.1', runtimeVersion: '1.8.0' },
+    android: { version: '1.9.0', runtimeVersion: '1.9.0' },
+  });
+  assert.match(f.calls(), /eas update .*--platform ios /);
+  assert.doesNotMatch(f.calls(), /--platform android /);
+});
+
 test('OTA does not publish without its upload credential', (t) => {
   const f = fixture(t);
   stubOta(f);
@@ -736,4 +788,92 @@ test('Android-only build bump leaves independent watch project untouched', (t) =
   assert.equal(fs.readFileSync(watchFile, 'utf8'), before);
   assert.match(fs.readFileSync(path.join(f.root, 'ios/app.xcodeproj/project.pbxproj'), 'utf8'), /CURRENT_PROJECT_VERSION = 1;/);
   assert.match(fs.readFileSync(path.join(f.root, 'android/app/build.gradle'), 'utf8'), /versionCode 69/);
+});
+
+test('Android-only release version and runtime leave iOS and its companion untouched', (t) => {
+  const f = fixture(t);
+  const iosFiles = ['ios/app.xcodeproj/project.pbxproj', 'watchos/RunTaehoWatch.xcodeproj/project.pbxproj', 'ios/app/Supporting/Expo.plist'];
+  const before = iosFiles.map(file => fs.readFileSync(path.join(f.root, file), 'utf8'));
+  const result = f.run('node', ['scripts/version.js', 'set', '1.9.0', 'android']);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(iosFiles.map(file => fs.readFileSync(path.join(f.root, file), 'utf8')), before);
+  assert.equal(f.run('node', ['scripts/version.js', 'sync-runtime', 'android']).status, 0);
+  assert.deepEqual(iosFiles.map(file => fs.readFileSync(path.join(f.root, file), 'utf8')), before);
+  const versions = JSON.parse(fs.readFileSync(path.join(f.root, 'scripts/app-versions.json')));
+  assert.deepEqual(versions.ios, { version: '1.8.0', runtimeVersion: '1.8.0' });
+  assert.deepEqual(versions.android, { version: '1.9.0', runtimeVersion: '1.9.0' });
+  assert.equal(f.run('node', ['scripts/version.js', 'status']).status, 0);
+});
+
+test('iOS OTA patch advances independently without changing Android or either native runtime', (t) => {
+  const f = fixture(t);
+  const versionsFile = path.join(f.root, 'scripts/app-versions.json');
+  fs.writeFileSync(versionsFile, JSON.stringify({
+    ios: { version: '1.8.9', runtimeVersion: '1.8.0' },
+    android: { version: '1.9.0', runtimeVersion: '1.9.0' },
+  }));
+  const result = f.run('node', ['scripts/version.js', 'bump-ota', 'ios']);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(fs.readFileSync(versionsFile)), {
+    ios: { version: '1.8.10', runtimeVersion: '1.8.0' },
+    android: { version: '1.9.0', runtimeVersion: '1.9.0' },
+  });
+});
+
+test('an invalid native release target fails before writing any platform version', (t) => {
+  const f = fixture(t);
+  const paths = ['scripts/app-versions.json', 'ios/app.xcodeproj/project.pbxproj', 'android/app/build.gradle'];
+  const before = paths.map(file => fs.readFileSync(path.join(f.root, file), 'utf8'));
+  assert.notEqual(f.run('node', ['scripts/version.js', 'set', '1.9.0', 'typo']).status, 0);
+  assert.deepEqual(paths.map(file => fs.readFileSync(path.join(f.root, file), 'utf8')), before);
+});
+
+for (const target of ['ios', 'android']) {
+  test(`${target}-only store release scopes both version and runtime mutations`, (t) => {
+    const f = nativeFixture(t);
+    const untouched = target === 'android'
+      ? ['ios/app.xcodeproj/project.pbxproj', 'watchos/RunTaehoWatch.xcodeproj/project.pbxproj', 'ios/app/Supporting/Expo.plist']
+      : ['android/app/build.gradle', 'android/app/src/main/AndroidManifest.xml'];
+    const before = untouched.map(file => fs.readFileSync(path.join(f.root, file), 'utf8'));
+    const result = f.run('bash', ['scripts/deploy-store.sh', '--platform', target, '--version', '1.9.0', '--no-submit'], f.env);
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.deepEqual(untouched.map(file => fs.readFileSync(path.join(f.root, file), 'utf8')), before);
+    const versions = JSON.parse(fs.readFileSync(path.join(f.root, 'scripts/app-versions.json')));
+    assert.deepEqual(versions[target], { version: '1.9.0', runtimeVersion: '1.9.0' });
+    assert.deepEqual(versions[target === 'ios' ? 'android' : 'ios'], { version: '1.8.0', runtimeVersion: '1.8.0' });
+  });
+}
+
+test('a combined store build keeps platform versions in separate artifact names', (t) => {
+  const f = nativeFixture(t);
+  assert.equal(f.run('node', ['scripts/version.js', 'set', '1.9.0', 'android']).status, 0);
+  const result = f.run('bash', ['scripts/deploy-store.sh', '--platform', 'all', '--no-submit'], f.env);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /ios\/export-1\.8\.0-2\/app\.ipa/);
+  assert.match(result.stdout, /android\/app-1\.9\.0-69\.aab/);
+});
+
+test('Expo resolves platform-specific manifest versions and OTA runtimes with the installed SDK', (t) => {
+  const f = fixture(t);
+  fs.symlinkSync(path.join(__dirname, '../node_modules'), path.join(f.root, 'node_modules'));
+  fs.writeFileSync(path.join(f.root, 'scripts/app-versions.json'), JSON.stringify({
+    ios: { version: '1.8.2', runtimeVersion: '1.8.0' },
+    android: { version: '1.9.1', runtimeVersion: '1.9.0' },
+  }));
+  const source = `
+    const {getConfig}=require('@expo/config');
+    const {resolveRuntimeVersionAsync}=require('expo-updates/utils/build/resolveRuntimeVersionAsync');
+    (async()=>{
+      const {exp}=getConfig(process.cwd(),{isPublicConfig:true});
+      const platform=process.env.RUNTAEHO_PLATFORM;
+      const {runtimeVersion}=await resolveRuntimeVersionAsync(process.cwd(),platform,{}, {workflowOverride:'generic'});
+      console.log(JSON.stringify({version:exp.version,platformVersion:exp[platform].version,runtimeVersion}));
+    })().catch(e=>{console.error(e);process.exitCode=1;});
+  `;
+  const ios = f.run('node', ['-e', source], { RUNTAEHO_PLATFORM: 'ios', EXPO_NO_DOTENV: '1' });
+  assert.equal(ios.status, 0, ios.stderr);
+  assert.deepEqual(JSON.parse(ios.stdout), { version: '1.8.2', platformVersion: '1.8.2', runtimeVersion: '1.8.0' });
+  const android = f.run('node', ['-e', source], { RUNTAEHO_PLATFORM: 'android', EXPO_NO_DOTENV: '1' });
+  assert.equal(android.status, 0, android.stderr);
+  assert.deepEqual(JSON.parse(android.stdout), { version: '1.9.1', platformVersion: '1.9.1', runtimeVersion: '1.9.0' });
 });

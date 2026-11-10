@@ -1,7 +1,6 @@
 import { useAppTranslation } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import * as Application from 'expo-application';
-import Constants from 'expo-constants';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -9,6 +8,7 @@ import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { TopScreenSafeAreaView } from '~/shared/components';
 import { Text } from '~/shared/components/typography';
 import { GREY } from '~/shared/styles';
+import { systemInfoManager } from '~/shared/utils/SystemInfoManager';
 
 // 앱 아이콘 이미지
 const APP_ICON = require('../../../../assets/images/icon.png');
@@ -22,7 +22,7 @@ export const AppVersionView: React.FC = () => {
 
   // 앱 버전 정보
   // OTA 업데이트된 버전 (JS 버전)
-  const appVersion = Constants.expoConfig?.version ?? '1.0.0';
+  const appVersion = systemInfoManager.getAppVersion();
   // 네이티브 빌드 버전 (스토어 버전)
   const nativeVersion = Application.nativeApplicationVersion ?? '1.0.0';
   const buildNumber = Application.nativeBuildVersion ?? '1';

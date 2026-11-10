@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '~/shared/components/typography';
 import { Icon } from '~/shared/components/ui';
 import { GREY, PRIMARY } from '~/shared/styles';
+import { systemInfoManager } from '~/shared/utils/SystemInfoManager';
 
 /**
  * 문의하기 이메일 주소
@@ -41,7 +42,7 @@ export const AppInfoView: React.FC = () => {
   const router = useRouter();
 
   // 앱 버전 정보
-  const appVersion = Constants.expoConfig?.version || Application.nativeApplicationVersion || '1.0.0';
+  const appVersion = systemInfoManager.getAppVersion();
   const buildNumber = Application.nativeBuildVersion || '1';
   const appName = Constants.expoConfig?.name || 'RunTaeho';
 

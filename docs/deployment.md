@@ -385,13 +385,17 @@ EAS의 구형 export 경로에서는 `all`에 웹도 포함되므로 그대로 �
 1. 선택한 플랫폼의 로컬 네이티브 런타임과 OTA 런타임 정합 확인
 2. 커밋되지 않은 변경 확인
 3. `eas env:exec`로 원격 환경변수를 읽고 필수 설정·`SENTRY_AUTH_TOKEN` 검증 (공개 앱 설정의 누락을 로컬 `.env`/셸 값으로 보충하지 않음)
-4. `scripts/version.js bump-ota`로 `package.json`·`package-lock.json`의 patch를 한 번 올리고 두 파일만 버전 커밋으로 기록 (자동 push는 하지 않음)
+4. `scripts/version.js bump-ota <플랫폼>`으로 `scripts/app-versions.json`에서 선택 플랫폼의 patch만 올리고 해당 파일만 버전 커밋으로 기록 (자동 push는 하지 않음)
 5. `build/ota-*`의 새 산출물 폴더를 선택해 `eas update --branch <브랜치> --environment <환경> --platform <플랫폼> --input-dir <폴더> --emit-metadata` 실행
 6. 게시 성공 후 각 JS/Hermes 번들의 소스맵·Debug ID를 확인하고 동일 폴더를 Sentry에 업로드
 
-`-p all`의 두 플랫폼은 같은 patch와 소스 커밋을 사용한다. 플랫폼을 따로 게시하는 각 실행은
-새 patch를 사용한다. 예를 들어 앱 `1.12.0`의 다음 OTA는 `1.12.1`이며 runtime과 네이티브
-표시 버전·빌드번호는 유지한다. 앱의 버전 화면은 OTA manifest의 버전을 표시한다.
+`-p all`은 같은 소스 커밋에서 두 플랫폼의 patch를 각각 올린다. 버전과 런타임이 달라도 된다.
+예를 들어 iOS `1.12.2 / runtime 1.12.0`, Android `1.13.0 / runtime 1.13.0`의 다음 공통 OTA는
+iOS `1.12.3 / runtime 1.12.0`, Android `1.13.1 / runtime 1.13.0`이다.
+`-p ios`는 Android 버전과 런타임을 변경하지 않는다. 네이티브 표시 버전·빌드번호도 유지한다.
+발행 도구는 각 호출에 `RUNTAEHO_PLATFORM=ios|android`를 전달해 구형 EAS CLI의 공통 `expo.version`도
+선택 플랫폼에 맞춘다. 앱의 버전 화면·문의 정보·버전 검사는 같은 `SystemInfoManager.getAppVersion()`을
+통해 현재 OS의 manifest 버전을 읽고, 이전 manifest는 기존 공통 `version`으로 호환한다.
 
 업로더는 `@sentry/react-native`가 설치한 로컬 `sentry-expo-upload-sourcemaps` 실행 파일을
 `npx --no-install`로 사용한다. 게시 또는 업로드가 실패하면 전체 명령도 실패한다.
@@ -429,7 +433,7 @@ npm run deploy:store -- --platform android --no-submit
 절차는 이렇게 돈다.
 
 1. 프리플라이트 — 소스 상태, 필수 환경변수, Sentry 인증, **Unity export 소스 해시**, Android 서명 설정, iOS 프로파일·배포 개인 키. iOS는 API key와 앱/그룹 접근, Android 운영은 EAS 로그인을 확인
-2. 버전 반영 — `--version` 적용, `runtimeVersion` 동기화, 빌드번호/versionCode 증가, 재시도용 소스 상태 기록
+2. 버전 반영 — 선택 플랫폼에만 `--version` 적용, 해당 네이티브 버전에 `runtimeVersion` 동기화, 빌드번호/versionCode 증가, 재시도용 소스 상태 기록
 3. iOS — 서명 없는 `xcodebuild archive` (Unity 프로젝트 포함) → `sign-ios.py`의 임시 키체인 서명·`-exportArchive`·IPA 검증
 4. Android — `./gradlew :app:bundleProductionRelease` → AAB 서명자 검사
 5. 업로드 — iOS는 `fastlane pilot`, Android 운영은 `eas submit`, Android 개발은 Firebase CLI로 제출
@@ -447,7 +451,7 @@ npm run deploy:store -- --platform android --no-submit
 Unity Editor는 `ProjectVersion.txt`에 지정된 **6000.0.60f1**을 사용한다. 기존 수동 export
 절차와 필요한 네이티브 보정을 유지한다. `expo prebuild --clean`과 EAS Build는 사용하지 않는다.
 
-`Assets/Editor/VersionSync/VersionSyncEditor.cs`가 앱 버전을 읽고, export 전후의
+`Assets/Editor/VersionSync/VersionSyncEditor.cs`가 `package.json.version`을 Unity export용 버전으로 읽고, export 전후의
 `Assets`, `Packages`, `ProjectSettings` SHA-256을 비교한다. 정상 export 후 출력 폴더에
 `.runtaeho-export.json`을 기록한다. export 시작 때 이전 기록을 지워 실패한 결과를 재사용하지 않는다.
 배포는 이 기록과 현재 입력을 비교한다. `.DS_Store`와 위에서 설명한 Addressables 생성 상태 파일은 제외한다.
@@ -499,33 +503,41 @@ npm run deploy:store -- --version 1.9.0 --submit-review
 ## 5. 버전 규칙
 
 `expo prebuild`를 쓰지 않으므로 `app.config.js`의 version/bundleId는 네이티브에 반영되지
-않는다. `scripts/version.js`가 휴대폰의 네이티브 설정과
-`watchos/RunTaehoWatch.xcodeproj`의 버전을 함께 다룬다. iPhone 앱에 포함되는
-Apple Watch 앱의 표시 버전과 빌드번호는 iPhone과 일치시킨다.
+않는다. 앱 버전·런타임의 원본은 `scripts/app-versions.json`의 `ios`·`android` 항목이다.
+`scripts/version.js`는 선택 플랫폼의 설정만 변경한다. iOS를 선택하면
+`watchos/RunTaehoWatch.xcodeproj`의 표시 버전·빌드번호도 iPhone과 함께 맞춘다.
+Android 단독 배포는 iOS·Watch 파일을 변경하지 않는다. `all`은 두 플랫폼을 명시적으로 선택한다.
 
 ```bash
-npm run version:status                 # 휴대폰·Apple Watch 버전과 런타임 정합 여부
-npm run version:sync-runtime           # runtimeVersion을 현재 앱 버전에 맞춤
-npm run version:bump-build             # iOS 빌드번호 / Android versionCode 증가
-npm run version:bump-build -- android  # 한쪽만 (all | ios | android)
+npm run version:status                  # 플랫폼별 설정과 네이티브 정합 확인
+node scripts/version.js set 1.14.0 android  # Android 버전만 설정 (스토어 릴리스 준비)
+npm run version:sync-runtime -- android # Android runtime을 네이티브 versionName에 맞춤
+npm run version:bump-build -- android   # Android versionCode만 증가
+node scripts/version.js bump-ota ios    # iOS 표시 버전의 patch만 증가
 ```
 
 | 값 | 의미 | 언제 올리나 |
 |---|---|---|
-| `package.json.version` | 앱 내부 표시 버전·OTA manifest 버전 | **OTA 게시마다 patch 증가** (`1.12.0 → 1.12.1`), 새 스토어 릴리스는 minor 증가·patch 0 |
+| `app-versions.json`의 플랫폼별 `version` | 앱 내부 표시 버전·OTA manifest 버전 | **선택 플랫폼의 OTA 게시마다 patch 증가**, 새 스토어 릴리스는 minor 증가·patch 0 |
 | 네이티브 `MARKETING_VERSION` / `versionName` | 설치 바이너리·스토어 표시 버전 | **새 스토어 릴리스마다 minor 증가·patch는 0** (`1.8.x → 1.9.0`), OTA에서는 유지 |
-| `runtimeVersion` | 네이티브 호환 경계 | **스토어 배포에서 새 `version`과 동일하게 동기화**, OTA에서는 유지 |
+| `app-versions.json`의 플랫폼별 `runtimeVersion` | 네이티브 호환 경계 | **선택 플랫폼의 스토어 배포에서 해당 네이티브 버전과 동기화**, OTA에서는 유지 |
 | iOS `CURRENT_PROJECT_VERSION` | 빌드번호 | 업로드마다 (단조 증가) |
 | Android `versionCode` | 빌드번호 | 업로드마다 (단조 증가) |
+| `package.json.version` | npm 작업공간·기존 Unity export용 메타데이터 | 모바일 앱 표시 버전·OTA 런타임의 원본으로 사용하지 않음 |
 
-OTA의 package 버전과 네이티브 버전은 major/minor가 같고 package의 patch가 더 높을 수 있다.
-`version:status`는 이 차이를 정상으로 처리하며 네이티브 버전끼리의 불일치와 runtime 불일치는
-계속 실패로 보고한다. OTA를 위해 `version.js set`이나 `sync-runtime`을 실행하지 않는다.
+같은 플랫폼의 OTA 버전과 네이티브 버전은 major/minor가 같고 OTA의 patch가 더 높을 수 있다.
+`version:status`는 플랫폼 간 버전·런타임 차이를 허용하고 각 플랫폼 안의 불일치만 실패로 보고한다.
+OTA를 위해 `version.js set`이나 `sync-runtime`을 실행하지 않는다.
 
-스토어 릴리스는 `npm run deploy:prod -- --version 1.9.0`처럼 새 minor 버전을 명시한다.
-`version:minor`만으로 네이티브 설정은 동기화되지 않으므로, 스토어 빌드는 `scripts/version.js`를 호출하는
-배포 명령으로 네이티브 버전과 런타임까지 함께 맞춘다. 같은 릴리스의 실패 재시도는 minor를
-다시 올리지 않고 위의 `--resume` 또는 산출물 재전송 절차를 따른다.
+스토어 릴리스는 `npm run deploy:prod:android -- --version 1.14.0`처럼 대상 플랫폼과 새 minor 버전을
+명시한다. 기존 `version:patch/minor/major`는 npm 메타데이터만 바꾸므로 앱 배포에 사용하지 않는다.
+같은 릴리스의 실패 재시도는 minor를 다시 올리지 않고 위의 `--resume` 또는 산출물 재전송 절차를 따른다.
+
+2026-11-10 Android 단독 릴리스 뒤 iOS 소스가 공통 버전 도구에 의해 `1.13.0`으로 바뀐 것을 복구했다.
+기존 iOS `1.12.0(9)` 배포 아카이브의 `Expo.plist`와 production OTA 이력은 모두 runtime `1.12.0`이다.
+iOS 표시 버전 `1.12.2 / runtime 1.12.0`, Android `1.13.0 / runtime 1.13.0`을 독립 유지한다.
+회귀 테스트는 단독 스토어 릴리스의 반대 플랫폼 보존, 서로 다른 runtime의 공통 OTA와 iOS 단독 OTA를 검증한다.
+이전 Android `1.12.0` 런타임의 지원을 계속하려면 해당 버전의 호환 소스에서 별도 OTA를 발행한다.
 
 minor 증가는 이 프로젝트의 릴리스 규칙이다. EAS Update의 호환 조건은 설치된 네이티브
 빌드와 OTA의 플랫폼·`runtimeVersion`이 일치하는 것이다. OTA 직전에 런타임을 올리면

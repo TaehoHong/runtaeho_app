@@ -76,6 +76,8 @@ export class SystemInfoManager {
    * 앱 버전
    */
   getAppVersion(): string {
+    const platformConfig = Platform.OS === 'ios' ? Constants.expoConfig?.ios : Constants.expoConfig?.android;
+    if (platformConfig?.version) return platformConfig.version;
     return Constants.expoConfig?.version || '1.0.0';
   }
   

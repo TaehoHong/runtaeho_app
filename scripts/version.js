@@ -5,26 +5,27 @@
  *
  * 이 프로젝트는 CNG(expo prebuild)를 쓰지 않고 ios/, android/ 네이티브 디렉터리를
  * 직접 관리하므로 app.config.js의 version 값이 네이티브에 반영되지 않는다.
- * 스토어 릴리스에서는 아래 네이티브 파일을 함께 맞추고, OTA에서는 package 버전만 올린다.
+ * 선택한 플랫폼의 스토어 설정만 맞추며, OTA에서는 app-versions.json의 버전만 올린다.
  *
- *   package.json                              version, config.runtimeVersion
+ *   scripts/app-versions.json                 플랫폼별 version, runtimeVersion
  *   ios/app.xcodeproj/project.pbxproj         MARKETING_VERSION, CURRENT_PROJECT_VERSION
  *   watchos/RunTaehoWatch.xcodeproj/project.pbxproj  companion version/build
  *   ios/app/Supporting/Expo.plist             EXUpdatesRuntimeVersion
  *   android/app/build.gradle                  versionName, versionCode
  *   android/app/src/main/AndroidManifest.xml  expo.modules.updates.EXPO_RUNTIME_VERSION
  *
- * version        앱에 표시되는 버전. OTA는 package/lockfile의 patch만 올린다.
+ * version        앱에 표시되는 버전. OTA는 선택 플랫폼의 patch만 올린다.
  * runtimeVersion 네이티브 호환 경계. 설치된 빌드의 런타임과 OTA 퍼블리시 런타임이
  *                다르면 업데이트가 전달되지 않는다. 네이티브 릴리스에서만 올린다.
  *
  * Usage:
  *   node scripts/version.js status
- *   node scripts/version.js set <x.y.z>
- *   node scripts/version.js bump-ota
- *   node scripts/version.js sync-runtime
+ *   node scripts/version.js set <x.y.z> [all|ios|android]
+ *   node scripts/version.js bump-ota [all|ios|android]
+ *   node scripts/version.js sync-runtime [all|ios|android]
  *   node scripts/version.js bump-build [all|ios|android]
  *   node scripts/version.js check-ota
+ *   node scripts/version.js get <ios|android> <version|runtimeVersion|nativeVersion>
  */
 
 const fs = require('fs');
@@ -32,8 +33,7 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const FILES = {
-  pkg: path.join(ROOT, 'package.json'),
-  lock: path.join(ROOT, 'package-lock.json'),
+  versions: path.join(ROOT, 'scripts/app-versions.json'),
   pbxproj: path.join(ROOT, 'ios/app.xcodeproj/project.pbxproj'),
   watchPbxproj: path.join(ROOT, 'watchos/RunTaehoWatch.xcodeproj/project.pbxproj'),
   expoPlist: path.join(ROOT, 'ios/app/Supporting/Expo.plist'),
@@ -47,6 +47,13 @@ const SEMVER = /^\d+\.\d+\.\d+$/;
 
 const read = (key) => fs.readFileSync(FILES[key], 'utf8');
 const write = (key, next) => fs.writeFileSync(FILES[key], next);
+
+function selectedPlatforms(target = 'all') {
+  if (!['all', 'ios', 'android'].includes(target)) {
+    throw new Error(`지원하지 않는 플랫폼: ${target}`);
+  }
+  return target === 'all' ? ['ios', 'android'] : [target];
+}
 
 /** 정규식 치환 결과가 0건이면 파일 구조가 바뀐 것이므로 조용히 넘어가지 않는다. */
 function replaceAll(source, pattern, replacer, label) {
@@ -64,7 +71,7 @@ function replaceAll(source, pattern, replacer, label) {
 // ---------------------------------------------------------------- 읽기
 
 function readState() {
-  const pkg = JSON.parse(read('pkg'));
+  const versions = JSON.parse(read('versions'));
   const pbxproj = IOS_PROJECTS.map(read).join('\n');
   const gradle = read('gradle');
 
@@ -80,8 +87,7 @@ function readState() {
   );
 
   return {
-    pkgVersion: pkg.version,
-    pkgRuntime: pkg.config && pkg.config.runtimeVersion,
+    versions,
     iosMarketing: [...new Set(marketing)],
     iosBuild: [...new Set(projectVersion)],
     iosRuntime: plistRuntime ? plistRuntime[1] : null,
@@ -93,86 +99,83 @@ function readState() {
 
 // ---------------------------------------------------------------- 쓰기
 
-function bumpOta() {
-  const pkg = JSON.parse(read('pkg'));
-  const lock = JSON.parse(read('lock'));
-  if (!SEMVER.test(pkg.version)) throw new Error(`버전 형식이 잘못됐다: ${pkg.version}`);
-  const [major, minor, patch] = pkg.version.split('.').map(Number);
-  const version = `${major}.${minor}.${patch + 1}`;
-  pkg.version = version;
-  lock.version = version;
-  lock.packages[''].version = version;
-  write('pkg', `${JSON.stringify(pkg, null, 2)}\n`);
-  write('lock', `${JSON.stringify(lock, null, 2)}\n`);
-  console.log(`OTA app version -> ${version} (package.json, package-lock.json; runtime/native 유지)`);
+function bumpOta(target) {
+  const platforms = selectedPlatforms(target);
+  const versions = JSON.parse(read('versions'));
+  for (const platform of platforms) {
+    const current = versions[platform].version;
+    if (!SEMVER.test(current)) throw new Error(`버전 형식이 잘못됐다: ${platform} ${current}`);
+    const [major, minor, patch] = current.split('.').map(Number);
+    versions[platform].version = `${major}.${minor}.${patch + 1}`;
+    console.log(`OTA ${platform} version -> ${versions[platform].version} (runtime/native 유지)`);
+  }
+  write('versions', `${JSON.stringify(versions, null, 2)}\n`);
 }
 
-function setVersion(version) {
+function setVersion(version, target) {
+  const platforms = selectedPlatforms(target);
   if (!SEMVER.test(version)) {
     throw new Error(`버전 형식이 잘못됐다: ${version} (x.y.z 형식이어야 한다)`);
   }
 
-  const pkg = JSON.parse(read('pkg'));
-  pkg.version = version;
-  write('pkg', `${JSON.stringify(pkg, null, 2)}\n`);
+  const versions = JSON.parse(read('versions'));
+  for (const platform of platforms) versions[platform].version = version;
 
-  for (const project of IOS_PROJECTS) {
+  if (platforms.includes('ios')) {
+    for (const project of IOS_PROJECTS) {
+      write(
+        project,
+        replaceAll(
+          read(project),
+          /MARKETING_VERSION = [^;]+;/g,
+          () => `MARKETING_VERSION = ${version};`,
+          `${project} MARKETING_VERSION`
+        )
+      );
+    }
+  }
+
+  if (platforms.includes('android')) {
     write(
-      project,
+      'gradle',
       replaceAll(
-        read(project),
-        /MARKETING_VERSION = [^;]+;/g,
-        () => `MARKETING_VERSION = ${version};`,
-        `${project} MARKETING_VERSION`
+        read('gradle'),
+        /versionName "[^"]*"/,
+        () => `versionName "${version}"`,
+        'build.gradle versionName'
       )
     );
   }
 
-  write(
-    'gradle',
-    replaceAll(
-      read('gradle'),
-      /versionName "[^"]*"/,
-      () => `versionName "${version}"`,
-      'build.gradle versionName'
-    )
-  );
-
-  console.log(`version -> ${version} (package.json, pbxproj, build.gradle)`);
+  write('versions', `${JSON.stringify(versions, null, 2)}\n`);
+  console.log(`version -> ${version} (${platforms.join(', ')})`);
 }
 
 /**
- * runtimeVersion을 현재 version과 일치시키고 네이티브 두 곳에 반영한다.
+ * 선택한 플랫폼의 runtimeVersion을 그 플랫폼의 네이티브 버전과 맞춘다.
  * 네이티브 릴리스(스토어 배포) 직전에만 실행해야 한다.
  */
-function syncRuntime() {
-  const pkg = JSON.parse(read('pkg'));
-  const runtime = pkg.version;
-
-  pkg.config = { ...(pkg.config || {}), runtimeVersion: runtime };
-  write('pkg', `${JSON.stringify(pkg, null, 2)}\n`);
-
-  write(
-    'expoPlist',
-    replaceAll(
-      read('expoPlist'),
-      /(<key>EXUpdatesRuntimeVersion<\/key>\s*<string>)[^<]*(<\/string>)/,
-      (_match, open, close) => `${open}${runtime}${close}`,
-      'Expo.plist EXUpdatesRuntimeVersion'
-    )
-  );
-
-  write(
-    'manifest',
-    replaceAll(
-      read('manifest'),
-      /(expo\.modules\.updates\.EXPO_RUNTIME_VERSION"\s+android:value=")[^"]*(")/,
-      (_match, open, close) => `${open}${runtime}${close}`,
-      'AndroidManifest EXPO_RUNTIME_VERSION'
-    )
-  );
-
-  console.log(`runtimeVersion -> ${runtime} (package.json, Expo.plist, AndroidManifest)`);
+function syncRuntime(target) {
+  const platforms = selectedPlatforms(target);
+  const state = readState();
+  for (const platform of platforms) {
+    const runtime = platform === 'ios' ? state.iosMarketing[0] : state.androidVersionName;
+    if (!SEMVER.test(runtime) || (platform === 'ios' && state.iosMarketing.length !== 1)) {
+      throw new Error(`${platform}: 네이티브 버전을 먼저 맞춘다.`);
+    }
+    state.versions[platform].runtimeVersion = runtime;
+    if (platform === 'ios') {
+      write('expoPlist', replaceAll(read('expoPlist'),
+        /(<key>EXUpdatesRuntimeVersion<\/key>\s*<string>)[^<]*(<\/string>)/,
+        (_match, open, close) => `${open}${runtime}${close}`, 'Expo.plist EXUpdatesRuntimeVersion'));
+    } else {
+      write('manifest', replaceAll(read('manifest'),
+        /(expo\.modules\.updates\.EXPO_RUNTIME_VERSION"\s+android:value=")[^"]*(")/,
+        (_match, open, close) => `${open}${runtime}${close}`, 'AndroidManifest EXPO_RUNTIME_VERSION'));
+    }
+    console.log(`${platform} runtimeVersion -> ${runtime}`);
+  }
+  write('versions', `${JSON.stringify(state.versions, null, 2)}\n`);
 }
 
 /**
@@ -227,14 +230,17 @@ function bumpBuild(target) {
 
 // ---------------------------------------------------------------- 점검
 
-function status() {
+function status(target) {
+  const platforms = selectedPlatforms(target);
   const s = readState();
   const rows = [
-    ['package.json  version', s.pkgVersion],
-    ['package.json  runtimeVersion', s.pkgRuntime],
+    ['iOS  OTA version', s.versions.ios.version],
+    ['iOS  OTA runtime', s.versions.ios.runtimeVersion],
     ['iOS  MARKETING_VERSION', s.iosMarketing.join(', ')],
     ['iOS  CURRENT_PROJECT_VERSION', s.iosBuild.join(', ')],
     ['iOS  Expo.plist runtime', s.iosRuntime],
+    ['Android  OTA version', s.versions.android.version],
+    ['Android  OTA runtime', s.versions.android.runtimeVersion],
     ['Android  versionName', s.androidVersionName],
     ['Android  versionCode', s.androidVersionCode],
     ['Android  manifest runtime', s.androidRuntime],
@@ -243,20 +249,23 @@ function status() {
   rows.forEach(([label, value]) => console.log(`${label.padEnd(width)}  ${value}`));
 
   console.log('');
-  const nativeVersion = s.androidVersionName;
-  const versionOk = SEMVER.test(s.pkgVersion) && SEMVER.test(nativeVersion) &&
-    s.iosMarketing.length === 1 &&
-    s.iosMarketing[0] === nativeVersion &&
-    s.pkgVersion.split('.').slice(0, 2).join('.') === nativeVersion.split('.').slice(0, 2).join('.') &&
-    Number(s.pkgVersion.split('.')[2]) >= Number(nativeVersion.split('.')[2]);
-  const runtimeOk = s.pkgRuntime === s.iosRuntime && s.pkgRuntime === s.androidRuntime;
+  const versionOk = platforms.every(platform => {
+    const version = s.versions[platform].version;
+    const nativeVersion = platform === 'ios' ? s.iosMarketing[0] : s.androidVersionName;
+    return SEMVER.test(version) && SEMVER.test(nativeVersion) &&
+      (platform !== 'ios' || s.iosMarketing.length === 1) &&
+      version.split('.').slice(0, 2).join('.') === nativeVersion.split('.').slice(0, 2).join('.') &&
+      Number(version.split('.')[2]) >= Number(nativeVersion.split('.')[2]);
+  });
+  const runtimeOk = platforms.every(platform => s.versions[platform].runtimeVersion ===
+    (platform === 'ios' ? s.iosRuntime : s.androidRuntime));
 
   console.log(`version 정합   ${versionOk ? 'OK' : 'MISMATCH'}`);
   console.log(`runtime 정합   ${runtimeOk ? 'OK' : 'MISMATCH'}`);
   if (!runtimeOk) {
     console.log('');
     console.log('runtime이 어긋나면 해당 플랫폼은 OTA 업데이트를 받지 못한다.');
-    console.log('스토어 배포 전이라면 `node scripts/version.js sync-runtime`으로 맞춘다.');
+    console.log('실제 배포 바이너리의 런타임과 플랫폼별 설정을 확인한다.');
   }
   return versionOk && runtimeOk ? 0 : 1;
 }
@@ -266,20 +275,18 @@ function status() {
  * 실제 설치된 스토어 바이너리의 런타임/네이티브 호환성은 별도로 확인해야 한다.
  */
 function checkOta(target = 'all') {
-  if (!['all', 'ios', 'android'].includes(target)) {
-    throw new Error(`지원하지 않는 플랫폼: ${target}`);
-  }
+  const platforms = selectedPlatforms(target);
   const s = readState();
   const problems = [];
 
-  if (target !== 'android' && s.pkgRuntime !== s.iosRuntime) {
+  if (platforms.includes('ios') && s.versions.ios.runtimeVersion !== s.iosRuntime) {
     problems.push(
-      `iOS: Expo.plist=${s.iosRuntime} ≠ package.json runtimeVersion=${s.pkgRuntime}`
+      `iOS: Expo.plist=${s.iosRuntime} ≠ OTA runtimeVersion=${s.versions.ios.runtimeVersion}`
     );
   }
-  if (target !== 'ios' && s.pkgRuntime !== s.androidRuntime) {
+  if (platforms.includes('android') && s.versions.android.runtimeVersion !== s.androidRuntime) {
     problems.push(
-      `Android: AndroidManifest=${s.androidRuntime} ≠ package.json runtimeVersion=${s.pkgRuntime}`
+      `Android: AndroidManifest=${s.androidRuntime} ≠ OTA runtimeVersion=${s.versions.android.runtimeVersion}`
     );
   }
 
@@ -287,42 +294,52 @@ function checkOta(target = 'all') {
     console.error('OTA 런타임 불일치:');
     problems.forEach((p) => console.error(`  - ${p}`));
     console.error('');
-    console.error('퍼블리시되는 런타임은 package.json의 config.runtimeVersion이다.');
+    console.error('퍼블리시되는 런타임은 scripts/app-versions.json의 플랫폼별 runtimeVersion이다.');
     console.error('네이티브 쪽 값과 다르면 그 플랫폼은 업데이트를 받지 못한다.');
-    console.error('설치된 빌드에 맞춰 package.json을 되돌리거나, 다음 스토어 배포에서');
+    console.error('설치된 빌드에 맞춰 플랫폼별 설정을 복원하거나, 다음 스토어 배포에서');
     console.error('sync-runtime으로 네이티브를 맞춘 뒤 퍼블리시한다.');
     return 1;
   }
 
-  console.log(`OTA 런타임 정합 OK (runtimeVersion=${s.pkgRuntime})`);
+  console.log(`OTA 런타임 정합 OK (${platforms.map(platform => `${platform}=${s.versions[platform].runtimeVersion}`).join(', ')})`);
   return 0;
 }
 
 // ---------------------------------------------------------------- 진입점
 
 function main() {
-  const [command, arg] = process.argv.slice(2);
+  const [command, arg, target] = process.argv.slice(2);
 
   switch (command) {
     case 'status':
-      return status();
+      return status(arg);
     case 'set':
       if (!arg) throw new Error('사용법: node scripts/version.js set <x.y.z>');
-      setVersion(arg);
+      setVersion(arg, target);
       return 0;
     case 'bump-ota':
-      bumpOta();
+      bumpOta(arg);
       return 0;
     case 'sync-runtime':
-      syncRuntime();
+      syncRuntime(arg);
       return 0;
     case 'bump-build':
       bumpBuild(arg);
       return 0;
     case 'check-ota':
       return checkOta(arg);
+    case 'get': {
+      if (!['ios', 'android'].includes(arg) || !['version', 'runtimeVersion', 'nativeVersion'].includes(target)) {
+        throw new Error('사용법: node scripts/version.js get <ios|android> <version|runtimeVersion|nativeVersion>');
+      }
+      const state = readState();
+      console.log(target === 'nativeVersion'
+        ? (arg === 'ios' ? state.iosMarketing[0] : state.androidVersionName)
+        : state.versions[arg][target]);
+      return 0;
+    }
     default:
-      console.error('사용법: node scripts/version.js <status|set|bump-ota|sync-runtime|bump-build|check-ota>');
+      console.error('사용법: node scripts/version.js <status|set|bump-ota|sync-runtime|bump-build|check-ota|get>');
       return 1;
   }
 }

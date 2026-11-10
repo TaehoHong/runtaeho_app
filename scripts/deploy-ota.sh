@@ -68,28 +68,27 @@ if [[ $ALLOW_DIRTY -eq 0 ]] && [[ -n "$(git status --porcelain)" ]]; then
   git status --short
   die "커밋되지 않은 변경이 있다. 커밋 후 다시 실행하거나 --allow-dirty를 준다."
 fi
-RUNTIME="$(node -p "require('./package.json').config.runtimeVersion")"
-VERSION="$(node -p "require('./package.json').version")"
 
 echo ""
 info "브랜치      $BRANCH (environment: $ENVIRONMENT)"
 info "플랫폼      $PLATFORM"
-info "현재 앱 버전 $VERSION (게시 전에 patch 1 증가)"
-info "런타임      $RUNTIME  ← 이 런타임으로 설치된 빌드만 업데이트를 받는다"
+for target in ios android; do
+  if [[ "$PLATFORM" == all || "$PLATFORM" == "$target" ]]; then
+    info "$target 버전 $(node scripts/version.js get "$target" version) (게시 전에 patch 1 증가)"
+    info "$target 런타임 $(node scripts/version.js get "$target" runtimeVersion) ← 이 런타임으로 설치된 빌드만 업데이트를 받는다"
+  fi
+done
 info "메시지      $MESSAGE"
 echo ""
 
-CMD=(npx eas update
-  --branch "$BRANCH"
-  --environment "$ENVIRONMENT"
-  --platform "$PLATFORM"
-  --message "$MESSAGE"
-  --non-interactive)
-
 if [[ $DRY_RUN -eq 1 ]]; then
   info "실행 시 EAS $ENVIRONMENT 환경의 필수 변수와 SENTRY_AUTH_TOKEN을 검증한다."
-  info "dry-run: 검증 후 package.json·package-lock.json의 patch를 한 번 올리고 두 파일만 커밋한다."
-  info "dry-run: ${CMD[*]}"
+  info "dry-run: 검증 후 scripts/app-versions.json에서 선택 플랫폼의 patch만 올리고 버전 파일만 커밋한다."
+  for target in ios android; do
+    if [[ "$PLATFORM" == all || "$PLATFORM" == "$target" ]]; then
+      info "dry-run: RUNTAEHO_PLATFORM=$target npx eas update --branch $BRANCH --environment $ENVIRONMENT --platform $target --message $MESSAGE --non-interactive"
+    fi
+  done
   info "dry-run: 새 build/ota-* 폴더의 번들·소스맵을 생성하고 게시한 뒤 Sentry에 업로드한다."
   exit 0
 fi

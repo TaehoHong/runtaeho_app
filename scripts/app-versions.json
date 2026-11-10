@@ -1,0 +1,10 @@
+{
+  "ios": {
+    "version": "1.12.2",
+    "runtimeVersion": "1.12.0"
+  },
+  "android": {
+    "version": "1.13.0",
+    "runtimeVersion": "1.13.0"
+  }
+}

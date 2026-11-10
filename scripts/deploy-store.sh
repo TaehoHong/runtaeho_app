@@ -200,10 +200,10 @@ LOCK_HELD=1
 step "버전 반영"
 
 if [[ -n "$NEW_VERSION" ]]; then
-  node scripts/version.js set "$NEW_VERSION"
+  node scripts/version.js set "$NEW_VERSION" "$PLATFORM"
 fi
 if [[ $SYNC_RUNTIME -eq 1 ]]; then
-  node scripts/version.js sync-runtime
+  node scripts/version.js sync-runtime "$PLATFORM"
 else
   info "runtimeVersion 동기화 건너뜀"
 fi
@@ -214,11 +214,12 @@ else
 fi
 
 echo ""
-node scripts/version.js status
+node scripts/version.js status "$PLATFORM"
 # 버전 변경 후의 상태를 기록하여 실패 시 같은 소스로만 재시도한다.
 node scripts/release-state.cjs save "$PLATFORM" "$PROFILE"
 
-VERSION="$(node -p "require('./package.json').version")"
+IOS_VERSION="$(node scripts/version.js get ios nativeVersion)"
+ANDROID_VERSION="$(node scripts/version.js get android nativeVersion)"
 IOS_BUILD="$(sed -n 's/.*CURRENT_PROJECT_VERSION = \([^;]*\);.*/\1/p' \
   ios/app.xcodeproj/project.pbxproj | head -1 | tr -d ' ' || true)"
 ANDROID_CODE="$(sed -n 's/.*versionCode \([0-9]*\).*/\1/p' android/app/build.gradle | head -1 || true)"
@@ -232,15 +233,16 @@ export EXPO_PUBLIC_ENV="$PROFILE"
 
 IPA_PATH=""
 if want_ios; then
-  step "iOS 빌드 ($VERSION build $IOS_BUILD)"
+  export RUNTAEHO_PLATFORM=ios
+  step "iOS 빌드 ($IOS_VERSION build $IOS_BUILD)"
 
   if [[ $RUN_PODS -eq 1 ]]; then
     info "pod install"
     (cd ios && pod install)
   fi
 
-  ARCHIVE_PATH="$OUT_DIR/ios/app-$VERSION-$IOS_BUILD.xcarchive"
-  EXPORT_PATH="$OUT_DIR/ios/export-$VERSION-$IOS_BUILD"
+  ARCHIVE_PATH="$OUT_DIR/ios/app-$IOS_VERSION-$IOS_BUILD.xcarchive"
+  EXPORT_PATH="$OUT_DIR/ios/export-$IOS_VERSION-$IOS_BUILD"
   rm -rf "$ARCHIVE_PATH" "$EXPORT_PATH"
 
   info "아카이브 (Unity 프로젝트가 워크스페이스에 포함되어 함께 빌드된다)"
@@ -265,16 +267,17 @@ fi
 
 ANDROID_PATH=""
 if want_android; then
-  step "Android 빌드 ($VERSION versionCode $ANDROID_CODE)"
+  export RUNTAEHO_PLATFORM=android
+  step "Android 빌드 ($ANDROID_VERSION versionCode $ANDROID_CODE)"
 
   if [[ "$PROFILE" == development ]]; then
     (cd android && ./gradlew :app:assembleDevelopmentRelease)
     BUILT_ANDROID="$ROOT/android/app/build/outputs/apk/development/release/app-development-release.apk"
-    ANDROID_PATH="$OUT_DIR/android/app-$VERSION-$ANDROID_CODE.apk"
+    ANDROID_PATH="$OUT_DIR/android/app-$ANDROID_VERSION-$ANDROID_CODE.apk"
   else
     (cd android && ./gradlew :app:bundleProductionRelease)
     BUILT_ANDROID="$ROOT/android/app/build/outputs/bundle/productionRelease/app-production-release.aab"
-    ANDROID_PATH="$OUT_DIR/android/app-$VERSION-$ANDROID_CODE.aab"
+    ANDROID_PATH="$OUT_DIR/android/app-$ANDROID_VERSION-$ANDROID_CODE.aab"
     bash scripts/verify-aab.sh "$BUILT_ANDROID"
   fi
   [[ -f "$BUILT_ANDROID" ]] || die "Android 산출물을 찾지 못했다: $BUILT_ANDROID"
@@ -296,19 +299,18 @@ if [[ $SUBMIT -eq 1 ]]; then
   fi
   if [[ -n "$IPA_PATH" && $SUBMIT_REVIEW -eq 1 ]]; then
     step "iOS 심사 제출"
-    bash scripts/submit-review.sh "$VERSION" "$IOS_BUILD"
+    bash scripts/submit-review.sh "$IOS_VERSION" "$IOS_BUILD"
   fi
 fi
 
 # ---------------------------------------------------------------- 요약
 
 step "완료"
-echo "버전        $VERSION"
 if [[ -n "$IPA_PATH" ]]; then
-  echo "iOS         build $IOS_BUILD  →  $IPA_PATH"
+  echo "iOS         $IOS_VERSION build $IOS_BUILD  →  $IPA_PATH"
 fi
 if [[ -n "$ANDROID_PATH" ]]; then
-  echo "Android     versionCode $ANDROID_CODE  →  $ANDROID_PATH"
+  echo "Android     $ANDROID_VERSION versionCode $ANDROID_CODE  →  $ANDROID_PATH"
 fi
 echo ""
 
@@ -321,7 +323,7 @@ elif [[ $SUBMIT -eq 1 ]]; then
     if [[ $SUBMIT_REVIEW -eq 1 ]]; then
       echo "  - iOS: 심사 제출 완료. 승인 후 App Store Connect에서 수동 출시한다."
     else
-      echo "  - iOS: Apple 처리 후 npm run submit:review:ios -- $VERSION $IOS_BUILD 로 심사에 제출한다."
+      echo "  - iOS: Apple 처리 후 npm run submit:review:ios -- $IOS_VERSION $IOS_BUILD 로 심사에 제출한다."
     fi
   fi
   if [[ -n "$ANDROID_PATH" ]]; then
@@ -331,4 +333,4 @@ fi
 
 echo ""
 echo "버전 변경이 커밋되지 않았다면 지금 커밋해 둔다:"
-echo "  git add package.json ios android && git commit -m \"chore: release $VERSION\""
+echo "  git add scripts/app-versions.json ios android watchos && git commit -m \"chore: release $PLATFORM\""

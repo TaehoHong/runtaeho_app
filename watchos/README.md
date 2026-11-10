@@ -78,6 +78,7 @@ its existing Pods/Unity setup and direct Xcode build requirements; do not run
 `expo prebuild --clean` or EAS Build for that phone project.
 
 Phone release tooling in `../scripts/version.js` synchronizes version/build
-settings in both project files. Run the existing release/version commands from
+settings in both project files for an `ios` or `all` target. Android-only releases
+leave this project unchanged. Run the existing release/version commands from
 the mobile project when preparing a paired release; this tooling is separate from
 independent watch development and is not needed for the Xcode build above.
