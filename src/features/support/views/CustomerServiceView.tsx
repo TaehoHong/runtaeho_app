@@ -16,7 +16,6 @@ interface MenuItem {
   icon: keyof typeof Ionicons.glyphMap;
   iconBackgroundColor: string;
   title: string;
-  description: string;
   showNewBadge?: boolean;
   onPress: () => void;
 }
@@ -45,7 +44,6 @@ export const CustomerServiceView: React.FC = () => {
       icon: 'chatbubble-outline',
       iconBackgroundColor: '#E8F5E9',
       title: t("1:1 문의"),
-      description: t("빠른 답변을 받아보세요"),
       onPress: () => {
         router.push('/user/inquiry');
       },
@@ -55,7 +53,6 @@ export const CustomerServiceView: React.FC = () => {
       icon: 'document-text-outline',
       iconBackgroundColor: '#E8F5E9',
       title: t("자주 묻는 질문"),
-      description: t("FAQ를 확인하세요"),
       onPress: () => {
         router.push('/user/faq');
       },
@@ -65,7 +62,6 @@ export const CustomerServiceView: React.FC = () => {
       icon: 'notifications-outline',
       iconBackgroundColor: '#E8F5E9',
       title: t("공지사항"),
-      description: t("최신 소식을 확인하세요"),
       onPress: () => {
         router.push('/user/notice');
       },
@@ -121,7 +117,6 @@ export const CustomerServiceView: React.FC = () => {
                     </View>
                   )}
                 </View>
-                <Text style={styles.menuDescription}>{item.description}</Text>
               </View>
 
               {/* 화살표 */}
@@ -238,13 +233,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Pretendard',
     color: GREY.WHITE,
     letterSpacing: 0.4,
-  },
-  menuDescription: {
-    fontSize: 12,
-    fontWeight: '400',
-    fontFamily: 'Pretendard',
-    color: GREY[500],
-    marginTop: 4,
   },
   contactSection: {
     backgroundColor: GREY.WHITE,

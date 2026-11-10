@@ -4,7 +4,6 @@ import { Platform, StyleSheet, Text } from 'react-native';
 import { AvatarHeader } from '~/features/avatar/views/components/AvatarHeader';
 import { PointInfoBar } from '~/features/running/views/components/point-info-bar';
 import { StatisticsSummaryCard } from '~/features/statistics/views/components/StatisticsSummaryCard';
-import { Period } from '~/features/statistics/models';
 import { getNumberFontStyle } from '../fontUtils';
 
 jest.mock('~/shared/components/ui', () => ({ Icon: () => null }));
@@ -21,7 +20,7 @@ describe('numeric screens', () => {
   });
 
   it('uses the bundled extra-bold face for summary numbers at their existing size', () => {
-    render(<StatisticsSummaryCard runCount={7} totalDistance={12300} averagePace={6} period={Period.MONTH} />);
+    render(<StatisticsSummaryCard runCount={7} totalDistance={12300} averagePace={6} />);
 
     expect(screen.getByText('12.30')).toHaveStyle({
       fontFamily: 'Pretendard-ExtraBold', fontSize: 52, lineHeight: 60, fontWeight: '800',
@@ -29,7 +28,7 @@ describe('numeric screens', () => {
     expect(screen.getByText('7회')).toHaveStyle({
       fontFamily: 'Pretendard-SemiBold', fontSize: 14, lineHeight: 20, fontWeight: '600',
     });
-    expect(StyleSheet.flatten(screen.getByText('이번 달 총 거리').props.style)).not.toHaveProperty('fontFamily');
+    expect(StyleSheet.flatten(screen.getByText('총 거리').props.style)).not.toHaveProperty('fontFamily');
   });
 
   it('uses bold for completion points without changing the existing tracking', () => {

@@ -26,6 +26,11 @@ final class RunRecorder: NSObject, ObservableObject, HKWorkoutSessionDelegate, H
   private var timer: Timer?
   private let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Runs")
   private var checkpoint: URL { directory.appendingPathComponent("active.json") }
+  var hasPendingRecords: Bool {
+    (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil).contains {
+      $0.pathExtension == "json" && $0.lastPathComponent != "active.json"
+    }) ?? false
+  }
   override init() {
     super.init()
     location.delegate = self

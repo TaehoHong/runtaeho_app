@@ -113,7 +113,6 @@ export function AddShoeForm({ entry, onClose, onSuccess }: AddShoeFormProps) {
           {/* 브랜드 입력 */}
           <InputField
             label={t("브랜드")}
-            placeholder={t("신발의 브랜드를 입력해주세요.")}
             value={brand}
             onChangeText={(text) => { if (!submittingRef.current && !isAddingShoe) setBrand(text); }}
             editable={!isSubmitting && !isAddingShoe}
@@ -122,7 +121,6 @@ export function AddShoeForm({ entry, onClose, onSuccess }: AddShoeFormProps) {
           {/* 모델명 입력 */}
           <InputField
             label={t("모델명")}
-            placeholder={t("신발의 모델명을 입력해주세요.")}
             value={model}
             onChangeText={(text) => { if (!submittingRef.current && !isAddingShoe) setModel(text); }}
             editable={!isSubmitting && !isAddingShoe}
@@ -131,7 +129,6 @@ export function AddShoeForm({ entry, onClose, onSuccess }: AddShoeFormProps) {
           {/* 목표 거리 입력 */}
           <InputField
             label={t("목표 거리 (km)")}
-            placeholder={t("목표 거리를 입력해주세요.")}
             value={targetDistance}
             onChangeText={handleTargetDistanceChange}
             editable={!isSubmitting && !isAddingShoe}
@@ -173,7 +170,6 @@ export function AddShoeForm({ entry, onClose, onSuccess }: AddShoeFormProps) {
 // InputField Component
 interface InputFieldProps {
   label: string;
-  placeholder: string;
   value: string;
   onChangeText: (text: string) => void;
   editable: boolean;
@@ -183,7 +179,6 @@ interface InputFieldProps {
 
 const InputField: React.FC<InputFieldProps> = ({
   label,
-  placeholder,
   value,
   onChangeText,
   editable,
@@ -196,8 +191,7 @@ const InputField: React.FC<InputFieldProps> = ({
       <Text style={styles.inputLabel}>{label}</Text>
       <TextInput
         style={[styles.input, error ? styles.inputError : undefined, getAndroidFontStyle(styles.input)]}
-        placeholder={placeholder}
-        placeholderTextColor={GREY[300]}
+        accessibilityLabel={label}
         value={value}
         onChangeText={onChangeText}
         editable={editable}

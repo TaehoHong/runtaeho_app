@@ -152,7 +152,6 @@ export const StatisticsView = () => {
             runCount={0}
             totalDistance={0}
             averagePace={0}
-            period={selectedPeriod}
           />
         ) : (
           displaySummary && (
@@ -160,7 +159,6 @@ export const StatisticsView = () => {
               runCount={displaySummary.runCount}
               totalDistance={displaySummary.totalDistance}
               averagePace={displaySummary.averagePace || 0}
-              period={selectedPeriod}
             />
           )
         )}

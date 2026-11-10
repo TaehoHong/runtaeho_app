@@ -10,7 +10,8 @@ import { t, useAppLanguage } from '~/i18n';
  */
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { Animated, Easing, FlatList, RefreshControl, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Animated, Easing, FlatList, RefreshControl, StyleSheet, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { NativeText as Text } from '~/shared/components/typography';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from 'expo-router';
@@ -41,6 +42,7 @@ export const RankingSection = ({
   const expanded = fontScale > 1.3;
   // Two name lines plus one distance line, with the same height used by rank animations.
   const rowHeight = expanded ? 3 * Math.ceil(LARGE_RANK_LINE_HEIGHT * fontScale) + 32 : RANK_ITEM_HEIGHT;
+  const [showRules, setShowRules] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(0);
   const hasPageHeader = pageHeader != null;
   const [isAnimating, setIsAnimating] = useState(false);
@@ -319,8 +321,19 @@ export const RankingSection = ({
 
   const heading = (
     <View style={styles.header}>
+      <View style={styles.headingRow}>
         <Text style={styles.title}>{t("순위표")}</Text>
-        <Text style={styles.description}>{t("업로드 시각이 아닌 실제 러닝 종료 시각으로 집계해요. 시즌을 넘겨 달리면 종료한 시즌에 전체 거리가 반영돼요.")}</Text>
+        <TouchableOpacity
+          style={styles.rulesButton}
+          onPress={() => setShowRules(value => !value)}
+          accessibilityRole="button"
+          accessibilityLabel={t("순위 집계 안내")}
+          accessibilityState={{ expanded: showRules }}
+        >
+          <Ionicons name="information-circle-outline" size={20} color={GREY[600]} />
+        </TouchableOpacity>
+      </View>
+      {showRules && <Text style={styles.description}>{t("업로드 시각이 아닌 실제 러닝 종료 시각으로 집계해요. 시즌을 넘겨 달리면 종료한 시즌에 전체 거리가 반영돼요.")}</Text>}
     </View>
   );
 
@@ -411,6 +424,18 @@ const styles = StyleSheet.create({
   header: {
     padding: 16,
     alignItems: 'center',
+  },
+  headingRow: {
+    alignSelf: 'stretch',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  rulesButton: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   containerExpanded: {
     marginHorizontal: 0,

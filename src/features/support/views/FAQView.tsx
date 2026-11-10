@@ -1,8 +1,8 @@
 import { useAppLanguage, useAppTranslation } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { TopScreenSafeAreaView } from '~/shared/components';
 import { Text } from '~/shared/components/typography';
 import { GREY, PRIMARY } from '~/shared/styles';
@@ -10,6 +10,8 @@ import { GREY, PRIMARY } from '~/shared/styles';
 export const FAQView: React.FC = () => {
   const t = useAppTranslation();
   const router = useRouter();
+  const [showOtherPlatform, setShowOtherPlatform] = useState(false);
+  const isAndroid = Platform.OS === 'android';
 
   return (
     <TopScreenSafeAreaView style={styles.container}>
@@ -24,7 +26,7 @@ export const FAQView: React.FC = () => {
       <ScrollView style={styles.flex} contentContainerStyle={styles.content}>
         <View style={styles.card}>
           <Text style={styles.question}>{t("운동했는데 기록이 안 들어와요.")}</Text>
-          <Text style={styles.answer}>{t("운동 기록은 앱 사용 설정과 기기 Health 권한이 모두 허용되어야 가져올 수 있어요. 아래 순서로 확인해주세요.")}</Text>
+          <Text style={styles.answer}>{t("운동 기록을 가져오려면 앱과 기기 Health 권한이 모두 필요해요.")}</Text>
 
           <View style={styles.divider} />
 
@@ -32,25 +34,53 @@ export const FAQView: React.FC = () => {
             icon="settings-outline"
             title={t("앱")}
             primary={t("내정보 > 설정 > 권한 설정")}
-            secondary={t("앱 사용 설정을 켜주세요.")}
+            secondary={t("러닝 기록 가져오기를 켜주세요.")}
           />
-          <FAQStep
-            icon="logo-android"
-            title="Android"
-            primary={t("Health Connect > 앱 권한 > 달려라 태호군")}
-            secondary={t("운동과 경로 읽기 권한을 허용해주세요.")}
-          />
-          <FAQStep
-            icon="logo-apple"
-            title="iOS"
-            primary={t("건강 앱 > 공유 > 앱 > 달려라 태호군")}
-            secondary={t("또는 설정 > Health > 데이터 접근 및 기기에서 확인해주세요.")}
-          />
+          {isAndroid ? (
+            <FAQStep
+              icon="logo-android"
+              title="Android"
+              primary={t("Health Connect > 앱 권한 > 달려라 태호군")}
+              secondary={t("운동과 경로 읽기 권한을 허용해주세요.")}
+            />
+          ) : (
+            <FAQStep
+              icon="logo-apple"
+              title="iOS"
+              primary={t("건강 앱 > 공유 > 앱 > 달려라 태호군")}
+              secondary={t("또는 설정 > Health > 데이터 접근 및 기기에서 확인해주세요.")}
+            />
+          )}
           <FAQStep
             icon="watch-outline"
             title="Garmin"
             primary={t("Garmin Connect 앱을 열어 동기화가 완료됐는지 확인해주세요.")}
           />
+
+          <TouchableOpacity
+            style={styles.otherPlatformButton}
+            onPress={() => setShowOtherPlatform(value => !value)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: showOtherPlatform }}
+          >
+            <Text style={styles.stepSecondary}>{isAndroid ? t("iOS 안내") : t("Android 안내")}</Text>
+            <Ionicons name={showOtherPlatform ? "chevron-up" : "chevron-down"} size={18} color={GREY[600]} />
+          </TouchableOpacity>
+          {showOtherPlatform && (isAndroid ? (
+            <FAQStep
+              icon="logo-apple"
+              title="iOS"
+              primary={t("건강 앱 > 공유 > 앱 > 달려라 태호군")}
+              secondary={t("또는 설정 > Health > 데이터 접근 및 기기에서 확인해주세요.")}
+            />
+          ) : (
+            <FAQStep
+              icon="logo-android"
+              title="Android"
+              primary={t("Health Connect > 앱 권한 > 달려라 태호군")}
+              secondary={t("운동과 경로 읽기 권한을 허용해주세요.")}
+            />
+          ))}
 
           <TouchableOpacity
             style={styles.permissionButton}
@@ -63,7 +93,6 @@ export const FAQView: React.FC = () => {
         </View>
 
         <View style={styles.inquirySection}>
-          <Text style={styles.inquiryText}>{t("그래도 기록이 보이지 않으면 문의를 남겨주세요.")}</Text>
           <TouchableOpacity
             style={styles.inquiryButton}
             onPress={() => router.push('/user/inquiry')}
@@ -98,6 +127,12 @@ const FAQStep: React.FC<FAQStepProps> = ({ icon, title, primary, secondary }) =>
 ); };
 
 const styles = StyleSheet.create({
+  otherPlatformButton: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   flex: {
     flex: 1,
   },
@@ -213,13 +248,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     gap: 12,
-  },
-  inquiryText: {
-    fontSize: 13,
-    fontWeight: '500',
-    fontFamily: 'Pretendard',
-    lineHeight: 20,
-    color: GREY[600],
   },
   inquiryButton: {
     height: 44,

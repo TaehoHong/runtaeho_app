@@ -35,11 +35,6 @@ export const useHealthPermissionModal = () => {
     }
   }, []);
 
-  const close = useCallback(() => {
-    setVisible(false);
-    void markSeen();
-  }, []);
-
   const requestPermission = useCallback(() => {
     setVisible(false);
     const snapshot = getSessionSnapshot();
@@ -71,7 +66,6 @@ export const useHealthPermissionModal = () => {
   return {
     visible,
     showIfNeeded,
-    close,
     requestPermission,
   };
 };

@@ -3,6 +3,7 @@ import { t, useAppTranslation } from '~/i18n';
  * 약관 동의 화면
  */
 
+import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -143,10 +144,13 @@ export const TermsAgreementScreen: React.FC = () => {
                 <Text style={styles.required}>{translate("(필수)")}</Text>{translate(" 서비스 이용약관")}</Text>
             </TouchableOpacity>
             <TouchableOpacity
+              style={styles.viewDetail}
+              accessibilityRole="button"
+              accessibilityLabel={translate("서비스 이용약관 자세히 보기")}
               onPress={() => openTermsModal(serviceTerm.link, t("서비스 이용약관"))}
               activeOpacity={0.7}
             >
-              <Text style={styles.viewDetail}>{translate("자세히 보기 >")}</Text>
+              <Ionicons name="chevron-forward" size={20} color={Colors.GREY[500]} />
             </TouchableOpacity>
           </View>
         )}
@@ -166,10 +170,13 @@ export const TermsAgreementScreen: React.FC = () => {
                 <Text style={styles.required}>{translate("(필수)")}</Text>{translate(" 개인정보 처리방침")}</Text>
             </TouchableOpacity>
             <TouchableOpacity
+              style={styles.viewDetail}
+              accessibilityRole="button"
+              accessibilityLabel={translate("개인정보 처리방침 자세히 보기")}
               onPress={() => openTermsModal(privateTerm.link, t("개인정보 처리방침"))}
               activeOpacity={0.7}
             >
-              <Text style={styles.viewDetail}>{translate("자세히 보기 >")}</Text>
+              <Ionicons name="chevron-forward" size={20} color={Colors.GREY[500]} />
             </TouchableOpacity>
           </View>
         )}
@@ -189,10 +196,13 @@ export const TermsAgreementScreen: React.FC = () => {
                 <Text style={styles.required}>{translate("(필수)")}</Text>{translate(" 위치기반서비스 이용약관")}</Text>
             </TouchableOpacity>
             <TouchableOpacity
+              style={styles.viewDetail}
+              accessibilityRole="button"
+              accessibilityLabel={translate("위치기반서비스 이용약관 자세히 보기")}
               onPress={() => openTermsModal(locationTerm.link, t("위치기반서비스 이용약관"))}
               activeOpacity={0.7}
             >
-              <Text style={styles.viewDetail}>{translate("자세히 보기 >")}</Text>
+              <Ionicons name="chevron-forward" size={20} color={Colors.GREY[500]} />
             </TouchableOpacity>
           </View>
         )}
@@ -341,6 +351,7 @@ const styles = StyleSheet.create({
     color: Colors.GREY[900],
   },
   termsLabel: {
+    flexShrink: 1,
     fontSize: 16,
     color: Colors.GREY[900],
   },
@@ -349,8 +360,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   viewDetail: {
-    fontSize: 14,
-    color: Colors.GREY[500],
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   footer: {
     padding: 20,

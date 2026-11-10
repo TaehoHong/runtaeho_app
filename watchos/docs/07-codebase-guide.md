@@ -27,6 +27,8 @@
 
 측정·파일 저장/복구는 `RunRecorder`, 체크포인트 모델은 `RunCheckpoint`, 표시 설정은 `WatchDisplaySettings`의 현재 구조를 따른다. `RunCheckpoint`의 원본 식별자·소유자·측정 값과 `WatchDisplaySettings`의 표시 상태를 구분한다. 폰과 서버로 이어지는 계약은 동기화 원본에서 확인한다. 독립 워치 빌드는 Xcode 프로젝트, 폰 참조 관계는 폰 프로젝트가 소유한다. 현재 Watch 출시는 보류되어 기본 폰 타깃에는 Watch 빌드 의존성과 포함 단계가 없다.
 
+홈의 저장 대기 안내는 RunRecorder의 완료 `.json` 파일이 있을 때만 표시한다. 진행 중 체크포인트 `active.json`과 검토용 `.unmeasured`·`.invalidtimeline` 파일은 전송 대기로 표시하지 않으며, 서버 확인 후 완료 표시는 기존 ACK 상태를 따른다.
+
 화면 원본은 [공통 디자인 원본](../../../docs/04-design-rules.md)에서 해당 워치 프레임을 선택하고 현재 SwiftUI 화면과 대조한다.
 
 ## Verification Map

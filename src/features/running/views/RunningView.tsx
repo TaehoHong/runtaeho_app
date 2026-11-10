@@ -42,7 +42,6 @@ export const RunningView: React.FC = () => {
   const {
     visible: isHealthPermissionModalVisible,
     showIfNeeded: showHealthPermissionModalIfNeeded,
-    close: closeHealthPermissionModal,
     requestPermission: requestHealthPermission,
   } = useHealthPermissionModal();
 
@@ -419,7 +418,6 @@ export const RunningView: React.FC = () => {
         <RunningAlerts />
         <HealthPermissionModal
           visible={isHealthPermissionModalVisible}
-          onClose={closeHealthPermissionModal}
           onRequestPermission={requestHealthPermission}
         />
 

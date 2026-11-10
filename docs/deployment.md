@@ -47,6 +47,9 @@ Android Maps 키는 선택 환경의 `.env.development.local` / `.env.production
 를 `android/`에서 실행해 최종 package manifest의 키 존재를 값 출력 없이 확인한다.
 기존 AAB에는 새 키가 소급 반영되지 않으며 네이티브 재빌드가 필요하다. 실제 배포 기기의
 지도 타일과 Google Cloud의 패키지·Play 앱 서명 인증서 제한은 기기에서 확인한다.
+개발·운영이 같은 키를 사용하면 Cloud의 Android 앱 제한에 개발 패키지·개발 서명과
+운영 패키지·실제 Play 앱 서명을 각각 등록한다. 환경 파일에 키를 추가해도 이 허용 목록은 바뀌지 않는다.
+Play 서명 지문은 Play Console 또는 Play가 생성한 APK로 확인하며 업로드 인증서와 구분한다.
 
 개발 산출물은 `build/development/`에 저장되며 `--profile development`로 배포한다.
 개발 빌드도 기본적으로 커밋 상태를 확인한다. 작업 중인 변경을 포함하려면
@@ -490,6 +493,8 @@ npm run deploy:store -- --version 1.9.0 --submit-review
 (예: `ko/release_notes.txt`). 설명·규정 답변을 임의로 만들어 넣지 않는다.
 필수 메타데이터나 계약, 권한이 빠졌거나 빌드 처리가 30분 안에 끝나지 않으면 실패한다.
 해결 후 `submit:review:ios`만 재실행한다. 심사 승인 자체는 자동화할 수 없다.
+
+고객지원의 공개 원본은 [Customer Support](https://vanilla-sweater-ab7.notion.site/Customer-Support-358405e9dd38811198bce5657595a89e)다. App Store Connect의 버전별 한국어 Support URL에는 편집용 `app.notion.com` 주소 대신 이 공개 주소를 사용한다. 변경 시 로그인하지 않은 창에서 앱 이름과 문의 경로가 실제로 보이는지 확인한다.
 
 ## 5. 버전 규칙
 

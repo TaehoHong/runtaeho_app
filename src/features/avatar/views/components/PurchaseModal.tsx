@@ -70,8 +70,7 @@ export const PurchaseModal: React.FC<Props> = ({
         >
           <View style={styles.modal}>
             {/* Title */}
-            <Text style={styles.title}>{t("구매 내역")}</Text>
-            <Text style={styles.subtitle}>{t('선택한 아이템을 구매하고 적용할까요?')}</Text>
+            <Text style={styles.title}>{t("구매 확인")}</Text>
 
             {/* Items Preview */}
             <View style={styles.itemsContainer}>
@@ -180,14 +179,6 @@ const styles = StyleSheet.create({
     color: GREY[900],
     textAlign: 'center',
     marginBottom: 12,
-    paddingHorizontal: 24,
-  },
-  subtitle: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: GREY[900],
-    textAlign: 'center',
-    marginBottom: 32,
     paddingHorizontal: 24,
   },
   itemsContainer: {

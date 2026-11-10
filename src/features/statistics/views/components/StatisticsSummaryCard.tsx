@@ -11,7 +11,6 @@ import { useAppTranslation } from '~/i18n';
 
 import React from 'react';
 import { View, Text, StyleSheet, useWindowDimensions } from 'react-native';
-import { Period } from '../../models';
 import { PRIMARY, GREY } from '~/shared/styles';
 import { RunningStatusFormat } from '~/shared/utils/formatters';
 import { getNumberFontStyle } from '~/shared/components/typography/fontUtils';
@@ -20,26 +19,12 @@ interface StatisticsSummaryCardProps {
   runCount: number;
   totalDistance: number; // 미터 단위
   averagePace: number; // 초/미터 또는 분/km
-  period: Period;
 }
-
-const getDistanceLabel = (period: Period, translate: ReturnType<typeof useAppTranslation>) => {
-  switch (period) {
-    case Period.WEEK:
-      return translate("이번 주 총 거리");
-    case Period.YEAR:
-      return translate("올해 총 거리");
-    case Period.MONTH:
-    default:
-      return translate("이번 달 총 거리");
-  }
-};
 
 export const StatisticsSummaryCard: React.FC<StatisticsSummaryCardProps> = ({
   runCount,
   totalDistance,
   averagePace,
-  period,
 }) => {
   const t = useAppTranslation();
   const { fontScale } = useWindowDimensions();
@@ -50,7 +35,7 @@ export const StatisticsSummaryCard: React.FC<StatisticsSummaryCardProps> = ({
   return (
     <View style={styles.container}>
       <View style={styles.accent} />
-      <Text style={styles.label}>{getDistanceLabel(period, t)}</Text>
+      <Text style={styles.label}>{t("총 거리")}</Text>
       <View
         style={styles.distanceRow}
         accessible

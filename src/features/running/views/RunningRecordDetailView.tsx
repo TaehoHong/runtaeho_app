@@ -588,7 +588,6 @@ const ConnectedShoeCard: React.FC<ConnectedShoeCardProps> = ({
         ) : (
           <>
             <Text style={styles.connectedShoeEmptyTitle} lineBreakStrategyIOS="hangul-word">{t("연결된 신발이 없어요")}</Text>
-            <Text style={styles.connectedShoeEmptySubtitle} lineBreakStrategyIOS="hangul-word">{t("러닝 기록에 신발을 연결해보세요")}</Text>
           </>
         )}
       </View>
@@ -662,7 +661,6 @@ const ShoeChangeBottomSheet: React.FC<ShoeChangeBottomSheetProps> = ({
           <View style={styles.sheetHeader}>
             <View>
               <Text style={styles.sheetTitle}>{t("연결 신발 변경")}</Text>
-              <Text style={styles.sheetDescription}>{t("이 러닝 기록에 연결할 신발을 선택하세요")}</Text>
             </View>
             <TouchableOpacity
               style={styles.sheetCloseButton}
@@ -1298,13 +1296,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: GREY[900],
   },
-  connectedShoeEmptySubtitle: {
-    marginTop: 9,
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: '500',
-    color: '#657067',
-  },
   connectedShoeAction: {
     minHeight: 44,
     paddingHorizontal: 12,
@@ -1367,13 +1358,6 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontWeight: '800',
     color: GREY[900],
-  },
-  sheetDescription: {
-    marginTop: 4,
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '500',
-    color: GREY[600],
   },
   sheetCloseButton: {
     width: 44,

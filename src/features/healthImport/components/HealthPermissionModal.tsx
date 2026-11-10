@@ -1,20 +1,18 @@
 import { useAppTranslation } from '~/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '~/shared/components/typography';
 import { GREY, PRIMARY } from '~/shared/styles';
 
 type HealthPermissionModalProps = {
   visible: boolean;
-  onClose: () => void;
   onRequestPermission: () => void;
 };
 
 export const HealthPermissionModal: React.FC<HealthPermissionModalProps> = ({
   visible,
-  onClose,
   onRequestPermission,
 }) => {
   const t = useAppTranslation();
@@ -25,7 +23,7 @@ export const HealthPermissionModal: React.FC<HealthPermissionModalProps> = ({
     transparent
     animationType="fade"
     statusBarTranslucent
-    onRequestClose={onClose}
+    onRequestClose={() => undefined}
   >
     <View style={[styles.overlay, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <View style={styles.card}>
@@ -33,18 +31,17 @@ export const HealthPermissionModal: React.FC<HealthPermissionModalProps> = ({
         <View style={styles.iconBox}>
           <Ionicons name="fitness-outline" size={22} color={PRIMARY[600]} />
         </View>
-        <Text style={styles.title}>{t("Health 권한 설정")}</Text>
-        <Text style={styles.message} lineBreakStrategyIOS="hangul-word">{t("Health에 저장된 러닝 기록 접근을 위해 권한이 필요합니다.")}</Text>
+        <Text style={styles.title}>{Platform.OS === 'ios' ? t("Apple 건강 연동") : t("Health 권한 설정")}</Text>
+        <Text style={styles.message} lineBreakStrategyIOS="hangul-word">{Platform.OS === 'ios'
+          ? `${t("Apple 건강에 저장된 러닝 기록을 가져와 기록과 통계에 표시합니다.")}\n${t("거리, 운동 시간, 심박수, 걸음 수, 칼로리, 경로를 읽습니다.")}`
+          : t("Health에 저장된 러닝 기록 접근을 위해 권한이 필요합니다.")}</Text>
         </ScrollView>
         <TouchableOpacity
           style={styles.primaryButton}
           onPress={onRequestPermission}
           activeOpacity={0.8}
         >
-          <Text style={styles.primaryText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{t("권한 설정")}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.closeButton} onPress={onClose} activeOpacity={0.8}>
-          <Text style={styles.closeText}>{t("나중에")}</Text>
+          <Text style={styles.primaryText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{t("계속")}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -118,18 +115,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontFamily: 'Pretendard',
     color: GREY[900],
-  },
-  closeButton: {
-    minHeight: 44,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 4,
-  },
-  closeText: {
-    fontSize: 14,
-    fontWeight: '500',
-    fontFamily: 'Pretendard',
-    color: GREY[500],
   },
 });

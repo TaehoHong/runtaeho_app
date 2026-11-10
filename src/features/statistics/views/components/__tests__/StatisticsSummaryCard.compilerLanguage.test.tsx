@@ -4,10 +4,9 @@ import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { transformSync } from '@babel/core';
 import { i18n, t } from '~/i18n';
-import { Period } from '../../../models';
 import type { StatisticsSummaryCard } from '../StatisticsSummaryCard';
 
-it('updates the compiled period label when language changes with unchanged statistics', async () => {
+it('updates the compiled distance label when language changes with unchanged statistics', async () => {
   const filename = resolve(process.cwd(), 'src/features/statistics/views/components/StatisticsSummaryCard.tsx');
   const compiled = transformSync(readFileSync(filename, 'utf8'), {
     filename, babelrc: false, configFile: false,
@@ -23,16 +22,16 @@ it('updates the compiled period label when language changes with unchanged stati
   new Function('require', 'module', 'exports', executable)(sourceRequire, module, module.exports);
   await act(async () => { await i18n.changeLanguage('ja'); });
   const view = render(React.createElement(module.exports.StatisticsSummaryCard, {
-    period: Period.MONTH, runCount: 0, totalDistance: 0, averagePace: 0,
+    runCount: 0, totalDistance: 0, averagePace: 0,
   }));
   try {
-    expect(screen.getByText('今月の総距離')).toBeOnTheScreen();
+    expect(screen.getByText('総距離')).toBeOnTheScreen();
     await act(async () => { await i18n.changeLanguage('ko'); });
-    expect(t('이번 달 총 거리')).toBe('이번 달 총 거리');
+    expect(t('총 거리')).toBe('총 거리');
     expect(screen.getByText('러닝')).toBeOnTheScreen();
-    await waitFor(() => expect(screen.getByText('이번 달 총 거리')).toBeOnTheScreen());
+    await waitFor(() => expect(screen.getByText('총 거리')).toBeOnTheScreen());
     await act(async () => { await i18n.changeLanguage('ja'); });
-    await waitFor(() => expect(screen.getByText('今月の総距離')).toBeOnTheScreen());
+    await waitFor(() => expect(screen.getByText('総距離')).toBeOnTheScreen());
   } finally {
     view.unmount();
     await act(async () => { await i18n.changeLanguage('ko'); });

@@ -189,11 +189,6 @@ export const PermissionSettingsView: React.FC = () => {
         contentContainerStyle={[styles.content, { paddingBottom: Platform.OS === 'ios' ? Math.max(insets.bottom, 16) : 16 }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.infoSection}>
-          <Text style={styles.infoTitle}>{t("기기 권한 상태")}</Text>
-          <Text style={styles.infoDescription}>{t("OS 설정에서 허용된 권한을 기준으로 표시돼요")}</Text>
-        </View>
-
         <View style={styles.section}>
           <PermissionRow
             title={t("위치 권한")}
@@ -212,7 +207,6 @@ export const PermissionSettingsView: React.FC = () => {
           />
         </View>
 
-        <Text style={styles.note} textBreakStrategy="balanced">{t("위치 권한과 Health OS 권한 상태를 눌러 기기 설정을 확인할 수 있습니다.")}</Text>
       </ScrollView>
     </TopScreenSafeAreaView>
   );
@@ -267,15 +261,21 @@ const HealthPermissionSection: React.FC<HealthPermissionSectionProps> = ({
 
   return (
     <View style={styles.healthSection}>
-      <Text style={styles.permissionTitle}>{t("Health 권한")}</Text>
+      <Text style={styles.permissionTitle}>{Platform.OS === 'ios' ? t("Apple 건강 연동") : t("Health 권한")}</Text>
+      {Platform.OS === 'ios' && (
+        <View>
+          <Text style={styles.permissionDescription}>{t("Apple 건강에 저장된 러닝 기록을 가져와 기록과 통계에 표시합니다.")}</Text>
+          <Text style={styles.permissionDescription}>{t("거리, 운동 시간, 심박수, 걸음 수, 칼로리, 경로를 읽습니다.")}</Text>
+        </View>
+      )}
 
       <View style={styles.healthAppRow}>
         <View style={styles.permissionText}>
-          <Text style={styles.healthSubTitle}>{t("앱 사용 설정")}</Text>
-          <Text style={styles.permissionDescription}>{t("Health 러닝 기록 가져오기 사용")}</Text>
+          <Text style={styles.healthSubTitle}>{t("러닝 기록 가져오기")}</Text>
         </View>
         <Switch
           testID="health-import-enabled-switch"
+          accessibilityLabel={t("러닝 기록 가져오기")}
           value={appEnabled}
           disabled={isUpdating}
           onValueChange={onToggleAppEnabled}
@@ -294,8 +294,7 @@ const HealthPermissionSection: React.FC<HealthPermissionSectionProps> = ({
         activeOpacity={0.7}
       >
         <View style={[styles.permissionText, stacked && styles.permissionTextStacked]}>
-          <Text style={styles.healthSubTitle}>{t("OS 권한 상태")}</Text>
-          <Text style={styles.permissionDescription}>{t("건강 앱 권한 기준")}</Text>
+          <Text style={styles.healthSubTitle}>{t("접근 권한")}</Text>
         </View>
         <View style={styles.permissionAction}>
           <StatusBadge label={statusView.label} variant={statusView.variant} />
@@ -362,24 +361,6 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingHorizontal: 20,
     gap: 16,
-  },
-  infoSection: {
-    backgroundColor: GREY.WHITE,
-    borderRadius: 16,
-    padding: 16,
-    gap: 8,
-  },
-  infoTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    fontFamily: 'Pretendard',
-    color: GREY[900],
-  },
-  infoDescription: {
-    fontSize: 13,
-    fontWeight: '500',
-    fontFamily: 'Pretendard',
-    color: GREY[500],
   },
   section: {
     backgroundColor: GREY.WHITE,
@@ -484,12 +465,5 @@ const styles = StyleSheet.create({
   separator: {
     height: 1,
     backgroundColor: GREY[100],
-  },
-  note: {
-    paddingHorizontal: 16,
-    fontSize: 12,
-    fontWeight: '500',
-    fontFamily: 'Pretendard',
-    color: GREY[500],
   },
 });

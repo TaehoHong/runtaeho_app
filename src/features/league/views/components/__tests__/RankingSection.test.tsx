@@ -82,3 +82,18 @@ it('allocates displacement values for every row and ignores stopped animation co
   expect(screen.getByText('updated-1')).toBeTruthy();
   sequence.mockRestore();
 });
+
+it('reveals ranking rules on request and updates measured header geometry', () => {
+  render(<RankingSection participants={participants(4)} pageHeader={<View testID="summary" />} />);
+  const rule = '업로드 시각이 아닌 실제 러닝 종료 시각으로 집계해요. 시즌을 넘겨 달리면 종료한 시즌에 전체 거리가 반영돼요.';
+  expect(screen.queryByText(rule)).toBeNull();
+  fireEvent.press(screen.getByRole('button', { name: '순위 집계 안내' }));
+  expect(screen.getByText(rule)).toBeOnTheScreen();
+  let header = screen.getByTestId('summary').parent;
+  while (header && !header.props.onLayout) header = header.parent;
+  fireEvent(header!, 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 393, height: 480 } } });
+  const list = mockListProps.mock.calls[mockListProps.mock.calls.length - 1]![0];
+  expect(list.getItemLayout(null, 0).offset).toBe(480);
+  fireEvent.press(screen.getByRole('button', { name: '순위 집계 안내' }));
+  expect(screen.queryByText(rule)).toBeNull();
+});

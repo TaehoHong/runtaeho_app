@@ -29,5 +29,7 @@ describe('PermissionSettingsView', () => {
     renderWithProviders(<PermissionSettingsView />);
     await waitFor(() => expect(screen.getByText('활성화')).toBeTruthy());
     expect(screen.queryByText('비활성화')).toBeNull();
+    expect(screen.getByText('Apple 건강 연동')).toBeTruthy();
+    expect(screen.getByText('Apple 건강에 저장된 러닝 기록을 가져와 기록과 통계에 표시합니다.')).toBeTruthy();
   });
 });

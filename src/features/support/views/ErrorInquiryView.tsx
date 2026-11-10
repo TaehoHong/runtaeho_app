@@ -82,16 +82,6 @@ export const ErrorInquiryView: React.FC = () => {
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.infoBox}>
-            <View style={styles.infoIcon}>
-              <Ionicons name="information-circle-outline" size={18} color={PRIMARY[700]} />
-            </View>
-            <View style={styles.infoText}>
-              <Text style={styles.infoTitle}>{t("진단 정보를 선택해서 보낼 수 있어요")}</Text>
-              <Text style={styles.infoDesc}>{t("앱 버전, 기기 정보, 오류 코드, 발생 화면만 포함돼요.")}</Text>
-            </View>
-          </View>
-
           <View style={styles.card}>
             <Field
               label={t("어떤 문제가 있었나요?")}
@@ -121,12 +111,15 @@ export const ErrorInquiryView: React.FC = () => {
             disabled={submitting}
             activeOpacity={0.8}
             testID="diagnostics-toggle"
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: sendInfo, disabled: submitting }}
           >
             <View style={[styles.checkbox, sendInfo && styles.checkboxOn]}>
               {sendInfo && <Ionicons name="checkmark" size={15} color={GREY[900]} />}
             </View>
             <View style={styles.checkText}>
               <Text style={styles.checkTitle}>{t("진단 정보 함께 보내기")}</Text>
+              <Text style={styles.checkDesc}>{t("앱 버전, 기기 정보, 오류 코드, 발생 화면만 포함돼요.")}</Text>
               <Text style={styles.checkDesc}>{t("위치 기록, 운동 기록, 개인정보는 보내지 않아요.")}</Text>
             </View>
           </TouchableOpacity>
@@ -262,35 +255,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 24,
-  },
-  infoBox: {
-    flexDirection: 'row',
-    padding: 14,
-    borderRadius: 14,
-    backgroundColor: PRIMARY[50],
-    marginBottom: 16,
-  },
-  infoIcon: {
-    width: 28,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  infoText: {
-    flex: 1,
-  },
-  infoTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: GREY[900],
-    marginBottom: 4,
-  },
-  infoDesc: {
-    fontSize: 12,
-    fontWeight: '400',
-    color: GREY[600],
-    lineHeight: 18,
   },
   card: {
     backgroundColor: GREY.WHITE,

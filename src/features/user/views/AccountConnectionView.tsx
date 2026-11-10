@@ -51,8 +51,6 @@ export const AccountConnectionView: React.FC = () => {
       <ScrollView style={styles.content}>
         {/* 연결 계정 목록 섹션 */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t("연결 계정 목록")}</Text>
-
           <View style={styles.accountList}>
             {providers.map((provider) => {
               const account = getAccountByProvider(provider);
@@ -114,7 +112,7 @@ const AccountItem: React.FC<AccountItemProps> = ({
     <View style={styles.accountItem}>
       <View style={styles.accountInfo}>
         <Text style={styles.accountProvider}>
-          {providerName}{t(" 로 연결")}</Text>
+          {providerName}</Text>
         {email && (
           <Text style={styles.accountEmail}>{email}</Text>
         )}
@@ -198,13 +196,6 @@ const styles = StyleSheet.create({
   section: {
     paddingHorizontal: 20,
     paddingTop: 24,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '400',
-    color: GREY[600],
-    fontFamily: 'Pretendard',
-    marginBottom: 16,
   },
   accountList: {
     gap: 20,

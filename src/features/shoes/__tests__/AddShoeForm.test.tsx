@@ -29,9 +29,9 @@ jest.mock('../viewmodels', () => ({
 }));
 
 const fill = (distance = '12') => {
-  fireEvent.changeText(screen.getByPlaceholderText('신발의 브랜드를 입력해주세요.'), ' Brand ');
-  fireEvent.changeText(screen.getByPlaceholderText('신발의 모델명을 입력해주세요.'), ' Model ');
-  fireEvent.changeText(screen.getByPlaceholderText('목표 거리를 입력해주세요.'), distance);
+  fireEvent.changeText(screen.getByLabelText('브랜드'), ' Brand ');
+  fireEvent.changeText(screen.getByLabelText('모델명'), ' Model ');
+  fireEvent.changeText(screen.getByLabelText('목표 거리 (km)'), distance);
 };
 
 beforeEach(() => {
@@ -115,9 +115,9 @@ it('starts with an empty form when the list modal is mounted again', () => {
   fill();
   first.unmount();
   render(<AddShoeView />);
-  expect(screen.getByPlaceholderText('신발의 브랜드를 입력해주세요.').props.value).toBe('');
-  expect(screen.getByPlaceholderText('신발의 모델명을 입력해주세요.').props.value).toBe('');
-  expect(screen.getByPlaceholderText('목표 거리를 입력해주세요.').props.value).toBe('');
+  expect(screen.getByLabelText('브랜드').props.value).toBe('');
+  expect(screen.getByLabelText('모델명').props.value).toBe('');
+  expect(screen.getByLabelText('목표 거리 (km)').props.value).toBe('');
   fireEvent.press(screen.getByText('신발 저장하기'));
   expect(mockAdd).not.toHaveBeenCalled();
 });
@@ -135,7 +135,7 @@ it('a previous submission cannot close the real list owner’s reopened add moda
   fireEvent.press(addButton());
   await act(async () => { finish({ id: 1 }); });
   expect(screen.getByText('신발 저장하기')).toBeOnTheScreen();
-  expect(screen.getByPlaceholderText('신발의 브랜드를 입력해주세요.').props.value).toBe('');
+  expect(screen.getByLabelText('브랜드').props.value).toBe('');
 });
 
 it('keeps the submitted shoe unchanged while pending and restores editing after failure', async () => {
@@ -144,13 +144,20 @@ it('keeps the submitted shoe unchanged while pending and restores editing after 
   render(<AddShoeRoute />);
   fill();
   fireEvent.press(screen.getByText('신발 저장하기'));
-  const brand = screen.getByPlaceholderText('신발의 브랜드를 입력해주세요.');
+  const brand = screen.getByLabelText('브랜드');
   expect(brand.props.editable).toBe(false);
   act(() => brand.props.onChangeText('Changed after submit'));
-  expect(screen.getByPlaceholderText('신발의 브랜드를 입력해주세요.').props.value).toBe(' Brand ');
+  expect(screen.getByLabelText('브랜드').props.value).toBe(' Brand ');
   expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({ brand: 'Brand' }));
   await act(async () => { fail(new Error('offline')); });
-  expect(screen.getByPlaceholderText('신발의 브랜드를 입력해주세요.').props.editable).toBe(true);
-  fireEvent.changeText(screen.getByPlaceholderText('신발의 브랜드를 입력해주세요.'), 'Retry');
-  expect(screen.getByPlaceholderText('신발의 브랜드를 입력해주세요.').props.value).toBe('Retry');
+  expect(screen.getByLabelText('브랜드').props.editable).toBe(true);
+  fireEvent.changeText(screen.getByLabelText('브랜드'), 'Retry');
+  expect(screen.getByLabelText('브랜드').props.value).toBe('Retry');
+});
+
+it('opens the existing shoe form from the empty-state action', () => {
+  render(<ShoesListView />);
+  fireEvent.press(screen.getByRole('button', { name: '신발 추가' }));
+  expect(screen.getByLabelText('브랜드')).toBeOnTheScreen();
+  expect(screen.getByLabelText('모델명')).toBeOnTheScreen();
 });

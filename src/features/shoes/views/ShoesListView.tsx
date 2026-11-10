@@ -175,7 +175,7 @@ export const ShoesListView: React.FC<ShoesListViewProps> = ({ onClose }) => {
               onDelete={() => handleDelete(item)}
             />
           )}
-          ListEmptyComponent={<EmptyState />}
+          ListEmptyComponent={<EmptyState onAddPress={() => setShowAddShoeView(true)} />}
           refreshControl={
             <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
           }
@@ -304,7 +304,6 @@ const MainShoeCard: React.FC<MainShoeCardProps> = ({ shoe }) => {
       {/* 이미지 영역 */}
       <View style={styles.mainShoeImageContainer}>
         <Icon name="shoe" size={41} />
-        <Text style={styles.mainShoeImagePlaceholder} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>{t("Image Coming Soon")}</Text>
       </View>
 
       {/* 정보 영역 */}
@@ -353,7 +352,7 @@ interface ShoeCardProps {
 }
 
 const ShoeCard: React.FC<ShoeCardProps> = ({ shoe, onPress, isOpen, swipeAnimatedValue }) => {
-  const t = useAppTranslation();
+  useAppLanguage();
   const { width } = useWindowDimensions();
   return (
     <TouchableOpacity style={styles.shoeItemContent} onPress={onPress} activeOpacity={1.0}>
@@ -371,7 +370,6 @@ const ShoeCard: React.FC<ShoeCardProps> = ({ shoe, onPress, isOpen, swipeAnimate
       <View style={styles.shoeItemInfo}>
         <Text style={styles.shoeItemName} numberOfLines={2} ellipsizeMode="tail" adjustsFontSizeToFit={isOpen} minimumFontScale={0.5}>{shoe.displayName}</Text>
         <View style={styles.shoeItemDistance}>
-          <Text style={styles.shoeItemDistanceLabel} numberOfLines={1}>{t("누적 거리")}</Text>
           <Text style={styles.shoeItemDistanceValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>
             {RunningStatusFormat.distance(shoe.totalDistance, { fractionDigits: 1 })}
           </Text>
@@ -425,13 +423,15 @@ const HiddenActionButtons: React.FC<HiddenActionButtonsProps> = ({
 
 /**
  * 빈 상태
- * Figma: "보유한 신발이 없어요. 상단 버튼을 통해 신발을 추가해보세요!"
  */
-const EmptyState: React.FC = () => {
+const EmptyState: React.FC<{ onAddPress: () => void }> = ({ onAddPress }) => {
   const t = useAppTranslation();
   return (
     <View style={styles.emptyState}>
-      <Text style={styles.emptyStateText}>{t("보유한 신발이 없어요.")}{'\n'}{t("상단 버튼을 통해 신발을 추가해보세요!")}</Text>
+      <Text style={styles.emptyStateText}>{t("보유한 신발이 없어요.")}</Text>
+      <TouchableOpacity style={styles.emptyAddButton} onPress={onAddPress} accessibilityRole="button">
+        <Text style={styles.emptyAddButtonText}>{t("신발 추가")}</Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -616,14 +616,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
   },
-  mainShoeImagePlaceholder: {
-    maxWidth: '100%',
-    fontSize: 10,
-    fontWeight: '400',
-    color: GREY[700],
-    fontFamily: 'Pretendard',
-    lineHeight: 18,
-  },
   mainShoeInfo: {
     flex: 1,
     justifyContent: 'center',
@@ -745,16 +737,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
   },
-  shoeItemDistanceLabel: {
-    flexShrink: 0,
-    maxWidth: '100%',
-    fontSize: 10,
-    fontWeight: '500',
-    color: GREY[300],
-    fontFamily: 'Pretendard',
-    lineHeight: 14,
-    letterSpacing: 0.4,
-  },
   shoeItemDistanceValue: {
     flexShrink: 1,
     fontSize: 10,
@@ -800,6 +782,20 @@ const styles = StyleSheet.create({
   },
 
   // ===== 빈 상태 =====
+  emptyAddButton: {
+    marginTop: 20,
+    minHeight: 48,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: PRIMARY[600],
+    justifyContent: 'center',
+  },
+  emptyAddButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: GREY.WHITE,
+  },
   emptyState: {
     flex: 1,
     justifyContent: 'center',

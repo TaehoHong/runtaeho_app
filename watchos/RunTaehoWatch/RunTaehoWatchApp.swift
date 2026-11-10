@@ -48,8 +48,10 @@ struct RunView: View {
             }.tint(WatchPalette.primary).disabled(recorder.owner == nil)
             settingsLink
             if recorder.owner == nil { Text("휴대폰에서 로그인하여 연결하세요.").font(.caption) }
-            Text(recorder.lastServerSaved ? "서버 저장 완료" : "완료된 기록은 휴대폰 연결 후 서버 저장 대기 중입니다.")
-              .font(.caption2).foregroundStyle(WatchPalette.secondary)
+            if recorder.lastServerSaved || recorder.hasPendingRecords {
+              Text(recorder.lastServerSaved ? "서버 저장 완료" : "서버 저장 대기 중")
+                .font(.caption2).foregroundStyle(WatchPalette.secondary)
+            }
           }
           if let error = recorder.errorMessage { Text(error).font(.caption2).foregroundStyle(.orange) }
         }.padding(.horizontal, 2)
