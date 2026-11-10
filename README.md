@@ -62,6 +62,14 @@ npm run assets:verify-hair-colors
 - 생성 매핑 파일: `src/shared/constants/generated/hairColorImages.generated.ts`
 - 새 헤어 PNG를 추가/교체한 경우 `npm run assets:generate-hair-colors` 실행 후 생성 파일을 함께 커밋합니다.
 
+## Android 스플래시 에셋 생성
+
+`node tools/generate-android-splash.cjs`는 iOS 원본 `assets/images/splash@3x.png`의 제목·캐릭터를 잘라
+`assets/images/splash-android.png`와 Android의 다섯 density별 `splashscreen_logo.png`를 생성합니다.
+픽셀 아트를 유지하며, 288dp 캔버스 안의 로고 너비는 160dp로 Android의 원형 안전 영역(지름192dp)에 들어갑니다.
+밝은 모드·어두운 모드 모두 원본 초록색(`#00AF1F`)을 사용합니다.
+네이티브 자산이므로 변경 후 새 Android 바이너리로 배포해야 하며 OTA만으로 반영되지 않습니다.
+
 ## 배포
 
 ### 1. 앱 빌드 (앱스토어 심사 필요)

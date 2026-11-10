@@ -105,7 +105,14 @@ export default {
         {
           image: "./assets/images/splash.png",
           resizeMode: "cover",
-          backgroundColor: "#F5F5F5"
+          backgroundColor: "#F5F5F5",
+          android: {
+            image: "./assets/images/splash-android.png",
+            imageWidth: 160,
+            resizeMode: "contain",
+            backgroundColor: "#00AF1F",
+            dark: { backgroundColor: "#00AF1F" }
+          }
         }
       ],
       [
