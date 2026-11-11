@@ -18,6 +18,7 @@ const mockCheckUncheckedLeagueResult = jest.fn();
 const mockRequestPermissionsOnFirstLogin = jest.fn();
 const mockUnityLoadingState = jest.fn();
 let mockIsLoggedIn = false;
+let mockSessionGeneration = 0;
 let appStateHandler: ((nextAppState: AppStateStatus) => void) | null = null;
 const mockAppStateRemove = jest.fn();
 
@@ -31,8 +32,8 @@ jest.mock('~/features/unity/hooks', () => ({
 }));
 
 jest.mock('~/features', () => ({
-  useAuthStore: (selector: (state: { isLoggedIn: boolean }) => unknown) =>
-    selector({ isLoggedIn: mockIsLoggedIn }),
+  useAuthStore: (selector: (state: { isLoggedIn: boolean; sessionGeneration: number }) => unknown) =>
+    selector({ isLoggedIn: mockIsLoggedIn, sessionGeneration: mockSessionGeneration }),
 }));
 
 jest.mock('~/stores/user/userStore', () => {
@@ -111,6 +112,7 @@ describe('RunningView unity recovery', () => {
     useAppStore.getState().setRunningState(RunningState.Stopped);
 
     mockIsLoggedIn = true;
+    mockSessionGeneration = 1;
     mockUseIsFocused.mockReturnValue(true);
     mockUseFocusEffect.mockImplementation((callback: () => void | (() => void)) => {
       callback();
@@ -223,5 +225,24 @@ describe('RunningView unity recovery', () => {
       mockUnityLoadingState.mock.calls[mockUnityLoadingState.mock.calls.length - 1]?.[0];
 
     expect(lastCall?.isLoading).toBe(true);
+  });
+
+  it('keeps a presented character visible during a resync within the same login', () => {
+    useUnityStore.getState().setSurfaceVisible(true);
+    const { rerender } = renderWithProviders(<RunningView />);
+    expect(mockUnityLoadingState).toHaveBeenLastCalledWith(expect.objectContaining({ isLoading: false }));
+
+    mockUseUnityBootstrap.mockReturnValue({
+      isReady: false,
+      isUnityStarted: true,
+      isInitialAvatarSynced: false,
+      startUnity: mockStartUnity,
+    });
+    rerender(<RunningView />);
+    expect(mockUnityLoadingState).toHaveBeenLastCalledWith(expect.objectContaining({ isLoading: false }));
+
+    mockSessionGeneration += 1;
+    rerender(<RunningView />);
+    expect(mockUnityLoadingState).toHaveBeenLastCalledWith(expect.objectContaining({ isLoading: true }));
   });
 });

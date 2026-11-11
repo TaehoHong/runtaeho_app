@@ -58,8 +58,6 @@ export const UnityView: React.FC<UnityViewProps> = (props) => {
     let isMounted = true;
     let shouldScheduleFailsafe = true;
     readyEventReceivedRef.current = false;
-    setSurfaceVisible(false);
-    setSurfaceVisibleInStore(false);
 
     const initialize = async () => {
       try {
@@ -131,10 +129,9 @@ export const UnityView: React.FC<UnityViewProps> = (props) => {
     }
 
     readyEventReceivedRef.current = false;
-    setSurfaceVisible(false);
-    setSurfaceVisibleInStore(false);
+    // The mounted view can keep presenting its last frame during reattachment.
     UIManager.dispatchViewManagerCommand(reactTag, command, []);
-  }, [reattachToken, setSurfaceVisibleInStore]);
+  }, [reattachToken]);
 
   // 디버깅용 이벤트 핸들러
   // ★ 의존성을 props 전체가 아닌 특정 콜백으로 변경 (불필요한 재생성 방지)
@@ -147,8 +144,12 @@ export const UnityView: React.FC<UnityViewProps> = (props) => {
   }, [clearVisibilityTimer, onUnityReady, setSurfaceVisibleInStore]);
 
   const handleUnityError = useCallback((event: any) => {
+    readyEventReceivedRef.current = true;
+    clearVisibilityTimer();
+    setSurfaceVisible(false);
+    setSurfaceVisibleInStore(false);
     onUnityError?.(event);
-  }, [onUnityError]);
+  }, [clearVisibilityTimer, onUnityError, setSurfaceVisibleInStore]);
 
   return (
     <NativeUnityView

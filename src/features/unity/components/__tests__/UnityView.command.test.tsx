@@ -80,4 +80,19 @@ describe('UnityView reattach command', () => {
     expect(mockDispatchViewManagerCommand).not.toHaveBeenCalled();
     renderer.unmount();
   });
+
+  it('retains a presented surface during reattachment and hides it on a native error', async () => {
+    const renderer = render(<UnityView testID="native-surface" reattachToken={0} />);
+    const surface = () => renderer.getByTestId('native-surface');
+    expect(useUnityStore.getState().isSurfaceVisible).toBe(false);
+    fireEvent(surface(), 'unityReady', { nativeEvent: { ready: true } });
+
+    renderer.rerender(<UnityView testID="native-surface" reattachToken={1} />);
+    await waitFor(() => expect(mockDispatchViewManagerCommand).toHaveBeenCalledWith(101, 4, []));
+    expect(useUnityStore.getState().isSurfaceVisible).toBe(true);
+
+    fireEvent(surface(), 'unityError', { nativeEvent: { error: 'attach failed' } });
+    expect(useUnityStore.getState().isSurfaceVisible).toBe(false);
+    renderer.unmount();
+  });
 });

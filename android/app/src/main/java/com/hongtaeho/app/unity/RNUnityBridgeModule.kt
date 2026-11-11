@@ -525,7 +525,7 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
             )
         }
 
-        val unitySurfaceView = findFirstSurfaceView(unityRootView)
+        val unitySurfaceView = UnityView.findUnitySurface(unityRootView)
             ?: throw IllegalStateException("Unity SurfaceView is not available")
 
         if (unitySurfaceView.width <= 0 || unitySurfaceView.height <= 0) {
@@ -607,26 +607,6 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
         if (!isRecycled) {
             recycle()
         }
-    }
-
-    private fun findFirstSurfaceView(root: View): SurfaceView? {
-        if (root is SurfaceView) {
-            return root
-        }
-
-        if (root !is ViewGroup) {
-            return null
-        }
-
-        for (childIndex in 0 until root.childCount) {
-            val child = root.getChildAt(childIndex)
-            val matchedSurfaceView = findFirstSurfaceView(child)
-            if (matchedSurfaceView != null) {
-                return matchedSurfaceView
-            }
-        }
-
-        return null
     }
 
     private fun calculateDescendantBoundsRelativeToAncestor(
@@ -886,11 +866,15 @@ class RNUnityBridgeModule(reactContext: ReactApplicationContext) :
 
     override fun onHostResume() {
         Log.d(TAG, "onHostResume()")
+        val view = UnityHolder.getUnityPlayer()?.view?.parent as? UnityView
+        view?.awaitForegroundFrame()
         UnityHolder.onResume()
     }
 
     override fun onHostPause() {
         Log.d(TAG, "onHostPause()")
+        val view = UnityHolder.getUnityPlayer()?.view?.parent as? UnityView
+        view?.freezeForHostPause()
         UnityHolder.onPause()
     }
 

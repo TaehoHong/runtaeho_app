@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useRef } from 'react';
-import { AppState, BackHandler, Platform, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { AppState, BackHandler, Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useFocusEffect, useIsFocused } from 'expo-router/react-navigation';
 import { GREY } from '~/shared/styles';
 import type { Item } from '~/features/avatar';
@@ -13,7 +13,7 @@ import { useHealthPermissionModal } from '~/features/healthImport/hooks/useHealt
 import { ViewState, RunningState, useAppStore, useLeagueCheckStore } from '~/stores';
 import { useAuthStore } from '~/features';
 import { useUserStore } from '~/stores/user/userStore';
-import { useUnityStore } from '~/stores/unity/unityStore';
+import { useUnityStore, type UnityViewport } from '~/stores/unity/unityStore';
 import { useLeagueCheck } from '~/features/league/hooks/useLeagueCheck';
 import { useLeagueResultNavigation } from '~/features/league/hooks/useLeagueResultNavigation';
 import { RunningProvider } from '../contexts/RunningContext';
@@ -30,6 +30,8 @@ export const RunningView: React.FC = () => {
   const viewState = useAppStore((state) => state.viewState);
   const runningState = useAppStore((state) => state.runningState);
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
+  const sessionGeneration = useAuthStore((state) => state.sessionGeneration);
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const currentUser = useUserStore((state) => state.currentUser);
   const equippedItems = useUserStore((state) => state.equippedItems);
   const hairColor = useUserStore((state) => state.hairColor);
@@ -50,12 +52,23 @@ export const RunningView: React.FC = () => {
   const hasInitializedCharacterRef = useRef(false);
   const focusSyncInFlightRef = useRef(false);
   const unityViewportRef = useRef<View>(null);
+  const lastRunningViewport = useRef<{
+    viewport: UnityViewport;
+    windowWidth: number;
+    windowHeight: number;
+    sessionGeneration: number;
+  } | null>(null);
+  const [presentedCharacter, setPresentedCharacter] = useState<{
+    sessionGeneration: number;
+    hardResetCount: number;
+  } | null>(null);
   const viewportSyncTokenRef = useRef(0);
   const isRunningActiveRef = useRef(isRunningActive);
   const unityStartedRef = useRef(false);
   const setActiveViewport = useUnityStore((state) => state.setActiveViewport);
   const clearActiveViewport = useUnityStore((state) => state.clearActiveViewport);
   const isUnitySurfaceVisible = useUnityStore((state) => state.isSurfaceVisible);
+  const hardResetCount = useUnityStore((state) => state.debugCounters.hardResetCount);
 
   const getInitialAvatarPayload = useCallback(() => {
     if (!currentUser) {
@@ -86,7 +99,22 @@ export const RunningView: React.FC = () => {
   });
 
   const isLoading = viewState === ViewState.Loading;
-  const isUnitySectionLoading = !isUnityReady || !isInitialAvatarSynced || !isUnitySurfaceVisible;
+  const hasPresentedCharacter = presentedCharacter !== null
+    && presentedCharacter.sessionGeneration === sessionGeneration
+    && presentedCharacter.hardResetCount === hardResetCount;
+  const isUnitySectionLoading = !isUnitySurfaceVisible
+    || (!hasPresentedCharacter && (!isUnityReady || !isInitialAvatarSynced));
+
+  useLayoutEffect(() => {
+    if (!isLoggedIn || !isUnitySurfaceVisible) {
+      setPresentedCharacter(null);
+    } else if (isRunningActive && isUnityReady && isInitialAvatarSynced && !hasPresentedCharacter) {
+      setPresentedCharacter({ sessionGeneration, hardResetCount });
+    }
+  }, [
+    hardResetCount, hasPresentedCharacter, isInitialAvatarSynced, isLoggedIn,
+    isRunningActive, isUnityReady, isUnitySurfaceVisible, sessionGeneration,
+  ]);
 
   console.log('🏃 [RunningView] 렌더링, viewState:', viewState, 'runningState:', runningState, 'isLoggedIn:', isLoggedIn, 'isUnityReady:', isUnityReady);
 
@@ -353,14 +381,29 @@ export const RunningView: React.FC = () => {
           return;
         }
 
-        setActiveViewport({
+        const measuredViewport: UnityViewport = {
           owner: 'running',
           frame: { x, y, width, height },
           borderRadius: 0,
-        });
+        };
+        lastRunningViewport.current = {
+          viewport: measuredViewport, windowWidth, windowHeight, sessionGeneration,
+        };
+        setActiveViewport(measuredViewport);
       });
     });
-  }, [setActiveViewport]);
+  }, [sessionGeneration, setActiveViewport, windowHeight, windowWidth]);
+
+  useLayoutEffect(() => {
+    const last = lastRunningViewport.current;
+    if (
+      Platform.OS === 'android' && isRunningActive && unityStarted && isLoggedIn
+      && last?.sessionGeneration === sessionGeneration
+      && last.windowWidth === windowWidth && last.windowHeight === windowHeight
+    ) {
+      setActiveViewport(last.viewport);
+    }
+  }, [isLoggedIn, isRunningActive, sessionGeneration, setActiveViewport, unityStarted, windowHeight, windowWidth]);
 
   useFocusEffect(
     useCallback(() => {

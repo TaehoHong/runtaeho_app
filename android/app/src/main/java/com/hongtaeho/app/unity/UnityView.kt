@@ -1,12 +1,20 @@
 package com.hongtaeho.app.unity
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Color
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
+import android.view.PixelCopy
+import android.view.SurfaceControl
+import android.view.SurfaceView
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.ImageView
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.ReactContext
 import com.facebook.react.bridge.WritableMap
@@ -14,6 +22,7 @@ import com.facebook.react.uimanager.events.RCTEventEmitter
 import com.unity3d.player.UnityPlayerForActivityOrService
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.concurrent.Executor
 
 /**
  * Unity View Container
@@ -32,10 +41,21 @@ class UnityView(context: Context) : FrameLayout(context) {
         private const val ATTACH_TRACE_LOG = "UNITY_ATTACH_TRACE"
         private const val MAX_ATTACH_RETRY = 4
         private const val ATTACH_RETRY_DELAY_MS = 32L
+        private const val FOREGROUND_FRAME_TIMEOUT_MS = 1_200L
 
         // Unity 렌더링 기준 크기 (iOS와 동일)
         private const val UNITY_RENDER_WIDTH = 600f
         private const val UNITY_RENDER_HEIGHT = 600f
+
+        internal fun findUnitySurface(root: View): SurfaceView? {
+            if (root is SurfaceView) return root
+            if (root is ViewGroup) {
+                for (index in 0 until root.childCount) {
+                    findUnitySurface(root.getChildAt(index))?.let { return it }
+                }
+            }
+            return null
+        }
     }
 
     // MARK: - Properties
@@ -47,6 +67,8 @@ class UnityView(context: Context) : FrameLayout(context) {
     private var hasInitialized = false
     private var isDropped = false
     private var renderingEnabled = true
+    private var foregroundSnapshot: ImageView? = null
+    private var foregroundSnapshotToken = 0L
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private var attachRequestToken = 0L
@@ -201,6 +223,7 @@ class UnityView(context: Context) : FrameLayout(context) {
         val childHeightSpec = MeasureSpec.makeMeasureSpec(scaledHeight, MeasureSpec.EXACTLY)
         unityView.measure(childWidthSpec, childHeightSpec)
         unityView.layout(x, y, x + scaledWidth, y + scaledHeight)
+        layoutForegroundSnapshot(unityView)
 
         Log.d(TAG, "onLayout: container=${containerWidth}x${containerHeight}, " +
                 "unity=${scaledWidth}x${scaledHeight}, pos=($x,$y), scale=$fillScale")
@@ -235,6 +258,7 @@ class UnityView(context: Context) : FrameLayout(context) {
         val childHeightSpec = MeasureSpec.makeMeasureSpec(scaledHeight, MeasureSpec.EXACTLY)
         uView.measure(childWidthSpec, childHeightSpec)
         uView.layout(x, y, x + scaledWidth, y + scaledHeight)
+        layoutForegroundSnapshot(uView)
 
         Log.d(TAG, "applyUnityViewLayout: ${scaledWidth}x${scaledHeight} at ($x,$y)")
     }
@@ -309,6 +333,112 @@ class UnityView(context: Context) : FrameLayout(context) {
         if (pendingReattach || !isAttachedToThisContainer) {
             pendingReattach = false
             scheduleAttach("windowFocus")
+        }
+    }
+
+    private fun layoutForegroundSnapshot(playerView: View) {
+        foregroundSnapshot?.let { snapshot ->
+            snapshot.measure(
+                MeasureSpec.makeMeasureSpec(playerView.width, MeasureSpec.EXACTLY),
+                MeasureSpec.makeMeasureSpec(playerView.height, MeasureSpec.EXACTLY)
+            )
+            snapshot.layout(playerView.left, playerView.top, playerView.right, playerView.bottom)
+        }
+    }
+
+    private fun clearForegroundSnapshot() {
+        foregroundSnapshotToken++
+        foregroundSnapshot?.let { snapshot ->
+            snapshot.setImageDrawable(null)
+            removeView(snapshot)
+        }
+        foregroundSnapshot = null
+    }
+
+    fun freezeForHostPause() {
+        val playerView = unityPlayer?.view ?: return
+        if (!renderingEnabled || playerView.parent !== this || !isShown || alpha == 0f
+            || (parent as? View)?.alpha == 0f || foregroundSnapshot != null) return
+        val surface = findUnitySurface(playerView) ?: return
+        val frame = surface.holder.surfaceFrame
+        if (!surface.holder.surface.isValid || frame.isEmpty) return
+        val token = ++foregroundSnapshotToken
+        val bitmap = Bitmap.createBitmap(frame.width(), frame.height(), Bitmap.Config.ARGB_8888)
+        try {
+            PixelCopy.request(surface, bitmap, { result ->
+                if (result != PixelCopy.SUCCESS || token != foregroundSnapshotToken
+                    || playerView.parent !== this || !isAttachedToWindow) {
+                    bitmap.recycle()
+                    return@request
+                }
+                val snapshot = ImageView(context).apply {
+                    scaleType = ImageView.ScaleType.FIT_XY
+                    importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                    setImageBitmap(bitmap)
+                }
+                foregroundSnapshot = snapshot
+                addView(snapshot)
+                layoutForegroundSnapshot(playerView)
+                Log.d(TAG, "Retained Unity frame for host pause")
+                if (UnityHolder.isAppActive) awaitForegroundFrame()
+            }, mainHandler)
+        } catch (_: IllegalArgumentException) {
+            bitmap.recycle()
+        }
+    }
+
+    fun awaitForegroundFrame() {
+        val snapshot = foregroundSnapshot ?: return
+        val token = ++foregroundSnapshotToken
+        val deadline = SystemClock.uptimeMillis() + FOREGROUND_FRAME_TIMEOUT_MS
+        val surface = unityPlayer?.view?.let(::findUnitySurface) ?: run {
+            clearForegroundSnapshot()
+            return
+        }
+        val probe = Runnable { probeForegroundFrame(surface, token, deadline) }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
+            && surface.surfaceControl?.isValid == true) {
+            val executor = Executor { mainHandler.post(it) }
+            val transaction = SurfaceControl.Transaction().addTransactionCommittedListener(executor) {
+                probe.run()
+            }
+            surface.applyTransactionToFrame(transaction)
+        } else {
+            postOnAnimation(probe)
+        }
+        mainHandler.postAtTime({
+            if (token == foregroundSnapshotToken && foregroundSnapshot === snapshot
+                && UnityHolder.isAppActive) clearForegroundSnapshot()
+        }, deadline)
+    }
+
+    private fun probeForegroundFrame(surface: SurfaceView, token: Long, deadline: Long) {
+        if (token != foregroundSnapshotToken || !UnityHolder.isAppActive
+            || SystemClock.uptimeMillis() >= deadline) return
+
+        val retry = Runnable { probeForegroundFrame(surface, token, deadline) }
+        if (!hasWindowFocus() || !surface.holder.surface.isValid) {
+            postOnAnimation(retry)
+            return
+        }
+        val probe = Bitmap.createBitmap(16, 16, Bitmap.Config.ARGB_8888)
+        try {
+            PixelCopy.request(surface, probe, { result ->
+                val pixels = IntArray(probe.width * probe.height)
+                if (result == PixelCopy.SUCCESS) {
+                    probe.getPixels(pixels, 0, probe.width, 0, 0, probe.width, probe.height)
+                }
+                probe.recycle()
+                if (token != foregroundSnapshotToken || !UnityHolder.isAppActive) return@request
+                if (pixels.any { Color.red(it) > 16 || Color.green(it) > 16 || Color.blue(it) > 16 }) {
+                    clearForegroundSnapshot()
+                } else {
+                    postOnAnimation(retry)
+                }
+            }, mainHandler)
+        } catch (_: IllegalArgumentException) {
+            probe.recycle()
+            postOnAnimation(retry)
         }
     }
 
@@ -455,7 +585,8 @@ class UnityView(context: Context) : FrameLayout(context) {
         )
 
         if (currentParent == this) {
-            UnityHolder.setRenderingEnabled(renderingEnabled)
+            // The host lifecycle and rendering prop have already resumed this
+            // player. Repeating resume here can interrupt the visible surface.
             Log.d(TAG, "$ATTACH_TRACE_LOG attach skipped: already attached to target, reason=$reason")
             pendingReattach = false
             if (reason == "initialize" && !hasSentInitialUnityReadyEvent) {
@@ -498,6 +629,16 @@ class UnityView(context: Context) : FrameLayout(context) {
             return
         }
 
+        findUnitySurface(unityView)?.let { surface ->
+            // Unity always renders a square scene. Resize the view for each
+            // viewport while retaining the same buffer size across screens.
+            val display = resources.displayMetrics
+            val bufferSize = minOf(display.widthPixels, display.heightPixels)
+            surface.holder.setFixedSize(bufferSize, bufferSize)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                surface.setSurfaceLifecycle(SurfaceView.SURFACE_LIFECYCLE_FOLLOWS_ATTACHMENT)
+            }
+        }
         requestLayout()
         ensureUnityViewLayout()
         pendingReattach = false
@@ -739,6 +880,7 @@ class UnityView(context: Context) : FrameLayout(context) {
             mainHandler.post { prepareForDrop(reason) }
             return
         }
+        clearForegroundSnapshot()
 
         isDropped = true
         pendingReattach = false
@@ -769,6 +911,7 @@ class UnityView(context: Context) : FrameLayout(context) {
      */
     fun setRenderingEnabled(enabled: Boolean) {
         renderingEnabled = enabled
+        if (!enabled) clearForegroundSnapshot()
         if (UnityHolder.isUnityAttachOwner(attachOwnerId)) {
             UnityHolder.setRenderingEnabled(enabled)
         }

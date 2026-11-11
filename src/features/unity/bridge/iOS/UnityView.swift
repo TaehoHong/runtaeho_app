@@ -14,6 +14,7 @@ class RNUnityContainerView: UIView {
     // Unity 관련 속성들
     private var unityView: UIView?
     private var isUnityLoaded = false
+    private var foregroundSnapshot: UIImageView?
 
     // Reattach 대기 상태 관리
     private var pendingReattach = false
@@ -50,6 +51,12 @@ class RNUnityContainerView: UIView {
         clipsToBounds = true
 
         // 앱 활성화 알림 구독 (Background → Foreground 복귀 시)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(freezeUnityForAppTransition),
+            name: UIApplication.willResignActiveNotification,
+            object: nil
+        )
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleUnityDidBecomeActive),
@@ -258,6 +265,59 @@ class RNUnityContainerView: UIView {
 
     // MARK: - App Lifecycle Handling
 
+    @objc private func freezeUnityForAppTransition() {
+        guard isUnityLoaded, renderingEnabled,
+              window != nil, !bounds.isEmpty,
+              let unityView, unityView.superview === self else { return }
+
+        if foregroundSnapshot != nil {
+            UIView.performWithoutAnimation { unityView.layer.opacity = 0 }
+            return
+        }
+
+        var captured = false
+        let image = UIGraphicsImageRenderer(bounds: bounds).image { _ in
+            captured = drawHierarchy(in: bounds, afterScreenUpdates: false)
+        }
+        guard captured else { return }
+
+        let snapshot = UIImageView(image: image)
+        snapshot.frame = bounds
+        snapshot.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        snapshot.isUserInteractionEnabled = false
+        foregroundSnapshot = snapshot
+        UIView.performWithoutAnimation {
+            addSubview(snapshot)
+            unityView.layer.opacity = 0
+        }
+    }
+
+    private func restoreLiveUnityAfterAppTransition() {
+        guard UIApplication.shared.applicationState == .active,
+              let snapshot = foregroundSnapshot else { return }
+        guard let unityView, unityView.superview === self else {
+            snapshot.removeFromSuperview()
+            foregroundSnapshot = nil
+            return
+        }
+
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        CATransaction.setCompletionBlock { [weak self, weak snapshot] in
+            guard let self, let snapshot, self.foregroundSnapshot === snapshot else { return }
+            if Unity.shared.isAppActive && UIApplication.shared.applicationState == .active {
+                snapshot.removeFromSuperview()
+                self.foregroundSnapshot = nil
+            } else if unityView.superview === self {
+                unityView.layer.opacity = 0
+            }
+        }
+        setNeedsLayout()
+        layoutIfNeeded()
+        unityView.layer.opacity = 1
+        CATransaction.commit()
+    }
+
     @objc private func handleUnityDidBecomeActive() {
         guard isUnityLoaded else {
             return
@@ -275,6 +335,7 @@ class RNUnityContainerView: UIView {
                 self?.layoutIfNeeded()
             }
         }
+        restoreLiveUnityAfterAppTransition()
     }
 
     // MARK: - Safe View Reattachment
@@ -337,6 +398,11 @@ class RNUnityContainerView: UIView {
         super.didMoveToWindow()
 
         guard window != nil else {
+            foregroundSnapshot?.removeFromSuperview()
+            foregroundSnapshot = nil
+            if unityView?.superview === self {
+                unityView?.layer.opacity = 1
+            }
             return
         }
 
