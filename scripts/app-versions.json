@@ -4,7 +4,7 @@
     "runtimeVersion": "1.12.0"
   },
   "android": {
-    "version": "1.13.2",
-    "runtimeVersion": "1.13.0"
+    "version": "1.14.0",
+    "runtimeVersion": "1.14.0"
   }
 }
