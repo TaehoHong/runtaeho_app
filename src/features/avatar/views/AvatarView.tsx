@@ -83,9 +83,6 @@ const AvatarViewContent: React.FC<AvatarViewProps> = ({ onClose }) => {
         <View style={styles.previewSideMask} />
         <AvatarPreview equippedItems={viewModel.previewItems} hairColor={viewModel.pendingHairColor} />
         <View style={styles.previewSideMask} />
-        <Text pointerEvents="none" style={styles.previewState}>
-          {viewModel.hasChanges ? translate('미리보기') : translate('현재 착용 중')}
-        </Text>
       </View>
       <View style={styles.controls} pointerEvents={viewModel.isLoading ? 'none' : 'auto'}>
         {/* Category Tabs */}
@@ -213,18 +210,6 @@ const styles = StyleSheet.create({
   previewSideMask: {
     width: 20,
     backgroundColor: GREY[50],
-  },
-  previewState: {
-    position: 'absolute',
-    left: 32,
-    top: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    backgroundColor: GREY[50],
-    color: GREY[900],
-    fontSize: 12,
-    lineHeight: 18,
   },
   controls: {
     backgroundColor: GREY[50],

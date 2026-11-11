@@ -160,7 +160,7 @@ export const ITEM_CARD_SIZE = {
  * Unity 프리뷰 설정
  */
 export const UNITY_PREVIEW = {
-  HEIGHT: 300,
+  HEIGHT: 200,
   BORDER_RADIUS: 12,
 } as const;
 
