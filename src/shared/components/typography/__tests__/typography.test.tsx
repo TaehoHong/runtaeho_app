@@ -99,7 +99,7 @@ describe.each([
     ['explicit face', { fontFamily: 'Pretendard-Medium', fontWeight: '700' },
       { fontFamily: 'Pretendard-Medium', fontWeight: 'normal' }],
     ['Cafe24 internal name', { fontFamily: 'Cafe24PROUP', fontWeight: '400' },
-      { fontFamily: 'Cafe24Proup', fontWeight: 'normal' }],
+      { fontFamily: 'Cafe24PROUP', fontWeight: 'normal' }],
     ['system family', { fontFamily: 'monospace', fontWeight: 'bold' },
       { fontFamily: 'monospace', fontWeight: 'bold' }],
   ])('uses the intended Android font for %s', (_case, input, expected) => {

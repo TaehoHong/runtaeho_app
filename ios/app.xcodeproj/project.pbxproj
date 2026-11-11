@@ -11,10 +11,28 @@
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		3BDB30733501BA1013E02344 /* RNWatchSyncBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = 7C133E9841783C0F6D47371F /* RNWatchSyncBridge.m */; };
 		3C5E3C226AC99DA0D0C71423 /* RNWatchSyncBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD4479BD40E3D6D71A10F133 /* RNWatchSyncBridge.swift */; };
+		1B5C43CEFB37BFF3A64848C9 /* RunningLiveStatusAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8D81145AF179A682BB637DE /* RunningLiveStatusAttributes.swift */; };
+		1C60933DADA548978D16FA28 /* Pretendard-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 320CFE10D5F94AB48AD6A67B /* Pretendard-Light.ttf */; };
+		3009AA645AA34AEFBB425A8E /* Pretendard-ExtraLight.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D4EECE97FA244E90A1EC25BB /* Pretendard-ExtraLight.ttf */; };
+		35346A69E6AE4594BD4B68D3 /* Pretendard-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 1345C7BE1B9949EEBC3C4123 /* Pretendard-Medium.ttf */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
+		469572A07A7308409CA1B996 /* RunningLiveStatusIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1BD71F978054117CEDA586A /* RunningLiveStatusIntent.swift */; };
+		A1BD71F978054117CEDA586B /* RunningLiveStatusIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1BD71F978054117CEDA586A /* RunningLiveStatusIntent.swift */; };
+		519B553EEC985D3D0DF89C5C /* RunningLiveStatusWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = D2C35FA1AC25A8CCACBDED80 /* RunningLiveStatusWidget.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		56E4BA12D2C76A66376D30F7 /* RunningLiveStatusModule.m in Sources */ = {isa = PBXBuildFile; fileRef = F1D031F78FEF9C4A64B8F7B9 /* RunningLiveStatusModule.m */; };
+		8C04D20EDB88E22E79C1B0C3 /* RunningLiveStatusLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5211CB11B18CA9D8F70A61ED /* RunningLiveStatusLiveActivity.swift */; };
+		9B5F97B93286402EB752B280 /* Pretendard-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3967AB2D61D54DC291CCD5DE /* Pretendard-Regular.ttf */; };
 		ADCD3A47B76623C95774D5E0 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 3EB4D8CB6799DC98CE183608 /* PrivacyInfo.xcprivacy */; };
+		B590B3D253DD49C7A42A7136 /* Pretendard-Thin.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 2681C0831ACE4137BC8C3199 /* Pretendard-Thin.ttf */; };
+		B9DA61E98DBD49EE8B87705C /* Pretendard-ExtraBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = ECD2F88B951B413AAEBC3DBC /* Pretendard-ExtraBold.ttf */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
+		BC79799253206646939C6281 /* RunningLiveStatusWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E38084D67149E9723E6B042 /* RunningLiveStatusWidgetBundle.swift */; };
+		C81FFAD8CF6D4D14BBF5AE02 /* Cafe24PROUP.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B1D0BA2D5E614D8F996A2E29 /* Cafe24PROUP.ttf */; };
 		D3ECE5C27DC205CBAEEC4ABE /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA6CB44E8987100DFE3237E6 /* ExpoModulesProvider.swift */; };
+		DD381E20A0F6F48F92F07482 /* RunningLiveStatusAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8D81145AF179A682BB637DE /* RunningLiveStatusAttributes.swift */; };
+		DF1BF8CF84ACF9D2ED406534 /* RunningLiveStatusModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91A6FCF51B5B9BB6C183FCEF /* RunningLiveStatusModule.swift */; };
+		E7D734D53E4D4CD0A3BB74BC /* Pretendard-Black.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C76BDC23DE644B399AA0A115 /* Pretendard-Black.ttf */; };
+		EF3688267C834C0A92506A15 /* Pretendard-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = DBE8C80879B14A7B88F50CD8 /* Pretendard-Bold.ttf */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 		F70CE70A2E8A6F280043B98B /* UnityFramework.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = F8D000042F3A100100000001 /* UnityFramework.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		F730CDD52E925BF4002CDFCA /* RNUnityBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = F730CDCE2E925BF4002CDFCA /* RNUnityBridge.m */; };
@@ -23,6 +41,7 @@
 		F730CDD92E925BF4002CDFCA /* UnityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F730CDD22E925BF4002CDFCA /* UnityView.swift */; };
 		F730CDDA2E925BF4002CDFCA /* UnityViewManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F730CDD42E925BF4002CDFCA /* UnityViewManager.swift */; };
 		F730CDDB2E925BF4002CDFCA /* UnityViewManager.m in Sources */ = {isa = PBXBuildFile; fileRef = F730CDD32E925BF4002CDFCA /* UnityViewManager.m */; };
+		F7363F2EC44C455893B390E6 /* Pretendard-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F4FDED89377F44C78736A4C2 /* Pretendard-SemiBold.ttf */; };
 		F76332C72F29A2D100E4B48E /* UnityNativeBridge.mm in Sources */ = {isa = PBXBuildFile; fileRef = F77F8FC12ED3E49E0077E3A1 /* UnityNativeBridge.mm */; };
 		F7BE22F62F21245100B213D3 /* UnityViewContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7BE22F52F21245100B213D3 /* UnityViewContainer.swift */; };
 		F810CA110000000000000001 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = F810CA110000000000000002 /* InfoPlist.strings */; };
@@ -53,9 +72,27 @@
 			remoteGlobalIDString = 9D25AB9D213FB47800354C27;
 			remoteInfo = UnityFramework;
 		};
+		DB9FD621190E991EC76F23CD /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3F9FEA4DFBA37FE49CCFADB2;
+			remoteInfo = RunningLiveStatusWidget;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		B1365698093D16F2D867833F /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				519B553EEC985D3D0DF89C5C /* RunningLiveStatusWidget.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F70CE70B2E8A6F280043B98B /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -70,21 +107,39 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		1345C7BE1B9949EEBC3C4123 /* Pretendard-Medium.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Pretendard-Medium.ttf"; path = "../assets/fonts/Pretendard-Medium.ttf"; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* RunTaeho.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RunTaeho.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = app/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = app/Info.plist; sourceTree = "<group>"; };
 		39E8D92948C197863E90F4B7 /* RunTaehoWatch.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = RunTaehoWatch.xcodeproj; path = ../watchos/RunTaehoWatch.xcodeproj; sourceTree = "<group>"; };
+		2681C0831ACE4137BC8C3199 /* Pretendard-Thin.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Pretendard-Thin.ttf"; path = "../assets/fonts/Pretendard-Thin.ttf"; sourceTree = "<group>"; };
+		320CFE10D5F94AB48AD6A67B /* Pretendard-Light.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Pretendard-Light.ttf"; path = "../assets/fonts/Pretendard-Light.ttf"; sourceTree = "<group>"; };
+		3967AB2D61D54DC291CCD5DE /* Pretendard-Regular.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Pretendard-Regular.ttf"; path = "../assets/fonts/Pretendard-Regular.ttf"; sourceTree = "<group>"; };
 		3EB4D8CB6799DC98CE183608 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = app/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		4E38084D67149E9723E6B042 /* RunningLiveStatusWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RunningLiveStatusWidgetBundle.swift; sourceTree = "<group>"; };
+		5211CB11B18CA9D8F70A61ED /* RunningLiveStatusLiveActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RunningLiveStatusLiveActivity.swift; sourceTree = "<group>"; };
+		705FE3EA1B374347A59DB355 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		7A121A98D3B360255915DCBF /* Pods-app.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-app.debug.xcconfig"; path = "Target Support Files/Pods-app/Pods-app.debug.xcconfig"; sourceTree = "<group>"; };
 		7C133E9841783C0F6D47371F /* RNWatchSyncBridge.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = RNWatchSyncBridge.m; sourceTree = "<group>"; };
 		8D73E90F4DB8D4839B04E9AB /* libPods-app.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-app.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		91A6FCF51B5B9BB6C183FCEF /* RunningLiveStatusModule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RunningLiveStatusModule.swift; path = app/RunningLiveStatusModule.swift; sourceTree = "<group>"; };
+		A1BD71F978054117CEDA586A /* RunningLiveStatusIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RunningLiveStatusIntent.swift; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = app/SplashScreen.storyboard; sourceTree = "<group>"; };
+		B1D0BA2D5E614D8F996A2E29 /* Cafe24PROUP.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = Cafe24PROUP.ttf; path = ../assets/fonts/Cafe24PROUP.ttf; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
 		D2F670B9C0FC2A815B3C7B86 /* Pods-app.development.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-app.development.xcconfig"; path = "Target Support Files/Pods-app/Pods-app.development.xcconfig"; sourceTree = "<group>"; };
 		DD4479BD40E3D6D71A10F133 /* RNWatchSyncBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RNWatchSyncBridge.swift; sourceTree = "<group>"; };
+		C76BDC23DE644B399AA0A115 /* Pretendard-Black.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Pretendard-Black.ttf"; path = "../assets/fonts/Pretendard-Black.ttf"; sourceTree = "<group>"; };
+		D2C35FA1AC25A8CCACBDED80 /* RunningLiveStatusWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RunningLiveStatusWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		D4EECE97FA244E90A1EC25BB /* Pretendard-ExtraLight.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Pretendard-ExtraLight.ttf"; path = "../assets/fonts/Pretendard-ExtraLight.ttf"; sourceTree = "<group>"; };
+		D8D81145AF179A682BB637DE /* RunningLiveStatusAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RunningLiveStatusAttributes.swift; path = app/RunningLiveStatusAttributes.swift; sourceTree = "<group>"; };
+		DBE8C80879B14A7B88F50CD8 /* Pretendard-Bold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Pretendard-Bold.ttf"; path = "../assets/fonts/Pretendard-Bold.ttf"; sourceTree = "<group>"; };
 		EA6CB44E8987100DFE3237E6 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-app/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		ECD2F88B951B413AAEBC3DBC /* Pretendard-ExtraBold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Pretendard-ExtraBold.ttf"; path = "../assets/fonts/Pretendard-ExtraBold.ttf"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = app/AppDelegate.swift; sourceTree = "<group>"; };
+		F1D031F78FEF9C4A64B8F7B9 /* RunningLiveStatusModule.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = RunningLiveStatusModule.m; path = app/RunningLiveStatusModule.m; sourceTree = "<group>"; };
+		F4FDED89377F44C78736A4C2 /* Pretendard-SemiBold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Pretendard-SemiBold.ttf"; path = "../assets/fonts/Pretendard-SemiBold.ttf"; sourceTree = "<group>"; };
 		F70CE6EC2E8A0DC20043B98B /* UnityFramework.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = UnityFramework.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		F70CE6FA2E8A18840043B98B /* app-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "app-Bridging-Header.h"; path = "app/app-Bridging-Header.h"; sourceTree = "<group>"; };
 		F70CE7082E8A6F280043B98B /* UnityFramework.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = UnityFramework.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -112,6 +167,13 @@
 			files = (
 				01FD88580BBBCB18C0AA1748 /* libPods-app.a in Frameworks */,
 				F8D000072F3A100100000001 /* UnityFramework.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BC0F0C14DE754BCBF5E7AF65 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -147,6 +209,9 @@
 				F730CDD32E925BF4002CDFCA /* UnityViewManager.m */,
 				F730CDD42E925BF4002CDFCA /* UnityViewManager.swift */,
 				F77F8FC12ED3E49E0077E3A1 /* UnityNativeBridge.mm */,
+				91A6FCF51B5B9BB6C183FCEF /* RunningLiveStatusModule.swift */,
+				F1D031F78FEF9C4A64B8F7B9 /* RunningLiveStatusModule.m */,
+				D8D81145AF179A682BB637DE /* RunningLiveStatusAttributes.swift */,
 			);
 			name = app;
 			sourceTree = "<group>";
@@ -179,6 +244,18 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		2E873261BA8C3A8B9477ACE3 /* RunningLiveStatusWidget */ = {
+			isa = PBXGroup;
+			children = (
+				5211CB11B18CA9D8F70A61ED /* RunningLiveStatusLiveActivity.swift */,
+				A1BD71F978054117CEDA586A /* RunningLiveStatusIntent.swift */,
+				4E38084D67149E9723E6B042 /* RunningLiveStatusWidgetBundle.swift */,
+				705FE3EA1B374347A59DB355 /* Info.plist */,
+			);
+			name = RunningLiveStatusWidget;
+			path = RunningLiveStatusWidget;
+			sourceTree = "<group>";
+		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
 			isa = PBXGroup;
 			children = (
@@ -198,6 +275,8 @@
 				11A16A66EDEE32626256B61C /* ExpoModulesProviders */,
 				B7B45CF3E639AC3D189BA181 /* WatchSync */,
 				39E8D92948C197863E90F4B7 /* RunTaehoWatch.xcodeproj */,
+				EEFEA7C160864B97ABF8F493 /* Resources */,
+				2E873261BA8C3A8B9477ACE3 /* RunningLiveStatusWidget */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -208,6 +287,7 @@
 			isa = PBXGroup;
 			children = (
 				13B07F961A680F5B00A75B9A /* RunTaeho.app */,
+				D2C35FA1AC25A8CCACBDED80 /* RunningLiveStatusWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -239,6 +319,24 @@
 				D2F670B9C0FC2A815B3C7B86 /* Pods-app.development.xcconfig */,
 			);
 			path = Pods;
+			sourceTree = "<group>";
+		};
+		EEFEA7C160864B97ABF8F493 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				2681C0831ACE4137BC8C3199 /* Pretendard-Thin.ttf */,
+				D4EECE97FA244E90A1EC25BB /* Pretendard-ExtraLight.ttf */,
+				320CFE10D5F94AB48AD6A67B /* Pretendard-Light.ttf */,
+				3967AB2D61D54DC291CCD5DE /* Pretendard-Regular.ttf */,
+				1345C7BE1B9949EEBC3C4123 /* Pretendard-Medium.ttf */,
+				F4FDED89377F44C78736A4C2 /* Pretendard-SemiBold.ttf */,
+				DBE8C80879B14A7B88F50CD8 /* Pretendard-Bold.ttf */,
+				ECD2F88B951B413AAEBC3DBC /* Pretendard-ExtraBold.ttf */,
+				C76BDC23DE644B399AA0A115 /* Pretendard-Black.ttf */,
+				B1D0BA2D5E614D8F996A2E29 /* Cafe24PROUP.ttf */,
+			);
+			name = Resources;
+			path = "";
 			sourceTree = "<group>";
 		};
 		F6F2BDFB7F21B3284BC22FF1 /* app */ = {
@@ -275,17 +373,36 @@
 				1EAB617151155899E9934693 /* [CP] Embed Pods Frameworks */,
 				F70CE70B2E8A6F280043B98B /* Embed Frameworks */,
 				B7518CC071EF45C8B36BE467 /* Upload Debug Symbols to Sentry */,
+				B1365698093D16F2D867833F /* Embed App Extensions */,
 				17DCDF355B275B8C965200BA /* [CP-User] [RNGoogleMobileAds] Configuration */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				F8D000062F3A100100000001 /* PBXTargetDependency */,
+				9BBBDC228FBB9A66DA3B2F44 /* PBXTargetDependency */,
 			);
 			name = app;
 			productName = app;
 			productReference = 13B07F961A680F5B00A75B9A /* RunTaeho.app */;
 			productType = "com.apple.product-type.application";
+		};
+		3F9FEA4DFBA37FE49CCFADB2 /* RunningLiveStatusWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 612202EAE2BAE6167BE08D5F /* Build configuration list for PBXNativeTarget "RunningLiveStatusWidget" */;
+			buildPhases = (
+				D04CC502FDD1422849CA6E8A /* Sources */,
+				BC0F0C14DE754BCBF5E7AF65 /* Frameworks */,
+				8C49A0629E00B93D98605B46 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = RunningLiveStatusWidget;
+			productName = RunningLiveStatusWidget;
+			productReference = D2C35FA1AC25A8CCACBDED80 /* RunningLiveStatusWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -326,6 +443,7 @@
 			projectRoot = "";
 			targets = (
 				13B07F861A680F5B00A75B9A /* app */,
+				3F9FEA4DFBA37FE49CCFADB2 /* RunningLiveStatusWidget */,
 			);
 		};
 /* End PBXProject section */
@@ -357,6 +475,23 @@
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
 				ADCD3A47B76623C95774D5E0 /* PrivacyInfo.xcprivacy in Resources */,
+				B590B3D253DD49C7A42A7136 /* Pretendard-Thin.ttf in Resources */,
+				3009AA645AA34AEFBB425A8E /* Pretendard-ExtraLight.ttf in Resources */,
+				1C60933DADA548978D16FA28 /* Pretendard-Light.ttf in Resources */,
+				9B5F97B93286402EB752B280 /* Pretendard-Regular.ttf in Resources */,
+				35346A69E6AE4594BD4B68D3 /* Pretendard-Medium.ttf in Resources */,
+				F7363F2EC44C455893B390E6 /* Pretendard-SemiBold.ttf in Resources */,
+				EF3688267C834C0A92506A15 /* Pretendard-Bold.ttf in Resources */,
+				B9DA61E98DBD49EE8B87705C /* Pretendard-ExtraBold.ttf in Resources */,
+				E7D734D53E4D4CD0A3BB74BC /* Pretendard-Black.ttf in Resources */,
+				C81FFAD8CF6D4D14BBF5AE02 /* Cafe24PROUP.ttf in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8C49A0629E00B93D98605B46 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -593,6 +728,21 @@
 				D3ECE5C27DC205CBAEEC4ABE /* ExpoModulesProvider.swift in Sources */,
 				3C5E3C226AC99DA0D0C71423 /* RNWatchSyncBridge.swift in Sources */,
 				3BDB30733501BA1013E02344 /* RNWatchSyncBridge.m in Sources */,
+				DF1BF8CF84ACF9D2ED406534 /* RunningLiveStatusModule.swift in Sources */,
+				56E4BA12D2C76A66376D30F7 /* RunningLiveStatusModule.m in Sources */,
+				1B5C43CEFB37BFF3A64848C9 /* RunningLiveStatusAttributes.swift in Sources */,
+				A1BD71F978054117CEDA586B /* RunningLiveStatusIntent.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D04CC502FDD1422849CA6E8A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8C04D20EDB88E22E79C1B0C3 /* RunningLiveStatusLiveActivity.swift in Sources */,
+				469572A07A7308409CA1B996 /* RunningLiveStatusIntent.swift in Sources */,
+				BC79799253206646939C6281 /* RunningLiveStatusWidgetBundle.swift in Sources */,
+				DD381E20A0F6F48F92F07482 /* RunningLiveStatusAttributes.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -603,6 +753,12 @@
 			isa = PBXTargetDependency;
 			name = UnityFramework;
 			targetProxy = F8D000022F3A100100000001 /* PBXContainerItemProxy */;
+		};
+		9BBBDC228FBB9A66DA3B2F44 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = RunningLiveStatusWidget;
+			target = 3F9FEA4DFBA37FE49CCFADB2 /* RunningLiveStatusWidget */;
+			targetProxy = DB9FD621190E991EC76F23CD /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -761,6 +917,70 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
 				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Development;
+		};
+		740593CCCBD205E426B33047 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 3F893P33SC;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = RunningLiveStatusWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				CURRENT_PROJECT_VERSION = 9;
+				MARKETING_VERSION = 1.12.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.runtaeho.runtaeho.RunningLiveStatusWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		765908219D6C0CB08865796D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 3F893P33SC;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = RunningLiveStatusWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				CURRENT_PROJECT_VERSION = 9;
+				MARKETING_VERSION = 1.12.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.runtaeho.runtaeho.dev.RunningLiveStatusWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		765908219D6C0CB08865796E /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 3F893P33SC;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = RunningLiveStatusWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				CURRENT_PROJECT_VERSION = 9;
+				MARKETING_VERSION = 1.12.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.runtaeho.runtaeho.dev.RunningLiveStatusWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Development;
 		};
@@ -970,6 +1190,16 @@
 				13B07F941A680F5B00A75B9A /* Debug */,
 				13B07F951A680F5B00A75B9A /* Release */,
 				344AA9AA26E1095ADDFD6E85 /* Development */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		612202EAE2BAE6167BE08D5F /* Build configuration list for PBXNativeTarget "RunningLiveStatusWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				740593CCCBD205E426B33047 /* Release */,
+				765908219D6C0CB08865796D /* Debug */,
+				765908219D6C0CB08865796E /* Development */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

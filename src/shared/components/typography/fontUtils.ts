@@ -58,7 +58,7 @@ export const getAndroidFontStyle = ({ fontFamily, fontWeight }: TextStyle): Text
   }
 
   if (fontFamily === 'Cafe24PROUP' || fontFamily === 'Cafe24Proup') {
-    return { fontFamily: 'Cafe24Proup', fontWeight: 'normal' };
+    return { fontFamily: 'Cafe24PROUP', fontWeight: 'normal' };
   }
 
   return undefined;

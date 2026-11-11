@@ -1,3 +1,4 @@
+import type { SessionSnapshot } from '~/features/auth/stores/authStore';
 /**
  * Running ViewModel Hooks - Shared Types
  *
@@ -223,6 +224,13 @@ export interface PedometerData {
   cadence: number;
 }
 
+export interface RestoredRunningEnd {
+  currentRecord: RunningRecord;
+  elapsedTime: number;
+  distance: number;
+  session: SessionSnapshot;
+}
+
 /**
  * useRunningLifecycle hook 반환 타입
  */
@@ -248,7 +256,7 @@ export interface UseRunningLifecycleReturn {
   pauseRunning: () => void;
   applyAutoPause: () => void;
   resumeRunning: () => void;
-  endRunning: () => Promise<EndRunningRecord | null>;
+  endRunning: (restored?: RestoredRunningEnd) => Promise<EndRunningRecord | null>;
   updateCurrentRecord: () => Promise<void>;
   resetRunning: () => void;
 }

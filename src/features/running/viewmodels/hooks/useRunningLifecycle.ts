@@ -28,7 +28,7 @@ import { backgroundTaskService } from '../../services/BackgroundTaskService';
 import { leagueService } from '~/features/league/services/leagueService';
 import { useAppStore, RunningState } from '~/stores/app/appStore';
 import { permissionManager } from '~/services/PermissionManager';
-import type { UseRunningLifecycleProps, UseRunningLifecycleReturn } from './types';
+import type { RestoredRunningEnd, UseRunningLifecycleProps, UseRunningLifecycleReturn } from './types';
 
 export const useRunningLifecycle = ({
   statsRef: _statsRef,
@@ -225,18 +225,19 @@ export const useRunningLifecycle = ({
   /**
    * 러닝 종료
    */
-  const performEnd = useCallback(async (): Promise<EndRunningRecord | null> => {
-    if (!currentRecord) return null;
+  const performEnd = useCallback(async (restored?: RestoredRunningEnd): Promise<EndRunningRecord | null> => {
+    const record = currentRecord ?? restored?.currentRecord;
+    if (!record) return null;
     const generation = generationRef.current;
-    const session = sessionRef.current ?? getSessionSnapshot();
+    const session = sessionRef.current ?? restored?.session ?? getSessionSnapshot();
     const checkCurrent = () => {
       if (generation !== generationRef.current || !isSessionCurrent(session)) throw new SessionSupersededError();
     };
     checkCurrent();
-    const isRetry = finalRecordRef.current !== null || currentRecord.endTimestamp !== undefined;
+    const isRetry = finalRecordRef.current !== null || record.endTimestamp !== undefined;
 
     try {
-      let finalRecord = finalRecordRef.current ?? currentRecord;
+      let finalRecord = finalRecordRef.current ?? record;
       // 저장 재시도에서는 첫 종료의 시각·거리·세그먼트를 그대로 사용한다.
       if (!isRetry) {
         const endedAt = endTimeRef.current ?? Date.now();
@@ -246,8 +247,10 @@ export const useRunningLifecycle = ({
         const endTimestamp = Math.floor(endedAt / 1000);
         setLeagueBeforeRunningEnd(null);
         // 1. 마지막 source snapshot까지 수거한 뒤 세그먼트를 확정한다.
-        const { distance: finalDistance } = await stopGpsTracking();
+        const { distance: stoppedDistance } = await stopGpsTracking();
         checkCurrent();
+        const finalDistance = Math.max(stoppedDistance, restored?.distance ?? 0);
+        const durationSec = restored?.elapsedTime ?? Math.floor(clockRef.current.elapsed(endedAt) / 1000);
         finalizeCurrentSegment(endedAt);
 
         // 2. 종료 시점에 중지한 Pedometer의 최종 값 조회
@@ -268,13 +271,13 @@ export const useRunningLifecycle = ({
         });
 
         // 3. 최종 기록 업데이트
-        finalRecord = updateRunningRecord(currentRecord, {
+        finalRecord = updateRunningRecord(record, {
           distance: Math.round(finalDistance),
           steps: finalSteps > 0 ? finalSteps : null,
           cadence: finalCadence,
           heartRate: stats.bpm ?? null,
           calorie: stats.calories ? Math.round(stats.calories) : 0,
-          durationSec: Math.floor(clockRef.current.elapsed(endedAt) / 1000),
+          durationSec,
           endTimestamp,
         });
 
@@ -318,7 +321,7 @@ export const useRunningLifecycle = ({
               checkCurrent();
               if (getRunningRejectionCode(apiError)) {
                 setLeagueBeforeRunningEnd(null);
-                await offlineStorageService.discardPendingSegments(currentRecord.id, session);
+                await offlineStorageService.discardPendingSegments(record.id, session);
                 await offlineStorageService.removePendingUpload(uploadId, session);
                 throw apiError;
               }
@@ -390,11 +393,11 @@ export const useRunningLifecycle = ({
     setLeagueBeforeRunningEnd,
   ]);
 
-  const endRunning = useCallback((): Promise<EndRunningRecord | null> => {
+  const endRunning = useCallback((restored?: RestoredRunningEnd): Promise<EndRunningRecord | null> => {
     if (endOperationRef.current) return endOperationRef.current;
     if (runningState === RunningState.Finished) return Promise.resolve(null);
     setIsEnding(true);
-    const operation = Promise.resolve().then(performEnd).finally(() => {
+    const operation = Promise.resolve().then(() => performEnd(restored)).finally(() => {
       if (endOperationRef.current === operation) {
         endOperationRef.current = null;
         setIsEnding(false);

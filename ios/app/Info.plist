@@ -88,6 +88,8 @@
 	<string>러닝 기록 공유 이미지를 갤러리에 저장하기 위해 사진 라이브러리 접근 권한이 필요합니다.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>프로필 사진 및 러닝 기록 공유 배경 이미지 선택을 위해 사진 라이브러리 접근 권한이 필요합니다.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>NSUserActivityTypes</key>
 	<array>
 		<string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>
@@ -124,5 +126,18 @@
 	<string>Automatic</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Pretendard-Thin.ttf</string>
+		<string>Pretendard-ExtraLight.ttf</string>
+		<string>Pretendard-Light.ttf</string>
+		<string>Pretendard-Regular.ttf</string>
+		<string>Pretendard-Medium.ttf</string>
+		<string>Pretendard-SemiBold.ttf</string>
+		<string>Pretendard-Bold.ttf</string>
+		<string>Pretendard-ExtraBold.ttf</string>
+		<string>Pretendard-Black.ttf</string>
+		<string>Cafe24PROUP.ttf</string>
+	</array>
 </dict>
 </plist>

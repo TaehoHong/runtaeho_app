@@ -69,11 +69,13 @@ post_integrate do |installer|
       path.sub('$(BUILT_PRODUCTS_DIR)/$(INFOPLIST_PATH)', '$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)')
     end
     ads_phase.shell_script = ads_phase.shell_script.gsub('${BUILT_PRODUCTS_DIR}/${INFOPLIST_PATH}', '${TARGET_BUILD_DIR}/${INFOPLIST_PATH}')
-    # The phone plist includes Watch metadata, so embed the Watch app before plist consumers.
-    watch_phase = target.copy_files_build_phases.find { |item| item.name == 'Embed Watch Content' }
-    if watch_phase && target.build_phases.index(watch_phase) > target.build_phases.index(ads_phase)
-      target.build_phases.delete(watch_phase)
-      target.build_phases.insert(target.build_phases.index(ads_phase), watch_phase)
+    # Xcode reads embedded bundles when generating the app plist consumed by the ads phase.
+    target.copy_files_build_phases.each do |phase|
+      next unless ['Embed Watch Content', 'Embed App Extensions'].include?(phase.name)
+      next unless target.build_phases.index(phase) > target.build_phases.index(ads_phase)
+
+      target.build_phases.delete(phase)
+      target.build_phases.insert(target.build_phases.index(ads_phase), phase)
     end
     project.save
   end

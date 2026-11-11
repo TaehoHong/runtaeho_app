@@ -26,6 +26,7 @@ import {
   useGpsTracking,
   useUnityCharacterControl,
   useRunningLifecycle,
+  useRunningLiveStatus,
 } from './hooks';
 
 /**
@@ -143,6 +144,27 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
   });
 
   activeElapsedRef.current = getActiveElapsedMs;
+  const {
+    startRunning: startRunningWithLiveStatus,
+    pauseRunning: pauseRunningWithLiveStatus,
+    resumeRunning: resumeRunningWithLiveStatus,
+    endRunning: endRunningWithLiveStatus,
+    resetRunning: resetLiveStatus,
+  } = useRunningLiveStatus({
+    runningState,
+    currentRecord,
+    startTime,
+    pausedDuration,
+    distance,
+    elapsedTime,
+    stats,
+    startRunning,
+    pauseRunning,
+    resumeRunning,
+    endRunning,
+    resetRunning: resetLifecycle,
+  });
+
   autoPauseHandlerRef.current = applyAutoPause;
 
   useEffect(() => {
@@ -223,9 +245,9 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
   // Combined Reset
   // ============================================
   const resetRunning = useCallback(() => {
-    resetLifecycle();
+    resetLiveStatus();
     resetGpsTracking();
-  }, [resetLifecycle, resetGpsTracking]);
+  }, [resetLiveStatus, resetGpsTracking]);
 
   // ============================================
   // Return
@@ -247,10 +269,10 @@ export const useRunningViewModel = (isUnityReady: boolean = false) => {
     isEnding,
 
     // Actions
-    startRunning,
-    pauseRunning,
-    resumeRunning,
-    endRunning,
+    startRunning: startRunningWithLiveStatus,
+    pauseRunning: pauseRunningWithLiveStatus,
+    resumeRunning: resumeRunningWithLiveStatus,
+    endRunning: endRunningWithLiveStatus,
     updateCurrentRecord,
     resetRunning,
 

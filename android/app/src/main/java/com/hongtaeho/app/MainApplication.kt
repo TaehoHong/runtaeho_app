@@ -15,6 +15,7 @@ import expo.modules.ExpoReactHostFactory
 
 import com.hongtaeho.app.watch.RNWatchSyncBridgePackage
 import com.hongtaeho.app.health.RNHealthImportBridgePackage
+import com.hongtaeho.app.runninglive.RunningLiveStatusPackage
 import com.hongtaeho.app.unity.RNUnityBridgePackage
 import com.hongtaeho.app.typography.FontScaleTextInputPackage
 
@@ -28,6 +29,7 @@ class MainApplication : Application(), ReactApplication {
         add(RNUnityBridgePackage())
         add(RNHealthImportBridgePackage())
         add(RNWatchSyncBridgePackage())
+        add(RunningLiveStatusPackage())
       }
     )
   }

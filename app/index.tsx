@@ -25,7 +25,7 @@ export default function Index() {
     'Pretendard-Bold': require('../assets/fonts/Pretendard-Bold.ttf'),
     'Pretendard-ExtraBold': require('../assets/fonts/Pretendard-ExtraBold.ttf'),
     'Pretendard-Black': require('../assets/fonts/Pretendard-Black.ttf'),
-    'Cafe24Proup': require('../assets/fonts/Cafe24PROUP.ttf'),
+    'Cafe24PROUP': require('../assets/fonts/Cafe24PROUP.ttf'),
   });
 
   useEffect(() => {

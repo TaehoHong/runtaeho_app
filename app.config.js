@@ -46,6 +46,7 @@ export default {
         CFBundleLocalizations: ["ko", "ja"],
         NSLocationWhenInUseUsageDescription: "RunTaeho는 러닝 중 실시간으로 GPS 경로를 추적하고, 이동 거리와 페이스를 계산합니다.",
         NSMotionUsageDescription: "걸음 수 측정 및 러닝 페이스 분석을 위해 동작 및 피트니스 데이터를 사용합니다.",
+        NSSupportsLiveActivities: true,
         UIBackgroundModes: ["location"],
         GIDClientID: profile.iosClientId
       }
@@ -64,7 +65,9 @@ export default {
         "ACCESS_FINE_LOCATION",
         "ACTIVITY_RECOGNITION", // 동작 및 피트니스 (걸음 수)
         "FOREGROUND_SERVICE",
-        "FOREGROUND_SERVICE_LOCATION" // Foreground Service (위치)
+        "FOREGROUND_SERVICE_LOCATION", // Foreground Service (위치)
+        "POST_NOTIFICATIONS",
+        "POST_PROMOTED_NOTIFICATIONS"
       ],
       ...(googleMapsAndroidApiKey
         ? {
@@ -129,9 +132,20 @@ export default {
         }
       ],
       [
-        "expo-asset",
+        "expo-font",
         {
-          "assets": ["./assets/fonts"]
+          fonts: [
+            "./assets/fonts/Cafe24PROUP.ttf",
+            "./assets/fonts/Pretendard-Black.ttf",
+            "./assets/fonts/Pretendard-Bold.ttf",
+            "./assets/fonts/Pretendard-ExtraBold.ttf",
+            "./assets/fonts/Pretendard-ExtraLight.ttf",
+            "./assets/fonts/Pretendard-Light.ttf",
+            "./assets/fonts/Pretendard-Medium.ttf",
+            "./assets/fonts/Pretendard-Regular.ttf",
+            "./assets/fonts/Pretendard-SemiBold.ttf",
+            "./assets/fonts/Pretendard-Thin.ttf"
+          ]
         }
       ],
       [
