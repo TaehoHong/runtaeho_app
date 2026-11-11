@@ -154,8 +154,12 @@ chmod 600 ../credentials/deployment.sh
 iOS 두 앱은 `ios-production-signing.p12`와 `ios-production-signing.json`의
 `certificatePassword`를 공유한다. App Store 프로파일은 운영
 `ios-production-phone.mobileprovision`, 개발 `ios-development-phone.mobileprovision`으로 구분한다.
-TestFlight용 개발 앱도 App Store 배포 프로파일이 필요하며, `.dev` 앱 ID와 HealthKit·Apple 로그인·푸시
-권한이 일치해야 한다. `scripts/sign-ios.py`가 빌드번호 증가 전에 인증서·개인 키·프로파일을 검사한다.
+Live Activity 위젯은 각 앱 ID 뒤에 `.RunningLiveStatusWidget`을 붙인 별도 App ID로 등록하고,
+동일 배포 인증서로 App Store 프로파일을 발급해 `ios-production-running-live-status.mobileprovision` 또는
+`ios-development-running-live-status.mobileprovision`으로 저장한다. TestFlight용 개발 앱도 App Store
+배포 프로파일이 필요하며, 휴대폰의 `.dev` 앱 ID와 HealthKit·Apple 로그인·푸시 권한이 일치해야 한다.
+`scripts/sign-ios.py`는 빌드번호 증가 전에 인증서·개인 키와 두 프로파일을 검사하고, IPA에서 위젯의
+앱 ID·버전·빌드번호와 서명을 확인한다.
 아카이브는 자동 서명 없이 만들고, 임시 키체인에서 서명·내보내기·IPA 검증을 수행한다.
 기존 키체인 검색 목록은 성공·실패 시 모두 복원하고 임시 키체인을 삭제한다. Xcode에 필요한
 프로파일도 이미 설치된 파일은 보존하고 이번 내보내기에서 추가한 파일만 정리한다.

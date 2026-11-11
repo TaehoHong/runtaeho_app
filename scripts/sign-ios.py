@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Export phone-only App Store IPAs using the workspace signing credentials."""
+"""Export phone App Store IPAs with their Live Activity extension."""
 import contextlib
 import hashlib
 import json
@@ -12,6 +12,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -44,32 +45,52 @@ def entitlements(source, allowed):
     return result
 
 
-def credentials(profile):
-    profiles = json.loads((ROOT / "scripts/app-profiles.json").read_text())
-    if profile not in ["development", "production"]:
-        raise ValueError("서명 프로파일은 development 또는 production이어야 합니다.")
-    name = "ios-development-phone.mobileprovision" if profile == "development" else "ios-production-phone.mobileprovision"
-    provision = CREDENTIALS / name
-    p12 = CREDENTIALS / "ios-production-signing.p12"
-    config = CREDENTIALS / "ios-production-signing.json"
-    for file in [provision, p12, config]:
-        if not file.is_file():
-            raise ValueError(f"서명 파일이 없습니다: {file}. Apple Developer의 App ID·App Store 프로파일을 준비하세요.")
-    password = json.loads(config.read_text()).get("certificatePassword")
-    if not password:
-        raise ValueError("ios-production-signing.json의 certificatePassword가 필요합니다.")
-    data = plistlib.loads(command(["security", "cms", "-D", "-i", str(provision)]))
-    bundle = profiles[profile]["applicationId"]
+@dataclass(frozen=True)
+class SigningProfile:
+    path: Path
+    bundle: str
+    data: dict
+    rights: dict
+
+
+def load_profile(path, bundle, source):
+    if not path.is_file():
+        raise ValueError(f"서명 파일이 없습니다: {path}. Apple Developer의 App ID·App Store 프로파일을 준비하세요.")
+    data = plistlib.loads(command(["security", "cms", "-D", "-i", str(path)]))
     allowed = data["Entitlements"]
     if data["ExpirationDate"] <= datetime.now(timezone.utc).replace(tzinfo=None):
-        raise ValueError(f"프로비저닝 프로파일이 만료됐습니다: {name}")
+        raise ValueError(f"프로비저닝 프로파일이 만료됐습니다: {path.name}")
     if allowed.get("application-identifier") != "3F893P33SC." + bundle:
         raise ValueError(f"프로비저닝 프로파일의 앱 ID가 다릅니다 (필요: {bundle}).")
     if allowed.get("get-task-allow") or data.get("ProvisionedDevices") or data.get("ProvisionsAllDevices"):
         raise ValueError("개발 디바이스용이 아닌 App Store 배포 프로파일이 필요합니다.")
-    source = plistlib.loads((ROOT / "ios/app/app.entitlements").read_bytes())
-    return provision, p12, password, data, bundle, entitlements(source, allowed)
+    return SigningProfile(path, bundle, data, entitlements(source, allowed))
 
+
+def credentials(profile):
+    profiles = json.loads((ROOT / "scripts/app-profiles.json").read_text())
+    if profile not in ["development", "production"]:
+        raise ValueError("서명 프로파일은 development 또는 production이어야 합니다.")
+    p12 = CREDENTIALS / "ios-production-signing.p12"
+    config = CREDENTIALS / "ios-production-signing.json"
+    for file in [p12, config]:
+        if not file.is_file():
+            raise ValueError(f"서명 파일이 없습니다: {file}. Apple Developer의 배포 인증서를 준비하세요.")
+    password = json.loads(config.read_text()).get("certificatePassword")
+    if not password:
+        raise ValueError("ios-production-signing.json의 certificatePassword가 필요합니다.")
+    bundle = profiles[profile]["applicationId"]
+    source = plistlib.loads((ROOT / "ios/app/app.entitlements").read_bytes())
+    phone = load_profile(CREDENTIALS / f"ios-{profile}-phone.mobileprovision", bundle, source)
+    widget = load_profile(
+        CREDENTIALS / f"ios-{profile}-running-live-status.mobileprovision",
+        f"{bundle}.RunningLiveStatusWidget",
+        {},
+    )
+    certificates = set(phone.data["DeveloperCertificates"]) & set(widget.data["DeveloperCertificates"])
+    if not certificates:
+        raise ValueError("휴대폰과 Live Activity 위젯에 공통인 배포 인증서가 없습니다.")
+    return p12, password, phone, widget, certificates
 
 @contextlib.contextmanager
 def signing_keychain(p12, password, certificates):
@@ -115,61 +136,82 @@ def check_app(app, bundle):
     return info
 
 
+def check_widget(app, bundle, app_info):
+    widgets = list(app.rglob("*.appex"))
+    expected = app / "PlugIns/RunningLiveStatusWidget.appex"
+    if widgets != [expected]:
+        raise ValueError("아카이브/IPA에는 RunningLiveStatusWidget 확장 하나가 있어야 합니다.")
+    info = plistlib.loads((expected / "Info.plist").read_bytes())
+    if info["CFBundleIdentifier"] != bundle:
+        raise ValueError(f"Live Activity 위젯 앱 ID가 다릅니다 (필요: {bundle}).")
+    for key in ["CFBundleShortVersionString", "CFBundleVersion"]:
+        if info[key] != app_info[key]:
+            raise ValueError("Live Activity 위젯의 버전·빌드번호가 휴대폰 앱과 다릅니다.")
+    return expected
+
+
+def sign_bundle(bundle, profile, identity, keychain, temporary):
+    rights = temporary / f"{profile.bundle}.entitlements"
+    rights.write_bytes(plistlib.dumps(profile.rights))
+    shutil.copyfile(profile.path, bundle / "embedded.mobileprovision")
+    command(["codesign", "--force", "--sign", identity, "--keychain", keychain,
+             "--generate-entitlement-der", "--entitlements", str(rights), str(bundle)])
+
+
 def export_archive(profile, archive, destination):
-    provision, p12, password, data, bundle, rights = credentials(profile)
+    p12, password, phone, widget, certificates = credentials(profile)
     apps = list((archive / "Products/Applications").glob("*.app"))
     if len(apps) != 1:
         raise ValueError("아카이브에 휴대폰 앱이 하나 있어야 합니다.")
     app = apps[0]
-    info = check_app(app, bundle)
-    with signing_keychain(p12, password, data["DeveloperCertificates"]) as (keychain, identity, temporary):
-        rights_file = temporary / "app.entitlements"
-        rights_file.write_bytes(plistlib.dumps(rights))
-        shutil.copyfile(provision, app / "embedded.mobileprovision")
+    info = check_app(app, phone.bundle)
+    extension = check_widget(app, widget.bundle, info)
+    with signing_keychain(p12, password, certificates) as (keychain, identity, temporary):
         nested = [p for p in app.rglob("*") if p.suffix in [".framework", ".dylib"]]
         for item in sorted(nested, key=lambda p: len(p.parts), reverse=True):
             command(["codesign", "--force", "--sign", identity[0], "--keychain", keychain, str(item)])
-        command(["codesign", "--force", "--sign", identity[0], "--keychain", keychain, "--generate-entitlement-der", "--entitlements", str(rights_file), str(app)])
+        sign_bundle(extension, widget, identity[0], keychain, temporary)
+        sign_bundle(app, phone, identity[0], keychain, temporary)
         command(["codesign", "--verify", "--deep", "--strict", str(app)])
         archive_info = plistlib.loads((archive / "Info.plist").read_bytes())
-        archive_info["ApplicationProperties"].update(SigningIdentity=identity[1], Team=data["TeamIdentifier"][0])
+        archive_info["ApplicationProperties"].update(SigningIdentity=identity[1], Team=phone.data["TeamIdentifier"][0])
         (archive / "Info.plist").write_bytes(plistlib.dumps(archive_info))
         options = plistlib.loads((ROOT / "scripts/ExportOptions.plist").read_bytes())
-        options.update(signingStyle="manual", signingCertificate=identity[0], provisioningProfiles={bundle: data["UUID"]})
+        options.update(signingStyle="manual", signingCertificate=identity[0],
+                       provisioningProfiles={p.bundle: p.data["UUID"] for p in (phone, widget)})
         options_file = temporary / "ExportOptions.plist"
         options_file.write_bytes(plistlib.dumps(options))
-        installed = Path.home() / "Library/Developer/Xcode/UserData/Provisioning Profiles" / (data["UUID"] + ".mobileprovision")
-        installed.parent.mkdir(parents=True, exist_ok=True)
-        added = not installed.exists()
-        try:
-            if added:
-                shutil.copyfile(provision, installed)
-                installed.chmod(0o600)
+        profiles_dir = Path.home() / "Library/Developer/Xcode/UserData/Provisioning Profiles"
+        profiles_dir.mkdir(parents=True, exist_ok=True)
+        with contextlib.ExitStack() as installed_profiles:
+            for provisioning in (phone, widget):
+                installed = profiles_dir / (provisioning.data["UUID"] + ".mobileprovision")
+                if not installed.exists():
+                    installed_profiles.callback(installed.unlink, missing_ok=True)
+                    shutil.copyfile(provisioning.path, installed)
+                    installed.chmod(0o600)
             subprocess.run(["xcodebuild", "-exportArchive", "-archivePath", str(archive), "-exportPath", str(destination), "-exportOptionsPlist", str(options_file)], check=True)
-        finally:
-            if added:
-                installed.unlink(missing_ok=True)
         ipas = list(destination.glob("*.ipa"))
         if len(ipas) != 1:
             raise ValueError("내보낸 IPA가 하나 있어야 합니다.")
         unpacked = temporary / "verified"
         command(["ditto", "-x", "-k", str(ipas[0]), str(unpacked)])
         exported = next((unpacked / "Payload").glob("*.app"))
-        exported_info = check_app(exported, bundle)
+        exported_info = check_app(exported, phone.bundle)
+        check_widget(exported, widget.bundle, exported_info)
         for key in ["CFBundleShortVersionString", "CFBundleVersion"]:
             if exported_info[key] != info[key]:
                 raise ValueError("IPA 내보내기 중 버전·빌드번호가 바뀌었습니다.")
         command(["codesign", "--verify", "--deep", "--strict", str(exported)])
     print(f"iOS {profile} 서명·IPA 검증 완료: {ipas[0]}")
 
-
 if __name__ == "__main__":
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
     try:
         action, profile = sys.argv[1:3]
         if action == "preflight" and len(sys.argv) == 3:
-            _, p12, password, data, _, _ = credentials(profile)
-            with signing_keychain(p12, password, data["DeveloperCertificates"]):
+            p12, password, _, _, certificates = credentials(profile)
+            with signing_keychain(p12, password, certificates):
                 pass
             print(f"iOS {profile} 서명 사전 확인 완료")
         elif action == "export" and len(sys.argv) == 5:

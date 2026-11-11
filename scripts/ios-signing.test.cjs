@@ -86,3 +86,26 @@ print(json.dumps(state))
   assert.deepEqual(JSON.parse(result.stdout), { search: ['/example/login.keychain-db'], created: [] });
   assert.doesNotMatch(result.stdout + result.stderr, /fixture-password/);
 });
+
+test('Live Activity extension matches the app bundle and build version', () => {
+  const result = python(`
+import tempfile, plistlib
+with tempfile.TemporaryDirectory() as directory:
+    app=pathlib.Path(directory)
+    widget=app/'PlugIns/RunningLiveStatusWidget.appex'
+    widget.mkdir(parents=True)
+    version={'CFBundleShortVersionString':'1.13.0','CFBundleVersion':'10'}
+    bundle='com.runtaeho.runtaeho.RunningLiveStatusWidget'
+    plist=widget/'Info.plist'
+    plist.write_bytes(plistlib.dumps({**version,'CFBundleIdentifier':bundle}))
+    assert m.check_widget(app, bundle, version) == widget
+    try:
+        m.check_widget(app, bundle, {**version,'CFBundleVersion':'11'})
+    except ValueError as error:
+        print(str(error))
+    else:
+        raise AssertionError('A mismatched extension build number was accepted')
+`);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /버전·빌드번호가 휴대폰 앱과 다릅니다/);
+});
