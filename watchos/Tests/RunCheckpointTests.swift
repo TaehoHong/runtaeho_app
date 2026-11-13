@@ -75,5 +75,30 @@ struct RunCheckpointTests {
     let segmentWire = try JSONSerialization.jsonObject(with: segmented.completedData()) as! [String: Any]
     assert((segmentWire["items"] as? [[String: Any]])?.count == 2)
     assert(segmentWire["segmentSamples"] == nil && segmentWire["segmentDuration"] == nil)
+
+    var fractional = RunCheckpoint(ownerUserId: 7, startTimestamp: 1000, activeSince: start.addingTimeInterval(0.2))
+    fractional.items = []
+    fractional.distanceMeasured = true
+    fractional.distance = 25
+    fractional.captureSegment(at: start.addingTimeInterval(11.1))
+    fractional.distance = 45
+    fractional.pause(at: start.addingTimeInterval(18.3))
+    fractional.captureSegment(at: start.addingTimeInterval(18.3), force: true)
+    fractional.activeSince = start.addingTimeInterval(30.3)
+    fractional.pause(at: start.addingTimeInterval(34.4))
+    fractional.endTimestamp = 1034
+    fractional.distance = 57
+    fractional.captureSegment(at: start.addingTimeInterval(34.4), force: true)
+    let completed = try JSONSerialization.jsonObject(with: fractional.completedData()) as! [String: Any]
+    let completedItems = completed["items"] as! [[String: Any]]
+    assert(completed["durationSec"] as? Int == 22 && completed["distance"] as? Int == 57)
+    assert(completedItems.map { $0["durationSec"] as? Int } == [10, 8, 4])
+    assert(completedItems.map { $0["endTimestamp"] as? Int } == [1011, 1019, 1034])
+    assert(completedItems.map { $0["startTimestamp"] as? Int } == [1000, 1011, 1019])
+    assert(fractional.items?[1].endTimestamp == 1018)
+    fractional.items?[1].endTimestamp = 1015
+    fractional.items?[2].startTimestamp = 1015
+    do { _ = try fractional.completedData(); assertionFailure("A larger time discrepancy must stay out of the upload queue") }
+    catch RunCheckpoint.CompletionError.invalidTimeline {}
   }
 }

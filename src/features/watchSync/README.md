@@ -179,8 +179,9 @@ The settings preview is illustrative and does not write running data.
 
 The watch applications have separate build roots: `watchos/RunTaehoWatch.xcodeproj`
 and `wearos/`. Neither standalone build configures Expo, React Native, CocoaPods
-or Unity. The iPhone project references the watch project and embeds its product;
-its release version command keeps the companion and watch versions aligned.
+or Unity. The iPhone project references the watch project. Its current targets
+omit the watch build and embed phases while Apple Watch distribution is deferred.
+The release version command keeps the companion and watch versions aligned.
 Android phone and Wear OS compile the same source owner in
 `shared/watchsync-android/src/main/java/`. Their application ID and signing
 certificate must match for Data Layer communication; see `wearos/README.md` for

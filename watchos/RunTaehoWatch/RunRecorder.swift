@@ -171,12 +171,10 @@ final class RunRecorder: NSObject, ObservableObject, HKWorkoutSessionDelegate, H
   @discardableResult private func finalizeRecord() -> Bool {
     guard let value = record else { finishing = false; return false }
     do {
-      if value.distanceMeasured == true && value.hasValidCompletedTimeline {
+      do {
         try value.completedData().write(to: directory.appendingPathComponent(value.sessionId + ".json"), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
-      } else {
-        // Preserve the original checkpoint privately; a missing sensor result is
-        // not a measured zero and must never enter the upload queue.
-        let reason = value.distanceMeasured == true ? "invalidtimeline" : "unmeasured"
+      } catch let error as RunCheckpoint.CompletionError {
+        let reason = error == .distanceUnavailable ? "unmeasured" : "invalidtimeline"
         try JSONEncoder().encode(value).write(to: directory.appendingPathComponent(value.sessionId + "." + reason), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
         errorMessage = reason == "unmeasured"
           ? "거리를 측정하지 못했습니다. 기록은 기기에 보관되며 서버에 전송되지 않습니다."
@@ -209,6 +207,7 @@ final class RunRecorder: NSObject, ObservableObject, HKWorkoutSessionDelegate, H
   func workoutSession(_ workoutSession: HKWorkoutSession, didChangeTo toState: HKWorkoutSessionState, from fromState: HKWorkoutSessionState, date: Date) {
     DispatchQueue.main.async {
       guard self.record != nil, self.workout === workoutSession else { return }
+      if self.finishing && toState == .ended { return } // finish() owns the final boundary.
       if toState == .paused || toState == .ended {
         self.clearLiveMetrics()
         self.record?.pause(at: date)

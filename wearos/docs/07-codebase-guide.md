@@ -26,6 +26,8 @@
 
 ## Conventions and Dependency Rules
 
+`RunService`는 Health Services의 `ListenableFuture<Void>`가 `null`로 완료되면 명령 성공으로 처리한다. 운동 상태는 Health Services의 업데이트에서 반영한다.
+
 현재 Kotlin/Java·Android Views 구조와 가까운 구현 스타일을 따른다. `RunService`의 측정 상태, 표시 클래스의 화면 값, 공통 저장/전송의 원본 기록을 구분한다. 공유 코드는 `shared/watchsync-android/`에서 소유하고 각 앱은 해당 소스·기존 계약에 연결한다.
 
 독립 Gradle 설정은 `settings.gradle`과 `app/build.gradle`, 폰과의 식별자/서명 관계는 [README의 Signing identity](../README.md)를 따른다. 화면 원본은 [워치 Figma 원본](../../../docs/04-design-rules.md)에서 작업 대상 프레임을 확인한다.

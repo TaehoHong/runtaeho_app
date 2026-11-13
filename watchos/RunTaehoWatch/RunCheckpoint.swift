@@ -98,8 +98,10 @@ struct RunCheckpoint: Codable {
   enum CompletionError: Error { case distanceUnavailable, invalidTimeline }
   func completedData() throws -> Data {
     guard distanceMeasured == true else { throw CompletionError.distanceUnavailable }
-    guard hasValidCompletedTimeline else { throw CompletionError.invalidTimeline }
-    var object = try JSONSerialization.jsonObject(with: JSONEncoder().encode(self)) as? [String: Any] ?? [:]
+    var completed = self
+    try completed.alignSegmentSeconds()
+    guard completed.hasValidCompletedTimeline else { throw CompletionError.invalidTimeline }
+    var object = try JSONSerialization.jsonObject(with: JSONEncoder().encode(completed)) as? [String: Any] ?? [:]
     object.removeValue(forKey: "distanceMeasured")
     object.removeValue(forKey: "activeSeconds")
     object.removeValue(forKey: "activeSince")
@@ -109,6 +111,36 @@ struct RunCheckpoint: Codable {
        "speed": point.speed, "altitude": point.altitude, "accuracy": point.accuracy.map { $0 as Any } ?? NSNull()]
     }
     return try JSONSerialization.data(withJSONObject: object)
+  }
+  private mutating func alignSegmentSeconds() throws {
+    guard let original = items, !original.isEmpty, !hasValidCompletedTimeline else { return }
+    guard endTimestamp >= startTimestamp, durationSec >= 0, durationSec <= endTimestamp - startTimestamp,
+      original.allSatisfy({ $0.durationSec >= 0 }),
+      original.reduce(0, { $0 + $1.durationSec }) == durationSec else { throw CompletionError.invalidTimeline }
+
+    // Activity totals and epoch boundaries truncate independently. Move only
+    // internal boundaries by up to one second to accommodate the rounding carry.
+    var aligned = original
+    var remaining = durationSec
+    var previousEnd = startTimestamp
+    var previousOriginalEnd = startTimestamp
+    for (index, segment) in original.enumerated() {
+      guard segment.startTimestamp >= previousOriginalEnd, segment.endTimestamp >= segment.startTimestamp,
+        segment.endTimestamp <= endTimestamp else { throw CompletionError.invalidTimeline }
+      let contiguous = segment.startTimestamp == previousOriginalEnd
+      remaining -= segment.durationSec
+      let latestEnd = endTimestamp - remaining
+      let start = contiguous ? previousEnd : min(max(segment.startTimestamp, previousEnd), latestEnd - segment.durationSec)
+      let end = min(max(segment.endTimestamp, start + segment.durationSec), latestEnd)
+      guard abs(start - segment.startTimestamp) <= 1, abs(end - segment.endTimestamp) <= 1 else {
+        throw CompletionError.invalidTimeline
+      }
+      aligned[index].startTimestamp = start
+      aligned[index].endTimestamp = end
+      previousEnd = end
+      previousOriginalEnd = segment.endTimestamp
+    }
+    items = aligned
   }
   mutating func pause(at now: Date) {
     if let since = activeSince { activeSeconds += max(0, now.timeIntervalSince(since)) }

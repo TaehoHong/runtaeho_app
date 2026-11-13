@@ -25,6 +25,8 @@
 
 ## Conventions and Dependency Rules
 
+완료 JSON의 구간 경계에서 활동 시간과 epoch 초의 버림으로 1초 차이가 생기면 `RunCheckpoint.completedData()`가 구간 경계만 조정한다. 전체 시각·활동 시간·거리와 원본 체크포인트는 보존한다.
+
 측정·파일 저장/복구는 `RunRecorder`, 체크포인트 모델은 `RunCheckpoint`, 표시 설정은 `WatchDisplaySettings`의 현재 구조를 따른다. `RunCheckpoint`의 원본 식별자·소유자·측정 값과 `WatchDisplaySettings`의 표시 상태를 구분한다. 폰과 서버로 이어지는 계약은 동기화 원본에서 확인한다. 독립 워치 빌드는 Xcode 프로젝트, 폰 참조 관계는 폰 프로젝트가 소유한다. 현재 Watch 출시는 보류되어 기본 폰 타깃에는 Watch 빌드 의존성과 포함 단계가 없다.
 
 홈의 저장 대기 안내는 RunRecorder의 완료 `.json` 파일이 있을 때만 표시한다. 진행 중 체크포인트 `active.json`과 검토용 `.unmeasured`·`.invalidtimeline` 파일은 전송 대기로 표시하지 않으며, 서버 확인 후 완료 표시는 기존 ACK 상태를 따른다.

@@ -118,10 +118,10 @@ class RunService : Service(), ExerciseUpdateCallback {
         commandPending = true
         run?.put("requestPending", true)
         save()
-        future(action()) { /* State changes only after the matching Health Services update. */ }
+        future<Void?>(action()) { /* State changes only after the matching Health Services update. */ }
     }
 
-    private fun <T> future(value: ListenableFuture<T>, complete: (T) -> Unit) {
+    private fun <T> future(value: ListenableFuture<out T>, complete: (T) -> Unit) {
         value.addListener({
             try { complete(value.get()) }
             catch (_: Exception) {
@@ -264,7 +264,8 @@ class RunService : Service(), ExerciseUpdateCallback {
     override fun onRegistered() {
         val config = pendingStart ?: return
         pendingStart = null
-        future(client.startExerciseAsync(config)) { commandPending = false }
+        // Health Services completes a successful Void future with null.
+        future<Void?>(client.startExerciseAsync(config)) { commandPending = false }
     }
     override fun onRegistrationFailed(throwable: Throwable) {
         commandPending = false
