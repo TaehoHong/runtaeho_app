@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import { useFocusEffect } from 'expo-router/react-navigation';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, useWindowDimensions } from 'react-native';
 import { UnityLoadingState } from '~/features/unity/components/UnityLoadingState';
 import { useUnityStore } from '~/stores/unity/unityStore';
 import { LeagueResultStatus } from '../../models';
@@ -10,12 +10,17 @@ interface LeagueResultCharacterViewProps {
   resultStatus: LeagueResultStatus;
 }
 
+const SCENE_HEIGHT = 280;
+const VISIBLE_SCENE_HEIGHT = 220;
+
 /**
  * 리그 결과 캐릭터 뷰 컴포넌트
  */
 export const LeagueResultCharacterView: React.FC<LeagueResultCharacterViewProps> = ({
   resultStatus,
 }) => {
+  const { height: windowHeight } = useWindowDimensions();
+  const visibleHeight = Math.min(VISIBLE_SCENE_HEIGHT, Math.round(windowHeight * 0.4));
   const unityViewportRef = useRef<View>(null);
   const viewportSyncTokenRef = useRef(0);
   const isViewportFocusedRef = useRef(false);
@@ -64,7 +69,8 @@ export const LeagueResultCharacterView: React.FC<LeagueResultCharacterViewProps>
 
         setActiveViewport({
           owner: 'league',
-          frame: { x, y, width, height },
+          // Crop the top of the existing scene without scaling the character.
+          frame: { x, y: y + height - SCENE_HEIGHT, width, height: SCENE_HEIGHT },
           borderRadius: 0,
         });
       });
@@ -95,7 +101,7 @@ export const LeagueResultCharacterView: React.FC<LeagueResultCharacterViewProps>
   }, [isUnityStarted, syncUnityViewport]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { height: visibleHeight }]}>
       <UnityLoadingState
         isLoading={!isUnityReady}
         variant="league"
@@ -115,7 +121,6 @@ export const LeagueResultCharacterView: React.FC<LeagueResultCharacterViewProps>
 
 const styles = StyleSheet.create({
   container: {
-    height: 280,
     backgroundColor: 'transparent',
   },
   unityView: {

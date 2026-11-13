@@ -15,15 +15,17 @@ interface RankItemProps {
   participant: LeagueParticipant;
   expanded?: boolean;
   rowHeight?: number;
+  resultRow?: boolean;
 }
 
 export const RANK_ITEM_HEIGHT = 56;
 export const LARGE_RANK_LINE_HEIGHT = 20;
 
 
-export const RankItem = ({ participant, expanded = false, rowHeight = RANK_ITEM_HEIGHT }: RankItemProps) => {
+export const RankItem = ({ participant, expanded = false, rowHeight = RANK_ITEM_HEIGHT, resultRow = false }: RankItemProps) => {
   const t = useAppTranslation();
   const isMe = participant.isMe;
+  const meText = resultRow ? styles.resultTextMe : styles.textMe;
   const displayName = isMe ? t("나") : (participant.nickname ?? t("익명"));
   const distanceFormatted = formatDistance(participant.distance);
   const fullImageUrl = buildFullImageUrl(participant?.profileImageUrl);
@@ -34,7 +36,7 @@ export const RankItem = ({ participant, expanded = false, rowHeight = RANK_ITEM_
   const identity = (
     <>
       {/* 순위 */}
-      <Text style={[styles.rank, isMe && styles.textMe]}>
+      <Text style={[styles.rank, resultRow && styles.resultRank, isMe && meText]}>
         {participant.rank}
       </Text>
 
@@ -49,17 +51,17 @@ export const RankItem = ({ participant, expanded = false, rowHeight = RANK_ITEM_
       </View>
 
       {/* 이름 */}
-      <Text style={[styles.name, isMe && styles.textMe, expanded && styles.expandedText]} numberOfLines={expanded ? 2 : undefined}>
+      <Text style={[styles.name, isMe && meText, expanded && styles.expandedText]} numberOfLines={expanded ? 2 : resultRow ? 1 : undefined}>
         {displayName}
       </Text>
     </>
   );
 
   return (
-    <View style={[styles.container, isMe && styles.containerMe, { height: rowHeight }, expanded && styles.containerExpanded]}>
+    <View style={[styles.container, expanded && styles.containerExpanded, resultRow && styles.resultRow, isMe && styles.containerMe, { height: rowHeight }]}>
       {expanded ? <View style={styles.identityRow}>{identity}</View> : identity}
       {/* 거리 */}
-      <Text style={[styles.distance, isMe && styles.textMe, expanded && styles.expandedText]} numberOfLines={expanded ? 1 : undefined} adjustsFontSizeToFit={expanded}>
+      <Text style={[styles.distance, isMe && meText, expanded && styles.expandedText]} numberOfLines={expanded ? 1 : undefined} adjustsFontSizeToFit={expanded}>
         {distanceFormatted}
       </Text>
     </View>
@@ -146,5 +148,20 @@ const styles = StyleSheet.create({
   },
   textMe: {
     color: PRIMARY[600],
+  },
+  resultRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    marginHorizontal: 0,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: GREY[100],
+  },
+  resultRank: {
+    color: GREY[900],
+    minWidth: 10,
+    textAlign: 'left',
+  },
+  resultTextMe: {
+    color: PRIMARY[950],
   },
 });

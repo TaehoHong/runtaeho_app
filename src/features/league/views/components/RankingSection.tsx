@@ -28,6 +28,7 @@ interface RankingSectionProps {
   isRefreshing?: boolean;
   onRefresh?: () => void;
   pageHeader?: React.ReactNode;
+  variant?: 'result';
 }
 
 export const RankingSection = ({
@@ -36,12 +37,17 @@ export const RankingSection = ({
   isRefreshing = false,
   onRefresh,
   pageHeader,
+  variant,
 }: RankingSectionProps) => {
   useAppLanguage();
+  const isResult = variant === 'result';
   const { fontScale } = useWindowDimensions();
   const expanded = fontScale > 1.3;
   // Two name lines plus one distance line, with the same height used by rank animations.
-  const rowHeight = expanded ? 3 * Math.ceil(LARGE_RANK_LINE_HEIGHT * fontScale) + 32 : RANK_ITEM_HEIGHT;
+  const compactRowHeight = isResult ? 47 : RANK_ITEM_HEIGHT;
+  const rowHeight = expanded
+    ? 3 * Math.ceil(LARGE_RANK_LINE_HEIGHT * fontScale) + 32
+    : compactRowHeight;
   const [showRules, setShowRules] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(0);
   const hasPageHeader = pageHeader != null;
@@ -84,32 +90,32 @@ export const RankingSection = ({
     index,
   }), [hasPageHeader, headerHeight, rowHeight]);
 
-  // "나"를 중앙에 배치하는 스크롤 함수
-  const scrollToMyRankCenter = useCallback((animated = false) => {
+  // Keep the top three together when I finish near the top.
+  const scrollToMyRank = useCallback((animated = false) => {
     if (myIndex >= 0 && displayOrder.length > 0) {
       flatListRef.current?.scrollToIndex({
         index: myIndex,
         animated,
-        viewPosition: 0.5, // 중앙 배치
+        viewPosition: isResult && myIndex < 3 ? 1 : 0.5,
       });
     }
-  }, [myIndex, displayOrder.length]);
+  }, [myIndex, displayOrder.length, isResult]);
 
-  const centerMyRankWhenReady = useCallback(() => {
+  const revealMyRankWhenReady = useCallback(() => {
     if (hasPageHeader || isAnimating || myIndex < 0 || displayOrder.length === 0) {
       return;
     }
 
     requestAnimationFrame(() => {
-      scrollToMyRankCenter(false);
+      scrollToMyRank(false);
     });
-  }, [displayOrder.length, hasPageHeader, isAnimating, myIndex, scrollToMyRankCenter]);
+  }, [displayOrder.length, hasPageHeader, isAnimating, myIndex, scrollToMyRank]);
 
   // 탭 포커스 시 "나"를 중앙에 배치
   useFocusEffect(
     useCallback(() => {
-      centerMyRankWhenReady();
-    }, [centerMyRankWhenReady])
+      revealMyRankWhenReady();
+    }, [revealMyRankWhenReady])
   );
 
   // onScrollToIndexFailed 핸들러 (아이템이 아직 렌더링되지 않은 경우)
@@ -301,9 +307,10 @@ export const RankingSection = ({
         }}
         expanded={expanded}
         rowHeight={rowHeight}
+        resultRow={isResult}
       />
     );
-  }, [isAnimating, myAnimatedY, myAnimatedScale, myCurrentRank, myInitialIndex, totalSteps, displacedAnimations, expanded, rowHeight]);
+  }, [isAnimating, myAnimatedY, myAnimatedScale, myCurrentRank, myInitialIndex, totalSteps, displacedAnimations, expanded, rowHeight, isResult]);
 
   // keyExtractor
   const keyExtractor = useCallback((item: LeagueParticipant, index: number) => {
@@ -319,7 +326,9 @@ export const RankingSection = ({
     return `${item.rank}`;
   }, [isAnimating, myInitialIndex, totalSteps, displacedAnimations.length]);
 
-  const heading = (
+  const heading = isResult ? (
+    <Text accessibilityRole="header" style={[styles.title, styles.resultHeading]}>{t("순위")}</Text>
+  ) : (
     <View style={styles.header}>
       <View style={styles.headingRow}>
         <Text style={styles.title}>{t("순위표")}</Text>
@@ -338,7 +347,7 @@ export const RankingSection = ({
   );
 
   return (
-    <View style={[styles.container, hasPageHeader && styles.containerExpanded]}>
+    <View style={[styles.container, hasPageHeader && styles.containerExpanded, isResult && styles.resultContainer]}>
       {!hasPageHeader && heading}
       {/* 순위 리스트 (FlatList) */}
       <View style={styles.listContainer}>
@@ -355,9 +364,9 @@ export const RankingSection = ({
             </View>
           ) : undefined}
           onScrollToIndexFailed={onScrollToIndexFailed}
-          onLayout={centerMyRankWhenReady}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.listContent, hasPageHeader && styles.listContentExpanded]}
+          onLayout={revealMyRankWhenReady}
+          showsVerticalScrollIndicator={isResult}
+          contentContainerStyle={isResult ? undefined : [styles.listContent, hasPageHeader && styles.listContentExpanded]}
           refreshControl={
             onRefresh ? (
               <RefreshControl
@@ -370,11 +379,13 @@ export const RankingSection = ({
         />
 
         {/* 하단 스크롤 힌트 (fade-out 그라데이션) */}
-        <LinearGradient
-          colors={['rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 1)']}
-          style={styles.bottomFade}
-          pointerEvents="none"
-        />
+        {!isResult && (
+          <LinearGradient
+            colors={['rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 1)']}
+            style={styles.bottomFade}
+            pointerEvents="none"
+          />
+        )}
       </View>
     </View>
   );
@@ -442,6 +453,17 @@ const styles = StyleSheet.create({
     marginTop: 0,
     borderRadius: 0,
     backgroundColor: GREY[50],
+  },
+  resultContainer: {
+    marginHorizontal: 0,
+    marginTop: 0,
+    marginBottom: 0,
+    backgroundColor: GREY.WHITE,
+  },
+  resultHeading: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 8,
   },
   title: {
     fontSize: 16,

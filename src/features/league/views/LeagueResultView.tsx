@@ -69,8 +69,8 @@ export const LeagueResultView = ({ result, participantId }: LeagueResultViewProp
 
       {/* 결과 확인 버튼 */}
       <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm}>
-          <Text style={styles.confirmButtonText}>{t("결과 확인")}</Text>
+        <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm} accessibilityRole="button">
+          <Text style={styles.confirmButtonText}>{t("리그 결과 확인")}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -128,7 +128,8 @@ const styles = StyleSheet.create({
   },
   confirmButton: {
     backgroundColor: PRIMARY[600],
-    height: 56,
+    minHeight: 56,
+    paddingVertical: 8,
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
@@ -137,6 +138,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontFamily: 'Pretendard-SemiBold',
     fontWeight: '600',
-    color: GREY.WHITE,
+    color: GREY[900],
+    textAlign: 'center',
   },
 });
