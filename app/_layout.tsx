@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import { AdsProvider } from '~/features/ads/AdsProvider';
 import { NotificationProvider } from '~/features/notifications/NotificationProvider';
 import { LanguageProvider } from '~/i18n/LanguageProvider';
-import { Image, StyleSheet, View } from 'react-native';
+import { Image, Platform, StyleSheet, View } from 'react-native';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '~/services/queryClient';
 import { AuthProvider } from '~/providers/AuthProvider';
@@ -95,6 +95,8 @@ function RootLayout() {
                       name="(tabs)"
                       options={{
                         headerShown: false,
+                        // Android replace uses the incoming screen's animation.
+                        animation: Platform.OS === 'android' ? 'none' : undefined,
                         contentStyle: { backgroundColor: 'transparent' },
                       }}
                     />

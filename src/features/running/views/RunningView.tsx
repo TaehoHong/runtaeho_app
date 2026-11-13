@@ -102,7 +102,7 @@ export const RunningView: React.FC = () => {
   const hasPresentedCharacter = presentedCharacter !== null
     && presentedCharacter.sessionGeneration === sessionGeneration
     && presentedCharacter.hardResetCount === hardResetCount;
-  const isUnitySectionLoading = !isUnitySurfaceVisible
+  const isUnitySectionLoading = !unityStarted || !isUnitySurfaceVisible
     || (!hasPresentedCharacter && (!isUnityReady || !isInitialAvatarSynced));
 
   useLayoutEffect(() => {
@@ -435,7 +435,7 @@ export const RunningView: React.FC = () => {
   return (
     <RunningProvider isUnityReady={isRunningActive ? isUnityReady : false}>
       <View style={styles.container} testID="running-root">
-        {unityStarted && isRunningActive && (
+        {isRunningActive && isLoggedIn && (
           <View style={[styles.unityContainer, isLoading && styles.hiddenContainer]}>
             <UnityLoadingState
               isLoading={isUnitySectionLoading}

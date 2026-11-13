@@ -227,6 +227,20 @@ describe('RunningView unity recovery', () => {
     expect(lastCall?.isLoading).toBe(true);
   });
 
+  it('reserves the character area before Unity starts on the first running screen', () => {
+    mockUseUnityBootstrap.mockReturnValue({
+      isReady: false,
+      isUnityStarted: false,
+      isInitialAvatarSynced: false,
+      startUnity: mockStartUnity,
+    });
+
+    renderWithProviders(<RunningView />);
+
+    expect(mockUnityLoadingState).toHaveBeenLastCalledWith(expect.objectContaining({ isLoading: true }));
+    expect(useUnityStore.getState().activeViewport).toBeNull();
+  });
+
   it('keeps a presented character visible during a resync within the same login', () => {
     useUnityStore.getState().setSurfaceVisible(true);
     const { rerender } = renderWithProviders(<RunningView />);
