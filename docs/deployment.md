@@ -208,7 +208,8 @@ Unity Xcode 프로젝트에는 `Development` 구성이 없어 이 구성으로 �
 광고 SDK 설정 단계는 `TARGET_BUILD_DIR/INFOPLIST_PATH`를 입력과 수정 대상으로 사용한다.
 아카이브에서는 일반 빌드 제품 폴더와 앱 설치 폴더가 다르므로 이 의존성을 선언해야 한다.
 `ios/Podfile`의 `post_integrate`가 `pod install` 후에도 해당 설정을 유지한다.
-현재 운영 광고는 `app.json`의 `ads.enabled: false`로 비활성화되어 있다. 이 상태에서는
+운영 배너는 `app.json`의 `ads.enabled`와 해당 플랫폼의 AdMob 앱 ID·배너 ID를 확인한다.
+보상형 광고 단위 없이 배너만 사용할 수 있다. 운영 광고를 끈 상태에서는
 `user_tracking_usage_description`을 넣지 않는다. 이 값은 SDK 빌드 단계에서 실제 IPA의
 `NSUserTrackingUsageDescription`으로 주입되어 추적하지 않는 개인정보 신고와 충돌한다.
 광고·추적을 활성화할 때 실제 데이터 사용과 동의 흐름, App Store 개인정보 신고를 함께 검토한다.

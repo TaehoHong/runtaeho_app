@@ -1,17 +1,17 @@
 {
   "react-native-google-mobile-ads": {
-    "ios_app_id": "ca-app-pub-3940256099942544~1458002511",
-    "android_app_id": "ca-app-pub-3940256099942544~3347511713",
+    "ios_app_id": "ca-app-pub-2464912356988766~2982462842",
+    "android_app_id": "ca-app-pub-2464912356988766~7306344523",
     "delay_app_measurement_init": true
   },
   "ads": {
-    "enabled": false,
+    "enabled": true,
     "ios": {
-      "bannerId": "",
+      "bannerId": "ca-app-pub-2464912356988766/1841605719",
       "rewardedId": ""
     },
     "android": {
-      "bannerId": "",
+      "bannerId": "ca-app-pub-2464912356988766/3298991767",
       "rewardedId": ""
     }
   }

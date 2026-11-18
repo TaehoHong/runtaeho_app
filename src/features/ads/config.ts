@@ -9,6 +9,6 @@ export function getAdConfiguration(platform: string, development: boolean) {
   const isProductionId = (id: string, separator: '~' | '/') => new RegExp(`^ca-app-pub-\\d+${separator}\\d+$`).test(id)
     && !id.startsWith('ca-app-pub-3940256099942544');
   if (!development && (!configuration.ads.enabled || !isProductionId(nativeId, '~')
-    || !isProductionId(units.bannerId, '/') || !isProductionId(units.rewardedId, '/'))) return null;
+    || !isProductionId(units.bannerId, '/'))) return null;
   return { ...units, development };
 }
