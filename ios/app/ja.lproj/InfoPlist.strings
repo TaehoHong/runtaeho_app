@@ -1,3 +1,4 @@
+"CFBundleDisplayName" = "走れ！テホくん";
 "NSCameraUsageDescription" = "プロフィール写真やランニング記録の共有用背景を撮影するため、カメラへのアクセスが必要です。";
 "NSHealthShareUsageDescription" = "ランニング記録と統計を同期するため、Appleヘルスケアのワークアウト、距離、心拍数、歩数、カロリー、ルートデータを読み取ります。";
 "NSHealthUpdateUsageDescription" = "Appleヘルスケアとの連携に使用します。このアプリは健康データの読み取りのみを行い、保存や変更はしません。";

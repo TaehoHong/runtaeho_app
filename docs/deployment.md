@@ -241,6 +241,8 @@ Firebase 인증·설정과 Apple 앱·그룹 접근 실패는 빌드번호 증�
 [TestFlight 자동화](https://docs.fastlane.tools/actions/pilot/),
 [EAS Submit](https://docs.expo.dev/deploy/submit-to-app-stores/).
 
+운영 휴대폰 앱은 일본어 기기에서 홈 화면 이름을 **走れ！テホくん**으로 표시한다. iOS는 `ja.lproj/InfoPlist.strings`의 `CFBundleDisplayName`, Android는 `production/res/values-ja/strings.xml`의 `app_name`을 사용한다. 이 이름을 변경하면 양쪽 모두 새 네이티브 빌드가 필요하다.
+
 ### 워치 앱 프로파일
 
 워치도 휴대폰의 공개 프로필과 같은 앱 ID·표시 이름을 사용한다.

@@ -121,7 +121,7 @@ android {
         applicationId 'com.runtaeho.runtaeho'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 76
+        versionCode 77
         versionName "1.15.0"
         manifestPlaceholders = [
             GOOGLE_MAPS_ANDROID_API_KEY: mapsApiKey
@@ -177,7 +177,7 @@ android {
         def profile = appProfiles[flavor.name]
         applicationId profile.applicationId
         manifestPlaceholders += [
-            RUNTAEHO_APP_NAME: profile.name,
+            RUNTAEHO_APP_NAME: flavor.name == 'production' ? '@string/app_name' : profile.name,
             RUNTAEHO_URL_SCHEME: profile.scheme,
             RUNTAEHO_DEV_CLIENT_SCHEME: flavor.name == 'production' ? 'exp+app' : 'exp+runtaeho-dev',
             RUNTAEHO_OTA_CHANNEL: profile.channel,
