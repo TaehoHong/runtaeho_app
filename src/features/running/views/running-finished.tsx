@@ -244,6 +244,7 @@ export const RunningFinishedView: React.FC = () => {
         {/* 포인트 정보 바 - 획득/보유 포인트 */}
         <PointInfoBar
           earnedPoints={finalSummary.earnedPoints}
+          isSettlementPending={currentRecord?.acceptanceStatus === 'PENDING'}
           totalPoints={totalPoints}
         />
 

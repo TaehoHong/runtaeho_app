@@ -264,6 +264,7 @@ describe('useRunningLifecycle offline persistence', () => {
       expect(await result.current.endRunning()).toBeNull();
     });
     expect(useAppStore.getState().runningState).toBe(RunningState.Finished);
+    expect(result.current.currentRecord?.acceptanceStatus).toBe('PENDING');
     act(() => { result.current.resetRunning(); });
     props.segmentItemsRef.current = [];
     unmount();
@@ -483,6 +484,7 @@ describe('useRunningLifecycle offline persistence', () => {
       expect(await result.current.endRunning()).toEqual({ id: 404, point: 1 });
     });
 
+    expect(result.current.currentRecord?.acceptanceStatus).not.toBe('PENDING');
     expect(mockSaveItems).toHaveBeenCalledWith({
       runningRecordId: 404,
       items: [expect.objectContaining({ distance: 80, orderIndex: 0 })],
@@ -499,6 +501,7 @@ describe('useRunningLifecycle offline persistence', () => {
     await startTestRun(result.current.startRunning);
     await act(async () => { expect(await result.current.endRunning()).toBeNull(); });
 
+    expect(result.current.currentRecord?.acceptanceStatus).not.toBe('PENDING');
     expect(mockEndRunning).not.toHaveBeenCalled();
     expect(mockSaveItems).not.toHaveBeenCalled();
     expect(await offlineStorageService.getPendingCount()).toBe(0);

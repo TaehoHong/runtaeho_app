@@ -9,6 +9,7 @@ import { getNumberFontStyle } from '~/shared/components/typography/fontUtils';
 
 interface PointInfoBarProps {
   earnedPoints: number;
+  isSettlementPending?: boolean;
   totalPoints: number;
 }
 
@@ -18,6 +19,7 @@ interface PointInfoBarProps {
  */
 export const PointInfoBar: React.FC<PointInfoBarProps> = ({
   earnedPoints,
+  isSettlementPending = false,
   totalPoints,
 }) => {
   const t = useAppTranslation();
@@ -25,13 +27,13 @@ export const PointInfoBar: React.FC<PointInfoBarProps> = ({
     <View style={[styles.container]}>
       {/* 획득 포인트 */}
       <View style={styles.section}>
-        <Text style={styles.label}>{t("획득 포인트")}</Text>
+        <Text style={styles.label}>{isSettlementPending ? t("정산 예정") : t("획득 포인트")}</Text>
         <View style={styles.pointContainer}>
           {/* 포인트 아이콘 - 임시로 동그라미 사용 */}
           <Icon name="point" size={16}/>
           <View style={styles.earnedPointsWrapper}>
             <Text style={styles.earnedPointsValue}>
-              {RunningStatusFormat.points(earnedPoints, { signed: true })}
+              {RunningStatusFormat.points(earnedPoints, { signed: !isSettlementPending })}
             </Text>
           </View>
         </View>

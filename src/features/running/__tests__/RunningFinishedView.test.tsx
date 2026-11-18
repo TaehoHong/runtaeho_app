@@ -25,7 +25,6 @@ const mockSetShareData = jest.fn();
 const mockBeginEntryTransition = jest.fn();
 const mockDetailedStatisticsCard = jest.fn();
 const mockMainDistanceCard = jest.fn();
-const mockPointInfoBar = jest.fn();
 
 jest.mock('expo-router', () => ({
   router: {
@@ -95,13 +94,6 @@ jest.mock('~/features/running/views/detailed-statistics-card', () => ({
 jest.mock('~/features/running/views/components/main-distance-card', () => ({
   MainDistanceCard: (props: unknown) => {
     mockMainDistanceCard(props);
-    return null;
-  },
-}));
-
-jest.mock('~/features/running/views/components/point-info-bar', () => ({
-  PointInfoBar: (props: unknown) => {
-    mockPointInfoBar(props);
     return null;
   },
 }));
@@ -194,7 +186,9 @@ describe('RunningFinishedView', () => {
     useUserStore.setState({ totalPoint: 350 });
     renderWithProviders(<RunningFinishedView />);
 
-    expect(mockPointInfoBar).toHaveBeenCalledWith(expect.objectContaining({ earnedPoints: 0, totalPoints: 350 }));
+    expect(screen.getByText('획득 포인트')).toBeTruthy();
+    expect(screen.getByText('0 P')).toBeTruthy();
+    expect(screen.getByText('350 P')).toBeTruthy();
     fireEvent.press(screen.getByTestId('running-finished-share-button'));
     await waitFor(() => { expect(mockSetShareData).toHaveBeenCalledWith(expect.objectContaining({ earnedPoints: 0 })); });
     fireEvent.press(screen.getByText('확인'));
@@ -203,6 +197,21 @@ describe('RunningFinishedView', () => {
     expect(mockUpdateParticipantDistance).not.toHaveBeenCalled();
     expect(mockJoinLeague).not.toHaveBeenCalled();
     expect(useUserStore.getState().totalPoint).toBe(350);
+  });
+
+  it.each([
+    ['PENDING', '정산 예정', '4 P'],
+    ['ACCEPTED', '획득 포인트', '+4 P'],
+  ])('shows the amount for a 460m %s run separately from the confirmed balance', (acceptanceStatus, label, amount) => {
+    const running = mockUseRunning();
+    mockUseRunning.mockReturnValue({
+      ...running, distance: 460, currentRecord: { ...running.currentRecord, distance: 460, acceptanceStatus },
+    });
+    useUserStore.setState({ totalPoint: 350 });
+    renderWithProviders(<RunningFinishedView />);
+    expect(screen.getByText(label)).toBeTruthy();
+    expect(screen.getByText(amount)).toBeTruthy();
+    expect(screen.getByText('350 P')).toBeTruthy();
   });
 
   it('keeps the rank captured before completion when confirming an already updated league', async () => {
@@ -291,9 +300,7 @@ describe('RunningFinishedView', () => {
 
     renderWithProviders(<RunningFinishedView />);
 
-    expect(mockPointInfoBar).toHaveBeenCalledWith(expect.objectContaining({
-      earnedPoints: 20,
-    }));
+    expect(screen.getByText('+20 P')).toBeTruthy();
     expect(mockDetailedStatisticsCard).toHaveBeenCalledWith(expect.objectContaining({
       distanceMeters: 2000,
       durationSec: 600,
