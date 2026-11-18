@@ -1,12 +1,16 @@
 package com.runtaeho.wear
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.*
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import android.location.Location
+import android.location.LocationListener
 import android.location.LocationManager
 import android.os.*
+import android.util.Log
 import androidx.health.services.client.HealthServices
 import androidx.health.services.client.ExerciseUpdateCallback
 import androidx.health.services.client.data.*
@@ -19,12 +23,18 @@ import java.time.Instant
 import java.util.UUID
 
 /** Health Services owns workout state/time; private atomic snapshots own recovery/outbox. */
-class RunService : Service(), ExerciseUpdateCallback {
+class RunService : Service(), ExerciseUpdateCallback, LocationListener {
     private val client by lazy { HealthServices.getClient(this).exerciseClient }
     private val store by lazy { WatchStore(this) }
+    private val locationManager by lazy { getSystemService(LocationManager::class.java) }
     private var run: JSONObject? = null
     private var commandPending = false
     private var pendingStart: ExerciseConfig? = null
+    private var locationForeground = false
+    private var listeningForRoute = false
+    private var routeSinceNanos = 0L
+    private var lastSavedElapsedMs = 0L
+    private val healthForegroundType get() = if (Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH else 0
     override fun onBind(intent: Intent?) = null
 
     override fun onCreate() {
@@ -36,9 +46,8 @@ class RunService : Service(), ExerciseUpdateCallback {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         try {
-            val types = if (Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH else 0
-            val location = if (has(Manifest.permission.ACCESS_FINE_LOCATION)) ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION else 0
-            startForeground(7, notification(), types or location)
+            if (!locationForeground) startForeground(7, notification(), healthForegroundType)
+            enableLocationForeground()
             when (intent?.action) {
                 "START" -> if (run == null && !commandPending) startRun()
                 "PAUSE" -> if (run?.optString("state") == "ACTIVE") command { client.pauseExerciseAsync() }
@@ -73,9 +82,6 @@ class RunService : Service(), ExerciseUpdateCallback {
                     commandPending = false; error("이 기기는 거리 측정을 지원하지 않습니다"); return@future
                 }
                 val types = mutableSetOf<DataType<*, *>>(DataType.DISTANCE_TOTAL)
-                val gps = has(Manifest.permission.ACCESS_FINE_LOCATION) &&
-                    getSystemService(LocationManager::class.java).isProviderEnabled(LocationManager.GPS_PROVIDER)
-                if (gps && DataType.LOCATION in supported) types.add(DataType.LOCATION)
                 val hrPermission = if (Build.VERSION.SDK_INT >= 36) "android.permission.health.READ_HEART_RATE" else Manifest.permission.BODY_SENSORS
                 if (has(hrPermission) && DataType.HEART_RATE_BPM in supported) types.add(DataType.HEART_RATE_BPM)
                 if (DataType.CALORIES_TOTAL in supported) types.add(DataType.CALORIES_TOTAL)
@@ -85,12 +91,13 @@ class RunService : Service(), ExerciseUpdateCallback {
                 run = JSONObject().put("schemaVersion", 1).put("sessionId", UUID.randomUUID().toString())
                     .put("ownerUserId", owner).put("source", "WEAR_OS").put("startTimestamp", now / 1000)
                     .put("durationMs", 0).put("bootEpochMs", now - SystemClock.elapsedRealtime()).put("checkpointTime", now).put("state", "STARTING")
-                    .put("gpsPoints", JSONArray()).put("items", JSONArray()).put("gpsEnabled", gps && DataType.LOCATION in types)
+                    .put("gpsPoints", JSONArray()).put("items", JSONArray()).put("gpsEnabled", false).put("nativeRoute", true)
                     .put("heartRateSum", 0.0).put("heartRateCount", 0).put("lastHeartTime", -1L)
                     .put("cadenceSum", 0.0).put("cadenceCount", 0).put("lastCadenceTime", -1L)
                 save()
+                // A GPS-enabled Health Services exercise can end when system location is turned off.
                 val config = ExerciseConfig.builder(ExerciseType.RUNNING).setDataTypes(types)
-                    .setIsGpsEnabled(gps && DataType.LOCATION in types).setIsAutoPauseAndResumeEnabled(false).build()
+                    .setIsGpsEnabled(false).setIsAutoPauseAndResumeEnabled(false).build()
                 pendingStart = config
                 client.setUpdateCallback(mainExecutor, this)
             }
@@ -99,6 +106,7 @@ class RunService : Service(), ExerciseUpdateCallback {
 
     private fun recover() {
         if (run == null) { stopSelf(); return }
+        stopRouteTracking()
         run?.put("state", "RECOVERING")
         run?.put("speedAvailable", false)?.put("cadenceAvailable", false)?.put("heartRateAvailable", false)
         save()
@@ -156,6 +164,9 @@ class RunService : Service(), ExerciseUpdateCallback {
                 state == ExerciseState.ACTIVE -> "ACTIVE"
                 else -> "TRANSITION"
             })
+            if (record.optBoolean("nativeRoute")) {
+                if (state == ExerciseState.ACTIVE) startRouteTracking(record) else stopRouteTracking()
+            }
             if (state.isPaused || state == ExerciseState.ACTIVE || state.isEnded) {
                 commandPending = false
                 record.put("requestPending", false)
@@ -183,19 +194,13 @@ class RunService : Service(), ExerciseUpdateCallback {
                         .put("cadenceCount", record.getInt("cadenceCount") + 1).put("lastCadenceTime", time)
                 }
             }
-            val route = record.getJSONArray("gpsPoints")
-            val boot = Instant.ofEpochMilli(record.getLong("bootEpochMs"))
-            update.latestMetrics.getData(DataType.LOCATION).forEach { point ->
-                val location = point.value
-                val timestamp = point.getTimeInstant(boot).toEpochMilli()
-                val previousTime = if (route.length() > 0) route.getJSONObject(route.length() - 1).getLong("timestampMs") else 0
-                if (timestamp >= record.getLong("startTimestamp") * 1000 && timestamp <= System.currentTimeMillis() && timestamp > previousTime && route.length() < 100000 && location.latitude.isFinite() &&
-                    location.longitude.isFinite() && location.latitude in -90.0..90.0 && location.longitude in -180.0..180.0) {
-                    val accuracy = (point.accuracy as? LocationAccuracy)?.horizontalPositionErrorMeters
-                    val altitude = location.altitude.takeIf { it.isFinite() } ?: 0.0
-                    route.put(JSONObject().put("latitude", location.latitude).put("longitude", location.longitude)
-                        .put("timestampMs", timestamp).put("speed", 0).put("altitude", altitude)
-                        .put("accuracy", accuracy?.takeIf { it.isFinite() && it >= 0 } ?: JSONObject.NULL))
+            if (!record.optBoolean("nativeRoute")) {
+                // An exercise resumed from an earlier build can still have Health Services GPS enabled.
+                val boot = Instant.ofEpochMilli(bootEpochMs)
+                update.latestMetrics.getData(DataType.LOCATION).forEach { point ->
+                    val location = point.value
+                    appendRoutePoint(record, location.latitude, location.longitude, point.getTimeInstant(boot).toEpochMilli(),
+                        location.altitude, (point.accuracy as? LocationAccuracy)?.horizontalPositionErrorMeters)
                 }
             }
             if (state.isEnded) {
@@ -207,6 +212,82 @@ class RunService : Service(), ExerciseUpdateCallback {
                 save()
             }
         } catch (_: Exception) { error("기록 저장 실패. 앱을 종료하지 말고 저장 공간을 확인해 주세요") }
+    }
+
+    private fun enableLocationForeground() {
+        if (locationForeground || !has(Manifest.permission.ACCESS_FINE_LOCATION) ||
+            LocationManager.GPS_PROVIDER !in locationManager.allProviders) return
+        try {
+            startForeground(7, notification(), healthForegroundType or ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
+            locationForeground = true
+        } catch (_: SecurityException) {
+            Log.w("WatchSync", "Location foreground access deferred")
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun startRouteTracking(record: JSONObject) {
+        if (listeningForRoute) return
+        if (!has(Manifest.permission.ACCESS_FINE_LOCATION) || LocationManager.GPS_PROVIDER !in locationManager.allProviders) {
+            record.put("gpsEnabled", false)
+            return
+        }
+        try {
+            routeSinceNanos = SystemClock.elapsedRealtimeNanos()
+            // A disabled provider can still be observed and resumes delivery when enabled.
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000L, 0f, this, mainLooper)
+            listeningForRoute = true
+            record.put("gpsEnabled", locationForeground && locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER))
+        } catch (_: SecurityException) {
+            record.put("gpsEnabled", false)
+        }
+    }
+
+    private fun stopRouteTracking() {
+        if (!listeningForRoute) return
+        listeningForRoute = false
+        locationManager.removeUpdates(this)
+    }
+
+    override fun onProviderEnabled(provider: String) {
+        val record = run ?: return
+        if (!listeningForRoute) return
+        enableLocationForeground()
+        // Refresh the request so GNSS resumes on devices that leave it inactive after re-enabling.
+        stopRouteTracking()
+        startRouteTracking(record)
+        saveRouteCheckpoint()
+    }
+
+    override fun onProviderDisabled(provider: String) {
+        if (!listeningForRoute) return
+        run?.put("gpsEnabled", false)
+        saveRouteCheckpoint()
+    }
+
+    override fun onLocationChanged(location: Location) {
+        val record = run ?: return
+        if (!listeningForRoute || !record.optBoolean("gpsEnabled") || location.elapsedRealtimeNanos < routeSinceNanos) return
+        val saved = appendRoutePoint(record, location.latitude, location.longitude, location.time,
+            location.altitude, location.accuracy.toDouble().takeIf { location.hasAccuracy() })
+        if (saved && SystemClock.elapsedRealtime() - lastSavedElapsedMs >= 5000L) saveRouteCheckpoint()
+    }
+
+    private fun appendRoutePoint(record: JSONObject, latitude: Double, longitude: Double, timestamp: Long,
+                                 altitude: Double, accuracy: Double?): Boolean {
+        val route = record.getJSONArray("gpsPoints")
+        val previous = route.optJSONObject(route.length() - 1)?.optLong("timestampMs") ?: 0L
+        if (timestamp < record.getLong("startTimestamp") * 1000 || timestamp > System.currentTimeMillis() ||
+            timestamp <= previous || route.length() >= 100000 || latitude !in -90.0..90.0 || longitude !in -180.0..180.0) return false
+        route.put(JSONObject().put("latitude", latitude).put("longitude", longitude)
+            .put("timestampMs", timestamp).put("speed", 0).put("altitude", altitude.takeIf { it.isFinite() } ?: 0.0)
+            .put("accuracy", accuracy?.takeIf { it.isFinite() && it >= 0 } ?: JSONObject.NULL))
+        return true
+    }
+
+    private fun saveRouteCheckpoint() {
+        try { save() }
+        catch (_: Exception) { Log.w("WatchSync", "Route checkpoint deferred") }
     }
 
     private fun finalizeRun() {
@@ -251,7 +332,7 @@ class RunService : Service(), ExerciseUpdateCallback {
         return if (count == 0) 0 else (record.getDouble(metric + "Sum") / count).toInt().coerceIn(0, 255)
     }
     private fun has(permission: String) = checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
-    private fun save() { run?.let { store.write("active", it) } }
+    private fun save() { run?.let { store.write("active", it); lastSavedElapsedMs = SystemClock.elapsedRealtime() } }
     private fun error(message: String) {
         store.write("status", JSONObject().put("message", message))
         if (run == null) { stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() }
@@ -284,6 +365,7 @@ class RunService : Service(), ExerciseUpdateCallback {
         save()
     }
     override fun onDestroy() {
+        stopRouteTracking()
         client.clearUpdateCallbackAsync(this)
         super.onDestroy()
     }

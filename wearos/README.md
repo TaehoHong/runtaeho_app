@@ -22,10 +22,14 @@ Native Android Views + Health Services ExerciseClient, Wear OS 3 / API 30 minimu
 The standalone watch requires initial owner linkage from the logged-in paired
 Android phone. Each run snapshots that owner; the watch stores no access token.
 
-`RunService` owns the health/location foreground service and authoritative
-Health Services state, active duration, metrics and GPS callbacks. Fine location
-and heart-rate permissions are optional; denied location uses measured sensor
-distance and an empty route. Activity recognition and running/distance capability
+`RunService` owns the foreground service. Health Services supplies workout state,
+active duration and sensor metrics, including distance and speed. The platform GPS
+provider supplies route points independently while the workout is active. This
+keeps the workout running when device location is disabled and lets the route
+resume in the same session when location is enabled. Health Services distances and
+paces use sensor estimates with this configuration. Fine location and heart rate
+are optional. A workout with location off throughout has an empty route. Activity
+recognition and running/distance capability
 are required. Unknown metrics display `--`. A workout with no distance sample is
 kept in private `unmeasured-*` storage and cannot become a fabricated zero-distance
 server record. A measured zero-distance workout is valid. Timeline anomalies
@@ -111,6 +115,16 @@ runtime only, with no test or production dependency declaration. It checks resta
 interrupted/failed writes, owner switches, duplicates, stale/unknown acknowledgement,
 no-measurement recovery, measured zero, and pause timing. It does not emulate Health
 Services, Data Layer, foreground-service permissions or paired devices.
+
+On the emulator, deny Physical activity and tap Start. The home screen should
+show the permission guidance without creating an active workout. Grant Physical
+activity and tap Start again with location and heart rate still denied. The
+workout should start without GPS or heart rate.
+
+With precise location allowed, start a workout, inject GPS points, and turn off
+device location. Confirm elapsed time and sensor distance continue under the same
+session ID and the route stops growing. Turn device location back on and confirm
+new points appear. Repeat from a workout that starts with device location off.
 
 Before release, test an actual paired watch and phone: initial linkage; denied and
 revoked permissions; start/pause/resume/end; screen-off long run; GPS/sensor loss;

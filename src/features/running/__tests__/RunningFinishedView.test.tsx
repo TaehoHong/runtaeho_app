@@ -25,9 +25,12 @@ const mockSetShareData = jest.fn();
 const mockBeginEntryTransition = jest.fn();
 const mockDetailedStatisticsCard = jest.fn();
 const mockMainDistanceCard = jest.fn();
-const mockPointInfoBar = jest.fn();
+let mockScreenFocused = true;
 
 jest.mock('expo-router', () => ({
+  useFocusEffect: (effect: () => () => void) => {
+    require('react').useEffect(() => mockScreenFocused ? effect() : undefined, [effect, mockScreenFocused]);
+  },
   router: {
     push: (...args: unknown[]) => mockRouterPush(...args),
     replace: (...args: unknown[]) => mockRouterReplace(...args),
@@ -99,13 +102,6 @@ jest.mock('~/features/running/views/components/main-distance-card', () => ({
   },
 }));
 
-jest.mock('~/features/running/views/components/point-info-bar', () => ({
-  PointInfoBar: (props: unknown) => {
-    mockPointInfoBar(props);
-    return null;
-  },
-}));
-
 jest.mock('~/features/running/views/components/share-button', () => ({
   ShareButton: ({ onPress }: { onPress: () => void }) => {
     const React = require('react');
@@ -128,6 +124,7 @@ jest.mock('~/features/running/views/shoe-selection-area', () => ({
 
 describe('RunningFinishedView', () => {
   beforeEach(() => {
+    mockScreenFocused = true;
     jest.clearAllMocks();
     resetAllStores();
     useUserStore.setState({ currentUser: { id: 7, nickname: 'runner', userAccounts: [], level: 1, createdAt: new Date(0) } });
@@ -194,7 +191,9 @@ describe('RunningFinishedView', () => {
     useUserStore.setState({ totalPoint: 350 });
     renderWithProviders(<RunningFinishedView />);
 
-    expect(mockPointInfoBar).toHaveBeenCalledWith(expect.objectContaining({ earnedPoints: 0, totalPoints: 350 }));
+    expect(screen.getByText('획득 포인트')).toBeTruthy();
+    expect(screen.getByText('0 P')).toBeTruthy();
+    expect(screen.getByText('350 P')).toBeTruthy();
     fireEvent.press(screen.getByTestId('running-finished-share-button'));
     await waitFor(() => { expect(mockSetShareData).toHaveBeenCalledWith(expect.objectContaining({ earnedPoints: 0 })); });
     fireEvent.press(screen.getByText('확인'));
@@ -203,6 +202,21 @@ describe('RunningFinishedView', () => {
     expect(mockUpdateParticipantDistance).not.toHaveBeenCalled();
     expect(mockJoinLeague).not.toHaveBeenCalled();
     expect(useUserStore.getState().totalPoint).toBe(350);
+  });
+
+  it.each([
+    ['PENDING', '정산 예정', '4 P'],
+    ['ACCEPTED', '획득 포인트', '+4 P'],
+  ])('shows the amount for a 460m %s run separately from the confirmed balance', (acceptanceStatus, label, amount) => {
+    const running = mockUseRunning();
+    mockUseRunning.mockReturnValue({
+      ...running, distance: 460, currentRecord: { ...running.currentRecord, distance: 460, acceptanceStatus },
+    });
+    useUserStore.setState({ totalPoint: 350 });
+    renderWithProviders(<RunningFinishedView />);
+    expect(screen.getByText(label)).toBeTruthy();
+    expect(screen.getByText(amount)).toBeTruthy();
+    expect(screen.getByText('350 P')).toBeTruthy();
   });
 
   it('keeps the rank captured before completion when confirming an already updated league', async () => {
@@ -262,6 +276,44 @@ describe('RunningFinishedView', () => {
     expect(pushOrder).toBeGreaterThan(beginTransitionOrder);
   });
 
+  it.each(['confirm', 'unmount', 'blur and refocus'])('ignores a delayed share after %s', async (exit) => {
+    let release!: (items: []) => void;
+    mockGetRunningRecordItems.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+    const view = renderWithProviders(<RunningFinishedView />);
+    fireEvent.press(screen.getByTestId('running-finished-share-button'));
+    if (exit === 'confirm') {
+      fireEvent.press(screen.getByText('확인'));
+      await waitFor(() => expect(mockRouterReplace).toHaveBeenCalledWith('/(tabs)/league'));
+    } else if (exit === 'unmount') {
+      view.unmount();
+    } else {
+      mockScreenFocused = false;
+      view.rerender(<RunningFinishedView />);
+      mockScreenFocused = true;
+      view.rerender(<RunningFinishedView />);
+    }
+    await act(async () => release([]));
+    expect(mockSetShareData).not.toHaveBeenCalled();
+    expect(mockBeginEntryTransition).not.toHaveBeenCalled();
+    expect(mockRouterPush).not.toHaveBeenCalled();
+    if (exit === 'blur and refocus') {
+      fireEvent.press(screen.getByTestId('running-finished-share-button'));
+      await waitFor(() => expect(mockRouterPush).toHaveBeenCalledWith('/share/editor'));
+    }
+  });
+
+  it('opens one editor when share is tapped twice while loading the route', async () => {
+    let release!: (items: []) => void;
+    mockGetRunningRecordItems.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+    renderWithProviders(<RunningFinishedView />);
+    const share = screen.getByTestId('running-finished-share-button');
+    fireEvent.press(share);
+    fireEvent.press(share);
+    await act(async () => release([]));
+    expect(mockGetRunningRecordItems).toHaveBeenCalledTimes(1);
+    expect(mockRouterPush).toHaveBeenCalledTimes(1);
+  });
+
   it('prefers finalized record data over live stats when preparing the finished-screen summary', async () => {
     mockUseRunning.mockReturnValue({
       currentRecord: {
@@ -291,9 +343,7 @@ describe('RunningFinishedView', () => {
 
     renderWithProviders(<RunningFinishedView />);
 
-    expect(mockPointInfoBar).toHaveBeenCalledWith(expect.objectContaining({
-      earnedPoints: 20,
-    }));
+    expect(screen.getByText('+20 P')).toBeTruthy();
     expect(mockDetailedStatisticsCard).toHaveBeenCalledWith(expect.objectContaining({
       distanceMeters: 2000,
       durationSec: 600,

@@ -31,6 +31,8 @@
 
 홈의 저장 대기 안내는 RunRecorder의 완료 `.json` 파일이 있을 때만 표시한다. 진행 중 체크포인트 `active.json`과 검토용 `.unmeasured`·`.invalidtimeline` 파일은 전송 대기로 표시하지 않으며, 서버 확인 후 완료 표시는 기존 ACK 상태를 따른다.
 
+`RunRecorder`는 유효한 GPS 표본을 다시 받거나 운동을 저장하면 GPS 수신 안내를 지운다. GPS 상태 변화는 별도의 저장·전송 오류를 지우지 않는다.
+
 화면 원본은 [공통 디자인 원본](../../../docs/04-design-rules.md)에서 해당 워치 프레임을 선택하고 현재 SwiftUI 화면과 대조한다.
 
 ## Verification Map

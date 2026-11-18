@@ -807,15 +807,14 @@ const RouteMapHero: React.FC<RouteMapHeroProps> = ({ locations }) => {
     <View style={styles.mapHero}>
       <MapView
         key={Platform.OS === 'android' ? `${language}-${fontScale}` : 'route-map'}
-        cacheEnabled={Platform.OS === 'android'}
         style={styles.map}
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
         initialRegion={region}
-        {...(Platform.OS === 'android' ? { region } : {})}
         mapType="standard"
         userInterfaceStyle="light"
         scrollEnabled={false}
-        zoomEnabled={false}
+        zoomEnabled
+        zoomControlEnabled={false}
         rotateEnabled={false}
         pitchEnabled={false}
         toolbarEnabled={false}

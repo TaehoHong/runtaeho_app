@@ -5,6 +5,7 @@ import CoreMotion
 import WatchConnectivity
 
 final class RunRecorder: NSObject, ObservableObject, HKWorkoutSessionDelegate, HKLiveWorkoutBuilderDelegate, CLLocationManagerDelegate, WCSessionDelegate {
+  private static let gpsWarning = "GPS 수신을 확인하세요."
   @Published var record: RunCheckpoint?
   @Published var owner: Int64?
   @Published var errorMessage: String?
@@ -181,6 +182,7 @@ final class RunRecorder: NSObject, ObservableObject, HKWorkoutSessionDelegate, H
           : "시계 변경으로 기록 시간을 확인해야 합니다. 기록은 기기에 보관되며 서버에 전송되지 않습니다."
       }
       try FileManager.default.removeItem(at: checkpoint)
+      if errorMessage == Self.gpsWarning { errorMessage = nil }
       record = nil; workout = nil; builder = nil; route = nil; finishing = false; lastServerSaved = false
       transferPending()
       return true
@@ -200,10 +202,16 @@ final class RunRecorder: NSObject, ObservableObject, HKWorkoutSessionDelegate, H
       record?.gpsPoints.append(sample)
       accepted.append(point)
     }
+    guard !accepted.isEmpty else { return }
+    if errorMessage == Self.gpsWarning { errorMessage = nil }
     route?.insertRouteData(accepted) { success, _ in if !success { NSLog("[WatchSync] Health route append failed") } }
     persist()
   }
-  func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) { errorMessage = "GPS 수신을 확인하세요." }
+  func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+    guard record?.activeSince != nil else { return }
+    liveSpeed = nil
+    if errorMessage == nil { errorMessage = Self.gpsWarning }
+  }
   func workoutSession(_ workoutSession: HKWorkoutSession, didChangeTo toState: HKWorkoutSessionState, from fromState: HKWorkoutSessionState, date: Date) {
     DispatchQueue.main.async {
       guard self.record != nil, self.workout === workoutSession else { return }

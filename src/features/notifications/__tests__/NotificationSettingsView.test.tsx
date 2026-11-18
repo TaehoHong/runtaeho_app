@@ -92,18 +92,18 @@ afterEach(() => {
 
 it('keeps the saved choice and next payload when foreground reads finish after the save', async () => {
   const screen = setup();
-  await waitFor(() => expect(screen.getByLabelText('리그 결과').props.value).toBe(true));
+  await waitFor(() => expect(screen.getByLabelText('리그 알림').props.value).toBe(true));
   const beforeSave = deferred<NotificationConfiguration>();
   read = beforeSave;
   act(() => appStateChanged('active'));
   await waitFor(() => expect(requests).toHaveLength(2));
 
   write = deferred<NotificationConfiguration>();
-  fireEvent(screen.getByLabelText('리그 결과'), 'valueChange', false);
+  fireEvent(screen.getByLabelText('리그 알림'), 'valueChange', false);
   await waitFor(() => expect(writes).toHaveLength(1));
   await act(async () => { write!.resolve({ ...initial, leaguePushEnabled: false }); });
-  await waitFor(() => expect(screen.getByLabelText('리그 결과').props.disabled).toBe(false));
-  expect(screen.getByLabelText('리그 결과').props.value).toBe(false);
+  await waitFor(() => expect(screen.getByLabelText('리그 알림').props.disabled).toBe(false));
+  expect(screen.getByLabelText('리그 알림').props.value).toBe(false);
 
   // The transport completes even if QueryClient has cancelled its query.
   await act(async () => { beforeSave.resolve(initial); });
@@ -126,38 +126,38 @@ it('keeps the saved choice and next payload when foreground reads finish after t
   fireEvent(screen.getByLabelText('운영 공지'), 'valueChange', false);
   await waitFor(() => expect(writes).toHaveLength(3));
   expect(writes[2]).toEqual({ noticePushEnabled: false, timezone: 'Asia/Seoul' });
-  await waitFor(() => expect(screen.getByLabelText('리그 결과').props.value).toBe(false));
+  await waitFor(() => expect(screen.getByLabelText('리그 알림').props.value).toBe(false));
   expect(screen.getByLabelText('러닝 리마인더').props.value).toBe(false);
   expect(syncPushRegistration).toHaveBeenCalled();
 });
 
 it('keeps the previous choice after a failed save and allows saving it again', async () => {
   const screen = setup();
-  await waitFor(() => expect(screen.getByLabelText('리그 결과').props.value).toBe(true));
+  await waitFor(() => expect(screen.getByLabelText('리그 알림').props.value).toBe(true));
   failWrite = true;
-  fireEvent(screen.getByLabelText('리그 결과'), 'valueChange', false);
+  fireEvent(screen.getByLabelText('리그 알림'), 'valueChange', false);
   await waitFor(() => expect(alert).toHaveBeenCalledWith('설정 변경 실패', expect.any(String)));
-  expect(screen.getByLabelText('리그 결과').props.value).toBe(true);
-  expect(screen.getByLabelText('리그 결과').props.disabled).toBe(false);
+  expect(screen.getByLabelText('리그 알림').props.value).toBe(true);
+  expect(screen.getByLabelText('리그 알림').props.disabled).toBe(false);
   failWrite = false;
-  fireEvent(screen.getByLabelText('리그 결과'), 'valueChange', false);
-  await waitFor(() => expect(screen.getByLabelText('리그 결과').props.value).toBe(false));
+  fireEvent(screen.getByLabelText('리그 알림'), 'valueChange', false);
+  await waitFor(() => expect(screen.getByLabelText('리그 알림').props.value).toBe(false));
   expect(writes[1]).toEqual({ leaguePushEnabled: false, timezone: 'Asia/Seoul' });
 });
 
 it('does not apply a pending save after the same user starts a new session', async () => {
   const screen = setup();
-  await waitFor(() => expect(screen.getByLabelText('리그 결과').props.value).toBe(true));
+  await waitFor(() => expect(screen.getByLabelText('리그 알림').props.value).toBe(true));
   write = deferred<NotificationConfiguration>();
-  fireEvent(screen.getByLabelText('리그 결과'), 'valueChange', false);
+  fireEvent(screen.getByLabelText('리그 알림'), 'valueChange', false);
   await waitFor(() => expect(writes).toHaveLength(1));
   act(() => {
     useAuthStore.getState().invalidateSession();
     screen.client.setQueryData(queryKeys.notifications.configuration(7), { ...initial, noticePushEnabled: false });
   });
   await act(async () => { write!.resolve({ ...initial, leaguePushEnabled: false }); });
-  await waitFor(() => expect(screen.getByLabelText('리그 결과').props.disabled).toBe(false));
-  expect(screen.getByLabelText('리그 결과').props.value).toBe(true);
+  await waitFor(() => expect(screen.getByLabelText('리그 알림').props.disabled).toBe(false));
+  expect(screen.getByLabelText('리그 알림').props.value).toBe(true);
   expect(screen.getByLabelText('운영 공지').props.value).toBe(false);
   expect(syncPushRegistration).not.toHaveBeenCalled();
   expect(alert).not.toHaveBeenCalled();
@@ -226,11 +226,11 @@ it('does not send the preference after the session changes during the permission
 
 it('keeps the committed preference without showing a late registration alert after leaving', async () => {
   const screen = setup();
-  await waitFor(() => expect(screen.getByLabelText('리그 결과').props.value).toBe(true));
+  await waitFor(() => expect(screen.getByLabelText('리그 알림').props.value).toBe(true));
   let failRegistration!: (error: Error) => void;
   jest.mocked(syncPushRegistration).mockReturnValue(new Promise((_resolve, reject) => { failRegistration = reject; }));
-  fireEvent(screen.getByLabelText('리그 결과'), 'valueChange', false);
-  await waitFor(() => expect(screen.getByLabelText('리그 결과').props.disabled).toBe(false));
+  fireEvent(screen.getByLabelText('리그 알림'), 'valueChange', false);
+  await waitFor(() => expect(screen.getByLabelText('리그 알림').props.disabled).toBe(false));
   expect(writes).toEqual([{ leaguePushEnabled: false, timezone: 'Asia/Seoul' }]);
   screen.unmount();
 
@@ -242,12 +242,12 @@ it('keeps the committed preference without showing a late registration alert aft
 
 it('changes only the selected preference and preserves an opt-out saved by another device', async () => {
   const screen = setup();
-  await waitFor(() => expect(screen.getByLabelText('리그 결과').props.value).toBe(true));
+  await waitFor(() => expect(screen.getByLabelText('리그 알림').props.value).toBe(true));
   serverConfiguration = { ...initial, leaguePushEnabled: false };
   fireEvent(screen.getByLabelText('운영 공지'), 'valueChange', false);
   await waitFor(() => expect(screen.getByLabelText('운영 공지').props.value).toBe(false));
   expect(writes).toEqual([{ noticePushEnabled: false, timezone: 'Asia/Seoul' }]);
-  expect(screen.getByLabelText('리그 결과').props.value).toBe(false);
+  expect(screen.getByLabelText('리그 알림').props.value).toBe(false);
 });
 
 it('shows device permission revocation without changing the saved preference', async () => {

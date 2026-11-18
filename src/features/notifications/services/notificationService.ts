@@ -4,7 +4,7 @@ import { SessionSupersededError } from '~/utils/storage/errors';
 
 export interface NotificationItem {
   id: number;
-  type: 'LEAGUE_RESULT' | 'RUNNING_REMINDER' | 'NOTICE';
+  type: 'LEAGUE_RESULT' | 'LEAGUE_PROMOTION_LOST' | 'LEAGUE_RELEGATION_RISK' | 'RUNNING_REMINDER' | 'NOTICE';
   title: string;
   body: string;
   leagueParticipantId: number | null;

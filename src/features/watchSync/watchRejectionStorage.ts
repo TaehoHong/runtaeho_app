@@ -38,7 +38,8 @@ export const watchRejectionStorage = {
   readPending: async (records: CompletedRunningRequest[], snapshot: SessionSnapshot, attempt: WatchSyncAttempt = {}): Promise<Set<string>> => {
     const entries = await read(snapshot, attempt);
     const pending = new Set(records.filter(record => record.ownerUserId === snapshot.userId).map(watchRecordIdentity));
-    const retained = entries.filter(entry => pending.has(watchRecordIdentity(entry)));
+    // Older versions indexed future end times even though the same payload can later be valid.
+    const retained = entries.filter(entry => entry.code !== 'RUNNING_FUTURE_END_TIME' && pending.has(watchRecordIdentity(entry)));
     if (retained.length !== entries.length) {
       await assertSession(snapshot, attempt);
       await AsyncStorage.setItem(storageKey(snapshot), JSON.stringify(retained));

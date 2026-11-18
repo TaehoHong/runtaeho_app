@@ -29,6 +29,7 @@ export const syncWatchRecords = async (attempt: WatchSyncAttempt = {}): Promise<
       const records = await watchSyncBridge.getPendingRecords();
       if (!(await active())) return 'blocked-auth';
       const rejected = await watchRejectionStorage.readPending(records, snapshot, attempt);
+      let retryNeeded = false;
       for (const record of records) {
         if (!(await active())) return 'blocked-auth';
         if (record.ownerUserId !== snapshot.userId) continue;
@@ -50,6 +51,10 @@ export const syncWatchRecords = async (attempt: WatchSyncAttempt = {}): Promise<
         } catch (error) {
           if (!(await active())) return 'blocked-auth';
           const rejectionCode = getRunningRejectionCode(error);
+          if (rejectionCode === 'RUNNING_FUTURE_END_TIME') {
+            retryNeeded = true;
+            continue;
+          }
           if (rejectionCode) {
             await watchRejectionStorage.add(record, rejectionCode, snapshot, attempt);
             rejected.add(watchRecordIdentity(record));
@@ -65,7 +70,7 @@ export const syncWatchRecords = async (attempt: WatchSyncAttempt = {}): Promise<
           throw error;
         }
       }
-      return 'success';
+      return retryNeeded ? 'retry' : 'success';
     });
   } finally {
     if (acknowledged && await active()) {

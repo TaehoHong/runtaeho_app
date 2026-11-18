@@ -78,8 +78,11 @@ and only then invokes native acknowledgement. Native code persists/retries the
 exact source/session/owner/server-ID acknowledgement before clearing incoming
 data. The watch removes its finalized record only after a matching server ack.
 Response loss and lost acknowledgement therefore retry the original UUID safely.
-A 400 retains the rejected record and allows later records to proceed. For the
-four running validation codes (`RUNNING_FUTURE_END_TIME`,
+A 400 retains the rejected record and allows later records to proceed. A
+`RUNNING_FUTURE_END_TIME` rejection defers the workout to the existing retry
+schedule without changing the original timestamps. Replay removes old entries
+for this code from the current owner's rejection index so those workouts can
+be uploaded again. For the three permanent validation codes (
 `RUNNING_EXCESSIVE_AVERAGE_SPEED`, `RUNNING_INVALID_METRICS`, `RUNNING_INVALID_GPS`),
 `watchRejectionStorage.ts` stores only source/session/code under the current
 owner's AsyncStorage key. Later replay skips that immutable identity, including
@@ -138,13 +141,13 @@ nonce preserves that intent and is consumed once; neither tokens nor workouts ar
 stored in job extras. If storage or scheduling itself is unavailable, inbox data
 remains intact and failures are logged without payloads.
 
-Network errors, 408/429/5xx, invalid server ACKs and storage failures remain
-retryable. Final 401/403, logout, revoked tokens and stale sessions stop the current
+Network errors, 408/429/5xx, future end times, invalid server ACKs and storage
+failures remain retryable. Final 401/403, logout, revoked tokens and stale sessions stop the current
 revision until linkage changes. A logged-in session without readable secure tokens
 is retried with OS backoff, without a second token reader or refresh implementation.
-Empty/foreign/rejected-only queues finish without spinning. Unknown 400s remain
-unindexed and retryable on a later external trigger; only the four known validation
-codes enter the rejection index.
+Empty queues and queues containing only foreign or permanently rejected records
+finish without scheduling a retry. Unknown 400s remain unindexed and retryable
+on a later external trigger. Only permanent validation codes enter the rejection index.
 
 These hooks do not guarantee immediate upload. Bluetooth pairing, OS scheduling,
 background restrictions, phone force-stop/force-quit, unavailable JS, and locked

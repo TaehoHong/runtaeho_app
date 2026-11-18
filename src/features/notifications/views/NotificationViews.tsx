@@ -191,7 +191,7 @@ export function NotificationSettingsView() {
     } finally { savingRef.current = false; setSaving(false); }
   };
   const rows = [
-    ['pushEnabled', t('푸시 알림')], ['leaguePushEnabled', t('리그 결과')],
+    ['pushEnabled', t('푸시 알림')], ['leaguePushEnabled', t('리그 알림')],
     ['reminderPushEnabled', t('러닝 리마인더')], ['noticePushEnabled', t('운영 공지')],
   ] as const;
   return <TopScreenSafeAreaView style={styles.container}>

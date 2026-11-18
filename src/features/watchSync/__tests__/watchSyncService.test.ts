@@ -68,7 +68,7 @@ it('retains a rejected record and still uploads the next valid record', async ()
 });
 
 it.each([
-  'RUNNING_FUTURE_END_TIME', 'RUNNING_EXCESSIVE_AVERAGE_SPEED', 'RUNNING_INVALID_METRICS', 'RUNNING_INVALID_GPS',
+  'RUNNING_EXCESSIVE_AVERAGE_SPEED', 'RUNNING_INVALID_METRICS', 'RUNNING_INVALID_GPS',
 ])('persists %s and skips it on repeated replay while acknowledging the next valid record', async (code) => {
   const second = { ...record, sessionId: '54939696-83f6-4ca7-a348-e0f022b959aa' };
   pending.mockResolvedValueOnce([record, second]).mockResolvedValue([record]);
@@ -88,6 +88,37 @@ it.each([
   expect(ack).toHaveBeenCalledTimes(1);
   expect(ack).toHaveBeenCalledWith(second.sessionId, 'APPLE_WATCH', '7', '100');
   expect(await AsyncStorage.getItem('@watch_running_rejections:7')).toBe(stored);
+});
+
+it('requests retry after a future end time rejection and still acknowledges the next workout', async () => {
+  const second = { ...record, sessionId: '54939696-83f6-4ca7-a348-e0f022b959aa' };
+  pending.mockResolvedValueOnce([record, second]).mockResolvedValue([record]);
+  post.mockRejectedValueOnce({ isAxiosError: true, response: {
+    status: 400, data: { extra: { code: 'RUNNING_FUTURE_END_TIME' } },
+  } }).mockResolvedValueOnce({ data: { sessionId: second.sessionId, runningRecordId: 100, status: 'CREATED' } });
+
+  await expect(syncWatchRecords()).resolves.toBe('retry');
+  expect(ack).toHaveBeenCalledTimes(1);
+  expect(ack).toHaveBeenCalledWith(second.sessionId, 'APPLE_WATCH', '7', '100');
+  expect(await AsyncStorage.getItem('@watch_running_rejections:7')).toBeNull();
+
+  await expect(syncWatchRecords()).resolves.toBe('success');
+  expect(post).toHaveBeenLastCalledWith('/running/completed-records', record, { sessionSnapshot: { generation: 1, userId: 7 } });
+  expect(ack).toHaveBeenCalledWith(record.sessionId, 'APPLE_WATCH', '7', '99');
+});
+
+it('replays a workout previously indexed for a future end time', async () => {
+  const wearRecord = { ...record, source: 'WEAR_OS' };
+  pending.mockResolvedValue([wearRecord]);
+  await AsyncStorage.setItem('@watch_running_rejections:7', JSON.stringify([{
+    source: 'WEAR_OS', sessionId: record.sessionId, code: 'RUNNING_FUTURE_END_TIME',
+  }]));
+
+  await expect(syncWatchRecords()).resolves.toBe('success');
+
+  expect(post).toHaveBeenCalledWith('/running/completed-records', wearRecord, { sessionSnapshot: { generation: 1, userId: 7 } });
+  expect(ack).toHaveBeenCalledWith(record.sessionId, 'WEAR_OS', '7', '99');
+  expect(await AsyncStorage.getItem('@watch_running_rejections:7')).toBe('[]');
 });
 
 it('loads a prior process rejection index without posting or acknowledging the still-pending workout', async () => {

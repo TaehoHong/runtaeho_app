@@ -11,6 +11,7 @@ import { resolveAvatarItemImage } from '~/features/avatar/utils/avatarItemImageR
 import { BLUE, GREY, PRIMARY } from '~/shared/styles';
 import { useAppTranslation } from '~/i18n';
 import { getNumberFontStyle } from '~/shared/components/typography/fontUtils';
+import { Icon } from '~/shared/components/ui';
 import { SelectionCheck } from './SelectionCheck';
 
 interface Props {
@@ -30,6 +31,7 @@ export const AvatarItemCard: React.FC<Props> = ({ item, hairColor, isSelected, o
   const itemImage = resolveAvatarItemImage(item, hairColor);
   const isEquipped = item.status === ItemStatus.EQUIPPED;
   const isOwned = isEquipped || item.isOwned;
+  const isPaid = !isOwned && item.point > 0;
   const borderColor = isEquipped ? BLUE.SECONDARY : isSelected ? PRIMARY[500] : GREY[250];
   const backgroundColor = !isEquipped && isSelected ? PRIMARY[50] : GREY.WHITE;
   const label = isEquipped ? t('착용 중')
@@ -54,7 +56,12 @@ export const AvatarItemCard: React.FC<Props> = ({ item, hairColor, isSelected, o
         )}
         {isSelected && <SelectionCheck />}
       </View>
-      <Text style={[styles.priceText, isOwned && styles.ownedText, isEquipped && styles.equippedText]}>{label}</Text>
+      <View style={styles.caption}>
+        {isPaid && <Icon name="point" size={14} />}
+        <Text style={[styles.captionText, (isPaid || isEquipped) && styles.boldText]}>
+          {label}
+        </Text>
+      </View>
     </TouchableOpacity>
   );
 };
@@ -83,19 +90,25 @@ const styles = StyleSheet.create({
     height: '60%',
     resizeMode: 'contain',
   },
-  priceText: {
-    fontSize: 12,
-    lineHeight: 18,
-    ...getNumberFontStyle('500'),
-    color: GREY[700],
-    textAlign: 'center',
+  caption: {
+    alignSelf: 'center',
+    maxWidth: '100%',
+    minHeight: 24,
     marginTop: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
   },
-  ownedText: {
+  captionText: {
+    flexShrink: 1,
+    fontSize: 13,
+    lineHeight: 18,
     color: GREY[900],
     ...getNumberFontStyle('600'),
+    textAlign: 'center',
   },
-  equippedText: {
+  boldText: {
     ...getNumberFontStyle('700'),
   },
 });

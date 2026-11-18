@@ -28,6 +28,8 @@
 
 `RunService`는 Health Services의 `ListenableFuture<Void>`가 `null`로 완료되면 명령 성공으로 처리한다. 운동 상태는 Health Services의 업데이트에서 반영한다.
 
+새 운동의 거리·속도는 Health Services 센서 추정값을 사용한다. `RunService`는 경로를 Android의 GPS 제공자에서 별도로 수집해 시스템 위치를 끄거나 켜도 같은 운동을 유지한다. 이전 빌드에서 이미 시작한 운동은 기존 Health Services 경로 표본을 계속 수집한다. 전환 재현 조건은 [README 검증 절차](../README.md#verification)를 따른다.
+
 현재 Kotlin/Java·Android Views 구조와 가까운 구현 스타일을 따른다. `RunService`의 측정 상태, 표시 클래스의 화면 값, 공통 저장/전송의 원본 기록을 구분한다. 공유 코드는 `shared/watchsync-android/`에서 소유하고 각 앱은 해당 소스·기존 계약에 연결한다.
 
 독립 Gradle 설정은 `settings.gradle`과 `app/build.gradle`, 폰과의 식별자/서명 관계는 [README의 Signing identity](../README.md)를 따른다. 화면 원본은 [워치 Figma 원본](../../../docs/04-design-rules.md)에서 작업 대상 프레임을 확인한다.

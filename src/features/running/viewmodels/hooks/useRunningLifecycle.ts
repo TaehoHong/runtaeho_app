@@ -335,11 +335,9 @@ export const useRunningLifecycle = ({
         }
       );
       checkCurrent();
-      if (endRecord) {
-        setCurrentRecord({ ...finalRecord, acceptanceStatus: endRecord.acceptanceStatus });
-        if (endRecord.acceptanceStatus === 'DUPLICATE' || endRecord.acceptanceStatus === 'PERSONAL_ONLY') {
-          setLeagueBeforeRunningEnd(null);
-        }
+      setCurrentRecord({ ...finalRecord, acceptanceStatus: endRecord ? endRecord.acceptanceStatus : 'PENDING' });
+      if (endRecord?.acceptanceStatus === 'DUPLICATE' || endRecord?.acceptanceStatus === 'PERSONAL_ONLY') {
+        setLeagueBeforeRunningEnd(null);
       }
       setRunningState(RunningState.Finished);
 

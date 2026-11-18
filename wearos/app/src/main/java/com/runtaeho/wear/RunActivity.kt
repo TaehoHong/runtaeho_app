@@ -21,6 +21,7 @@ class RunActivity : Activity() {
     private enum class Page { HOME, RUN, SETTINGS, UNITS, LAYOUT, PICKER }
     private var page = Page.HOME
     private var selectedSlot = 0
+    private var startRequested = false
     private var displayedRun: JSONObject? = null
     private lateinit var preferences: RunDisplayPreferences
     private lateinit var content: LinearLayout
@@ -47,15 +48,17 @@ class RunActivity : Activity() {
         page = savedInstanceState?.getString("page")?.let { name -> Page.entries.find { it.name == name } }
             ?: if (displayedRun == null) Page.HOME else Page.RUN
         selectedSlot = savedInstanceState?.getInt("slot", 0)?.coerceIn(0, 3) ?: 0
+        startRequested = savedInstanceState?.getBoolean("startRequested") ?: false
         show(page)
         if (Build.VERSION.SDK_INT >= 33) onBackInvokedDispatcher.registerOnBackInvokedCallback(
             android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT) { navigateBack() }
         WatchDataService.retry(this)
-        if (displayedRun != null && checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED)
+        if (displayedRun != null && hasActivityPermission())
             send("RECOVER")
     }
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString("page", page.name); outState.putInt("slot", selectedSlot)
+        outState.putBoolean("startRequested", startRequested)
         super.onSaveInstanceState(outState)
     }
     override fun onResume() { super.onResume(); handler.post(refresh) }
@@ -101,7 +104,7 @@ class RunActivity : Activity() {
             }
             Page.PICKER -> picker()
         }
-        if (next == Page.RUN || next == Page.HOME) content.addView(status)
+        if (next == Page.RUN) content.addView(status)
         renderMetrics()
         if (next == Page.RUN || next == Page.LAYOUT) content.post { renderMetrics() }
     }
@@ -111,6 +114,7 @@ class RunActivity : Activity() {
         primary = button("▶ 시작", true) { requestStart() }.also {
             content.addView(it, params(48).apply { topMargin = dp(8f) })
         }
+        content.addView(status)
         content.addView(ImageButton(this).apply {
             setImageResource(android.R.drawable.ic_menu_preferences)
             imageTintList = android.content.res.ColorStateList.valueOf(white)
@@ -264,7 +268,8 @@ class RunActivity : Activity() {
             status.text = when (state) { "PAUSED" -> "일시 정지됨"; "ACTIVE" -> if (displayedRun?.optBoolean("gpsEnabled") == false) "GPS 없음" else ""; else -> "운동 상태 확인 중" }
             status.visibility = if (status.text.isEmpty()) View.GONE else View.VISIBLE
         } else if (page == Page.HOME) {
-            status.text = store.read("status")?.optString("message") ?: ""
+            status.text = if (startRequested && !hasActivityPermission()) "설정에서 신체 활동 권한을 허용해 주세요"
+                else store.read("status")?.optString("message") ?: ""
             status.visibility = if (status.text.isEmpty()) View.GONE else View.VISIBLE
         }
     }
@@ -291,17 +296,24 @@ class RunActivity : Activity() {
     }
     private fun params(height: Int) = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(height.toFloat()))
     private fun dp(value: Float) = (value * resources.displayMetrics.density).toInt()
+    private fun hasActivityPermission() = checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED
     private fun requestStart() {
+        startRequested = true
         val permissions = mutableListOf(Manifest.permission.ACTIVITY_RECOGNITION,
             Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION,
             if (Build.VERSION.SDK_INT >= 36) "android.permission.health.READ_HEART_RATE" else Manifest.permission.BODY_SENSORS)
         if (Build.VERSION.SDK_INT >= 33) permissions.add(Manifest.permission.POST_NOTIFICATIONS)
         val missing = permissions.filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
-        if (missing.isEmpty()) send("START") else requestPermissions(missing.toTypedArray(), 7)
+        if (missing.isEmpty()) startWithPermissions() else requestPermissions(missing.toTypedArray(), 7)
     }
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == 7) send("START")
+        if (requestCode == 7) startWithPermissions()
+    }
+    private fun startWithPermissions() {
+        if (!hasActivityPermission()) { renderMetrics(); return }
+        startRequested = false
+        send("START")
     }
     private fun send(action: String) {
         try { startForegroundService(Intent(this, RunService::class.java).setAction(action)) }

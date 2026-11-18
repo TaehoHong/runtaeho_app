@@ -26,6 +26,7 @@ import {
   runningRecordItemsToLocations,
 } from '~/features/share/utils/routeLocations';
 import { useBottomActionOffset } from '~/shared/hooks';
+import { useScreenLifetime } from '~/shared/hooks/useScreenLifetime';
 import { GREY } from '~/shared/styles';
 import { RunningStatusFormat } from '~/shared/utils/formatters';
 
@@ -56,6 +57,8 @@ export const RunningFinishedView: React.FC = () => {
   const [selectedShoeId, setSelectedShoeId] = useState<number | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const confirmationRef = useRef(false);
+  const captureScreen = useScreenLifetime();
+  const shareRequestRef = useRef<(() => boolean) | null>(null);
 
   // 사용자 포인트 (Single Source of Truth: userStore)
   const totalPoint = useUserStore((state) => state.totalPoint);
@@ -132,7 +135,14 @@ export const RunningFinishedView: React.FC = () => {
 
   // 공유 버튼 핸들러
   const handleShare = async () => {
+    if (confirmationRef.current || shareRequestRef.current?.()) return;
+    const isFocused = captureScreen();
+    const session = getSessionSnapshot();
+    const isCurrent = () => isFocused() && isSessionCurrent(session);
+    if (!isCurrent()) return;
+    shareRequestRef.current = isCurrent;
     const resolvedLocations = await resolveShareLocations();
+    if (shareRequestRef.current !== isCurrent || !isCurrent()) return;
     const { setShareData } = useShareStore.getState();
     const { beginEntryTransition } = useShareEntryTransitionStore.getState();
 
@@ -155,6 +165,7 @@ export const RunningFinishedView: React.FC = () => {
 
   const handleComplete = async () => {
     if (confirmationRef.current) return;
+    shareRequestRef.current = null;
     const session = getSessionSnapshot();
     console.log('🏁 [RunningFinishedView] 러닝 완료 확인 버튼 눌러짐');
 
@@ -244,6 +255,7 @@ export const RunningFinishedView: React.FC = () => {
         {/* 포인트 정보 바 - 획득/보유 포인트 */}
         <PointInfoBar
           earnedPoints={finalSummary.earnedPoints}
+          isSettlementPending={currentRecord?.acceptanceStatus === 'PENDING'}
           totalPoints={totalPoints}
         />
 
